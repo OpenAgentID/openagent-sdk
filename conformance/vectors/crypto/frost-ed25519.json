@@ -1,0 +1,167 @@
+{
+  "category": "crypto",
+  "name": "frost-ed25519",
+  "description": "FROST-Ed25519 threshold signature property vectors. Because FROST signing is randomized (nonces per round), these vectors assert round-trip properties rather than byte-exact outputs. Each vector specifies a threshold/total keygen via dealer, picks a subset of participants, produces a group signature, and verifies it against the computed group verifying key using plain Ed25519.",
+  "algorithm": "FROST-Ed25519 (RFC draft-irtf-cfrg-frost-15)",
+  "spec": "https://datatracker.ietf.org/doc/draft-irtf-cfrg-frost/",
+  "vectors": [
+    {
+      "name": "threshold-2-of-3-sign-verify",
+      "description": "2-of-3 FROST: sign a message with 2 participants and verify with the group key",
+      "tags": ["frost", "threshold", "2-of-3", "property"],
+      "input": {
+        "operation": "threshold_sign_and_verify",
+        "min_signers": 2,
+        "max_signers": 3,
+        "participants": [1, 2],
+        "message_hex": "48656c6c6f20464f52535420746573742076656374"
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "group_signature_length_bytes": 64
+      }
+    },
+    {
+      "name": "threshold-2-of-3-different-subset",
+      "description": "2-of-3 FROST: signing with participants 1 and 3 must also yield a valid signature",
+      "tags": ["frost", "threshold", "2-of-3", "subset"],
+      "input": {
+        "operation": "threshold_sign_and_verify",
+        "min_signers": 2,
+        "max_signers": 3,
+        "participants": [1, 3],
+        "message_hex": "48656c6c6f20464f52535420746573742076656374"
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "group_signature_length_bytes": 64
+      }
+    },
+    {
+      "name": "threshold-3-of-5-sign-verify",
+      "description": "3-of-5 FROST: sign with 3 participants and verify",
+      "tags": ["frost", "threshold", "3-of-5", "property"],
+      "input": {
+        "operation": "threshold_sign_and_verify",
+        "min_signers": 3,
+        "max_signers": 5,
+        "participants": [1, 2, 3],
+        "message_hex": "4f41532046524f535420332d6f662d352074657374"
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "group_signature_length_bytes": 64
+      }
+    },
+    {
+      "name": "threshold-3-of-5-nonconsecutive-participants",
+      "description": "3-of-5 FROST with participants 2, 4, 5 (non-consecutive)",
+      "tags": ["frost", "threshold", "3-of-5", "nonconsecutive"],
+      "input": {
+        "operation": "threshold_sign_and_verify",
+        "min_signers": 3,
+        "max_signers": 5,
+        "participants": [2, 4, 5],
+        "message_hex": "4f41532046524f535420332d6f662d352074657374"
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "group_signature_length_bytes": 64
+      }
+    },
+    {
+      "name": "threshold-4-of-7",
+      "description": "4-of-7 FROST: production-like configuration",
+      "tags": ["frost", "threshold", "4-of-7"],
+      "input": {
+        "operation": "threshold_sign_and_verify",
+        "min_signers": 4,
+        "max_signers": 7,
+        "participants": [1, 3, 5, 7],
+        "message_hex": "4f41532046524f535420342d6f662d37"
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "group_signature_length_bytes": 64
+      }
+    },
+    {
+      "name": "threshold-5-of-9",
+      "description": "5-of-9 FROST: larger group, majority threshold",
+      "tags": ["frost", "threshold", "5-of-9"],
+      "input": {
+        "operation": "threshold_sign_and_verify",
+        "min_signers": 5,
+        "max_signers": 9,
+        "participants": [1, 2, 3, 4, 5],
+        "message_hex": "4f41532046524f535420352d6f662d39"
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "group_signature_length_bytes": 64
+      }
+    },
+    {
+      "name": "threshold-signature-verifies-with-plain-ed25519",
+      "description": "The 2-of-3 group signature must be verifiable with plain Ed25519 against the group verifying key. This is the interoperability property.",
+      "tags": ["frost", "interop", "ed25519-verify"],
+      "input": {
+        "operation": "threshold_sign_and_verify_plain",
+        "min_signers": 2,
+        "max_signers": 3,
+        "participants": [1, 2],
+        "message_hex": "696e7465726f702074657374"
+      },
+      "expected_output": {
+        "verify_ok": true
+      }
+    },
+    {
+      "name": "insufficient-participants-fails",
+      "description": "Attempting to sign with fewer participants than the threshold must fail keyshare aggregation",
+      "tags": ["frost", "negative", "insufficient"],
+      "input": {
+        "operation": "threshold_sign_must_fail",
+        "min_signers": 3,
+        "max_signers": 5,
+        "participants": [1, 2],
+        "message_hex": "737570706f7365642066616c6c"
+      },
+      "expected_output": {
+        "sign_ok": false
+      }
+    },
+    {
+      "name": "tampered-message-verify-fails",
+      "description": "A valid threshold signature must NOT verify against a modified message",
+      "tags": ["frost", "negative", "tamper"],
+      "input": {
+        "operation": "threshold_sign_tamper_verify",
+        "min_signers": 2,
+        "max_signers": 3,
+        "participants": [1, 2],
+        "message_hex": "6f726967696e616c206d657373616765",
+        "tampered_message_hex": "74616d7065726564206d65737361676521"
+      },
+      "expected_output": {
+        "verify_ok": false
+      }
+    },
+    {
+      "name": "group-signature-is-64-bytes",
+      "description": "All FROST-Ed25519 group signatures must be exactly 64 bytes (R || z)",
+      "tags": ["frost", "property", "length"],
+      "input": {
+        "operation": "threshold_sign_and_verify",
+        "min_signers": 2,
+        "max_signers": 3,
+        "participants": [1, 2],
+        "message_hex": "7468697320697320612074657374"
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "group_signature_length_bytes": 64
+      }
+    }
+  ]
+}

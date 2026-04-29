@@ -1,0 +1,164 @@
+{
+  "category": "openagent",
+  "name": "skills-policy",
+  "description": "OpenAgent SDK skills policy vectors. A skill is a capability an agent can invoke; a skill policy decides whether an agent is allowed to invoke a given skill on a given target. This combines OAS identity, Arsenal scope evaluation, and skill-level constraints (rate limits, cost budgets, input validation).",
+  "spec": "OpenAgent SDK skills + Arsenal policy integration",
+  "vectors": [
+    {
+      "name": "allow-skill-with-matching-scope",
+      "description": "Agent has scope openai:chat:invoke and calls the chat skill",
+      "tags": ["allow", "scope-match"],
+      "input": {
+        "operation": "evaluate_skill",
+        "agent_scopes": ["openai:chat:invoke"],
+        "skill_required_scope": "openai:chat:invoke"
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "deny-skill-without-scope",
+      "description": "Agent lacks the required scope for the skill",
+      "tags": ["deny", "missing-scope"],
+      "input": {
+        "operation": "evaluate_skill",
+        "agent_scopes": ["github:repos:read"],
+        "skill_required_scope": "openai:chat:invoke"
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "allow-skill-with-wildcard",
+      "description": "Agent has openai:*:* and calls the chat skill",
+      "tags": ["allow", "wildcard"],
+      "input": {
+        "operation": "evaluate_skill",
+        "agent_scopes": ["openai:*:*"],
+        "skill_required_scope": "openai:chat:invoke"
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "allow-within-rate-limit",
+      "description": "Skill invocation within per-minute rate limit is allowed",
+      "tags": ["allow", "rate-limit"],
+      "input": {
+        "operation": "evaluate_rate_limit",
+        "limit_per_minute": 10,
+        "invocations_in_last_minute": 5
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "deny-exceeding-rate-limit",
+      "description": "Skill invocation exceeding per-minute rate limit is denied",
+      "tags": ["deny", "rate-limit"],
+      "input": {
+        "operation": "evaluate_rate_limit",
+        "limit_per_minute": 10,
+        "invocations_in_last_minute": 10
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "allow-within-cost-budget",
+      "description": "Skill invocation within USD cost budget is allowed",
+      "tags": ["allow", "cost"],
+      "input": {
+        "operation": "evaluate_cost_budget",
+        "budget_usd": 100,
+        "spent_usd": 50,
+        "invocation_cost_usd": 5
+      },
+      "expected_output": { "decision": "allow", "remaining_usd": 45 }
+    },
+    {
+      "name": "deny-exceeding-cost-budget",
+      "description": "Skill invocation exceeding cost budget is denied",
+      "tags": ["deny", "cost"],
+      "input": {
+        "operation": "evaluate_cost_budget",
+        "budget_usd": 100,
+        "spent_usd": 96,
+        "invocation_cost_usd": 5
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "validate-input-schema-pass",
+      "description": "Input that matches the skill's JSON schema is accepted",
+      "tags": ["validation", "schema"],
+      "input": {
+        "operation": "validate_input",
+        "schema": {
+          "type": "object",
+          "required": ["prompt"],
+          "properties": { "prompt": { "type": "string", "minLength": 1 } }
+        },
+        "input": { "prompt": "hello world" }
+      },
+      "expected_output": { "valid": true }
+    },
+    {
+      "name": "validate-input-schema-missing-required",
+      "description": "Input missing a required field is rejected",
+      "tags": ["validation", "schema", "negative"],
+      "input": {
+        "operation": "validate_input",
+        "schema": {
+          "type": "object",
+          "required": ["prompt"],
+          "properties": { "prompt": { "type": "string", "minLength": 1 } }
+        },
+        "input": {}
+      },
+      "expected_output": { "valid": false }
+    },
+    {
+      "name": "validate-input-schema-wrong-type",
+      "description": "Input with wrong type is rejected",
+      "tags": ["validation", "schema", "negative"],
+      "input": {
+        "operation": "validate_input",
+        "schema": {
+          "type": "object",
+          "required": ["max_tokens"],
+          "properties": { "max_tokens": { "type": "integer", "minimum": 1 } }
+        },
+        "input": { "max_tokens": "lots" }
+      },
+      "expected_output": { "valid": false }
+    },
+    {
+      "name": "compound-policy-all-conditions-allow",
+      "description": "When scope + rate limit + cost budget all permit, the decision is allow",
+      "tags": ["compound", "allow"],
+      "input": {
+        "operation": "evaluate_compound",
+        "agent_scopes": ["openai:chat:invoke"],
+        "skill_required_scope": "openai:chat:invoke",
+        "limit_per_minute": 10,
+        "invocations_in_last_minute": 3,
+        "budget_usd": 100,
+        "spent_usd": 20,
+        "invocation_cost_usd": 2
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "compound-policy-one-failure-denies",
+      "description": "When any single condition fails, the decision is deny",
+      "tags": ["compound", "deny"],
+      "input": {
+        "operation": "evaluate_compound",
+        "agent_scopes": ["openai:chat:invoke"],
+        "skill_required_scope": "openai:chat:invoke",
+        "limit_per_minute": 10,
+        "invocations_in_last_minute": 11,
+        "budget_usd": 100,
+        "spent_usd": 20,
+        "invocation_cost_usd": 2
+      },
+      "expected_output": { "decision": "deny" }
+    }
+  ]
+}

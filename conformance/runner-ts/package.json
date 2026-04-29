@@ -1,0 +1,22 @@
+{
+  "name": "@openagent/conformance-runner",
+  "private": true,
+  "version": "0.1.0",
+  "description": "OpenAgent SDK conformance test runner (TypeScript) — loads JSON vectors and diffs against the Node TS reference stack",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "conformance-runner-ts": "src/main.mjs"
+  },
+  "scripts": {
+    "run": "node src/main.mjs",
+    "typecheck": "node --check src/main.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "@noble/hashes": "^1.4.0"
+  }
+}

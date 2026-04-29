@@ -1,0 +1,186 @@
+{
+  "category": "oas",
+  "name": "did-parse",
+  "description": "Vectors for parsing and canonicalizing OAS DIDs (did:oas:<namespace>:<kind>:<identifier>) per OAS Spec §4. Valid inputs must round-trip through parse -> serialize unchanged. Invalid inputs must produce a structured parse error.",
+  "spec": "OAS Specification §4 (DID Method)",
+  "vectors": [
+    {
+      "name": "parse-hmr-valid",
+      "description": "A human root DID is valid",
+      "tags": ["parse", "hmr", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:hmr:alice" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "l1fe",
+        "kind": "hmr",
+        "identifier": "alice"
+      }
+    },
+    {
+      "name": "parse-agent-valid",
+      "description": "An agent DID is valid",
+      "tags": ["parse", "agent", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:agent:analyzer-42" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "l1fe",
+        "kind": "agent",
+        "identifier": "analyzer-42"
+      }
+    },
+    {
+      "name": "parse-agent-instance-valid",
+      "description": "An agent instance DID uses a compound kind",
+      "tags": ["parse", "agent-instance", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:agent:instance:worker-1" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "l1fe",
+        "kind": "agent:instance",
+        "identifier": "worker-1"
+      }
+    },
+    {
+      "name": "parse-tool-valid",
+      "description": "A tool DID is valid",
+      "tags": ["parse", "tool", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:openai:tool:web-search" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "openai",
+        "kind": "tool",
+        "identifier": "web-search"
+      }
+    },
+    {
+      "name": "parse-skill-valid",
+      "description": "A skill DID",
+      "tags": ["parse", "skill", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:skill:code-review" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "l1fe",
+        "kind": "skill",
+        "identifier": "code-review"
+      }
+    },
+    {
+      "name": "parse-workflow-valid",
+      "description": "A workflow DID",
+      "tags": ["parse", "workflow", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:workflow:onboard-user" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "l1fe",
+        "kind": "workflow",
+        "identifier": "onboard-user"
+      }
+    },
+    {
+      "name": "parse-model-valid",
+      "description": "A model DID",
+      "tags": ["parse", "model", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:anthropic:model:claude-opus-4" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "anthropic",
+        "kind": "model",
+        "identifier": "claude-opus-4"
+      }
+    },
+    {
+      "name": "parse-dataset-valid",
+      "description": "A dataset DID",
+      "tags": ["parse", "dataset", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:dataset:customer-feedback" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "l1fe",
+        "kind": "dataset",
+        "identifier": "customer-feedback"
+      }
+    },
+    {
+      "name": "parse-service-valid",
+      "description": "A service DID",
+      "tags": ["parse", "service", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:stripe:service:payments-api" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "stripe",
+        "kind": "service",
+        "identifier": "payments-api"
+      }
+    },
+    {
+      "name": "parse-mhr-valid",
+      "description": "A machine human root DID",
+      "tags": ["parse", "mhr", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:mhr:dao-genesis" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "l1fe",
+        "kind": "mhr",
+        "identifier": "dao-genesis"
+      }
+    },
+    {
+      "name": "parse-enr-valid",
+      "description": "An entity network root DID",
+      "tags": ["parse", "enr", "valid"],
+      "input": { "operation": "parse", "did": "did:oas:openai:enr:network-root" },
+      "expected_output": {
+        "valid": true,
+        "method": "oas",
+        "namespace": "openai",
+        "kind": "enr",
+        "identifier": "network-root"
+      }
+    },
+    {
+      "name": "parse-wrong-method-invalid",
+      "description": "DIDs that are not did:oas must be rejected",
+      "tags": ["parse", "negative", "wrong-method"],
+      "input": { "operation": "parse", "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK" },
+      "expected_output": { "valid": false, "error_contains": "method" }
+    },
+    {
+      "name": "parse-missing-prefix-invalid",
+      "description": "Strings that don't start with 'did:' are rejected",
+      "tags": ["parse", "negative", "no-prefix"],
+      "input": { "operation": "parse", "did": "oas:l1fe:agent:x" },
+      "expected_output": { "valid": false, "error_contains": "prefix" }
+    },
+    {
+      "name": "parse-missing-kind-invalid",
+      "description": "A DID missing the kind component is rejected",
+      "tags": ["parse", "negative", "missing-kind"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:alice" },
+      "expected_output": { "valid": false, "error_contains": "components" }
+    },
+    {
+      "name": "parse-unknown-kind-invalid",
+      "description": "A DID with a non-standard kind is rejected",
+      "tags": ["parse", "negative", "unknown-kind"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:robot:r2d2" },
+      "expected_output": { "valid": false, "error_contains": "kind" }
+    },
+    {
+      "name": "parse-empty-identifier-invalid",
+      "description": "An empty identifier is rejected",
+      "tags": ["parse", "negative", "empty-id"],
+      "input": { "operation": "parse", "did": "did:oas:l1fe:agent:" },
+      "expected_output": { "valid": false, "error_contains": "identifier" }
+    }
+  ]
+}

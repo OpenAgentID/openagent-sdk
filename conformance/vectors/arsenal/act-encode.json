@@ -1,0 +1,167 @@
+{
+  "category": "arsenal",
+  "name": "act-encode",
+  "description": "Agent Capability Token (ACT) claim encoding vectors. Each vector specifies a set of claims and the expected JCS-canonicalized claim bytes. This verifies that Rust and TypeScript implementations agree on claim ordering, field naming, and canonicalization for signing. Token issuance uses these claim bytes as the signed payload.",
+  "spec": "arsenal-core/src/token.rs",
+  "vectors": [
+    {
+      "name": "minimal-claims",
+      "description": "ACT with minimum required claims",
+      "tags": ["encode", "minimal"],
+      "input": {
+        "operation": "encode_claims",
+        "claims": {
+          "jti": "01HV00000000000000000000A1",
+          "iss": "arsenal.l1fe",
+          "sub": "did:oas:l1fe:agent:bot-1",
+          "aud": "stripe",
+          "iat": 1704067200,
+          "exp": 1704067260,
+          "scopes": ["stripe:charges:read"]
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"aud\":\"stripe\",\"exp\":1704067260,\"iat\":1704067200,\"iss\":\"arsenal.l1fe\",\"jti\":\"01HV00000000000000000000A1\",\"scopes\":[\"stripe:charges:read\"],\"sub\":\"did:oas:l1fe:agent:bot-1\"}"
+      }
+    },
+    {
+      "name": "full-claims",
+      "description": "ACT with all optional claims present",
+      "tags": ["encode", "full"],
+      "input": {
+        "operation": "encode_claims",
+        "claims": {
+          "jti": "01HV00000000000000000000A2",
+          "iss": "arsenal.l1fe",
+          "sub": "did:oas:l1fe:agent:trader",
+          "aud": "stripe",
+          "iat": 1704067200,
+          "exp": 1704067500,
+          "scopes": ["stripe:charges:write", "stripe:charges:read"],
+          "tenant": "acme-corp",
+          "key_fp": "fp_abc123",
+          "rate_limit_per_min": 100,
+          "budget_usd": 500
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"aud\":\"stripe\",\"budget_usd\":500,\"exp\":1704067500,\"iat\":1704067200,\"iss\":\"arsenal.l1fe\",\"jti\":\"01HV00000000000000000000A2\",\"key_fp\":\"fp_abc123\",\"rate_limit_per_min\":100,\"scopes\":[\"stripe:charges:write\",\"stripe:charges:read\"],\"sub\":\"did:oas:l1fe:agent:trader\",\"tenant\":\"acme-corp\"}"
+      }
+    },
+    {
+      "name": "multiple-scopes-preserve-order",
+      "description": "Scope array order is preserved in canonical output",
+      "tags": ["encode", "scopes", "array-order"],
+      "input": {
+        "operation": "encode_claims",
+        "claims": {
+          "jti": "01HV00000000000000000000A3",
+          "iss": "arsenal.l1fe",
+          "sub": "did:oas:l1fe:agent:multi",
+          "aud": "multi",
+          "iat": 1704067200,
+          "exp": 1704067260,
+          "scopes": ["github:repos:read", "github:issues:write", "stripe:charges:read"]
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"aud\":\"multi\",\"exp\":1704067260,\"iat\":1704067200,\"iss\":\"arsenal.l1fe\",\"jti\":\"01HV00000000000000000000A3\",\"scopes\":[\"github:repos:read\",\"github:issues:write\",\"stripe:charges:read\"],\"sub\":\"did:oas:l1fe:agent:multi\"}"
+      }
+    },
+    {
+      "name": "encoded-claims-signature-roundtrip",
+      "description": "Sign and verify the canonical claim bytes with a known key",
+      "tags": ["sign", "verify", "roundtrip"],
+      "input": {
+        "operation": "sign_and_verify_claims",
+        "secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "claims": {
+          "jti": "01HV00000000000000000000A4",
+          "iss": "arsenal.l1fe",
+          "sub": "did:oas:l1fe:agent:signer",
+          "aud": "example",
+          "iat": 1704067200,
+          "exp": 1704067260,
+          "scopes": ["example:data:read"]
+        }
+      },
+      "expected_output": { "verify_ok": true }
+    },
+    {
+      "name": "ttl-within-bounds",
+      "description": "TTL of 60 seconds is within min/max bounds [5, 86400]",
+      "tags": ["ttl", "valid"],
+      "input": {
+        "operation": "check_ttl",
+        "iat": 1704067200,
+        "exp": 1704067260
+      },
+      "expected_output": { "ttl_ok": true, "ttl_seconds": 60 }
+    },
+    {
+      "name": "ttl-too-short",
+      "description": "TTL under 5 seconds is invalid",
+      "tags": ["ttl", "negative"],
+      "input": {
+        "operation": "check_ttl",
+        "iat": 1704067200,
+        "exp": 1704067204
+      },
+      "expected_output": { "ttl_ok": false }
+    },
+    {
+      "name": "ttl-too-long",
+      "description": "TTL over 86400 seconds (24h) is invalid",
+      "tags": ["ttl", "negative"],
+      "input": {
+        "operation": "check_ttl",
+        "iat": 1704067200,
+        "exp": 1704153601
+      },
+      "expected_output": { "ttl_ok": false }
+    },
+    {
+      "name": "expired-token",
+      "description": "A token whose exp is in the past is expired",
+      "tags": ["expiry"],
+      "input": {
+        "operation": "check_expired",
+        "now": 1704067300,
+        "exp": 1704067260
+      },
+      "expected_output": { "expired": true }
+    },
+    {
+      "name": "not-yet-expired",
+      "description": "A token whose exp is in the future is still valid",
+      "tags": ["expiry"],
+      "input": {
+        "operation": "check_expired",
+        "now": 1704067200,
+        "exp": 1704067260
+      },
+      "expected_output": { "expired": false }
+    },
+    {
+      "name": "tampered-claims-fail-verify",
+      "description": "Modifying any claim after signing invalidates the signature",
+      "tags": ["negative", "tamper"],
+      "input": {
+        "operation": "sign_tamper_verify",
+        "secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "original_claims": {
+          "jti": "01HV00000000000000000000A5",
+          "iss": "arsenal.l1fe",
+          "sub": "did:oas:l1fe:agent:victim",
+          "aud": "stripe",
+          "iat": 1704067200,
+          "exp": 1704067260,
+          "scopes": ["stripe:charges:read"]
+        },
+        "tampered_field": "sub",
+        "tampered_value": "did:oas:l1fe:agent:attacker"
+      },
+      "expected_output": { "verify_ok": false }
+    }
+  ]
+}

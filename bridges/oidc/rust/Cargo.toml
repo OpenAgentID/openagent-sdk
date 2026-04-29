@@ -1,0 +1,50 @@
+[package]
+name = "openagent-oidc"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "OIDC/OAuth2 bridge for OpenAgent SDK — maps between human OIDC tokens and OAS agent DIDs + Arsenal capability tokens."
+repository = "https://github.com/l1feai/openagent-sdk"
+keywords = ["oidc", "oauth2", "openagent", "did", "agent"]
+categories = ["authentication", "web-programming"]
+
+[dependencies]
+# OpenAgent ecosystem.
+oas-sdk = { git = "https://github.com/l1feai/oas-rs", branch = "main", default-features = false }
+oas-crypto = { git = "https://github.com/l1feai/oas-rs", branch = "main" }
+oas-document = { git = "https://github.com/l1feai/oas-rs", branch = "main" }
+oas-lineage = { git = "https://github.com/l1feai/oas-rs", branch = "main" }
+arsenal-core = { git = "https://github.com/l1feai/arsenal", branch = "main" }
+
+# JWT
+jsonwebtoken = "9.3"
+
+# HTTP + async
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1.36", features = ["sync", "rt", "macros", "time"] }
+async-trait = "0.1"
+
+# Serialization / time / errors / observability
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+thiserror = "2.0"
+tracing = "0.1"
+base64 = "0.22"
+url = "2.5"
+
+[dev-dependencies]
+tokio = { version = "1.36", features = ["full"] }
+wiremock = "0.6"
+serde_json = "1.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"

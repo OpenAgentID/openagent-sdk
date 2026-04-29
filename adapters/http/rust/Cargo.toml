@@ -1,0 +1,72 @@
+[package]
+name = "openagent-http"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "HTTP adapter for the OpenAgent Auth Protocol (OAAP). Axum middleware, HTTP client, and discovery for agent-to-service mutual authentication."
+repository = "https://github.com/l1feai/openagent-sdk"
+keywords = ["openagent", "http", "auth", "middleware", "axum"]
+categories = ["authentication", "web-programming::http-server"]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[features]
+default = ["axum-integration"]
+axum-integration = ["dep:axum", "dep:axum-core"]
+
+[dependencies]
+# OAAP core
+openagent-auth-protocol = { path = "../../../crates/openagent-auth-protocol" }
+
+# HTTP / framework
+axum = { version = "0.7", optional = true }
+axum-core = { version = "0.4", optional = true }
+tower = "0.5"
+tower-layer = "0.3"
+tower-service = "0.3"
+hyper = { version = "1.0", features = ["http1", "http2"] }
+http = "1.0"
+http-body = "1.0"
+http-body-util = "0.1"
+
+# HTTP client
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Crypto (aligned with auth-protocol)
+ed25519-dalek = { version = "2.1", features = ["serde", "rand_core"] }
+x25519-dalek = { version = "2.0", features = ["static_secrets", "zeroize"] }
+blake3 = "1.5"
+rand = "0.8"
+zeroize = { version = "1.7", features = ["derive"] }
+
+# Serialization + encoding
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+
+# Async
+tokio = { version = "1.36", features = ["sync", "rt", "macros", "time"] }
+async-trait = "0.1"
+
+# Errors + logging
+thiserror = "2.0"
+tracing = "0.1"
+
+# Time
+chrono = { version = "0.4", features = ["serde", "clock"], default-features = false }
+
+[dev-dependencies]
+tokio = { version = "1.36", features = ["full", "test-util"] }
+axum = { version = "0.7" }
+axum-core = { version = "0.4" }
+tower = { version = "0.5", features = ["util"] }
+hyper = { version = "1.0", features = ["full"] }

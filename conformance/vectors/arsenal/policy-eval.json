@@ -1,0 +1,153 @@
+{
+  "category": "arsenal",
+  "name": "policy-eval",
+  "description": "Arsenal policy evaluation vectors. A policy authorizes a request if the requested scope is implied by at least one of the agent's granted scopes AND the request matches all of the policy's constraints (time-of-day, tenant, IP, etc.). These vectors exercise the core allow/deny decision logic.",
+  "spec": "arsenal-core/src/policy.rs",
+  "vectors": [
+    {
+      "name": "allow-exact-scope-match",
+      "description": "Request exactly matches a granted scope",
+      "tags": ["allow", "exact"],
+      "input": {
+        "operation": "evaluate",
+        "granted_scopes": ["stripe:charges:read"],
+        "requested_scope": "stripe:charges:read"
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "allow-wildcard-covers-specific",
+      "description": "A granted wildcard scope covers a specific request",
+      "tags": ["allow", "wildcard"],
+      "input": {
+        "operation": "evaluate",
+        "granted_scopes": ["stripe:*:*"],
+        "requested_scope": "stripe:charges:write"
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "allow-from-multiple-grants",
+      "description": "Allow when any of the granted scopes implies the request",
+      "tags": ["allow", "multiple"],
+      "input": {
+        "operation": "evaluate",
+        "granted_scopes": ["github:repos:read", "stripe:charges:read", "openai:models:read"],
+        "requested_scope": "stripe:charges:read"
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "deny-unmatched-service",
+      "description": "Deny when no granted scope covers the requested service",
+      "tags": ["deny"],
+      "input": {
+        "operation": "evaluate",
+        "granted_scopes": ["github:repos:read"],
+        "requested_scope": "stripe:charges:read"
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "deny-unmatched-action",
+      "description": "Deny when the action is not covered (read does not imply write)",
+      "tags": ["deny", "action"],
+      "input": {
+        "operation": "evaluate",
+        "granted_scopes": ["stripe:charges:read"],
+        "requested_scope": "stripe:charges:write"
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "deny-empty-grants",
+      "description": "An empty grant set denies everything",
+      "tags": ["deny", "empty"],
+      "input": {
+        "operation": "evaluate",
+        "granted_scopes": [],
+        "requested_scope": "stripe:charges:read"
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "allow-with-tenant-match",
+      "description": "Policy allows when tenant constraint matches",
+      "tags": ["allow", "tenant"],
+      "input": {
+        "operation": "evaluate_with_context",
+        "granted_scopes": ["stripe:charges:read"],
+        "requested_scope": "stripe:charges:read",
+        "tenant_constraint": "acme-corp",
+        "request_tenant": "acme-corp"
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "deny-tenant-mismatch",
+      "description": "Policy denies when tenant constraint does not match",
+      "tags": ["deny", "tenant"],
+      "input": {
+        "operation": "evaluate_with_context",
+        "granted_scopes": ["stripe:charges:read"],
+        "requested_scope": "stripe:charges:read",
+        "tenant_constraint": "acme-corp",
+        "request_tenant": "evil-corp"
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "allow-within-time-window",
+      "description": "Request during the allowed time window is accepted",
+      "tags": ["allow", "time"],
+      "input": {
+        "operation": "evaluate_with_context",
+        "granted_scopes": ["stripe:charges:read"],
+        "requested_scope": "stripe:charges:read",
+        "time_not_before": 1704067200,
+        "time_not_after": 1704070800,
+        "request_time": 1704068000
+      },
+      "expected_output": { "decision": "allow" }
+    },
+    {
+      "name": "deny-before-time-window",
+      "description": "Request before time window opens is denied",
+      "tags": ["deny", "time"],
+      "input": {
+        "operation": "evaluate_with_context",
+        "granted_scopes": ["stripe:charges:read"],
+        "requested_scope": "stripe:charges:read",
+        "time_not_before": 1704067200,
+        "time_not_after": 1704070800,
+        "request_time": 1704066000
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "deny-after-time-window",
+      "description": "Request after time window closes is denied",
+      "tags": ["deny", "time", "expired"],
+      "input": {
+        "operation": "evaluate_with_context",
+        "granted_scopes": ["stripe:charges:read"],
+        "requested_scope": "stripe:charges:read",
+        "time_not_before": 1704067200,
+        "time_not_after": 1704070800,
+        "request_time": 1704071000
+      },
+      "expected_output": { "decision": "deny" }
+    },
+    {
+      "name": "deny-wildcard-too-narrow",
+      "description": "A specific-resource grant does not allow a different resource",
+      "tags": ["deny", "resource"],
+      "input": {
+        "operation": "evaluate",
+        "granted_scopes": ["github:repos:read"],
+        "requested_scope": "github:issues:read"
+      },
+      "expected_output": { "decision": "deny" }
+    }
+  ]
+}

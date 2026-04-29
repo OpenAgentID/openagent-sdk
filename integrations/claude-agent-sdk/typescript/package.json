@@ -1,0 +1,89 @@
+{
+  "name": "@openagent/claude-agent",
+  "version": "0.1.0",
+  "description": "OpenAgent identity, capability control, and audit for the Claude Agent SDK — drop-in plugin that gives any Claude agent a verified did:oas:* identity, scoped credential access, and tamper-evident audit logging.",
+  "license": "Apache-2.0",
+  "author": "L1fe AI <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/l1feai/openagent-sdk.git",
+    "directory": "integrations/claude-agent-sdk/typescript"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./hooks": {
+      "types": "./dist/hooks.d.ts",
+      "import": "./dist/hooks.js",
+      "require": "./dist/hooks.cjs"
+    },
+    "./policy": {
+      "types": "./dist/policy.d.ts",
+      "import": "./dist/policy.js",
+      "require": "./dist/policy.cjs"
+    },
+    "./audit": {
+      "types": "./dist/audit.d.ts",
+      "import": "./dist/audit.js",
+      "require": "./dist/audit.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit && vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": ">=0.1.0",
+    "@openagent/sdk": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": { "optional": false },
+    "@openagent/sdk": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^1.6.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "keywords": [
+    "openagent",
+    "claude-agent-sdk",
+    "anthropic",
+    "agent",
+    "did",
+    "oas",
+    "arsenal",
+    "aegis",
+    "identity",
+    "capability",
+    "audit",
+    "plugin",
+    "skills"
+  ]
+}

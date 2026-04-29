@@ -1,0 +1,18 @@
+{
+  "name": "openagent-example-02-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/server.ts",
+    "test-client": "bun run src/test-client.ts"
+  },
+  "dependencies": {
+    "@openagent/sdk": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

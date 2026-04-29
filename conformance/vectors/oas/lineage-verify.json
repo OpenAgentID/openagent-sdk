@@ -1,0 +1,187 @@
+{
+  "category": "oas",
+  "name": "lineage-verify",
+  "description": "AgentLineageProof2025 verification vectors per OAS Spec §9. All proofs are signed by the RFC 8032 §7.1 TEST 1 secret key (9d61...7f60), whose derived Ed25519 public key is d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a. The parent DID, child DID, and derivation path are canonicalized via JCS before signing (keys sort: childDid, derivationPath, parentDid).",
+  "spec": "OAS Specification §9 (Agent Lineage Proof)",
+  "proof_type": "AgentLineageProof2025",
+  "algorithm": "HKDF-SHA256-Ed25519",
+  "parent_public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "parent_public_key_multibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+  "vectors": [
+    {
+      "name": "verify-alice-bot-1",
+      "description": "Valid proof for bot-1 child under alice HMR",
+      "tags": ["valid", "verify"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:l1fe:hmr:alice",
+          "childDid": "did:oas:l1fe:agent:bot-1",
+          "derivationPath": "/agent-bot-1",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "vVTLk3JTNMHKDQkyv9OLTJpvcHZsFn-xRpsehjj0uhNBAOGnnerLFcf-IhMFrQZICaInwmuM7kQTV3IIg_vyCg"
+        }
+      },
+      "expected_output": { "verify_ok": true }
+    },
+    {
+      "name": "verify-alice-bot-2",
+      "description": "Second valid proof under the same parent, different child",
+      "tags": ["valid", "verify"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:l1fe:hmr:alice",
+          "childDid": "did:oas:l1fe:agent:bot-2",
+          "derivationPath": "/agent-bot-2",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "aTsUWzg5ILycK4gY6v_TtbGVs3w-anejVf4COy94dPJcoWMSOrLpZsSUklTup6LQkfe7UO_rkFfXNRgzES05Dg"
+        }
+      },
+      "expected_output": { "verify_ok": true }
+    },
+    {
+      "name": "verify-spec-d2-vector",
+      "description": "OAS Spec Appendix D.2 canonical test vector",
+      "tags": ["spec", "d2", "valid"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:test:hmr:vector-parent",
+          "childDid": "did:oas:test:agent:vector-child",
+          "derivationPath": "/agent-test-vector-1",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "Zga4e2W-9Kc5IEZ6BkBh5DAo_H7O-Ksvr0ajyvuORR-yYm3-XqQziBzKN4na7jH0vfOFtibFcmqPFAYMQ0t0Bw"
+        }
+      },
+      "expected_output": { "verify_ok": true }
+    },
+    {
+      "name": "verify-openai-worker",
+      "description": "Valid proof under a different namespace",
+      "tags": ["valid", "verify", "cross-namespace"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:openai:hmr:founder",
+          "childDid": "did:oas:openai:agent:gpt-worker",
+          "derivationPath": "/agent-gpt-worker",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "sVX952XNi2nRlPaDK4q1e0mjxm1tjjAHQ-EVouAcgUb9fxuyxPuifvB-hhCatgCY4NDS-USD9TSCu768lgZxCA"
+        }
+      },
+      "expected_output": { "verify_ok": true }
+    },
+    {
+      "name": "tampered-child-did",
+      "description": "Mutating the childDid invalidates the signature",
+      "tags": ["negative", "tamper"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:l1fe:hmr:alice",
+          "childDid": "did:oas:l1fe:agent:evil",
+          "derivationPath": "/agent-bot-1",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "vVTLk3JTNMHKDQkyv9OLTJpvcHZsFn-xRpsehjj0uhNBAOGnnerLFcf-IhMFrQZICaInwmuM7kQTV3IIg_vyCg"
+        }
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "tampered-parent-did",
+      "description": "Mutating the parentDid invalidates the signature",
+      "tags": ["negative", "tamper"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:l1fe:hmr:mallory",
+          "childDid": "did:oas:l1fe:agent:bot-1",
+          "derivationPath": "/agent-bot-1",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "vVTLk3JTNMHKDQkyv9OLTJpvcHZsFn-xRpsehjj0uhNBAOGnnerLFcf-IhMFrQZICaInwmuM7kQTV3IIg_vyCg"
+        }
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "tampered-derivation-path",
+      "description": "Mutating the derivationPath invalidates the signature",
+      "tags": ["negative", "tamper"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:l1fe:hmr:alice",
+          "childDid": "did:oas:l1fe:agent:bot-1",
+          "derivationPath": "/agent-evil",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "vVTLk3JTNMHKDQkyv9OLTJpvcHZsFn-xRpsehjj0uhNBAOGnnerLFcf-IhMFrQZICaInwmuM7kQTV3IIg_vyCg"
+        }
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "wrong-public-key",
+      "description": "Verifying against a different parent public key must fail",
+      "tags": ["negative", "wrong-key"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:l1fe:hmr:alice",
+          "childDid": "did:oas:l1fe:agent:bot-1",
+          "derivationPath": "/agent-bot-1",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+          "signature": "vVTLk3JTNMHKDQkyv9OLTJpvcHZsFn-xRpsehjj0uhNBAOGnnerLFcf-IhMFrQZICaInwmuM7kQTV3IIg_vyCg"
+        }
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "tampered-signature-single-byte",
+      "description": "Flipping one bit in the signature invalidates it",
+      "tags": ["negative", "tamper", "sig"],
+      "input": {
+        "operation": "verify_proof",
+        "proof": {
+          "type": "AgentLineageProof2025",
+          "parentDid": "did:oas:l1fe:hmr:alice",
+          "childDid": "did:oas:l1fe:agent:bot-1",
+          "derivationPath": "/agent-bot-1",
+          "algorithm": "HKDF-SHA256-Ed25519",
+          "publicKeyMultibase": "zFVen3X669xLzsi6N2V91DoiyzHzg1uAgqiT8jZ9nS96Z",
+          "signature": "aVTLk3JTNMHKDQkyv9OLTJpvcHZsFn-xRpsehjj0uhNBAOGnnerLFcf-IhMFrQZICaInwmuM7kQTV3IIg_vyCg"
+        }
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "generate-then-verify-roundtrip",
+      "description": "Generate a proof from a deterministic keypair then verify it (runner calls generate+verify; produces an implementation-specific signature but MUST verify)",
+      "tags": ["roundtrip", "generate"],
+      "input": {
+        "operation": "generate_and_verify",
+        "parent_secret_key_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+        "parent_did": "did:oas:l1fe:hmr:roundtrip",
+        "child_did": "did:oas:l1fe:agent:roundtrip-child",
+        "derivation_path": "/agent-roundtrip"
+      },
+      "expected_output": { "verify_ok": true }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "name": "@openagent/skills-policy",
+  "version": "0.1.0",
+  "description": "Governance for agent skills — a specialized Arsenal policy that gates which SKILLS.md entries an agent may invoke, with rate limiting, argument constraints, time windows, consent, and hash-chained audit receipts.",
+  "license": "Apache-2.0 OR MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "agent",
+    "skills",
+    "policy",
+    "arsenal",
+    "openagent",
+    "claude"
+  ],
+  "peerDependencies": {
+    "@arsenal/sdk": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@arsenal/sdk": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.4.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "category": "aegis",
+  "name": "wallet-derive",
+  "description": "AEGIS multi-chain wallet derivation vectors. AEGIS derives keys via SLIP-0010 (Ed25519) and BIP-32 (secp256k1) from a master seed. Ed25519 SLIP-0010 only supports hardened derivation (indices >= 2^31). These vectors come from SLIP-0010 Appendix A and exercise both the derivation math and the AEGIS-specific multi-chain coin types.",
+  "spec": "SLIP-0010 (Ed25519) and BIP-44 coin types",
+  "vectors": [
+    {
+      "name": "slip10-ed25519-seed-vector-1-master",
+      "description": "SLIP-0010 Test vector 1 for ed25519: master key from seed 000102...0f",
+      "tags": ["slip10", "ed25519", "master"],
+      "input": {
+        "operation": "derive_master_ed25519",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f"
+      },
+      "expected_output": {
+        "chain_code_hex": "90046a93de5380a72b5e45010748567d5ea02bbf6522f979e05c0d8d8ca9fffb",
+        "secret_key_hex": "2b4be7f19ee27bbf30c667b642d5f4aa69fd169872f8fc3059c08ebae2eb19e7",
+        "public_key_hex": "a4b2856bfec510abab89753fac1ac0e1112364e7d250545963f135f2a33188ed"
+      }
+    },
+    {
+      "name": "slip10-ed25519-seed-vector-1-m-0h",
+      "description": "SLIP-0010 Test vector 1: m/0' hardened child",
+      "tags": ["slip10", "ed25519", "hardened"],
+      "input": {
+        "operation": "derive_path_ed25519",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path": "m/0'"
+      },
+      "expected_output": {
+        "chain_code_hex": "8b59aa11380b624e81507a27fedda59fea6d0b779a778918a2fd3590e16e9c69",
+        "secret_key_hex": "68e0fe46dfb67e368c75379acec591dad19df3cde26e63b93a8e704f1dade7a3",
+        "public_key_hex": "8c8a13df77a28f3445213a0f432fde644acaa215fc72dcdf300d5efaa85d350c"
+      }
+    },
+    {
+      "name": "slip10-ed25519-seed-vector-1-m-0h-1h",
+      "description": "SLIP-0010 Test vector 1: m/0'/1' two-level hardened",
+      "tags": ["slip10", "ed25519", "hardened", "multi-level"],
+      "input": {
+        "operation": "derive_path_ed25519",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path": "m/0'/1'"
+      },
+      "expected_output": {
+        "chain_code_hex": "a320425f77d1b5c2505a6b1b27382b37368ee640e3557c315416801243552f14",
+        "secret_key_hex": "b1d0bad404bf35da785a64ca1ac54b2617211d2777696fbffaf208f746ae84f2",
+        "public_key_hex": "1932a5270f335bed617d5b935c80aedb1a35bd9fc1e31acafd5372c30f5c1187"
+      }
+    },
+    {
+      "name": "slip10-ed25519-seed-vector-1-m-0h-1h-2h",
+      "description": "SLIP-0010 Test vector 1: m/0'/1'/2' three-level hardened",
+      "tags": ["slip10", "ed25519", "hardened", "multi-level"],
+      "input": {
+        "operation": "derive_path_ed25519",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path": "m/0'/1'/2'"
+      },
+      "expected_output": {
+        "chain_code_hex": "2e69929e00b5ab250f49c3fb1c12f252de4fed2c1db88387094a0f8c4c9ccd6c",
+        "secret_key_hex": "92a5b23c0b8a99e37d07df3fb9966917f5d06e02ddbd909c7e184371463e9fc9",
+        "public_key_hex": "ae98736566d30ed0e9d2f4486a64bc95740d89c7db33f52121f8ea8f76ff0fc1"
+      }
+    },
+    {
+      "name": "slip10-ed25519-seed-vector-2-master",
+      "description": "SLIP-0010 Test vector 2 for ed25519: master key from different seed",
+      "tags": ["slip10", "ed25519", "master"],
+      "input": {
+        "operation": "derive_master_ed25519",
+        "seed_hex": "fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542"
+      },
+      "expected_output": {
+        "chain_code_hex": "ef70a74db9c3a5af931b5fe73ed8e1a53464133654fd55e7a66f8570b8e33c3b",
+        "secret_key_hex": "171cb88b1b3c1db25add599712e36245d75bc65a1a5c9e18d76f9f2b1eab4012",
+        "public_key_hex": "8fe9693f8fa62a4305a140b9764c5ee01e455963744fe18204b4fb948249308a"
+      }
+    },
+    {
+      "name": "bip44-path-oas-agent-account-0",
+      "description": "AEGIS uses a dedicated coin type for OAS DIDs. Derive the first account key.",
+      "tags": ["bip44", "oas", "coin-type"],
+      "input": {
+        "operation": "derive_path_ed25519",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path": "m/44'/1234'/0'/0'/0'"
+      },
+      "expected_output": {
+        "length_bytes": 32,
+        "is_deterministic": true
+      }
+    },
+    {
+      "name": "bip44-sol-account-0",
+      "description": "Derive the first Solana account (coin type 501) using SLIP-0010 Ed25519",
+      "tags": ["bip44", "solana", "coin-type"],
+      "input": {
+        "operation": "derive_path_ed25519",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path": "m/44'/501'/0'/0'"
+      },
+      "expected_output": {
+        "length_bytes": 32,
+        "is_deterministic": true
+      }
+    },
+    {
+      "name": "derivation-deterministic",
+      "description": "Same seed and path must produce the same key on repeated invocations",
+      "tags": ["determinism"],
+      "input": {
+        "operation": "derive_twice",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path": "m/44'/1234'/0'/0'/0'"
+      },
+      "expected_output": { "equal": true }
+    },
+    {
+      "name": "different-paths-different-keys",
+      "description": "Different derivation paths produce different keys",
+      "tags": ["property"],
+      "input": {
+        "operation": "derive_two",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path_a": "m/44'/1234'/0'/0'/0'",
+        "path_b": "m/44'/1234'/0'/0'/1'"
+      },
+      "expected_output": { "equal": false }
+    },
+    {
+      "name": "non-hardened-ed25519-rejected",
+      "description": "SLIP-0010 for Ed25519 requires all indices to be hardened (>= 2^31). Non-hardened indices must be rejected.",
+      "tags": ["negative", "slip10", "hardened-only"],
+      "input": {
+        "operation": "derive_path_ed25519_expect_fail",
+        "seed_hex": "000102030405060708090a0b0c0d0e0f",
+        "path": "m/44'/1234'/0'/0'/0"
+      },
+      "expected_output": { "derive_ok": false }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Build artifacts
+runner-rust/target/
+runner-ts/node_modules/
+runner-ts/package-lock.json
+
+# Reports + regenerated vectors
+.reports/
+.generated/
+*.junit.xml

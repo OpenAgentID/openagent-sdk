@@ -1,0 +1,56 @@
+[package]
+name = "openagent-skills-policy"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "Governance policy engine for agent skills — an Arsenal-composed policy layer that gates which SKILLS.md entries an agent may invoke, with rate limiting, argument constraints, time windows, consent, and hash-chained audit receipts."
+repository = "https://github.com/l1feai/openagent-sdk"
+keywords = ["agent", "skills", "policy", "arsenal", "openagent"]
+categories = ["authentication", "command-line-utilities"]
+
+[lib]
+name = "openagent_skills_policy"
+crate-type = ["rlib"]
+
+[dependencies]
+# Arsenal primitives — we extend rather than reinvent
+arsenal-core = { git = "https://github.com/l1feai/arsenal", branch = "main" }
+arsenal-policy = { git = "https://github.com/l1feai/arsenal", branch = "main" }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Time
+time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
+
+# JSON Schema validation for argument constraints
+jsonschema = { version = "0.18", default-features = false }
+
+# Hash chain for audit receipts
+blake3 = "1.5"
+
+# Error handling (no panic, no unwrap allowed)
+thiserror = "2.0"
+
+# Identifiers
+uuid = { version = "1.16", features = ["v4", "v7", "serde"] }
+
+# Base encoding
+hex = "0.4"
+
+[dev-dependencies]
+tempfile = "3.15"
+pretty_assertions = "1.4"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"

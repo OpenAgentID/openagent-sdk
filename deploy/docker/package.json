@@ -1,0 +1,20 @@
+{
+  "name": "openagent-docker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsup server.ts --format cjs --out-dir dist --target node20",
+    "start": "node dist/server.cjs",
+    "dev": "tsx server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openagent/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "tsup": "^8.0.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "env": {
+    "OPENAGENT_PARENT_DID": "did:oas:l1fe:hmr:your-human-root",
+    "OPENAGENT_AGENT_NAME": "my-vercel-agent"
+  },
+  "headers": [
+    {
+      "source": "/.well-known/openagent/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/.well-known/openagent/auth",
+      "destination": "/api/auth/openagent"
+    },
+    {
+      "source": "/.well-known/openagent/challenge",
+      "destination": "/api/auth/challenge"
+    },
+    {
+      "source": "/.well-known/openagent/challenge/verify",
+      "destination": "/api/auth/challenge-verify"
+    }
+  ]
+}

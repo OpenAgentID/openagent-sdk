@@ -1,0 +1,73 @@
+{
+  "name": "@openagent/oidc",
+  "version": "0.1.0",
+  "description": "OIDC/OAuth2 bridge for OpenAgent SDK — maps between human OIDC tokens and OAS agent DIDs + Arsenal capability tokens.",
+  "license": "Apache-2.0",
+  "author": "L1fe AI <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/l1feai/openagent-sdk.git",
+    "directory": "bridges/oidc/typescript"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit && vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "jose": "^5.9.0",
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@oas/sdk": "^0.1.0",
+    "@arsenal/sdk": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@oas/sdk": { "optional": true },
+    "@arsenal/sdk": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^1.6.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "keywords": [
+    "openagent",
+    "oidc",
+    "oauth2",
+    "agent",
+    "did",
+    "identity",
+    "token-exchange",
+    "rfc8693"
+  ]
+}

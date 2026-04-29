@@ -1,0 +1,58 @@
+[package]
+name = "openagent-sdk"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "OpenAgent SDK — Clerk for autonomous agents. One import for OAS identity, Arsenal credentials, and AEGIS verification."
+homepage = "https://openagent.id"
+repository = "https://github.com/l1feai/openagent-sdk"
+documentation = "https://docs.rs/openagent-sdk"
+readme = "README.md"
+keywords = ["agent", "identity", "did", "oas", "openagent"]
+categories = ["authentication", "cryptography", "api-bindings"]
+
+[features]
+default = []
+# Enable AEGIS verification + delegation features (pulls in the heavier verification pipeline).
+aegis = []
+# Enable Arsenal credential proxy + capability features (pulls in tokio + reqwest + broker mTLS).
+arsenal = []
+# Convenience: turn everything on.
+full = ["aegis", "arsenal"]
+
+[dependencies]
+# Wrapped SDKs.
+oas-sdk = { git = "https://github.com/l1feai/oas-rs", branch = "main", default-features = false }
+oas-crypto = { git = "https://github.com/l1feai/oas-rs", branch = "main" }
+oas-document = { git = "https://github.com/l1feai/oas-rs", branch = "main" }
+oas-lineage = { git = "https://github.com/l1feai/oas-rs", branch = "main" }
+arsenal-sdk = { git = "https://github.com/l1feai/arsenal", branch = "main" }
+arsenal-core = { git = "https://github.com/l1feai/arsenal", branch = "main" }
+aegis-sdk = { git = "https://github.com/l1feai/aegis", branch = "main" }
+aegis-core = { git = "https://github.com/l1feai/aegis", branch = "main" }
+
+# Async + util.
+tokio = { version = "1.36", features = ["sync", "rt", "macros"] }
+async-trait = "0.1"
+
+# Serde / time / errors / observability.
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+thiserror = "2.0"
+tracing = "0.1"
+base64 = "0.22"
+
+[dev-dependencies]
+tokio = { version = "1.36", features = ["full"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"

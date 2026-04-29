@@ -1,0 +1,158 @@
+{
+  "category": "openagent",
+  "name": "create-agent",
+  "description": "OpenAgent SDK agent-creation vectors. Creating an agent derives a child keypair from the parent HMR using HKDF-SHA256 with the derivation path, assembles a canonical identity document, and attaches an AgentLineageProof2025 signed by the parent. These vectors pin the deterministic subset of that pipeline.",
+  "spec": "OpenAgent SDK / OAS §9 lineage",
+  "vectors": [
+    {
+      "name": "create-agent-deterministic-child-key",
+      "description": "Given a parent seed and a derivation path, the child Ed25519 public key is deterministic",
+      "tags": ["derive", "determinism"],
+      "input": {
+        "operation": "derive_child",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "derivation_path": "/agent-bot-1"
+      },
+      "expected_output": {
+        "child_public_key_length_bytes": 32,
+        "is_deterministic": true
+      }
+    },
+    {
+      "name": "create-agent-different-paths-different-keys",
+      "description": "Different derivation paths under the same parent produce different child keys",
+      "tags": ["derive", "property"],
+      "input": {
+        "operation": "derive_two_children",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "path_a": "/agent-bot-1",
+        "path_b": "/agent-bot-2"
+      },
+      "expected_output": { "equal": false }
+    },
+    {
+      "name": "create-agent-document-canonicalization",
+      "description": "The canonical form of a newly-created agent's identity document is stable",
+      "tags": ["document", "canonical"],
+      "input": {
+        "operation": "canonicalize_agent_doc",
+        "document": {
+          "id": "did:oas:l1fe:agent:bot-1",
+          "type": "agent",
+          "name": "Bot One",
+          "parent": "did:oas:l1fe:hmr:alice",
+          "version": "1.0.0"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"id\":\"did:oas:l1fe:agent:bot-1\",\"name\":\"Bot One\",\"parent\":\"did:oas:l1fe:hmr:alice\",\"type\":\"agent\",\"version\":\"1.0.0\"}"
+      }
+    },
+    {
+      "name": "create-agent-with-lineage-proof-verifies",
+      "description": "An agent created under a parent must have a lineage proof that verifies",
+      "tags": ["lineage", "verify"],
+      "input": {
+        "operation": "create_and_verify_lineage",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "parent_did": "did:oas:l1fe:hmr:alice",
+        "agent_name": "bot-1",
+        "derivation_path": "/agent-bot-1"
+      },
+      "expected_output": {
+        "child_did": "did:oas:l1fe:agent:bot-1",
+        "lineage_proof_verifies": true
+      }
+    },
+    {
+      "name": "create-agent-did-format",
+      "description": "The child DID is formatted as did:oas:<parent-namespace>:agent:<identifier>",
+      "tags": ["did", "format"],
+      "input": {
+        "operation": "format_child_did",
+        "parent_did": "did:oas:l1fe:hmr:alice",
+        "kind": "agent",
+        "identifier": "bot-1"
+      },
+      "expected_output": {
+        "child_did": "did:oas:l1fe:agent:bot-1"
+      }
+    },
+    {
+      "name": "create-agent-rejects-unknown-kind",
+      "description": "Creating an agent with an unknown entity kind is rejected",
+      "tags": ["negative", "kind"],
+      "input": {
+        "operation": "format_child_did",
+        "parent_did": "did:oas:l1fe:hmr:alice",
+        "kind": "robot",
+        "identifier": "r2d2"
+      },
+      "expected_output": { "error_contains": "kind" }
+    },
+    {
+      "name": "create-nested-agent-two-hops",
+      "description": "Create a worker under a team-lead under the HMR and verify both hops",
+      "tags": ["multi-hop", "nested"],
+      "input": {
+        "operation": "create_nested",
+        "root_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "intermediate_path": "/agent-team-lead",
+        "intermediate_name": "team-lead",
+        "leaf_path": "/agent-worker-1",
+        "leaf_name": "worker-1"
+      },
+      "expected_output": { "both_proofs_verify": true }
+    },
+    {
+      "name": "create-agent-parent-refusal",
+      "description": "If the parent secret key does not match the parent_did's public key, creation fails",
+      "tags": ["negative", "wrong-parent"],
+      "input": {
+        "operation": "create_with_wrong_parent_key",
+        "parent_did": "did:oas:l1fe:hmr:alice",
+        "parent_declared_public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        "parent_actual_secret_key_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+        "derivation_path": "/agent-bot",
+        "child_name": "bot"
+      },
+      "expected_output": { "created": false }
+    },
+    {
+      "name": "create-agent-document-hash-stable",
+      "description": "BLAKE3 hash of the canonical agent document is stable",
+      "tags": ["hash", "blake3"],
+      "input": {
+        "operation": "hash_agent_doc",
+        "document": {
+          "id": "did:oas:l1fe:agent:bot-1",
+          "type": "agent",
+          "name": "Bot One",
+          "version": "1.0.0"
+        }
+      },
+      "expected_output": {
+        "hash_length_bytes": 32,
+        "is_deterministic": true
+      }
+    },
+    {
+      "name": "create-agent-timestamped-metadata",
+      "description": "Canonicalizing the agent metadata (created_at as RFC 3339 string) is stable",
+      "tags": ["metadata", "timestamps"],
+      "input": {
+        "operation": "canonicalize_agent_doc",
+        "document": {
+          "id": "did:oas:l1fe:agent:bot-1",
+          "type": "agent",
+          "created_at": "2026-04-11T12:00:00Z",
+          "name": "Bot One"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"created_at\":\"2026-04-11T12:00:00Z\",\"id\":\"did:oas:l1fe:agent:bot-1\",\"name\":\"Bot One\",\"type\":\"agent\"}"
+      }
+    }
+  ]
+}

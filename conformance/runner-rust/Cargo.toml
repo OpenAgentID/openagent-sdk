@@ -1,0 +1,33 @@
+[package]
+name = "conformance-runner"
+version = "0.1.0"
+edition = "2021"
+description = "OpenAgent SDK conformance test runner (Rust) — loads JSON vectors and diffs against the reference Rust crypto stack"
+license = "Apache-2.0"
+publish = false
+default-run = "conformance-runner"
+
+[[bin]]
+name = "conformance-runner"
+path = "src/main.rs"
+
+[[bin]]
+name = "generate-vectors"
+path = "../scripts/generate-vectors.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_jcs = "0.1"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+hkdf = "0.12"
+sha2 = "0.10"
+hmac = "0.12"
+blake3 = "1.5"
+aes-gcm = "0.10"
+base64 = "0.22"
+bs58 = "0.5"
+hex = "0.4"
+thiserror = "1.0"
+rand = "0.8"
+jsonschema = { version = "0.17", default-features = false }

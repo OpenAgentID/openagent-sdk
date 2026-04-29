@@ -1,0 +1,18 @@
+{
+  "name": "openagent-aws-lambda",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsup handler.ts --format cjs --out-dir dist",
+    "typecheck": "tsc --noEmit",
+    "deploy": "sam build && sam deploy --guided"
+  },
+  "dependencies": {
+    "@openagent/sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  }
+}

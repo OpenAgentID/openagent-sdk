@@ -1,0 +1,173 @@
+{
+  "category": "arsenal",
+  "name": "scope-parse",
+  "description": "Arsenal scope parsing and implication vectors. Scopes follow the format 'service:resource:action' with '*' wildcards at any component position. The 'implies' relation is the key semantic operation: scope A implies scope B if A grants equal-or-greater permissions than B.",
+  "spec": "arsenal-core/src/scope.rs (L1F Arsenal Capability Token Standard §4)",
+  "format": "service:resource:action",
+  "vectors": [
+    {
+      "name": "parse-valid-three-component",
+      "description": "A simple three-component scope",
+      "tags": ["parse", "valid"],
+      "input": { "operation": "parse", "scope": "stripe:charges:read" },
+      "expected_output": {
+        "valid": true,
+        "service": "stripe",
+        "resource": "charges",
+        "action": "read"
+      }
+    },
+    {
+      "name": "parse-service-wildcard",
+      "description": "A wildcard in the service component",
+      "tags": ["parse", "wildcard"],
+      "input": { "operation": "parse", "scope": "*:*:read" },
+      "expected_output": {
+        "valid": true,
+        "service": "*",
+        "resource": "*",
+        "action": "read"
+      }
+    },
+    {
+      "name": "parse-resource-wildcard",
+      "description": "A wildcard in the resource component",
+      "tags": ["parse", "wildcard"],
+      "input": { "operation": "parse", "scope": "github:*:write" },
+      "expected_output": {
+        "valid": true,
+        "service": "github",
+        "resource": "*",
+        "action": "write"
+      }
+    },
+    {
+      "name": "parse-full-wildcard",
+      "description": "The global wildcard scope",
+      "tags": ["parse", "wildcard", "global"],
+      "input": { "operation": "parse", "scope": "*:*:*" },
+      "expected_output": {
+        "valid": true,
+        "service": "*",
+        "resource": "*",
+        "action": "*"
+      }
+    },
+    {
+      "name": "parse-empty-invalid",
+      "description": "Empty scope strings are invalid",
+      "tags": ["parse", "negative"],
+      "input": { "operation": "parse", "scope": "" },
+      "expected_output": { "valid": false }
+    },
+    {
+      "name": "parse-too-long-invalid",
+      "description": "Scopes over 512 characters are rejected",
+      "tags": ["parse", "negative", "length"],
+      "input": {
+        "operation": "parse",
+        "scope": "svc:resxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx:action"
+      },
+      "expected_output": { "valid": false }
+    },
+    {
+      "name": "implies-exact-match",
+      "description": "A scope implies itself",
+      "tags": ["implies", "exact"],
+      "input": {
+        "operation": "implies",
+        "outer": "stripe:charges:read",
+        "inner": "stripe:charges:read"
+      },
+      "expected_output": { "implies": true }
+    },
+    {
+      "name": "implies-global-wildcard-implies-specific",
+      "description": "Global wildcard implies any specific scope",
+      "tags": ["implies", "wildcard"],
+      "input": {
+        "operation": "implies",
+        "outer": "*:*:*",
+        "inner": "stripe:charges:read"
+      },
+      "expected_output": { "implies": true }
+    },
+    {
+      "name": "implies-service-action-wildcard",
+      "description": "service:*:action implies service:resource:action",
+      "tags": ["implies", "wildcard"],
+      "input": {
+        "operation": "implies",
+        "outer": "github:*:read",
+        "inner": "github:repos:read"
+      },
+      "expected_output": { "implies": true }
+    },
+    {
+      "name": "implies-action-wildcard",
+      "description": "service:resource:* implies service:resource:read",
+      "tags": ["implies", "wildcard"],
+      "input": {
+        "operation": "implies",
+        "outer": "stripe:charges:*",
+        "inner": "stripe:charges:read"
+      },
+      "expected_output": { "implies": true }
+    },
+    {
+      "name": "implies-specific-does-not-imply-wildcard",
+      "description": "A specific scope does NOT imply a broader wildcard",
+      "tags": ["implies", "negative"],
+      "input": {
+        "operation": "implies",
+        "outer": "stripe:charges:read",
+        "inner": "stripe:*:read"
+      },
+      "expected_output": { "implies": false }
+    },
+    {
+      "name": "implies-different-services",
+      "description": "Scopes for different services do not imply one another",
+      "tags": ["implies", "negative"],
+      "input": {
+        "operation": "implies",
+        "outer": "stripe:charges:read",
+        "inner": "github:repos:read"
+      },
+      "expected_output": { "implies": false }
+    },
+    {
+      "name": "implies-different-actions",
+      "description": "Read does not imply write",
+      "tags": ["implies", "negative"],
+      "input": {
+        "operation": "implies",
+        "outer": "stripe:charges:read",
+        "inner": "stripe:charges:write"
+      },
+      "expected_output": { "implies": false }
+    },
+    {
+      "name": "implies-read-only-helper",
+      "description": "service:*:read constructor implies a specific read scope",
+      "tags": ["implies", "constructor"],
+      "input": {
+        "operation": "implies",
+        "outer": "github:*:read",
+        "inner": "github:issues:read"
+      },
+      "expected_output": { "implies": true }
+    },
+    {
+      "name": "implies-full-access-helper",
+      "description": "service:*:* constructor implies any scope under that service",
+      "tags": ["implies", "constructor", "full-access"],
+      "input": {
+        "operation": "implies",
+        "outer": "stripe:*:*",
+        "inner": "stripe:subscriptions:write"
+      },
+      "expected_output": { "implies": true }
+    }
+  ]
+}

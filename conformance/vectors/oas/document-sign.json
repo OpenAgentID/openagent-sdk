@@ -1,0 +1,182 @@
+{
+  "category": "oas",
+  "name": "document-sign",
+  "description": "OAS document signing vectors. An OAS identity document is JCS-canonicalized (RFC 8785), then signed with Ed25519. The signature is base64url-encoded. These vectors verify pre-computed signatures against the reference signing key (RFC 8032 TEST 1, public key d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a).",
+  "spec": "OAS Specification §10 (Document Signing)",
+  "signing_public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "vectors": [
+    {
+      "name": "sign-agent-document",
+      "description": "Sign and verify an agent identity document",
+      "tags": ["sign", "verify", "agent"],
+      "input": {
+        "operation": "verify_signed_document",
+        "document": {
+          "id": "did:oas:l1fe:agent:bot-1",
+          "type": "agent",
+          "name": "Bot One",
+          "version": "1.0.0"
+        },
+        "signature_b64u": "CBeDULdd1WyIIjv8zGGGOR-xsDnoDBkFNNU6ld9IU6yNWMzoM5nAqK_x44mis74JsgPH-I_rj4zDygqPQ2LfAg",
+        "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+      },
+      "expected_output": {
+        "canonical": "{\"id\":\"did:oas:l1fe:agent:bot-1\",\"name\":\"Bot One\",\"type\":\"agent\",\"version\":\"1.0.0\"}",
+        "verify_ok": true
+      }
+    },
+    {
+      "name": "sign-tool-document",
+      "description": "Sign and verify a tool document with endpoint",
+      "tags": ["sign", "verify", "tool"],
+      "input": {
+        "operation": "verify_signed_document",
+        "document": {
+          "id": "did:oas:l1fe:tool:web-search",
+          "type": "tool",
+          "name": "Web Search",
+          "endpoint": "https://api.example.com/search",
+          "version": "2.1.0"
+        },
+        "signature_b64u": "bCWYnEXAu1_XPMQXF8OmzeH22jOE4ddLrMGBcEkkgGpgb_cnwfYQaaPJoywcTxq8QiOXUoShHMZLzsZy2kEcCQ",
+        "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+      },
+      "expected_output": {
+        "canonical": "{\"endpoint\":\"https://api.example.com/search\",\"id\":\"did:oas:l1fe:tool:web-search\",\"name\":\"Web Search\",\"type\":\"tool\",\"version\":\"2.1.0\"}",
+        "verify_ok": true
+      }
+    },
+    {
+      "name": "sign-skill-document-with-arrays",
+      "description": "Sign and verify a skill document containing arrays",
+      "tags": ["sign", "verify", "skill", "arrays"],
+      "input": {
+        "operation": "verify_signed_document",
+        "document": {
+          "id": "did:oas:l1fe:skill:code-review",
+          "type": "skill",
+          "name": "Code Review",
+          "inputs": ["code"],
+          "outputs": ["review"]
+        },
+        "signature_b64u": "REFlGyLbit47VmJ52g_81J6iue6LVLQfih5dL6uw6PyweuyA-hwn7b4mG2e1bzDkwKtlMqEfrlOucwoY1lAoBQ",
+        "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+      },
+      "expected_output": {
+        "canonical": "{\"id\":\"did:oas:l1fe:skill:code-review\",\"inputs\":[\"code\"],\"name\":\"Code Review\",\"outputs\":[\"review\"],\"type\":\"skill\"}",
+        "verify_ok": true
+      }
+    },
+    {
+      "name": "key-order-irrelevant",
+      "description": "Document with fields in different order produces the same canonical form",
+      "tags": ["jcs", "key-order"],
+      "input": {
+        "operation": "canonicalize_document",
+        "document": {
+          "version": "1.0.0",
+          "name": "Bot One",
+          "type": "agent",
+          "id": "did:oas:l1fe:agent:bot-1"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"id\":\"did:oas:l1fe:agent:bot-1\",\"name\":\"Bot One\",\"type\":\"agent\",\"version\":\"1.0.0\"}"
+      }
+    },
+    {
+      "name": "roundtrip-sign-and-verify",
+      "description": "Sign a document with a known secret key, then verify the resulting signature. Runner computes the signature; assertion is that verification passes.",
+      "tags": ["roundtrip"],
+      "input": {
+        "operation": "sign_and_verify_document",
+        "secret_key_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+        "document": {
+          "id": "did:oas:l1fe:agent:roundtrip",
+          "type": "agent",
+          "version": "1.0.0"
+        }
+      },
+      "expected_output": { "verify_ok": true }
+    },
+    {
+      "name": "tamper-document-invalidates-signature",
+      "description": "Mutating one field of the document must invalidate the precomputed signature",
+      "tags": ["negative", "tamper"],
+      "input": {
+        "operation": "verify_signed_document",
+        "document": {
+          "id": "did:oas:l1fe:agent:bot-1",
+          "type": "agent",
+          "name": "Bot Two",
+          "version": "1.0.0"
+        },
+        "signature_b64u": "CBeDULdd1WyIIjv8zGGGOR-xsDnoDBkFNNU6ld9IU6yNWMzoM5nAqK_x44mis74JsgPH-I_rj4zDygqPQ2LfAg",
+        "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "wrong-verification-key-fails",
+      "description": "A document signed with one key cannot be verified with another",
+      "tags": ["negative", "wrong-key"],
+      "input": {
+        "operation": "verify_signed_document",
+        "document": {
+          "id": "did:oas:l1fe:agent:bot-1",
+          "type": "agent",
+          "name": "Bot One",
+          "version": "1.0.0"
+        },
+        "signature_b64u": "CBeDULdd1WyIIjv8zGGGOR-xsDnoDBkFNNU6ld9IU6yNWMzoM5nAqK_x44mis74JsgPH-I_rj4zDygqPQ2LfAg",
+        "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c"
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "empty-document-canonicalization",
+      "description": "An empty document canonicalizes to {}",
+      "tags": ["edge", "empty"],
+      "input": {
+        "operation": "canonicalize_document",
+        "document": {}
+      },
+      "expected_output": { "canonical": "{}" }
+    },
+    {
+      "name": "nested-document-canonicalization",
+      "description": "A nested document has recursively-sorted keys",
+      "tags": ["jcs", "nested"],
+      "input": {
+        "operation": "canonicalize_document",
+        "document": {
+          "id": "did:oas:l1fe:service:payments",
+          "metadata": {
+            "version": "1.0.0",
+            "created_at": "2026-01-01T00:00:00Z",
+            "author": "l1fe"
+          },
+          "type": "service"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"id\":\"did:oas:l1fe:service:payments\",\"metadata\":{\"author\":\"l1fe\",\"created_at\":\"2026-01-01T00:00:00Z\",\"version\":\"1.0.0\"},\"type\":\"service\"}"
+      }
+    },
+    {
+      "name": "unicode-content-canonicalization",
+      "description": "JCS preserves Unicode content in string values",
+      "tags": ["jcs", "unicode"],
+      "input": {
+        "operation": "canonicalize_document",
+        "document": {
+          "id": "did:oas:l1fe:agent:unicode",
+          "name": "OpenAgent Alpha"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"id\":\"did:oas:l1fe:agent:unicode\",\"name\":\"OpenAgent Alpha\"}"
+      }
+    }
+  ]
+}

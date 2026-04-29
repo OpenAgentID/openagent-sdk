@@ -1,0 +1,67 @@
+[package]
+name = "openagent-claude-agent"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "OpenAgent identity, capability control, and tamper-evident audit hooks for the Claude Agent SDK. Framework-agnostic Rust trait surface — the TypeScript package is the reference integration; this crate lets any Rust agent harness adopt the same lifecycle contracts."
+repository = "https://github.com/l1feai/openagent-sdk"
+homepage = "https://openagent.id"
+keywords = ["agent", "openagent", "did", "audit", "claude"]
+categories = ["authentication", "asynchronous"]
+readme = "README.md"
+
+[lib]
+name = "openagent_claude_agent"
+crate-type = ["rlib"]
+
+[features]
+default = ["std"]
+std = []
+# Optional path-dep on the OpenAgent skills policy reference crate. Off by
+# default so this crate stays buildable in isolation.
+skills-policy = ["dep:openagent-skills-policy"]
+# Pull in the full OpenAgent SDK feature set (Arsenal credentials + AEGIS
+# verification). Off by default — the base integration only needs the
+# identity + skills surface.
+openagent-full = ["openagent-sdk/full"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+blake3 = "1.5"
+hex = "0.4"
+async-trait = "0.1"
+time = { version = "0.3", features = ["serde", "formatting", "macros"] }
+tokio = { version = "1.40", features = ["sync"] }
+
+# OpenAgent SDK — wrapped via a thin adapter so the plugin can hand the
+# Claude Agent SDK an `OpenAgent` instance and pick up its identity,
+# keypair, and skills policy. Path dep into the sibling SDK in the
+# monorepo.
+openagent-sdk = { path = "../../../sdks/rust" }
+
+# Optional path-dep — the OpenAgent skills policy reference crate. Wired
+# behind the `skills-policy` feature so the integration can be built and
+# tested in isolation when running outside the monorepo.
+openagent-skills-policy = { path = "../../../crates/openagent-skills-policy/rust", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.40", features = ["macros", "rt", "rt-multi-thread"] }
+pretty_assertions = "1.4"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+# Allow expect/unwrap/panic in tests — idiomatic Rust testing style.
+[package.metadata.cargo-machete]
+ignored = ["openagent-skills-policy"]

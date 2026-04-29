@@ -1,0 +1,46 @@
+[package]
+name = "openagent-mcp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "OpenAgent middleware for the Model Context Protocol — adds OAS identity, Arsenal capability tokens, and AEGIS authorization to any rmcp server in three lines."
+homepage = "https://openagent.id/docs/integrations/mcp"
+repository = "https://github.com/l1feai/openagent-sdk"
+keywords = ["mcp", "openagent", "oas", "did", "agents"]
+categories = ["authentication", "asynchronous", "api-bindings"]
+
+[features]
+# By default the crate compiles standalone with just the trait surface
+# and a small in-memory test runtime. Enable `rmcp` to pull in the
+# adapter that wires the middleware into a real `rmcp::ServerHandler`.
+default = []
+
+# Adapter for the upstream `rmcp` crate (Rust MCP SDK). Pinned below.
+# Kept behind a feature flag because rmcp's public API has changed
+# multiple times in the 0.x line; downstream applications should pick
+# the version that matches their server.
+rmcp = ["dep:rmcp"]
+
+[dependencies]
+# Async + serialization — load-bearing on the public API.
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.36", default-features = false, features = ["sync", "rt", "macros", "time"] }
+tracing = "0.1"
+uuid = { version = "1.7", features = ["v4"] }
+
+# Pinned to the last 0.x line we have validated against. The adapter
+# under `src/rmcp_adapter.rs` targets this exact API surface; bump
+# carefully.
+rmcp = { version = "0.2", optional = true, default-features = false, features = ["server"] }
+
+[dev-dependencies]
+tokio = { version = "1.36", features = ["full"] }
+serde_json = "1.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

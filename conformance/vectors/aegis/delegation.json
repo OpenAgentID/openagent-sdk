@@ -1,0 +1,146 @@
+{
+  "category": "aegis",
+  "name": "delegation",
+  "description": "AEGIS delegation tree vectors. Delegation follows the no-amplification rule: a delegator can only grant scopes they themselves hold. The delegation tree forms a DAG; each node must be validated against its parent's scopes, TTL, and expiration. These vectors verify the core delegation rules.",
+  "spec": "aegis-delegate/src/tree.rs (no-amplification rule)",
+  "vectors": [
+    {
+      "name": "delegate-exact-scope",
+      "description": "Delegator grants the exact scope they hold",
+      "tags": ["delegate", "valid"],
+      "input": {
+        "operation": "delegate",
+        "parent_scopes": ["stripe:charges:read"],
+        "requested_child_scopes": ["stripe:charges:read"]
+      },
+      "expected_output": { "allowed": true }
+    },
+    {
+      "name": "delegate-subset-of-scopes",
+      "description": "Delegator grants a subset of their scopes",
+      "tags": ["delegate", "valid", "subset"],
+      "input": {
+        "operation": "delegate",
+        "parent_scopes": ["stripe:charges:read", "stripe:subscriptions:read", "github:repos:read"],
+        "requested_child_scopes": ["stripe:charges:read"]
+      },
+      "expected_output": { "allowed": true }
+    },
+    {
+      "name": "delegate-narrowed-from-wildcard",
+      "description": "Delegator with stripe:*:* grants stripe:charges:read (narrowing)",
+      "tags": ["delegate", "narrow"],
+      "input": {
+        "operation": "delegate",
+        "parent_scopes": ["stripe:*:*"],
+        "requested_child_scopes": ["stripe:charges:read"]
+      },
+      "expected_output": { "allowed": true }
+    },
+    {
+      "name": "reject-amplification-broader-scope",
+      "description": "Cannot grant broader scope than parent holds (no amplification)",
+      "tags": ["delegate", "negative", "amplification"],
+      "input": {
+        "operation": "delegate",
+        "parent_scopes": ["stripe:charges:read"],
+        "requested_child_scopes": ["stripe:*:*"]
+      },
+      "expected_output": { "allowed": false, "reason": "amplification" }
+    },
+    {
+      "name": "reject-amplification-new-service",
+      "description": "Cannot grant scope for a service the parent doesn't have",
+      "tags": ["delegate", "negative", "amplification"],
+      "input": {
+        "operation": "delegate",
+        "parent_scopes": ["stripe:charges:read"],
+        "requested_child_scopes": ["github:repos:read"]
+      },
+      "expected_output": { "allowed": false, "reason": "amplification" }
+    },
+    {
+      "name": "reject-amplification-new-action",
+      "description": "Cannot upgrade read scope to write scope",
+      "tags": ["delegate", "negative", "amplification", "action"],
+      "input": {
+        "operation": "delegate",
+        "parent_scopes": ["stripe:charges:read"],
+        "requested_child_scopes": ["stripe:charges:write"]
+      },
+      "expected_output": { "allowed": false, "reason": "amplification" }
+    },
+    {
+      "name": "delegate-multi-level-allowed",
+      "description": "Multi-level delegation allowed when each hop narrows or preserves",
+      "tags": ["delegate", "valid", "multi-level"],
+      "input": {
+        "operation": "delegate_chain",
+        "root_scopes": ["stripe:*:*"],
+        "chain_grants": [
+          ["stripe:charges:*"],
+          ["stripe:charges:read"]
+        ]
+      },
+      "expected_output": { "allowed": true, "leaf_scopes": ["stripe:charges:read"] }
+    },
+    {
+      "name": "reject-multi-level-amplification-at-level-2",
+      "description": "Multi-level chain rejected if any hop amplifies",
+      "tags": ["delegate", "negative", "multi-level"],
+      "input": {
+        "operation": "delegate_chain",
+        "root_scopes": ["stripe:charges:read"],
+        "chain_grants": [
+          ["stripe:charges:read"],
+          ["stripe:charges:write"]
+        ]
+      },
+      "expected_output": { "allowed": false, "reason": "amplification" }
+    },
+    {
+      "name": "ttl-cannot-exceed-parent",
+      "description": "Child TTL cannot exceed parent's remaining lifetime",
+      "tags": ["delegate", "ttl"],
+      "input": {
+        "operation": "delegate_ttl",
+        "parent_exp": 1704070800,
+        "child_exp_requested": 1704080000,
+        "now": 1704067200
+      },
+      "expected_output": { "allowed": false, "reason": "ttl_exceeds_parent" }
+    },
+    {
+      "name": "ttl-within-parent",
+      "description": "Child TTL strictly within parent's remaining lifetime is allowed",
+      "tags": ["delegate", "ttl", "valid"],
+      "input": {
+        "operation": "delegate_ttl",
+        "parent_exp": 1704070800,
+        "child_exp_requested": 1704069000,
+        "now": 1704067200
+      },
+      "expected_output": { "allowed": true }
+    },
+    {
+      "name": "revocation-propagates-to-children",
+      "description": "When a parent delegation is revoked, all children become invalid",
+      "tags": ["delegate", "revocation"],
+      "input": {
+        "operation": "revocation_cascade",
+        "tree": {
+          "root": "del-root",
+          "children": [
+            { "id": "del-child-1", "children": [ { "id": "del-grandchild-1" } ] },
+            { "id": "del-child-2" }
+          ]
+        },
+        "revoke": "del-child-1"
+      },
+      "expected_output": {
+        "invalidated": ["del-child-1", "del-grandchild-1"],
+        "still_valid": ["del-root", "del-child-2"]
+      }
+    }
+  ]
+}

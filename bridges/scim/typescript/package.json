@@ -1,0 +1,71 @@
+{
+  "name": "@openagent/scim",
+  "version": "0.1.0",
+  "description": "SCIM 2.0 provisioning bridge for OpenAgent — enterprise agent lifecycle via RFC 7644",
+  "license": "Apache-2.0",
+  "author": "L1fe AI <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/l1feai/openagent-sdk.git",
+    "directory": "bridges/scim/typescript"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit && vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@openagent/sdk": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@openagent/sdk": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^1.6.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "keywords": [
+    "openagent",
+    "scim",
+    "provisioning",
+    "identity",
+    "did",
+    "oas",
+    "enterprise",
+    "rfc7644",
+    "okta",
+    "azure-ad"
+  ]
+}

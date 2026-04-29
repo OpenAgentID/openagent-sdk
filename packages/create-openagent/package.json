@@ -1,0 +1,50 @@
+{
+  "name": "create-openagent",
+  "version": "0.1.0",
+  "description": "Scaffold an OpenAgent project — agent, MCP server, web dashboard, or full-stack.",
+  "license": "Apache-2.0",
+  "author": "L1fe AI <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/l1feai/openagent-sdk.git",
+    "directory": "packages/create-openagent"
+  },
+  "type": "module",
+  "bin": {
+    "create-openagent": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0",
+    "picocolors": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "create",
+    "openagent",
+    "agent",
+    "scaffold",
+    "cli",
+    "mcp",
+    "did",
+    "oas"
+  ]
+}

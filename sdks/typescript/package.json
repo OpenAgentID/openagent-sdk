@@ -1,0 +1,109 @@
+{
+  "name": "@openagent/sdk",
+  "version": "0.1.0",
+  "description": "OpenAgent SDK — Clerk for autonomous agents. One import for identity, credentials, and verification.",
+  "license": "Apache-2.0",
+  "author": "L1fe AI <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/l1feai/openagent-sdk.git",
+    "directory": "sdks/typescript"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./agent": {
+      "types": "./dist/agent.d.ts",
+      "import": "./dist/agent.js",
+      "require": "./dist/agent.cjs"
+    },
+    "./identity": {
+      "types": "./dist/identity.d.ts",
+      "import": "./dist/identity.js",
+      "require": "./dist/identity.cjs"
+    },
+    "./credentials": {
+      "types": "./dist/credentials.d.ts",
+      "import": "./dist/credentials.js",
+      "require": "./dist/credentials.cjs"
+    },
+    "./verification": {
+      "types": "./dist/verification.d.ts",
+      "import": "./dist/verification.js",
+      "require": "./dist/verification.cjs"
+    },
+    "./skills": {
+      "types": "./dist/skills.d.ts",
+      "import": "./dist/skills.js",
+      "require": "./dist/skills.cjs"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js",
+      "require": "./dist/errors.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit && vitest run",
+    "clean": "rm -rf dist coverage"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@aegis/sdk": "^0.1.0",
+    "@arsenal/sdk": "^0.1.0",
+    "@oas/sdk": "^0.1.0",
+    "@openagent/crypto-wasm": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@aegis/sdk": { "optional": true },
+    "@arsenal/sdk": { "optional": true },
+    "@oas/sdk": { "optional": true },
+    "@openagent/crypto-wasm": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^1.6.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "keywords": [
+    "openagent",
+    "agent",
+    "authentication",
+    "identity",
+    "did",
+    "oas",
+    "arsenal",
+    "aegis",
+    "credentials",
+    "autonomous",
+    "ai"
+  ]
+}

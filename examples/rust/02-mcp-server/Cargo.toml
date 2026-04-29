@@ -1,0 +1,24 @@
+[package]
+name = "openagent-example-02-mcp-server"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "test-client"
+path = "src/test_client.rs"
+
+[dependencies]
+openagent-sdk = { path = "../../../crates/openagent-sdk", features = ["axum"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+axum = { version = "0.7", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

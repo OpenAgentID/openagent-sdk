@@ -1,0 +1,93 @@
+{
+  "category": "crypto",
+  "name": "blake3",
+  "description": "BLAKE3 known-answer vectors. Inputs labelled 'seq:N' use the BLAKE3 reference-suite pattern: bytes [0, 1, 2, ..., (N-1) mod 251]. ASCII inputs are plain UTF-8 strings.",
+  "algorithm": "BLAKE3 (default mode, 32-byte output)",
+  "spec": "BLAKE3 reference implementation test_vectors.json",
+  "vectors": [
+    {
+      "name": "empty-input",
+      "description": "BLAKE3 of an empty byte sequence",
+      "tags": ["kat", "empty"],
+      "input": { "operation": "hash_hex", "input_hex": "" },
+      "expected_output": { "hash_hex": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262" }
+    },
+    {
+      "name": "seq-1-byte",
+      "description": "BLAKE3 of byte 0x00",
+      "tags": ["kat", "reference-suite", "seq"],
+      "input": { "operation": "hash_seq", "length": 1 },
+      "expected_output": { "hash_hex": "2d3adedff11b61f14c886e35afa036736dcd87a74d27b5c1510225d0f592e213" }
+    },
+    {
+      "name": "seq-2-bytes",
+      "description": "BLAKE3 of bytes 0x0001",
+      "tags": ["kat", "reference-suite", "seq"],
+      "input": { "operation": "hash_seq", "length": 2 },
+      "expected_output": { "hash_hex": "7b7015bb92cf0b318037702a6cdd81dee41224f734684c2c122cd6359cb1ee63" }
+    },
+    {
+      "name": "seq-3-bytes",
+      "description": "BLAKE3 of bytes 0x000102",
+      "tags": ["kat", "reference-suite", "seq"],
+      "input": { "operation": "hash_seq", "length": 3 },
+      "expected_output": { "hash_hex": "e1be4d7a8ab5560aa4199eea339849ba8e293d55ca0a81006726d184519e647f" }
+    },
+    {
+      "name": "seq-4-bytes",
+      "description": "BLAKE3 of bytes 0x00010203",
+      "tags": ["kat", "reference-suite", "seq"],
+      "input": { "operation": "hash_seq", "length": 4 },
+      "expected_output": { "hash_hex": "f30f5ab28fe047904037f77b6da4fea1e27241c5d132638d8bedce9d40494f32" }
+    },
+    {
+      "name": "seq-63-bytes",
+      "description": "BLAKE3 of reference sequence of 63 bytes (just below chunk boundary)",
+      "tags": ["kat", "reference-suite", "seq", "chunk-boundary"],
+      "input": { "operation": "hash_seq", "length": 63 },
+      "expected_output": { "hash_hex": "e9bc37a594daad83be9470df7f7b3798297c3d834ce80ba85d6e207627b7db7b" }
+    },
+    {
+      "name": "seq-64-bytes",
+      "description": "BLAKE3 of reference sequence of 64 bytes (single block)",
+      "tags": ["kat", "reference-suite", "seq", "block"],
+      "input": { "operation": "hash_seq", "length": 64 },
+      "expected_output": { "hash_hex": "4eed7141ea4a5cd4b788606bd23f46e212af9cacebacdc7d1f4c6dc7f2511b98" }
+    },
+    {
+      "name": "seq-1024-bytes",
+      "description": "BLAKE3 of reference sequence of 1024 bytes (single chunk)",
+      "tags": ["kat", "reference-suite", "seq", "chunk"],
+      "input": { "operation": "hash_seq", "length": 1024 },
+      "expected_output": { "hash_hex": "42214739f095a406f3fc83deb889744ac00df831c10daa55189b5d121c855af7" }
+    },
+    {
+      "name": "seq-1025-bytes",
+      "description": "BLAKE3 of reference sequence of 1025 bytes (crosses chunk boundary)",
+      "tags": ["kat", "reference-suite", "seq", "multi-chunk"],
+      "input": { "operation": "hash_seq", "length": 1025 },
+      "expected_output": { "hash_hex": "d00278ae47eb27b34faecf67b4fe263f82d5412916c1ffd97c8cb7fb814b8444" }
+    },
+    {
+      "name": "seq-2048-bytes",
+      "description": "BLAKE3 of reference sequence of 2048 bytes (two chunks)",
+      "tags": ["kat", "reference-suite", "seq", "multi-chunk"],
+      "input": { "operation": "hash_seq", "length": 2048 },
+      "expected_output": { "hash_hex": "e776b6028c7cd22a4d0ba182a8bf62205d2ef576467e838ed6f2529b85fba24a" }
+    },
+    {
+      "name": "ascii-abc",
+      "description": "BLAKE3 of the ASCII string 'abc'",
+      "tags": ["kat", "ascii"],
+      "input": { "operation": "hash_ascii", "input_ascii": "abc" },
+      "expected_output": { "hash_hex": "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85" }
+    },
+    {
+      "name": "ascii-quick-brown-fox",
+      "description": "BLAKE3 of 'The quick brown fox jumps over the lazy dog'",
+      "tags": ["kat", "ascii", "pangram"],
+      "input": { "operation": "hash_ascii", "input_ascii": "The quick brown fox jumps over the lazy dog" },
+      "expected_output": { "hash_hex": "2f1514181aadccd913abd94cfa592701a5686ab23f8df1dff1b74710febc6d4a" }
+    }
+  ]
+}

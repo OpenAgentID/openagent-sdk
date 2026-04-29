@@ -1,0 +1,76 @@
+[package]
+name = "openagent-crypto-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "Foundational WASM crypto primitives for OpenAgent, Arsenal, AEGIS, and OAS SDKs — one source of truth for Rust and TypeScript cryptographic correctness."
+repository = "https://github.com/l1feai/openagent-sdk"
+keywords = ["crypto", "wasm", "ed25519", "frost", "openagent"]
+categories = ["cryptography", "wasm"]
+
+[lib]
+# Produce both cdylib (for wasm-pack) and rlib (for native Rust consumers)
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Default is native Rust — no wasm-bindgen. Downstream Rust crates that embed
+# this library in a native context get pure Rust APIs with no JS glue.
+default = ["native"]
+
+# Native-only feature. Enables OS CSPRNG via `rand` and standard error types.
+native = []
+
+# Enable wasm-bindgen exports. When building for wasm-pack, enable this feature
+# and disable default features:
+#
+#   wasm-pack build --target bundler -- --no-default-features --features wasm
+#
+# `getrandom/js` is required so the JS-host RNG is wired up in the browser.
+wasm = ["dep:wasm-bindgen", "dep:js-sys", "getrandom/js"]
+
+[dependencies]
+# Core crypto primitives
+ed25519-dalek = { version = "2.1", default-features = false, features = ["std", "rand_core", "zeroize", "fast"] }
+x25519-dalek = { version = "2.0", default-features = false, features = ["static_secrets", "zeroize"] }
+frost-ed25519 = { version = "2.0", default-features = false, features = ["serialization"] }
+hkdf = { version = "0.12", default-features = false, features = ["std"] }
+sha2 = { version = "0.10", default-features = false, features = ["std"] }
+blake3 = { version = "1.5", default-features = false, features = ["std"] }
+aes-gcm = { version = "0.10", default-features = false, features = ["std", "aes"] }
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["std", "alloc"] }
+argon2 = { version = "0.5", default-features = false, features = ["std", "password-hash"] }
+password-hash = { version = "0.5", default-features = false, features = ["std", "rand_core"] }
+subtle = { version = "2.5", default-features = false }
+zeroize = { version = "1.7", default-features = false, features = ["zeroize_derive"] }
+
+# RNG — getrandom is the bedrock; rand is the convenience layer.
+rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
+rand_core = { version = "0.6", default-features = false, features = ["getrandom"] }
+getrandom = { version = "0.2", default-features = false }
+
+# Serialization + encoding
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+serde_jcs = { version = "0.1" }
+multibase = { version = "0.9", default-features = false }
+bs58 = { version = "0.5", default-features = false, features = ["std"] }
+hex = { version = "0.4", default-features = false, features = ["std"] }
+
+# Errors
+thiserror = { version = "1.0" }
+
+# WASM bindings (optional)
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+hex-literal = "0.4"
+serde_json = "1.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O4", "--enable-mutable-globals"]

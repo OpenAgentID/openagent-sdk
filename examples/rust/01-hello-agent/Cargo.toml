@@ -1,0 +1,11 @@
+[package]
+name = "openagent-example-01-hello-agent"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+openagent-sdk = { path = "../../../crates/openagent-sdk" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+anyhow = "1"
+http = "1"

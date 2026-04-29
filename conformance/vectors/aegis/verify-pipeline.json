@@ -1,0 +1,165 @@
+{
+  "category": "aegis",
+  "name": "verify-pipeline",
+  "description": "AEGIS identity verification pipeline vectors. The pipeline: (1) parse the DID, (2) look up the identity document, (3) verify the document signature, (4) verify any lineage proof chains back to an HMR, (5) apply freshness/revocation checks. These vectors exercise the end-to-end pass and common failure modes.",
+  "spec": "aegis-verify/src/lib.rs",
+  "vectors": [
+    {
+      "name": "verify-single-hop-valid",
+      "description": "One-hop lineage: HMR -> agent, valid proof",
+      "tags": ["pipeline", "valid", "single-hop"],
+      "input": {
+        "operation": "verify_chain",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "chain": [
+          {
+            "parent_did": "did:oas:l1fe:hmr:alice",
+            "child_did": "did:oas:l1fe:agent:bot-1",
+            "derivation_path": "/agent-bot-1"
+          }
+        ]
+      },
+      "expected_output": { "verify_ok": true, "depth": 1 }
+    },
+    {
+      "name": "verify-two-hop-chain",
+      "description": "Two-hop chain: HMR -> team-lead -> worker",
+      "tags": ["pipeline", "valid", "two-hop"],
+      "input": {
+        "operation": "verify_chain",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "chain": [
+          {
+            "parent_did": "did:oas:l1fe:hmr:alice",
+            "child_did": "did:oas:l1fe:agent:team-lead",
+            "derivation_path": "/agent-team-lead"
+          },
+          {
+            "parent_did": "did:oas:l1fe:agent:team-lead",
+            "child_did": "did:oas:l1fe:agent:worker-1",
+            "derivation_path": "/agent-worker-1"
+          }
+        ]
+      },
+      "expected_output": { "verify_ok": true, "depth": 2 }
+    },
+    {
+      "name": "verify-three-hop-chain",
+      "description": "Three-hop chain ends in a valid agent",
+      "tags": ["pipeline", "valid", "deep-chain"],
+      "input": {
+        "operation": "verify_chain",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "chain": [
+          {
+            "parent_did": "did:oas:l1fe:hmr:alice",
+            "child_did": "did:oas:l1fe:agent:department",
+            "derivation_path": "/agent-department"
+          },
+          {
+            "parent_did": "did:oas:l1fe:agent:department",
+            "child_did": "did:oas:l1fe:agent:team",
+            "derivation_path": "/agent-team"
+          },
+          {
+            "parent_did": "did:oas:l1fe:agent:team",
+            "child_did": "did:oas:l1fe:agent:member",
+            "derivation_path": "/agent-member"
+          }
+        ]
+      },
+      "expected_output": { "verify_ok": true, "depth": 3 }
+    },
+    {
+      "name": "reject-chain-exceeding-max-depth",
+      "description": "Chains deeper than MAX_GENERATION (16) are rejected",
+      "tags": ["pipeline", "negative", "depth-limit"],
+      "input": {
+        "operation": "verify_chain_depth",
+        "depth": 17,
+        "max_generation": 16
+      },
+      "expected_output": { "verify_ok": false, "reason": "max_depth_exceeded" }
+    },
+    {
+      "name": "reject-empty-chain",
+      "description": "An empty lineage chain is rejected",
+      "tags": ["pipeline", "negative", "empty"],
+      "input": {
+        "operation": "verify_chain",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "chain": []
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "reject-broken-chain-parent-mismatch",
+      "description": "Chain is rejected if a hop's parent does not match the previous hop's child",
+      "tags": ["pipeline", "negative", "broken-chain"],
+      "input": {
+        "operation": "verify_chain",
+        "parent_secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "chain": [
+          {
+            "parent_did": "did:oas:l1fe:hmr:alice",
+            "child_did": "did:oas:l1fe:agent:step-1",
+            "derivation_path": "/step-1"
+          },
+          {
+            "parent_did": "did:oas:l1fe:agent:OTHER",
+            "child_did": "did:oas:l1fe:agent:step-2",
+            "derivation_path": "/step-2"
+          }
+        ]
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "challenge-response-valid",
+      "description": "Agent signs a server-issued nonce and the server verifies it",
+      "tags": ["challenge", "valid"],
+      "input": {
+        "operation": "challenge_response",
+        "secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "nonce_hex": "0102030405060708090a0b0c0d0e0f10"
+      },
+      "expected_output": { "verify_ok": true }
+    },
+    {
+      "name": "challenge-response-tampered",
+      "description": "Challenge response with a different nonce fails verification",
+      "tags": ["challenge", "negative"],
+      "input": {
+        "operation": "challenge_response_tamper",
+        "secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "nonce_hex": "0102030405060708090a0b0c0d0e0f10",
+        "verify_nonce_hex": "ffffffffffffffffffffffffffffffff"
+      },
+      "expected_output": { "verify_ok": false }
+    },
+    {
+      "name": "freshness-within-window",
+      "description": "Proof timestamp within acceptable window is fresh",
+      "tags": ["freshness"],
+      "input": {
+        "operation": "freshness_check",
+        "proof_iat": 1704067200,
+        "now": 1704067250,
+        "window_seconds": 300
+      },
+      "expected_output": { "fresh": true }
+    },
+    {
+      "name": "freshness-too-old",
+      "description": "Proof timestamp too old is stale",
+      "tags": ["freshness", "negative"],
+      "input": {
+        "operation": "freshness_check",
+        "proof_iat": 1704067200,
+        "now": 1704068000,
+        "window_seconds": 300
+      },
+      "expected_output": { "fresh": false }
+    }
+  ]
+}

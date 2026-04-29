@@ -1,0 +1,238 @@
+{
+  "suite": "openagent.lineage-authority",
+  "version": "1.0.0-draft",
+  "status": "draft_pending_sigil_gal_taxonomy",
+  "description": "Draft OpenAgent privileged lineage authority vectors shared by Rust and TypeScript. These pin runtime fail-closed behavior and auth-context fields without freezing exact Sigil GAL field names or final error taxonomy.",
+  "coordination": {
+    "requiredBeforeLocking": "Confirm exact Sigil GAL field names and error taxonomy with the Sigil team.",
+    "oasBoundary": "OAS consumes Sigil/GAL only through resolver traits or adapters; no Sigil-specific imports are required by these vectors."
+  },
+  "vectors": [
+    {
+      "name": "hmr-direct-authority",
+      "description": "Human root directly delegates privileged authority to an agent.",
+      "tags": ["success", "hmr", "human_to_agent"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:hmr-bot",
+        "rootDid": "did:oas:test:hmr:alice",
+        "localChain": ["did:oas:test:hmr:alice", "did:oas:test:agent:hmr-bot"],
+        "pathKind": "human_to_agent",
+        "requiredScopes": ["openai:chat:completions"],
+        "minFinalizedBlock": 100,
+        "resolver": {
+          "source": "sigil_gal_test",
+          "currentFinalizedBlock": 120,
+          "rootKind": "hmr",
+          "rootStatus": "active",
+          "rootAnchoredAtBlock": 90,
+          "revokedDids": []
+        }
+      },
+      "expected_output": {
+        "ok": true,
+        "context": {
+          "subjectDid": "did:oas:test:agent:hmr-bot",
+          "rootDid": "did:oas:test:hmr:alice",
+          "authorityPathKind": "human_to_agent",
+          "authoritySource": "sigil_gal_test",
+          "generation": 1,
+          "rootKind": "hmr",
+          "orgRootCommitment": null
+        }
+      }
+    },
+    {
+      "name": "mhr-authority",
+      "description": "Multi-human threshold root authority is accepted when rooted in active MHR state.",
+      "tags": ["success", "mhr", "org_to_agent"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:mhr-ops",
+        "rootDid": "did:oas:test:mhr:platform-council",
+        "localChain": [
+          "did:oas:test:mhr:platform-council",
+          "did:oas:test:org:platform",
+          "did:oas:test:agent:mhr-ops"
+        ],
+        "pathKind": "org_to_agent",
+        "requiredScopes": ["arsenal:vault:write"],
+        "minFinalizedBlock": 100,
+        "resolver": {
+          "source": "sigil_gal_test",
+          "currentFinalizedBlock": 120,
+          "rootKind": "mhr",
+          "rootStatus": "active",
+          "rootAnchoredAtBlock": 88,
+          "revokedDids": []
+        }
+      },
+      "expected_output": {
+        "ok": true,
+        "context": {
+          "subjectDid": "did:oas:test:agent:mhr-ops",
+          "rootDid": "did:oas:test:mhr:platform-council",
+          "authorityPathKind": "org_to_agent",
+          "authoritySource": "sigil_gal_test",
+          "generation": 2,
+          "rootKind": "mhr",
+          "orgRootCommitment": null
+        }
+      }
+    },
+    {
+      "name": "enr-authority",
+      "description": "Entity namespace root authority is accepted when rooted in active ENR state.",
+      "tags": ["success", "enr", "agent_to_org"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:service",
+        "rootDid": "did:oas:test:enr:service-root",
+        "localChain": ["did:oas:test:enr:service-root", "did:oas:test:agent:service"],
+        "pathKind": "agent_to_org",
+        "requiredScopes": ["oas:org:admin"],
+        "minFinalizedBlock": 100,
+        "resolver": {
+          "source": "sigil_gal_test",
+          "currentFinalizedBlock": 120,
+          "rootKind": "enr",
+          "rootStatus": "active",
+          "rootAnchoredAtBlock": 80,
+          "revokedDids": []
+        }
+      },
+      "expected_output": {
+        "ok": true,
+        "context": {
+          "subjectDid": "did:oas:test:agent:service",
+          "rootDid": "did:oas:test:enr:service-root",
+          "authorityPathKind": "agent_to_org",
+          "authoritySource": "sigil_gal_test",
+          "generation": 1,
+          "rootKind": "enr",
+          "orgRootCommitment": null
+        }
+      }
+    },
+    {
+      "name": "missing-authority",
+      "description": "Sensitive operation fails closed when no authority source or record is available.",
+      "tags": ["failure", "missing"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:no-authority",
+        "rootDid": "did:oas:test:hmr:alice",
+        "localChain": ["did:oas:test:hmr:alice", "did:oas:test:agent:no-authority"],
+        "pathKind": "human_to_agent",
+        "requiredScopes": ["openai:chat:completions"],
+        "resolver": null
+      },
+      "expected_output": {
+        "ok": false,
+        "errorClass": "lineage_authority_missing"
+      }
+    },
+    {
+      "name": "malformed-authority",
+      "description": "Authority context fails closed when the returned subject or root does not match the verified request.",
+      "tags": ["failure", "malformed"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:caller",
+        "rootDid": "did:oas:test:hmr:alice",
+        "localChain": ["did:oas:test:hmr:alice", "did:oas:test:agent:caller"],
+        "pathKind": "human_to_agent",
+        "malformedRecord": {
+          "subjectDid": "did:oas:test:agent:other",
+          "rootDid": "did:oas:test:hmr:alice"
+        }
+      },
+      "expected_output": {
+        "ok": false,
+        "errorClass": "lineage_authority_malformed"
+      }
+    },
+    {
+      "name": "revoked-root",
+      "description": "Authority fails closed when the root DID is revoked in resolver-backed state.",
+      "tags": ["failure", "revoked"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:revoked-root-bot",
+        "rootDid": "did:oas:test:hmr:revoked",
+        "localChain": ["did:oas:test:hmr:revoked", "did:oas:test:agent:revoked-root-bot"],
+        "pathKind": "human_to_agent",
+        "requiredScopes": ["openai:chat:completions"],
+        "resolver": {
+          "source": "sigil_gal_test",
+          "currentFinalizedBlock": 120,
+          "rootKind": "hmr",
+          "rootStatus": "revoked",
+          "rootAnchoredAtBlock": 90,
+          "revokedDids": ["did:oas:test:hmr:revoked"]
+        }
+      },
+      "expected_output": {
+        "ok": false,
+        "errorClass": "lineage_authority_revoked"
+      }
+    },
+    {
+      "name": "wrong-org-root",
+      "description": "Org-scoped authority fails closed when the org root commitment differs from the expected commitment.",
+      "tags": ["failure", "org-root"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:org-bot",
+        "rootDid": "did:oas:test:mhr:org-root",
+        "localChain": [
+          "did:oas:test:mhr:org-root",
+          "did:oas:test:org:platform",
+          "did:oas:test:agent:org-bot"
+        ],
+        "pathKind": "org_to_agent",
+        "requiredScopes": ["arsenal:vault:write"],
+        "expectedOrgRootCommitment": "blake3:expected",
+        "resolver": {
+          "source": "sigil_gal_test",
+          "currentFinalizedBlock": 120,
+          "rootKind": "mhr",
+          "rootStatus": "active",
+          "rootAnchoredAtBlock": 90,
+          "orgRootCommitment": "blake3:actual",
+          "revokedDids": []
+        }
+      },
+      "expected_output": {
+        "ok": false,
+        "errorClass": "lineage_authority_wrong_org_root"
+      }
+    },
+    {
+      "name": "stale-authority-context",
+      "description": "Authority fails closed when resolver finality is below the required minimum.",
+      "tags": ["failure", "stale"],
+      "input": {
+        "operation": "verify_lineage_authority",
+        "subjectDid": "did:oas:test:agent:stale-bot",
+        "rootDid": "did:oas:test:hmr:alice",
+        "localChain": ["did:oas:test:hmr:alice", "did:oas:test:agent:stale-bot"],
+        "pathKind": "human_to_agent",
+        "requiredScopes": ["openai:chat:completions"],
+        "minFinalizedBlock": 100,
+        "resolver": {
+          "source": "sigil_gal_test",
+          "currentFinalizedBlock": 99,
+          "rootKind": "hmr",
+          "rootStatus": "active",
+          "rootAnchoredAtBlock": 90,
+          "revokedDids": []
+        }
+      },
+      "expected_output": {
+        "ok": false,
+        "errorClass": "lineage_authority_stale"
+      }
+    }
+  ]
+}

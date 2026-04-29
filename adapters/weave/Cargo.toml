@@ -1,0 +1,53 @@
+[package]
+name = "openagent-weave"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.78"
+license = "Apache-2.0 OR MIT"
+description = "Weave/libp2p transport adapter for the OpenAgent Auth Protocol (OAAP). Maps the 4-step authentication handshake onto a custom libp2p request-response protocol."
+repository = "https://github.com/l1feai/openagent-sdk"
+keywords = ["openagent", "weave", "libp2p", "p2p", "auth"]
+categories = ["authentication", "network-programming"]
+
+[dependencies]
+# OAAP core types and traits.
+openagent-auth-protocol = { path = "../../crates/openagent-auth-protocol" }
+
+# libp2p — aligned with Weave workspace (0.54 for request-response StreamProtocol compat).
+libp2p = { version = "0.54", default-features = false, features = [
+    "tcp", "noise", "yamux", "request-response", "tokio", "macros",
+] }
+
+# CBOR wire encoding — efficient binary format for P2P.
+ciborium = "0.2"
+
+# Async
+tokio = { version = "1.36", features = ["sync", "time", "rt", "macros"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+
+# Errors / observability
+thiserror = "1.0"
+tracing = "0.1"
+
+# Encoding
+hex = "0.4"
+base64 = "0.22"
+
+# Crypto / RNG (for nonce/session-id generation)
+rand = { version = "0.8", features = ["std", "std_rng"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+
+[dev-dependencies]
+tokio = { version = "1.36", features = ["full"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

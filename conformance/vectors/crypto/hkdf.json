@@ -1,0 +1,169 @@
+{
+  "category": "crypto",
+  "name": "hkdf",
+  "description": "HKDF vectors. Test Case 1-3 from RFC 5869 Appendix A (SHA-256). Test Case 4-5 are OAS-specific HKDF-SHA256 Expand-only vectors (OAS key derivation uses Extract+Expand with IKM=parent_sk, salt=parent_pk, info=path). Test Case 6-7 exercise Expand length limits.",
+  "algorithm": "HKDF-SHA256 (RFC 5869)",
+  "spec": "RFC 5869 §2 / Appendix A.1-A.3",
+  "vectors": [
+    {
+      "name": "rfc5869-a1-basic-test-sha256",
+      "description": "RFC 5869 A.1 Basic test case with SHA-256",
+      "tags": ["rfc5869", "extract-expand", "kat"],
+      "input": {
+        "operation": "extract_and_expand",
+        "hash": "SHA-256",
+        "ikm_hex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+        "salt_hex": "000102030405060708090a0b0c",
+        "info_hex": "f0f1f2f3f4f5f6f7f8f9",
+        "length": 42
+      },
+      "expected_output": {
+        "prk_hex": "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5",
+        "okm_hex": "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
+      }
+    },
+    {
+      "name": "rfc5869-a2-long-inputs-sha256",
+      "description": "RFC 5869 A.2 Longer inputs/outputs with SHA-256",
+      "tags": ["rfc5869", "extract-expand", "kat", "long"],
+      "input": {
+        "operation": "extract_and_expand",
+        "hash": "SHA-256",
+        "ikm_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f",
+        "salt_hex": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeaf",
+        "info_hex": "b0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+        "length": 82
+      },
+      "expected_output": {
+        "prk_hex": "06a6b88c5853361a06104c9ceb35b45cef760014904671014a193f40c15fc244",
+        "okm_hex": "b11e398dc80327a1c8e7f78c596a49344f012eda2d4efad8a050cc4c19afa97c59045a99cac7827271cb41c65e590e09da3275600c2f09b8367793a9aca3db71cc30c58179ec3e87c14c01d5c1f3434f1d87"
+      }
+    },
+    {
+      "name": "rfc5869-a3-empty-salt-info-sha256",
+      "description": "RFC 5869 A.3 Zero-length salt and info with SHA-256",
+      "tags": ["rfc5869", "extract-expand", "kat", "empty"],
+      "input": {
+        "operation": "extract_and_expand",
+        "hash": "SHA-256",
+        "ikm_hex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+        "salt_hex": "",
+        "info_hex": "",
+        "length": 42
+      },
+      "expected_output": {
+        "prk_hex": "19ef24a32c717b167f33a91d6f648bdf96596776afdb6377ac434c1c293ccb04",
+        "okm_hex": "8da4e775a563c18f715f802a063c5a31b8a11f5c5ee1879ec3454e5f3c738d2d9d201395faa4b61a96c8"
+      }
+    },
+    {
+      "name": "rfc5869-extract-only-a1",
+      "description": "RFC 5869 A.1 PRK only (HKDF-Extract)",
+      "tags": ["rfc5869", "extract", "kat"],
+      "input": {
+        "operation": "extract",
+        "hash": "SHA-256",
+        "ikm_hex": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+        "salt_hex": "000102030405060708090a0b0c"
+      },
+      "expected_output": {
+        "prk_hex": "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5"
+      }
+    },
+    {
+      "name": "rfc5869-expand-only-a1",
+      "description": "RFC 5869 A.1 Expand from precomputed PRK",
+      "tags": ["rfc5869", "expand", "kat"],
+      "input": {
+        "operation": "expand",
+        "hash": "SHA-256",
+        "prk_hex": "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5",
+        "info_hex": "f0f1f2f3f4f5f6f7f8f9",
+        "length": 42
+      },
+      "expected_output": {
+        "okm_hex": "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865"
+      }
+    },
+    {
+      "name": "oas-derivation-zero-ikm",
+      "description": "OAS-style HKDF-SHA256 with 32-byte zero IKM, 32-byte one salt, '/agent-test' info, 32-byte output",
+      "tags": ["oas", "derivation", "kat"],
+      "input": {
+        "operation": "extract_and_expand",
+        "hash": "SHA-256",
+        "ikm_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+        "salt_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+        "info_ascii": "/agent-test",
+        "length": 32
+      },
+      "expected_output": {
+        "okm_hex": "a76bfa23fa21fe766ef7e0b6f488a8b73a655de8b9989b84d3e9c8423c6079d9"
+      }
+    },
+    {
+      "name": "oas-derivation-alice-bot",
+      "description": "OAS HKDF using the RFC 8032 TEST 1 secret as IKM, TEST 1 public as salt, '/agent-bot' info",
+      "tags": ["oas", "derivation"],
+      "input": {
+        "operation": "extract_and_expand",
+        "hash": "SHA-256",
+        "ikm_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "salt_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        "info_ascii": "/agent-bot",
+        "length": 32
+      },
+      "expected_output": {
+        "okm_hex": "209e22de36d7dee0ff79c2276b3519fba2814b9b3da140c0dbe55392cb01a045"
+      }
+    },
+    {
+      "name": "oas-derivation-deep-path",
+      "description": "OAS HKDF with a long derivation path (multi-level)",
+      "tags": ["oas", "derivation", "long-info"],
+      "input": {
+        "operation": "extract_and_expand",
+        "hash": "SHA-256",
+        "ikm_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "salt_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        "info_ascii": "/agent-root/team-alpha/division-payments/worker-42",
+        "length": 32
+      },
+      "expected_output": {
+        "okm_hex": "113195e3b12f0bcbd2eae9a5b35d7856362c5c9e4180035e8e5d5daa3c36f809"
+      }
+    },
+    {
+      "name": "oas-derivation-64-byte-output",
+      "description": "OAS HKDF producing 64 bytes (2 blocks of SHA-256)",
+      "tags": ["oas", "derivation", "multi-block"],
+      "input": {
+        "operation": "extract_and_expand",
+        "hash": "SHA-256",
+        "ikm_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+        "salt_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+        "info_ascii": "/agent-bot",
+        "length": 64
+      },
+      "expected_output": {
+        "okm_hex": "209e22de36d7dee0ff79c2276b3519fba2814b9b3da140c0dbe55392cb01a0455feabb6ff9479abf45cc0d0a0e7cd3fe7b1b92773fc540c42278239f913fdeff"
+      }
+    },
+    {
+      "name": "different-info-different-output",
+      "description": "Same PRK, different info strings yield different OKMs",
+      "tags": ["oas", "derivation", "property"],
+      "input": {
+        "operation": "expand_two",
+        "hash": "SHA-256",
+        "prk_hex": "077709362c2e32df0ddc3f0dc47bba6390b6c73bb50f9c3122ec844ad7c2b3e5",
+        "info_a_ascii": "/agent-a",
+        "info_b_ascii": "/agent-b",
+        "length": 32
+      },
+      "expected_output": {
+        "differ": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,176 @@
+{
+  "category": "crypto",
+  "name": "jcs",
+  "description": "JSON Canonicalization Scheme (JCS) vectors per RFC 8785. Confirms that the same logical JSON value serializes to identical bytes across implementations. Focuses on key sort order, whitespace elimination, array order preservation, and the concrete OAS lineage-proof payload shape.",
+  "algorithm": "JCS (RFC 8785)",
+  "spec": "RFC 8785",
+  "vectors": [
+    {
+      "name": "simple-key-sort",
+      "description": "Object keys must be sorted lexicographically",
+      "tags": ["rfc8785", "key-sort"],
+      "input": {
+        "operation": "canonicalize",
+        "value": {"z": 1, "a": 2}
+      },
+      "expected_output": {
+        "canonical": "{\"a\":2,\"z\":1}"
+      }
+    },
+    {
+      "name": "nested-objects-sorted-recursively",
+      "description": "Nested object keys are sorted recursively",
+      "tags": ["rfc8785", "key-sort", "nested"],
+      "input": {
+        "operation": "canonicalize",
+        "value": {"b": {"d": 4, "c": 3}, "a": 1}
+      },
+      "expected_output": {
+        "canonical": "{\"a\":1,\"b\":{\"c\":3,\"d\":4}}"
+      }
+    },
+    {
+      "name": "empty-object",
+      "description": "Empty object canonicalizes to {}",
+      "tags": ["rfc8785", "empty"],
+      "input": {
+        "operation": "canonicalize",
+        "value": {}
+      },
+      "expected_output": {
+        "canonical": "{}"
+      }
+    },
+    {
+      "name": "empty-array",
+      "description": "Empty array canonicalizes to []",
+      "tags": ["rfc8785", "empty"],
+      "input": {
+        "operation": "canonicalize",
+        "value": []
+      },
+      "expected_output": {
+        "canonical": "[]"
+      }
+    },
+    {
+      "name": "array-preserves-order",
+      "description": "Array order is preserved (not sorted)",
+      "tags": ["rfc8785", "array"],
+      "input": {
+        "operation": "canonicalize",
+        "value": [3, 1, 2]
+      },
+      "expected_output": {
+        "canonical": "[3,1,2]"
+      }
+    },
+    {
+      "name": "string-scalar",
+      "description": "A JSON string at the top level",
+      "tags": ["rfc8785", "scalar"],
+      "input": {
+        "operation": "canonicalize",
+        "value": "hello"
+      },
+      "expected_output": {
+        "canonical": "\"hello\""
+      }
+    },
+    {
+      "name": "integer-scalar",
+      "description": "A JSON integer at the top level",
+      "tags": ["rfc8785", "scalar", "number"],
+      "input": {
+        "operation": "canonicalize",
+        "value": 42
+      },
+      "expected_output": {
+        "canonical": "42"
+      }
+    },
+    {
+      "name": "boolean-true",
+      "description": "Boolean true at the top level",
+      "tags": ["rfc8785", "scalar"],
+      "input": {
+        "operation": "canonicalize",
+        "value": true
+      },
+      "expected_output": {
+        "canonical": "true"
+      }
+    },
+    {
+      "name": "boolean-false",
+      "description": "Boolean false at the top level",
+      "tags": ["rfc8785", "scalar"],
+      "input": {
+        "operation": "canonicalize",
+        "value": false
+      },
+      "expected_output": {
+        "canonical": "false"
+      }
+    },
+    {
+      "name": "null-scalar",
+      "description": "null at the top level",
+      "tags": ["rfc8785", "scalar"],
+      "input": {
+        "operation": "canonicalize",
+        "value": null
+      },
+      "expected_output": {
+        "canonical": "null"
+      }
+    },
+    {
+      "name": "whitespace-stripped",
+      "description": "Insignificant whitespace is removed (tested by comparing against a whitespace-free canonical form). Input already unified.",
+      "tags": ["rfc8785", "whitespace"],
+      "input": {
+        "operation": "canonicalize",
+        "value": {"name": "OAS", "version": "1.0.0"}
+      },
+      "expected_output": {
+        "canonical": "{\"name\":\"OAS\",\"version\":\"1.0.0\"}"
+      }
+    },
+    {
+      "name": "oas-lineage-proof-payload",
+      "description": "The canonical payload for AgentLineageProof2025 — parentDid, childDid, derivationPath. Per OAS Spec §9.4 the payload is built as {parentDid, childDid, derivationPath} and then JCS-canonicalized, which sorts the keys as childDid, derivationPath, parentDid.",
+      "tags": ["oas", "lineage", "proof-payload", "appendix-d2"],
+      "input": {
+        "operation": "canonicalize",
+        "value": {
+          "parentDid": "did:oas:test:hmr:vector-parent",
+          "childDid": "did:oas:test:agent:vector-child",
+          "derivationPath": "/agent-test-vector-1"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"childDid\":\"did:oas:test:agent:vector-child\",\"derivationPath\":\"/agent-test-vector-1\",\"parentDid\":\"did:oas:test:hmr:vector-parent\"}"
+      }
+    },
+    {
+      "name": "mixed-types",
+      "description": "Mixed value types in one object",
+      "tags": ["rfc8785", "mixed"],
+      "input": {
+        "operation": "canonicalize",
+        "value": {
+          "str": "value",
+          "num": 123,
+          "bool": true,
+          "null_field": null,
+          "arr": [1, 2, 3],
+          "obj": {"nested": "yes"}
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"arr\":[1,2,3],\"bool\":true,\"null_field\":null,\"num\":123,\"obj\":{\"nested\":\"yes\"},\"str\":\"value\"}"
+      }
+    }
+  ]
+}
