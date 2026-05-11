@@ -18,6 +18,13 @@ describe('extractBearerToken', () => {
     expect(extractBearerToken(req)).toBe('abc.def');
   });
 
+  it('reads Authorization: OpenAgent', () => {
+    const req = new Request('https://example.com/', {
+      headers: { Authorization: 'OpenAgent sig.pub' },
+    });
+    expect(extractBearerToken(req)).toBe('sig.pub');
+  });
+
   it('reads X-OpenAgent-Token fallback', () => {
     const req = new Request('https://example.com/', {
       headers: { 'X-OpenAgent-Token': 'xyz' },
@@ -74,6 +81,16 @@ describe('StubVerificationClient', () => {
     });
     const ctx = await client.verifyRequest(req);
     expect(ctx.did).toBe('did:oas:l1fe:agent:bot');
+  });
+
+  it('accepts valid OpenAgent stub: tokens', async () => {
+    const verifier = new StubVerificationClient();
+    const req = new Request('https://example.com/', {
+      headers: { Authorization: 'OpenAgent stub:did:oas:l1fe:agent:bot' },
+    });
+    const ctx = await verifier.verifyRequest(req);
+    expect(ctx.did).toBe('did:oas:l1fe:agent:bot');
+    expect(ctx.presentedToken).toBe('stub:did:oas:l1fe:agent:bot');
   });
 
   it('throws when no token is present', async () => {

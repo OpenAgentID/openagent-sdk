@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
 description = "WebSocket adapter for the OpenAgent Auth Protocol (OAAP) — maps the 4-step OAAP handshake onto WebSocket connections for real-time agent-to-agent communication."
-repository = "https://github.com/l1feai/openagent-sdk"
+repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["websocket", "auth", "agent", "openagent", "oaap"]
 categories = ["authentication", "web-programming::websocket"]
 

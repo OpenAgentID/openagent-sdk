@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated repository metadata and git dependencies to target the public
+  `OpenAgentID` GitHub organization for source-based installs.
 - Documented `oas-sdk` as the required upstream Sigil-backed lineage verifier contract for privileged OpenAgent sessions, credentials, and scopes. AEGIS and Arsenal consume the OAS result rather than redefining lineage.
 
 ### Added

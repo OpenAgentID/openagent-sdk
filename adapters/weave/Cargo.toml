@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
 description = "Weave/libp2p transport adapter for the OpenAgent Auth Protocol (OAAP). Maps the 4-step authentication handshake onto a custom libp2p request-response protocol."
-repository = "https://github.com/l1feai/openagent-sdk"
+repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["openagent", "weave", "libp2p", "p2p", "auth"]
 categories = ["authentication", "network-programming"]
 

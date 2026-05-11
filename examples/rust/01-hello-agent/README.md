@@ -6,7 +6,7 @@ The minimal OpenAgent demo in Rust. Creates an agent under a parent DID, authent
 
 - `OpenAgent::from_env()` / `OpenAgent::builder()` setup.
 - `OpenAgent::create_agent` with typed options.
-- `OpenAgent::authenticate` on a synthetic request.
+- `authenticate_with_verifier` on a synthetic identity.
 - `agent.credentials_for("openai")` returning a reqwest-shaped builder.
 
 ## Run it

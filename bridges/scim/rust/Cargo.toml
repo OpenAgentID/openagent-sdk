@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
 description = "SCIM 2.0 provisioning bridge trait definitions for OpenAgent — enterprise agent lifecycle via RFC 7644"
-repository = "https://github.com/l1feai/openagent-sdk"
+repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["scim", "provisioning", "openagent", "did", "identity"]
 categories = ["authentication", "web-programming"]
 

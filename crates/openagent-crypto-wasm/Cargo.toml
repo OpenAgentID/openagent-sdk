@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
 description = "Foundational WASM crypto primitives for OpenAgent, Arsenal, AEGIS, and OAS SDKs — one source of truth for Rust and TypeScript cryptographic correctness."
-repository = "https://github.com/l1feai/openagent-sdk"
+repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["crypto", "wasm", "ed25519", "frost", "openagent"]
 categories = ["cryptography", "wasm"]
 

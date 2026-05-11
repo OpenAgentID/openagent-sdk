@@ -26,7 +26,7 @@ cargo run --bin test-client
 ## Flow
 
 1. Request arrives at `/mcp`.
-2. `OpenAgent::authenticate` verifies the token, lineage, and policies.
+2. `authenticate_with_verifier` verifies the caller identity, lineage, and policies.
 3. The handler dispatches by method (`initialize`, `tools/list`, `tools/call`).
 4. `summarize_url` checks `tavily:search:invoke` scope before calling Tavily through the broker.
 5. Every step writes to the audit log.

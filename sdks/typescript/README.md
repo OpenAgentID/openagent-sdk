@@ -2,7 +2,7 @@
 
 **Agent auth in 3 lines.** Clerk for autonomous agents.
 
-One `import` wraps [OAS](https://openagent.id) identity, [Arsenal](https://github.com/l1feai/arsenal) scoped credentials, and [AEGIS](https://github.com/l1feai/aegis) verification into a single developer-facing surface. Works in Node 20+, Bun, Deno, the browser, and Cloudflare Workers.
+One `import` wraps [OAS](https://openagent.id) identity, [Arsenal](https://github.com/OpenAgentID/arsenal) scoped credentials, and [AEGIS](https://github.com/OpenAgentID/aegis) verification into a single developer-facing surface. Works in Node 20+, Bun, Deno, the browser, and Cloudflare Workers.
 
 ```ts
 import { OpenAgent } from '@openagent/sdk';

@@ -7,7 +7,7 @@
   "homepage": "https://openagent.id",
   "repository": {
     "type": "git",
-    "url": "https://github.com/l1feai/openagent-sdk.git",
+    "url": "https://github.com/OpenAgentID/openagent-sdk.git",
     "directory": "packages/create-openagent"
   },
   "type": "module",

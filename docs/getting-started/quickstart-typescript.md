@@ -59,7 +59,7 @@ Run it:
 bun run server.ts
 ```
 
-On a request, `OpenAgent.authenticate` looks for one of: a Bearer token containing an Arsenal ACT, an `X-OpenAgent-Signature` header with a detached Ed25519 signature over the request, or an `Authorization: OpenAgent <token>` header (the canonical form). If any of those verifies, you get back a `Context` object. If none does, it throws `OpenAgentError` with a `code` you can switch on.
+On a request, `OpenAgent.authenticate` looks for one of: `Authorization: OpenAgent <token>`, `Authorization: Bearer <token>`, `X-OpenAgent-Token`, or an `oa_token` query parameter. If the verifier accepts the token, you get back an `AuthContext` object. If none does, it throws `OpenAgentError` with a `code` you can switch on.
 
 `agent.credentialsFor('openai')` is the interesting line. You never told OpenAgent what your OpenAI API key is — because you didn't need to. The Arsenal broker in your deployment holds the key. When your code calls `openai.post(url, opts)`, the SDK talks to the broker, the broker attaches the Authorization header, the broker proxies upstream, and the broker returns the response. Your agent process never sees the key and never has to rotate it.
 

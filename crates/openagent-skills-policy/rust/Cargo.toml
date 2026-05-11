@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
 description = "Governance policy engine for agent skills — an Arsenal-composed policy layer that gates which SKILLS.md entries an agent may invoke, with rate limiting, argument constraints, time windows, consent, and hash-chained audit receipts."
-repository = "https://github.com/l1feai/openagent-sdk"
+repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["agent", "skills", "policy", "arsenal", "openagent"]
 categories = ["authentication", "command-line-utilities"]
 
@@ -15,8 +15,8 @@ crate-type = ["rlib"]
 
 [dependencies]
 # Arsenal primitives — we extend rather than reinvent
-arsenal-core = { git = "https://github.com/l1feai/arsenal", branch = "main" }
-arsenal-policy = { git = "https://github.com/l1feai/arsenal", branch = "main" }
+arsenal-core = { git = "https://github.com/OpenAgentID/arsenal", branch = "main" }
+arsenal-policy = { git = "https://github.com/OpenAgentID/arsenal", branch = "main" }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

@@ -6,7 +6,7 @@
 
 Given an HTTP-like request (Node's `IncomingMessage`, a `Request` from the Fetch API, an Axum `Request<Body>`, or a framework-agnostic shape), the SDK walks through a short pipeline:
 
-1. **Locate the credential.** The SDK looks at headers in this order: `Authorization: OpenAgent <token>`, `Authorization: Bearer <token>`, `X-OpenAgent-Token`, and finally `X-OpenAgent-Signature` (detached signature mode). The first one that matches wins.
+1. **Locate the credential.** The TypeScript SDK looks at headers in this order: `Authorization: OpenAgent <token>`, `Authorization: Bearer <token>`, `X-OpenAgent-Token`, and finally an `oa_token` query parameter. The first one that matches wins.
 2. **Parse the token.** If the credential is an ACT, it's decoded and its structural integrity checked. If it's a detached signature, the signing DID is extracted from the `X-OpenAgent-Did` header.
 3. **Verify the signature.** The DID's public key is recovered (either from the DID itself or from a cached resolver), and the signature is verified offline.
 4. **Check the ACT.** If there is one, the broker signature is verified, expiration is checked, and the scope list is captured.

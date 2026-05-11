@@ -6,7 +6,7 @@ rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
 description = "OpenAgent middleware for the Model Context Protocol — adds OAS identity, Arsenal capability tokens, and AEGIS authorization to any rmcp server in three lines."
 homepage = "https://openagent.id/docs/integrations/mcp"
-repository = "https://github.com/l1feai/openagent-sdk"
+repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["mcp", "openagent", "oas", "did", "agents"]
 categories = ["authentication", "asynchronous", "api-bindings"]
 

@@ -1,0 +1,96 @@
+{
+  "name": "@openagent/sdk",
+  "version": "0.1.0",
+  "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
+  "license": "Apache-2.0",
+  "author": "L1fe AI <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenAgentID/openagent-sdk.git"
+  },
+  "type": "module",
+  "main": "./sdks/typescript/dist/index.cjs",
+  "module": "./sdks/typescript/dist/index.js",
+  "types": "./sdks/typescript/dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./sdks/typescript/dist/index.d.ts",
+      "import": "./sdks/typescript/dist/index.js",
+      "require": "./sdks/typescript/dist/index.cjs"
+    },
+    "./agent": {
+      "types": "./sdks/typescript/dist/agent.d.ts",
+      "import": "./sdks/typescript/dist/agent.js",
+      "require": "./sdks/typescript/dist/agent.cjs"
+    },
+    "./identity": {
+      "types": "./sdks/typescript/dist/identity.d.ts",
+      "import": "./sdks/typescript/dist/identity.js",
+      "require": "./sdks/typescript/dist/identity.cjs"
+    },
+    "./credentials": {
+      "types": "./sdks/typescript/dist/credentials.d.ts",
+      "import": "./sdks/typescript/dist/credentials.js",
+      "require": "./sdks/typescript/dist/credentials.cjs"
+    },
+    "./verification": {
+      "types": "./sdks/typescript/dist/verification.d.ts",
+      "import": "./sdks/typescript/dist/verification.js",
+      "require": "./sdks/typescript/dist/verification.cjs"
+    },
+    "./skills": {
+      "types": "./sdks/typescript/dist/skills.d.ts",
+      "import": "./sdks/typescript/dist/skills.js",
+      "require": "./sdks/typescript/dist/skills.cjs"
+    },
+    "./errors": {
+      "types": "./sdks/typescript/dist/errors.d.ts",
+      "import": "./sdks/typescript/dist/errors.js",
+      "require": "./sdks/typescript/dist/errors.cjs"
+    }
+  },
+  "files": [
+    "sdks/typescript/dist",
+    "sdks/typescript/README.md",
+    "sdks/typescript/CHANGELOG.md",
+    "sdks/typescript/LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm --prefix sdks/typescript install --no-package-lock && npm --prefix sdks/typescript run build",
+    "prepack": "npm run build",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@aegis/sdk": "^0.1.0",
+    "@arsenal/sdk": "^0.1.0",
+    "@oas/sdk": "^0.1.0",
+    "@openagent/crypto-wasm": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@aegis/sdk": { "optional": true },
+    "@arsenal/sdk": { "optional": true },
+    "@oas/sdk": { "optional": true },
+    "@openagent/crypto-wasm": { "optional": true }
+  },
+  "keywords": [
+    "openagent",
+    "agent",
+    "authentication",
+    "identity",
+    "did",
+    "oas",
+    "arsenal",
+    "aegis",
+    "credentials",
+    "autonomous",
+    "ai"
+  ]
+}

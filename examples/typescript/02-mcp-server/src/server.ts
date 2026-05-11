@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { OpenAgent, OpenAgentError } from '@openagent/sdk';
+import { assertScopes, OpenAgent, OpenAgentError } from '@openagent/sdk';
 
 OpenAgent.configure({
   brokerUrl: process.env.OPENAGENT_BROKER_URL ?? 'fake://in-memory',
@@ -33,7 +33,7 @@ async function handleToolCall(ctx: Awaited<ReturnType<typeof OpenAgent.authentic
 
   switch (name) {
     case 'summarize_url': {
-      ctx.requireScope('tavily:search:invoke');
+      assertScopes(ctx, ['tavily:search:invoke']);
       const agent = await OpenAgent.loadAgent(ctx.did);
       const tavily = await agent.credentialsFor('tavily');
 

@@ -4,10 +4,10 @@ OpenAgent ships its crypto in a single WebAssembly module compiled from Rust. Bo
 
 ## The problem we're solving
 
-OpenAgent needs to produce and verify identity material in multiple languages. Today it's Rust and TypeScript. Tomorrow it's Go, Python, Swift, Kotlin — the OAS standard has SDKs in seven languages already and the list will grow. We need a cryptographic implementation that:
+OpenAgent needs to produce and verify identity material across runtimes. Today the public facade is Rust and TypeScript. Future bindings can graduate only if they reuse the same audited primitives and conformance vectors. We need a cryptographic implementation that:
 
 1. **Produces identical bytes on every platform.** A DID fingerprint is a hash of a public key; if one implementation does the hash slightly differently, DIDs don't round-trip between languages. This is a hard correctness requirement, not a nice-to-have.
-2. **Is auditable.** The crypto is the root of trust. If there are seven implementations, an auditor has to review seven implementations. That's expensive and error-prone.
+2. **Is auditable.** The crypto is the root of trust. If every binding ships its own implementation, auditors have to review each one. That's expensive and error-prone.
 3. **Is performant everywhere.** Agents make lots of signatures. A 50ms Ed25519 sign from a slow implementation adds up quickly.
 4. **Is pure.** No C dependencies, no OpenSSL drift, no "works on my platform" linker surprises.
 
@@ -46,7 +46,7 @@ From an auditor's perspective, OpenAgent's crypto is:
 - Compiled to WASM with `wasm-bindgen`, which is widely used and well-understood.
 - All primitive choices are well-known and peer-reviewed: Ed25519 (RFC 8032), HKDF-SHA256 (RFC 5869), BLAKE3 (IETF draft), FROST (CFRG draft).
 
-An auditor reads 4,000 lines of Rust once and they've covered every SDK OpenAgent will ever ship. Compare that to the alternative of auditing seven separate implementations and you see the win immediately.
+An auditor reads the Rust implementation once and future bindings inherit the same reviewed primitive boundary. Compare that to auditing separate crypto implementations per language and the win is immediate.
 
 ## What about WASI and WIT?
 

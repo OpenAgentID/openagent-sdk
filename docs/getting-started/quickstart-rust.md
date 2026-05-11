@@ -5,14 +5,14 @@ The Rust SDK is the reference implementation. Everything the TypeScript SDK does
 ## The three lines
 
 ```rust
-use openagent_sdk::{OpenAgent, CreateAgentOptions};
+use openagent_sdk::{authenticate_with_verifier, CreateAgentOptions, OpenAgent, Verifier};
 
 let agent = OpenAgent::create_agent(CreateAgentOptions::new("did:oas:acme:hmr:alice", "research-bot").scopes(["openai:chat:invoke"])).await?;
-let ctx   = OpenAgent::authenticate(&req).await?;
+let ctx   = authenticate_with_verifier(&Verifier::default(), agent.did()).await?;
 let creds = agent.credentials_for("openai").await?;
 ```
 
-Same shape as the TypeScript quickstart: `create_agent` mints a new DID under a parent and issues a capability token, `authenticate` turns an inbound request into a verified context, and `credentials_for` returns a fetch-shaped proxy that attaches credentials without ever exposing them to your code.
+Same shape as the TypeScript quickstart: `create_agent` mints a new DID under a parent and records requested scopes, `authenticate_with_verifier` turns a DID into a verified context through the verifier contract, and `credentials_for` returns a proxy that attaches credentials without ever exposing them to your code.
 
 ## A complete Axum server
 

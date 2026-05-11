@@ -101,13 +101,14 @@ export interface PrivilegedAuthorityVerifier {
 /**
  * Extract the bearer token from a `Request` without trusting it.
  *
- * Checks, in order: `Authorization: Bearer ...`, `X-OpenAgent-Token`,
- * and an `oa_token` query parameter. Returns `null` if absent.
+ * Checks, in order: `Authorization: OpenAgent ...`,
+ * `Authorization: Bearer ...`, `X-OpenAgent-Token`, and an `oa_token`
+ * query parameter. Returns `null` if absent.
  */
 export function extractBearerToken(req: Request): string | null {
   const auth = req.headers.get('authorization');
   if (auth) {
-    const match = /^Bearer\s+(.+)$/i.exec(auth.trim());
+    const match = /^(?:OpenAgent|Bearer)\s+(.+)$/i.exec(auth.trim());
     if (match && match[1]) return match[1];
   }
   const custom = req.headers.get('x-openagent-token');
@@ -234,8 +235,9 @@ function assertAuthorityContext(
 /**
  * Stub verification client for tests and offline dev.
  *
- * Accepts any request that carries `Authorization: Bearer stub:<did>` and
- * returns a synthetic {@link AuthContext}. NOT a real verifier.
+ * Accepts any request that carries `Authorization: OpenAgent stub:<did>` or
+ * `Authorization: Bearer stub:<did>` and returns a synthetic
+ * {@link AuthContext}. NOT a real verifier.
  */
 export class StubVerificationClient implements VerificationClient {
   private readonly challenges = new Map<string, Uint8Array>();
