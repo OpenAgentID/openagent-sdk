@@ -23,14 +23,14 @@ full = ["aegis", "arsenal"]
 
 [dependencies]
 # Wrapped SDKs.
-oas-sdk = { git = "https://github.com/OpenAgentID/oas", branch = "main", default-features = false }
-oas-crypto = { git = "https://github.com/OpenAgentID/oas", branch = "main" }
-oas-document = { git = "https://github.com/OpenAgentID/oas", branch = "main" }
-oas-lineage = { git = "https://github.com/OpenAgentID/oas", branch = "main" }
-arsenal-sdk = { git = "https://github.com/OpenAgentID/arsenal", branch = "main" }
-arsenal-core = { git = "https://github.com/OpenAgentID/arsenal", branch = "main" }
-aegis-sdk = { git = "https://github.com/OpenAgentID/aegis", branch = "main" }
-aegis-core = { git = "https://github.com/OpenAgentID/aegis", branch = "main" }
+oas-sdk = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0", default-features = false }
+oas-crypto = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0" }
+oas-document = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0" }
+oas-lineage = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0" }
+arsenal-sdk = { git = "https://github.com/OpenAgentID/arsenal", branch = "main", version = "1.0.0" }
+arsenal-core = { git = "https://github.com/OpenAgentID/arsenal", branch = "main", version = "1.0.0" }
+aegis-sdk = { git = "https://github.com/OpenAgentID/aegis", branch = "main", version = "0.2.0" }
+aegis-core = { git = "https://github.com/OpenAgentID/aegis", branch = "main", version = "0.2.0" }
 
 # Async + util.
 tokio = { version = "1.36", features = ["sync", "rt", "macros"] }

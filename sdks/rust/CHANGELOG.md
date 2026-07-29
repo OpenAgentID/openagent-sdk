@@ -9,9 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated repository metadata and git dependencies to target the public
-  `OpenAgentID` GitHub organization for source-based installs.
+- Updated repository metadata and git dependencies to target the
+  `OpenAgentID` GitHub organization for source-based installs. Those
+  repositories are private during the identity-stack consolidation, so an
+  install resolves only for callers whose git credentials carry organization
+  access.
 - Documented `oas-sdk` as the required upstream Sigil-backed lineage verifier contract for privileged OpenAgent sessions, credentials, and scopes. AEGIS and Arsenal consume the OAS result rather than redefining lineage.
+- Added explicit OAS, Arsenal, and AEGIS git dependency versions so Cargo
+  package staging can validate the Rust SDK manifest while retaining
+  source-based installs from the OpenAgentID repositories.
+- Verification: `cargo package --allow-dirty --no-verify` now reaches the
+  expected crates.io availability check for `aegis-core ^0.2.0`, and
+  `cargo check` passes.
+
+### Known issues
+
+- The `cargo package` check above is where a naming collision will bite. A
+  publish resolves every dependency from a registry, and `aegis-core`,
+  `aegis-policy` and `aegis-sdk` are already taken on crates.io by unrelated
+  third parties. Publishing this SDK as written would resolve `aegis-core`
+  against a foreign crate, so those three names must be changed before any
+  release, and `cargo add aegis-*` must never appear in documentation.
 
 ### Added
 
