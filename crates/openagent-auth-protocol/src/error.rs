@@ -10,7 +10,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum OaapError {
     /// The protocol version in the received message is not supported.
-    #[error("unsupported protocol version {received}; this implementation supports version {supported}")]
+    #[error(
+        "unsupported protocol version {received}; this implementation supports version {supported}"
+    )]
     UnsupportedVersion {
         /// The version received from the peer.
         received: u8,

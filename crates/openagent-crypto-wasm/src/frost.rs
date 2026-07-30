@@ -130,8 +130,7 @@ pub fn trusted_keygen(min_signers: u16, max_signers: u16) -> Result<KeyShareBund
     })?;
 
     // Sort by identifier so positional indexing in `key_packages` is deterministic.
-    let mut sorted: Vec<(Identifier, frost::keys::SecretShare)> =
-        shares.into_iter().collect();
+    let mut sorted: Vec<(Identifier, frost::keys::SecretShare)> = shares.into_iter().collect();
     sorted.sort_by_key(|(id, _)| id.serialize());
 
     let mut key_packages_serialized = Vec::with_capacity(sorted.len());
@@ -143,10 +142,12 @@ pub fn trusted_keygen(min_signers: u16, max_signers: u16) -> Result<KeyShareBund
                 reason: format!("KeyPackage construction failed for participant {id:?}: {e}"),
             }
         })?;
-        let bytes = kp.serialize().map_err(|e| CryptoError::SerializationFailed {
-            what: "FROST KeyPackage",
-            reason: e.to_string(),
-        })?;
+        let bytes = kp
+            .serialize()
+            .map_err(|e| CryptoError::SerializationFailed {
+                what: "FROST KeyPackage",
+                reason: e.to_string(),
+            })?;
         key_packages_serialized.push(bytes);
     }
 
@@ -158,13 +159,12 @@ pub fn trusted_keygen(min_signers: u16, max_signers: u16) -> Result<KeyShareBund
                 reason: e.to_string(),
             })?;
 
-    let group_pk = pubkey_package
-        .verifying_key()
-        .serialize()
-        .map_err(|e| CryptoError::SerializationFailed {
+    let group_pk = pubkey_package.verifying_key().serialize().map_err(|e| {
+        CryptoError::SerializationFailed {
             what: "FROST group VerifyingKey",
             reason: e.to_string(),
-        })?;
+        }
+    })?;
 
     Ok(KeyShareBundle {
         min_signers,
@@ -199,10 +199,12 @@ pub fn sign_round1(serialized_key_package: &[u8]) -> Result<Round1Output, Crypto
     let mut rng = OsRng;
     let (nonces, commitments) = frost::round1::commit(kp.signing_share(), &mut rng);
 
-    let nonces_bytes = nonces.serialize().map_err(|e| CryptoError::SerializationFailed {
-        what: "FROST SigningNonces",
-        reason: e.to_string(),
-    })?;
+    let nonces_bytes = nonces
+        .serialize()
+        .map_err(|e| CryptoError::SerializationFailed {
+            what: "FROST SigningNonces",
+            reason: e.to_string(),
+        })?;
     let commitments_bytes =
         commitments
             .serialize()
@@ -313,7 +315,10 @@ pub fn aggregate(
         })?;
         if shares_map.insert(id, share).is_some() {
             return Err(CryptoError::FrostInvalidParticipants {
-                reason: format!("duplicate signature share for identifier {}", entry.identifier),
+                reason: format!(
+                    "duplicate signature share for identifier {}",
+                    entry.identifier
+                ),
             });
         }
     }
@@ -325,10 +330,11 @@ pub fn aggregate(
         }
     })?;
 
-    sig.serialize().map_err(|e| CryptoError::SerializationFailed {
-        what: "FROST aggregated Signature",
-        reason: e.to_string(),
-    })
+    sig.serialize()
+        .map_err(|e| CryptoError::SerializationFailed {
+            what: "FROST aggregated Signature",
+            reason: e.to_string(),
+        })
 }
 
 /// Verifies a FROST-Ed25519 threshold signature against the group public key.
@@ -342,7 +348,11 @@ pub fn aggregate(
 /// - [`CryptoError::FrostStageFailed`] (stage = `"verify"`) on any verification
 ///   failure (we wrap the underlying Ed25519 error so callers can branch on the
 ///   FROST-specific stage if needed).
-pub fn verify(message: &[u8], signature: &[u8], group_public_key: &[u8]) -> Result<(), CryptoError> {
+pub fn verify(
+    message: &[u8],
+    signature: &[u8],
+    group_public_key: &[u8],
+) -> Result<(), CryptoError> {
     crate::ed25519::verify(group_public_key, message, signature).map_err(|e| {
         CryptoError::FrostStageFailed {
             stage: "verify",
@@ -431,8 +441,8 @@ mod tests {
         }
 
         // Aggregate.
-        let signature =
-            aggregate(message, &commitments, &shares, &bundle.public_key_package).expect("aggregate");
+        let signature = aggregate(message, &commitments, &shares, &bundle.public_key_package)
+            .expect("aggregate");
         assert_eq!(signature.len(), 64);
 
         // Verify against the group public key as a standard Ed25519 signature.

@@ -20,11 +20,19 @@ fn ed25519_full_workflow() {
 fn x25519_dh_then_hkdf_chain() {
     let alice = x25519::generate_keypair();
     let bob = x25519::generate_keypair();
-    let alice_dh = x25519::diffie_hellman(&alice.secret_key_bytes(), &bob.public_key_bytes()).unwrap();
-    let bob_dh = x25519::diffie_hellman(&bob.secret_key_bytes(), &alice.public_key_bytes()).unwrap();
+    let alice_dh =
+        x25519::diffie_hellman(&alice.secret_key_bytes(), &bob.public_key_bytes()).unwrap();
+    let bob_dh =
+        x25519::diffie_hellman(&bob.secret_key_bytes(), &alice.public_key_bytes()).unwrap();
     assert_eq!(alice_dh, bob_dh);
 
-    let session_key = hkdf_sha256::derive(b"openagent-crypto-wasm v0.1.0 session", &alice_dh, b"alice<->bob", 32).unwrap();
+    let session_key = hkdf_sha256::derive(
+        b"openagent-crypto-wasm v0.1.0 session",
+        &alice_dh,
+        b"alice<->bob",
+        32,
+    )
+    .unwrap();
     assert_eq!(session_key.len(), 32);
 
     // Use the derived session key with AES-256-GCM.
@@ -154,7 +162,8 @@ fn frost_2_of_3_full_pipeline() {
         },
     ];
 
-    let signature = frost::aggregate(message, &commitments, &shares, &bundle.public_key_package).unwrap();
+    let signature =
+        frost::aggregate(message, &commitments, &shares, &bundle.public_key_package).unwrap();
     assert_eq!(signature.len(), 64);
 
     // FROST signatures must verify as standard Ed25519 signatures.

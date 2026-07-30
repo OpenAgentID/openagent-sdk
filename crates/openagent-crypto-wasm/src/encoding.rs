@@ -31,17 +31,21 @@ pub fn encode(bytes: &[u8]) -> String {
 /// - The input is empty or does not start with `'z'`
 /// - The base58btc payload is malformed
 pub fn decode(input: &str) -> Result<Vec<u8>, CryptoError> {
-    let rest = input.strip_prefix('z').ok_or_else(|| CryptoError::MultibaseFailed {
-        operation: "decode",
-        reason: format!(
-            "expected 'z' prefix for base58btc multibase, got {:?}",
-            input.chars().next()
-        ),
-    })?;
-    bs58::decode(rest).into_vec().map_err(|e| CryptoError::MultibaseFailed {
-        operation: "decode",
-        reason: format!("base58btc decode error: {e}"),
-    })
+    let rest = input
+        .strip_prefix('z')
+        .ok_or_else(|| CryptoError::MultibaseFailed {
+            operation: "decode",
+            reason: format!(
+                "expected 'z' prefix for base58btc multibase, got {:?}",
+                input.chars().next()
+            ),
+        })?;
+    bs58::decode(rest)
+        .into_vec()
+        .map_err(|e| CryptoError::MultibaseFailed {
+            operation: "decode",
+            reason: format!("base58btc decode error: {e}"),
+        })
 }
 
 #[cfg(test)]

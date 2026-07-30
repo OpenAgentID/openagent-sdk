@@ -8,9 +8,7 @@
 //! surface stays small.
 
 use argon2::{
-    password_hash::{
-        rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString,
-    },
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
 
@@ -26,12 +24,13 @@ use crate::error::CryptoError;
 pub fn hash_password(password: &[u8]) -> Result<String, CryptoError> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
-    let hash = argon2
-        .hash_password(password, &salt)
-        .map_err(|e| CryptoError::PasswordHashFailed {
-            operation: "hash",
-            reason: e.to_string(),
-        })?;
+    let hash =
+        argon2
+            .hash_password(password, &salt)
+            .map_err(|e| CryptoError::PasswordHashFailed {
+                operation: "hash",
+                reason: e.to_string(),
+            })?;
     Ok(hash.to_string())
 }
 
@@ -75,7 +74,10 @@ mod tests {
     #[test]
     fn malformed_hash_returns_error() {
         let result = verify_password(b"x", "this is not a phc string");
-        assert!(matches!(result, Err(CryptoError::PasswordHashFailed { .. })));
+        assert!(matches!(
+            result,
+            Err(CryptoError::PasswordHashFailed { .. })
+        ));
     }
 
     #[test]

@@ -75,9 +75,9 @@ pub fn generate_keypair() -> X25519Keypair {
 ///
 /// [`CryptoError::InvalidLength`] if `secret_key` is not exactly 32 bytes.
 pub fn public_from_secret(secret_key: &[u8]) -> Result<[u8; PUBLIC_KEY_LEN], CryptoError> {
-    let bytes: [u8; SECRET_KEY_LEN] = secret_key
-        .try_into()
-        .map_err(|_| CryptoError::invalid_length("X25519 secret key", SECRET_KEY_LEN, secret_key.len()))?;
+    let bytes: [u8; SECRET_KEY_LEN] = secret_key.try_into().map_err(|_| {
+        CryptoError::invalid_length("X25519 secret key", SECRET_KEY_LEN, secret_key.len())
+    })?;
     let secret = StaticSecret::from(bytes);
     let public = PublicKey::from(&secret);
     Ok(public.to_bytes())
@@ -95,12 +95,12 @@ pub fn diffie_hellman(
     secret_key: &[u8],
     peer_public_key: &[u8],
 ) -> Result<[u8; SHARED_SECRET_LEN], CryptoError> {
-    let sk_bytes: [u8; SECRET_KEY_LEN] = secret_key
-        .try_into()
-        .map_err(|_| CryptoError::invalid_length("X25519 secret key", SECRET_KEY_LEN, secret_key.len()))?;
-    let pk_bytes: [u8; PUBLIC_KEY_LEN] = peer_public_key
-        .try_into()
-        .map_err(|_| CryptoError::invalid_length("X25519 public key", PUBLIC_KEY_LEN, peer_public_key.len()))?;
+    let sk_bytes: [u8; SECRET_KEY_LEN] = secret_key.try_into().map_err(|_| {
+        CryptoError::invalid_length("X25519 secret key", SECRET_KEY_LEN, secret_key.len())
+    })?;
+    let pk_bytes: [u8; PUBLIC_KEY_LEN] = peer_public_key.try_into().map_err(|_| {
+        CryptoError::invalid_length("X25519 public key", PUBLIC_KEY_LEN, peer_public_key.len())
+    })?;
 
     let secret = StaticSecret::from(sk_bytes);
     let peer = PublicKey::from(pk_bytes);
@@ -125,7 +125,8 @@ mod tests {
         let alice = generate_keypair();
         let bob = generate_keypair();
 
-        let alice_view = diffie_hellman(&alice.secret_key_bytes(), &bob.public_key_bytes()).unwrap();
+        let alice_view =
+            diffie_hellman(&alice.secret_key_bytes(), &bob.public_key_bytes()).unwrap();
         let bob_view = diffie_hellman(&bob.secret_key_bytes(), &alice.public_key_bytes()).unwrap();
 
         assert_eq!(alice_view, bob_view);
@@ -159,7 +160,13 @@ mod tests {
         assert_eq!(public_from_secret(&bob_secret).unwrap(), bob_public);
 
         // DH outputs from both sides match the expected shared secret.
-        assert_eq!(diffie_hellman(&alice_secret, &bob_public).unwrap(), expected_shared);
-        assert_eq!(diffie_hellman(&bob_secret, &alice_public).unwrap(), expected_shared);
+        assert_eq!(
+            diffie_hellman(&alice_secret, &bob_public).unwrap(),
+            expected_shared
+        );
+        assert_eq!(
+            diffie_hellman(&bob_secret, &alice_public).unwrap(),
+            expected_shared
+        );
     }
 }

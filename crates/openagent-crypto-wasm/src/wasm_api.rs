@@ -31,7 +31,9 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::{aead, blake3_hash, ct, ed25519, encoding, frost, hkdf_sha256, jcs, kdf_password, sha, x25519};
+use crate::{
+    aead, blake3_hash, ct, ed25519, encoding, frost, hkdf_sha256, jcs, kdf_password, sha, x25519,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -112,7 +114,11 @@ pub fn ed25519_sign(signing_key: &[u8], message: &[u8]) -> Result<Vec<u8>, JsErr
 
 /// Verifies an Ed25519 signature. Throws if verification fails.
 #[wasm_bindgen]
-pub fn ed25519_verify(verifying_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), JsError> {
+pub fn ed25519_verify(
+    verifying_key: &[u8],
+    message: &[u8],
+    signature: &[u8],
+) -> Result<(), JsError> {
     ed25519::verify(verifying_key, message, signature).map_err(js_err)
 }
 
@@ -141,7 +147,10 @@ pub fn x25519_generate_keypair() -> WasmX25519Keypair {
 /// Computes the X25519 raw shared secret. Callers MUST run this through HKDF
 /// before using it as keying material.
 #[wasm_bindgen]
-pub fn x25519_diffie_hellman(secret_key: &[u8], peer_public_key: &[u8]) -> Result<Vec<u8>, JsError> {
+pub fn x25519_diffie_hellman(
+    secret_key: &[u8],
+    peer_public_key: &[u8],
+) -> Result<Vec<u8>, JsError> {
     x25519::diffie_hellman(secret_key, peer_public_key)
         .map(|s| s.to_vec())
         .map_err(js_err)
@@ -346,8 +355,13 @@ pub fn frost_sign_round2(
 ) -> Result<Vec<u8>, JsError> {
     let commitments: Vec<frost::ParticipantCommitments> =
         serde_json::from_str(commitments_json).map_err(js_err)?;
-    frost::sign_round2(serialized_key_package, serialized_nonces, message, &commitments)
-        .map_err(js_err)
+    frost::sign_round2(
+        serialized_key_package,
+        serialized_nonces,
+        message,
+        &commitments,
+    )
+    .map_err(js_err)
 }
 
 /// FROST aggregation: combine signature shares into a 64-byte Ed25519 signature.
@@ -360,14 +374,23 @@ pub fn frost_aggregate(
 ) -> Result<Vec<u8>, JsError> {
     let commitments: Vec<frost::ParticipantCommitments> =
         serde_json::from_str(commitments_json).map_err(js_err)?;
-    let shares: Vec<frost::ParticipantShare> =
-        serde_json::from_str(shares_json).map_err(js_err)?;
-    frost::aggregate(message, &commitments, &shares, serialized_public_key_package).map_err(js_err)
+    let shares: Vec<frost::ParticipantShare> = serde_json::from_str(shares_json).map_err(js_err)?;
+    frost::aggregate(
+        message,
+        &commitments,
+        &shares,
+        serialized_public_key_package,
+    )
+    .map_err(js_err)
 }
 
 /// Verifies a FROST signature. Throws on failure.
 #[wasm_bindgen]
-pub fn frost_verify(message: &[u8], signature: &[u8], group_public_key: &[u8]) -> Result<(), JsError> {
+pub fn frost_verify(
+    message: &[u8],
+    signature: &[u8],
+    group_public_key: &[u8],
+) -> Result<(), JsError> {
     frost::verify(message, signature, group_public_key).map_err(js_err)
 }
 

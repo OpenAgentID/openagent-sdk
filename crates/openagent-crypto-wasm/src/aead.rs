@@ -43,10 +43,18 @@ pub fn aes256gcm_encrypt(
     aad: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     if key.len() != AES256GCM_KEY_LEN {
-        return Err(CryptoError::invalid_length("AES-256-GCM key", AES256GCM_KEY_LEN, key.len()));
+        return Err(CryptoError::invalid_length(
+            "AES-256-GCM key",
+            AES256GCM_KEY_LEN,
+            key.len(),
+        ));
     }
     if nonce.len() != AES256GCM_NONCE_LEN {
-        return Err(CryptoError::invalid_length("AES-256-GCM nonce", AES256GCM_NONCE_LEN, nonce.len()));
+        return Err(CryptoError::invalid_length(
+            "AES-256-GCM nonce",
+            AES256GCM_NONCE_LEN,
+            nonce.len(),
+        ));
     }
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| CryptoError::AeadFailed {
         algorithm: "AES-256-GCM",
@@ -55,7 +63,13 @@ pub fn aes256gcm_encrypt(
     })?;
     let nonce = AesNonce::from_slice(nonce);
     cipher
-        .encrypt(nonce, Payload { msg: plaintext, aad })
+        .encrypt(
+            nonce,
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
         .map_err(|e| CryptoError::AeadFailed {
             algorithm: "AES-256-GCM",
             operation: "encrypt",
@@ -79,10 +93,18 @@ pub fn aes256gcm_decrypt(
     aad: &[u8],
 ) -> Result<Vec<u8>, CryptoError> {
     if key.len() != AES256GCM_KEY_LEN {
-        return Err(CryptoError::invalid_length("AES-256-GCM key", AES256GCM_KEY_LEN, key.len()));
+        return Err(CryptoError::invalid_length(
+            "AES-256-GCM key",
+            AES256GCM_KEY_LEN,
+            key.len(),
+        ));
     }
     if nonce.len() != AES256GCM_NONCE_LEN {
-        return Err(CryptoError::invalid_length("AES-256-GCM nonce", AES256GCM_NONCE_LEN, nonce.len()));
+        return Err(CryptoError::invalid_length(
+            "AES-256-GCM nonce",
+            AES256GCM_NONCE_LEN,
+            nonce.len(),
+        ));
     }
     let cipher = Aes256Gcm::new_from_slice(key).map_err(|e| CryptoError::AeadFailed {
         algorithm: "AES-256-GCM",
@@ -91,7 +113,13 @@ pub fn aes256gcm_decrypt(
     })?;
     let nonce = AesNonce::from_slice(nonce);
     cipher
-        .decrypt(nonce, Payload { msg: ciphertext, aad })
+        .decrypt(
+            nonce,
+            Payload {
+                msg: ciphertext,
+                aad,
+            },
+        )
         .map_err(|e| CryptoError::AeadFailed {
             algorithm: "AES-256-GCM",
             operation: "decrypt",
@@ -134,7 +162,13 @@ pub fn xchacha20poly1305_encrypt(
     })?;
     let nonce = XNonce::from_slice(nonce);
     cipher
-        .encrypt(nonce, Payload { msg: plaintext, aad })
+        .encrypt(
+            nonce,
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
         .map_err(|e| CryptoError::AeadFailed {
             algorithm: "XChaCha20-Poly1305",
             operation: "encrypt",
@@ -175,7 +209,13 @@ pub fn xchacha20poly1305_decrypt(
     })?;
     let nonce = XNonce::from_slice(nonce);
     cipher
-        .decrypt(nonce, Payload { msg: ciphertext, aad })
+        .decrypt(
+            nonce,
+            Payload {
+                msg: ciphertext,
+                aad,
+            },
+        )
         .map_err(|e| CryptoError::AeadFailed {
             algorithm: "XChaCha20-Poly1305",
             operation: "decrypt",

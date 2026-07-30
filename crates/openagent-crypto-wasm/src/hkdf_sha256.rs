@@ -49,10 +49,11 @@ pub fn expand(prk: &[u8], info: &[u8], length: usize) -> Result<Vec<u8>, CryptoE
         reason: format!("invalid PRK: {e}"),
     })?;
     let mut okm = vec![0u8; length];
-    hk.expand(info, &mut okm).map_err(|e| CryptoError::HkdfFailed {
-        stage: "expand",
-        reason: e.to_string(),
-    })?;
+    hk.expand(info, &mut okm)
+        .map_err(|e| CryptoError::HkdfFailed {
+            stage: "expand",
+            reason: e.to_string(),
+        })?;
     Ok(okm)
 }
 
@@ -68,10 +69,11 @@ pub fn derive(salt: &[u8], ikm: &[u8], info: &[u8], length: usize) -> Result<Vec
     let salt_opt = if salt.is_empty() { None } else { Some(salt) };
     let hk = Hkdf::<Sha256>::new(salt_opt, ikm);
     let mut okm = vec![0u8; length];
-    hk.expand(info, &mut okm).map_err(|e| CryptoError::HkdfFailed {
-        stage: "expand",
-        reason: e.to_string(),
-    })?;
+    hk.expand(info, &mut okm)
+        .map_err(|e| CryptoError::HkdfFailed {
+            stage: "expand",
+            reason: e.to_string(),
+        })?;
     Ok(okm)
 }
 

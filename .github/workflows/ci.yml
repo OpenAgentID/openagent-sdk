@@ -1,0 +1,174 @@
+name: ci
+
+# Verification for every change to the OpenAgent SDK: the Rust crates, the
+# TypeScript SDK, and the language-neutral conformance vectors run against
+# both runners.
+#
+# The Rust side consumes OAS, Arsenal, and AEGIS through private git
+# dependencies; the authenticate-git step is what lets CI resolve them.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: rust fmt, clippy, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          # Not a Cargo workspace - each crate is a standalone package and is
+          # verified as one, so a break in one cannot mask another.
+          - sdks/rust
+          - crates/openagent-crypto-wasm
+          - crates/openagent-auth-protocol
+          - conformance/runner-rust
+    defaults:
+      run:
+        working-directory: ${{ matrix.crate }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate git for private sibling dependencies
+        # Requires the org-level secret OPENAGENTID_CI_PAT with contents:read
+        # on the OpenAgentID sibling repositories (oas, arsenal, aegis, act).
+        env:
+          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
+        run: |
+          if [ -z "$CI_PAT" ]; then
+            echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
+            echo "Cargo fetches OAS, Arsenal, and AEGIS from private OpenAgentID repositories;"
+            echo "the default GITHUB_TOKEN cannot read them."
+            exit 1
+          fi
+          git config --global url."https://x-access-token:${CI_PAT}@github.com/".insteadOf "https://github.com/"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.crate }}
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets
+
+      - name: Test
+        run: cargo test
+
+      - name: Remove git credentials
+        if: always()
+        run: rm -f ~/.gitconfig
+
+  typescript:
+    name: typescript sdk typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: sdks/typescript
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install
+        # sdks/typescript deliberately carries no lockfile (the root package
+        # builds it with --no-package-lock), so `npm ci` cannot run here. The
+        # lockfile policy for published packages is decided in the release
+        # phase; until then this is an install, not a frozen restore.
+        run: npm install --no-audit --no-fund --loglevel=error
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  conformance:
+    name: conformance vectors (rust + ts)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate git for private sibling dependencies
+        # The Rust conformance runner links the same wrapped crates as the SDK.
+        env:
+          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
+        run: |
+          if [ -z "$CI_PAT" ]; then
+            echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
+            exit 1
+          fi
+          git config --global url."https://x-access-token:${CI_PAT}@github.com/".insteadOf "https://github.com/"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: conformance/runner-rust
+
+      - name: Run all vectors
+        # The conformance suite is the drift control for the whole stack:
+        # both runners must agree with the same vectors, or the languages
+        # have diverged and nothing else may merge.
+        run: conformance/scripts/run-all.sh
+
+      - name: Upload conformance reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-reports
+          path: conformance/.reports/
+          if-no-files-found: ignore
+
+      - name: Remove git credentials
+        if: always()
+        run: rm -f ~/.gitconfig
+
+  codeowners:
+    name: codeowners resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every owner handle resolves
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          errors=$(gh api "repos/${{ github.repository }}/codeowners/errors" \
+            --jq '.errors // []')
+          count=$(printf '%s' "$errors" | jq 'length')
+          if [ "$count" -gt 0 ]; then
+            echo "::error::CODEOWNERS has ${count} unresolvable entr(y/ies)"
+            printf '%s' "$errors" | jq -r '.[] | "  line \(.line): \(.message) - \(.source)"'
+            exit 1
+          fi
+          echo "ok: every CODEOWNERS handle resolves"

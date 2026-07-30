@@ -100,9 +100,9 @@ pub fn generate_keypair() -> Keypair {
 /// [`CryptoError::InvalidLength`] if `signing_key` is not exactly
 /// [`SIGNING_KEY_LEN`] bytes.
 pub fn keypair_from_signing_key(signing_key: &[u8]) -> Result<Keypair, CryptoError> {
-    let bytes: [u8; SIGNING_KEY_LEN] = signing_key
-        .try_into()
-        .map_err(|_| CryptoError::invalid_length("Ed25519 signing key", SIGNING_KEY_LEN, signing_key.len()))?;
+    let bytes: [u8; SIGNING_KEY_LEN] = signing_key.try_into().map_err(|_| {
+        CryptoError::invalid_length("Ed25519 signing key", SIGNING_KEY_LEN, signing_key.len())
+    })?;
     let sk = SigningKey::from_bytes(&bytes);
     let vk = sk.verifying_key();
     Ok(Keypair {
@@ -129,9 +129,9 @@ pub fn public_from_private(signing_key: &[u8]) -> Result<[u8; VERIFYING_KEY_LEN]
 ///
 /// [`CryptoError::InvalidLength`] if `signing_key` is not exactly 32 bytes.
 pub fn sign(signing_key: &[u8], message: &[u8]) -> Result<[u8; SIGNATURE_LEN], CryptoError> {
-    let bytes: [u8; SIGNING_KEY_LEN] = signing_key
-        .try_into()
-        .map_err(|_| CryptoError::invalid_length("Ed25519 signing key", SIGNING_KEY_LEN, signing_key.len()))?;
+    let bytes: [u8; SIGNING_KEY_LEN] = signing_key.try_into().map_err(|_| {
+        CryptoError::invalid_length("Ed25519 signing key", SIGNING_KEY_LEN, signing_key.len())
+    })?;
     let sk = SigningKey::from_bytes(&bytes);
     let sig: Signature = sk.sign(message);
     Ok(sig.to_bytes())
@@ -149,19 +149,24 @@ pub fn sign(signing_key: &[u8], message: &[u8]) -> Result<[u8; SIGNATURE_LEN], C
 /// - [`CryptoError::SignatureInvalid`] if verification fails.
 pub fn verify(verifying_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), CryptoError> {
     let vk_bytes: [u8; VERIFYING_KEY_LEN] = verifying_key.try_into().map_err(|_| {
-        CryptoError::invalid_length("Ed25519 verifying key", VERIFYING_KEY_LEN, verifying_key.len())
+        CryptoError::invalid_length(
+            "Ed25519 verifying key",
+            VERIFYING_KEY_LEN,
+            verifying_key.len(),
+        )
     })?;
-    let sig_bytes: [u8; SIGNATURE_LEN] = signature
-        .try_into()
-        .map_err(|_| CryptoError::invalid_length("Ed25519 signature", SIGNATURE_LEN, signature.len()))?;
+    let sig_bytes: [u8; SIGNATURE_LEN] = signature.try_into().map_err(|_| {
+        CryptoError::invalid_length("Ed25519 signature", SIGNATURE_LEN, signature.len())
+    })?;
 
     let vk = VerifyingKey::from_bytes(&vk_bytes).map_err(|e| CryptoError::InvalidPublicKey {
         reason: e.to_string(),
     })?;
     let sig = Signature::from_bytes(&sig_bytes);
-    vk.verify(message, &sig).map_err(|e| CryptoError::SignatureInvalid {
-        reason: e.to_string(),
-    })
+    vk.verify(message, &sig)
+        .map_err(|e| CryptoError::SignatureInvalid {
+            reason: e.to_string(),
+        })
 }
 
 #[cfg(test)]

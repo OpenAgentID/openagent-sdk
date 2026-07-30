@@ -153,7 +153,10 @@ mod tests {
             conformance_level: None,
         };
         let err = validate_present(&msg).unwrap_err();
-        assert!(matches!(err, AuthProtocolError::UnsupportedVersion { version: 99 }));
+        assert!(matches!(
+            err,
+            AuthProtocolError::UnsupportedVersion { version: 99 }
+        ));
     }
 
     #[test]

@@ -123,8 +123,7 @@ mod tests {
         };
         let json = serde_json::to_string(&doc);
         assert!(json.is_ok());
-        let parsed: Result<DiscoveryDocument, _> =
-            serde_json::from_str(&json.unwrap_or_default());
+        let parsed: Result<DiscoveryDocument, _> = serde_json::from_str(&json.unwrap_or_default());
         assert!(parsed.is_ok());
     }
 

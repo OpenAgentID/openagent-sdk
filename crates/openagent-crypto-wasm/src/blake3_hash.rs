@@ -77,8 +77,7 @@ mod tests {
     fn blake3_keyed_hash_official_vector_abc() {
         let key = b"whats the Elvish word for friend";
         let data = b"abc";
-        let expected =
-            hex!("2c2bc6dad5a39b5d0a01b8027a14ac24a7a35cf91dec0bf76ac0e9d6cc59f7c1");
+        let expected = hex!("2c2bc6dad5a39b5d0a01b8027a14ac24a7a35cf91dec0bf76ac0e9d6cc59f7c1");
         let actual = keyed_hash(key, data).unwrap();
         // BLAKE3 keyed_hash with the canonical Elvish key — checked against
         // the official BLAKE3 test_vectors.json file.
@@ -95,8 +94,14 @@ mod tests {
 
     #[test]
     fn blake3_derive_key_deterministic() {
-        let a = derive_key("openagent-crypto-wasm v0.1.0 test ctx", b"input keying material");
-        let b = derive_key("openagent-crypto-wasm v0.1.0 test ctx", b"input keying material");
+        let a = derive_key(
+            "openagent-crypto-wasm v0.1.0 test ctx",
+            b"input keying material",
+        );
+        let b = derive_key(
+            "openagent-crypto-wasm v0.1.0 test ctx",
+            b"input keying material",
+        );
         assert_eq!(a, b);
     }
 
