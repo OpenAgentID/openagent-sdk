@@ -74,7 +74,9 @@ impl AuthenticatedSession {
             .headers(self.auth_headers())
             .send()
             .await
-            .map_err(|e| AuthProtocolError::Transport(format!("GET {url} failed: {e}")))?;
+            .map_err(|e| AuthProtocolError::TransportFailed {
+                reason: format!("GET {url} failed: {e}"),
+            })?;
         Ok(resp)
     }
 
@@ -92,7 +94,9 @@ impl AuthenticatedSession {
             .json(body)
             .send()
             .await
-            .map_err(|e| AuthProtocolError::Transport(format!("POST {url} failed: {e}")))?;
+            .map_err(|e| AuthProtocolError::TransportFailed {
+                reason: format!("POST {url} failed: {e}"),
+            })?;
         Ok(resp)
     }
 
@@ -110,7 +114,9 @@ impl AuthenticatedSession {
             .json(body)
             .send()
             .await
-            .map_err(|e| AuthProtocolError::Transport(format!("PUT {url} failed: {e}")))?;
+            .map_err(|e| AuthProtocolError::TransportFailed {
+                reason: format!("PUT {url} failed: {e}"),
+            })?;
         Ok(resp)
     }
 
@@ -123,7 +129,9 @@ impl AuthenticatedSession {
             .headers(self.auth_headers())
             .send()
             .await
-            .map_err(|e| AuthProtocolError::Transport(format!("DELETE {url} failed: {e}")))?;
+            .map_err(|e| AuthProtocolError::TransportFailed {
+                reason: format!("DELETE {url} failed: {e}"),
+            })?;
         Ok(resp)
     }
 
@@ -135,7 +143,9 @@ impl AuthenticatedSession {
 
     fn auth_headers(&self) -> reqwest::header::HeaderMap {
         let mut headers = reqwest::header::HeaderMap::new();
-        if let Ok(v) = reqwest::header::HeaderValue::from_str(&headers::build_oas_header(&self.session_token)) {
+        if let Ok(v) = reqwest::header::HeaderValue::from_str(&headers::build_openagent_header(
+            &self.session_token,
+        )) {
             headers.insert(reqwest::header::AUTHORIZATION, v);
         }
         if let Ok(v) = reqwest::header::HeaderValue::from_str(&self.peer_did) {

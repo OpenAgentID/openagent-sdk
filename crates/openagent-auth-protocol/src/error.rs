@@ -1,14 +1,20 @@
-//! Error types for the OpenAgent Auth Protocol (OAAP).
+//! Error types for the OpenAgent Core Protocol identity flow.
 //!
-//! Every fallible operation in this crate returns [`OaapError`]. Variants are
-//! designed to be **actionable** — error messages name the operation, the
-//! protocol step, and what went wrong.
+//! Every fallible operation in this crate returns [`AuthProtocolError`].
+//! Variants are designed to be **actionable** — error messages name the
+//! operation, the field, and what went wrong.
+//!
+//! # History
+//!
+//! This crate previously carried two error enums (`AuthProtocolError` and
+//! `OaapError`) that disagreed with each other — which is part of how the
+//! crate came to not compile. There is one now.
 
 use thiserror::Error;
 
-/// Errors arising from OAAP handshake operations.
+/// Errors arising from Core Protocol handshake operations.
 #[derive(Debug, Error)]
-pub enum OaapError {
+pub enum AuthProtocolError {
     /// The protocol version in the received message is not supported.
     #[error(
         "unsupported protocol version {received}; this implementation supports version {supported}"
@@ -20,13 +26,27 @@ pub enum OaapError {
         supported: u8,
     },
 
-    /// A state machine transition was attempted from an invalid state.
-    #[error("invalid state transition: cannot move from {from} to {to}")]
-    InvalidStateTransition {
-        /// The current state.
-        from: String,
-        /// The attempted target state.
-        to: String,
+    /// A challenge failed the Section 4 field constraints.
+    #[error("invalid challenge: {reason}")]
+    InvalidChallenge {
+        /// What constraint failed.
+        reason: String,
+    },
+
+    /// A proof failed the Section 15.3 shape checks.
+    #[error("invalid proof: {reason}")]
+    InvalidProof {
+        /// What constraint failed.
+        reason: String,
+    },
+
+    /// The nonce echoed in the proof does not match the challenge.
+    #[error("nonce mismatch: challenge carried {expected}, proof echoed {received}")]
+    NonceMismatch {
+        /// The nonce in the challenge.
+        expected: String,
+        /// The nonce echoed in the proof.
+        received: String,
     },
 
     /// The challenge nonce has expired (anti-replay protection).
@@ -47,21 +67,10 @@ pub enum OaapError {
         nonce_hex: String,
     },
 
-    /// Ed25519 signature verification failed during the handshake.
-    #[error("signature verification failed at step {step}: {reason}")]
+    /// Signature verification failed against the trusted key set.
+    #[error("signature verification failed: {reason}")]
     SignatureVerificationFailed {
-        /// Which protocol step (e.g. "PROVE", "ESTABLISHED").
-        step: String,
         /// Why verification failed.
-        reason: String,
-    },
-
-    /// Lineage verification failed for the peer's DID document.
-    #[error("lineage verification failed for {did}: {reason}")]
-    LineageVerificationFailed {
-        /// The DID whose lineage was invalid.
-        did: String,
-        /// Why lineage was rejected.
         reason: String,
     },
 
@@ -71,15 +80,6 @@ pub enum OaapError {
         /// The DID whose document was invalid.
         did: String,
         /// What was wrong.
-        reason: String,
-    },
-
-    /// A cryptographic operation (ECDH, HKDF, AEAD) failed internally.
-    #[error("cryptographic operation failed: {operation} — {reason}")]
-    CryptoFailed {
-        /// The operation that failed (e.g. "X25519 ECDH", "HKDF-SHA256 expand").
-        operation: String,
-        /// Underlying reason.
         reason: String,
     },
 
@@ -99,15 +99,6 @@ pub enum OaapError {
         timeout_secs: u64,
     },
 
-    /// Session ID mismatch between sides of the handshake.
-    #[error("session ID mismatch: local {local_hex} vs peer {peer_hex}")]
-    SessionIdMismatch {
-        /// Hex-encoded local session ID.
-        local_hex: String,
-        /// Hex-encoded peer session ID.
-        peer_hex: String,
-    },
-
     /// Serialization or deserialization of a protocol message failed.
     #[error("message serialization failed for {message_type}: {reason}")]
     SerializationFailed {
@@ -117,12 +108,33 @@ pub enum OaapError {
         reason: String,
     },
 
-    /// The challenge expiry duration exceeds the maximum allowed (5 minutes).
+    /// The challenge expiry duration exceeds the maximum allowed (300 seconds,
+    /// per Section 7 of the Core Protocol Specification).
     #[error("challenge expiry {requested_secs}s exceeds maximum allowed {max_secs}s")]
     ExpiryTooLong {
         /// The requested expiry in seconds.
         requested_secs: u64,
         /// The maximum allowed.
         max_secs: u64,
+    },
+
+    /// An internal failure that is not the peer's fault (e.g. a poisoned
+    /// lock in a session store). Surfaced rather than panicked, per the
+    /// workspace no-panic policy.
+    #[error("internal error: {0}")]
+    Internal(String),
+
+    /// A presented session token does not identify a live session.
+    #[error("session not found: {session_id}")]
+    SessionNotFound {
+        /// The token or identifier presented.
+        session_id: String,
+    },
+
+    /// A session exists but has expired and was removed.
+    #[error("session expired: {session_id}")]
+    SessionExpired {
+        /// The token or identifier presented.
+        session_id: String,
     },
 }

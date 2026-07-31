@@ -31,9 +31,12 @@ jobs:
         crate:
           # Not a Cargo workspace - each crate is a standalone package and is
           # verified as one, so a break in one cannot mask another.
+          # adapters/weave is deliberately absent: it is the informative
+          # Phase-2 Weave binding, mid-migration, and does not compile.
           - sdks/rust
           - crates/openagent-crypto-wasm
           - crates/openagent-auth-protocol
+          - adapters/http/rust
           - conformance/runner-rust
     defaults:
       run:

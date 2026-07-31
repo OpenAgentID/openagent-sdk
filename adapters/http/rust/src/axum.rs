@@ -1,89 +1,75 @@
 // Copyright (c) 2026 L1fe Labs, Inc. — Apache-2.0 OR MIT
-//! Axum integration: middleware Layer and Extractor for OAAP.
+//! Axum integration for the Core Protocol identity flow.
 //!
 //! # Usage
 //!
 //! ```ignore
-//! use openagent_http::axum::{OpenAgentLayer, OpenAgentExtractor};
-//! use axum::{Router, routing::post, Json};
+//! use openagent_http::axum::{core_routes, OpenAgentExtractor, OpenAgentState};
+//! use openagent_http::server::ServerConfig;
+//! use openagent_auth_protocol::session::InMemorySessionStore;
 //!
-//! let config = ServerConfig::new("did:oas:l1fe:service:api");
-//! let store = InMemorySessionStore::new();
-//! let state = OpenAgentState::new(config, store);
-//!
-//! let app = Router::new()
-//!     .route("/api/tools", post(handle_tools))
-//!     .layer(OpenAgentLayer::new(state.clone()));
+//! let state = OpenAgentState::new(
+//!     ServerConfig::new("https://api.example.com"),
+//!     InMemorySessionStore::new(),
+//! );
+//! let app = core_routes(state.clone());
 //! ```
 
 use std::sync::Arc;
 
 use ::axum::{
-    extract::{FromRequestParts, Request},
+    extract::FromRequestParts,
     http::{request::Parts, StatusCode},
     response::{IntoResponse, Json, Response},
     routing::{get, post},
     Router,
 };
-use openagent_auth_protocol::message::{ChallengeMessage, EstablishedMessage, PresentMessage, ProveMessage};
+use openagent_auth_protocol::message::IdentityProof;
 use openagent_auth_protocol::session::{InMemorySessionStore, Session, SessionStore};
-use openagent_auth_protocol::types::DiscoveryDocument;
 
 use crate::headers;
 use crate::server::{self, ServerConfig};
 
-/// Shared state for the OAAP Axum integration.
+/// Shared state for the Axum integration.
 #[derive(Clone)]
 pub struct OpenAgentState<S: SessionStore + Clone + 'static = InMemorySessionStore> {
-    config: Arc<ServerConfig>,
+    /// The server configuration (origin, realm, TTLs, trust tier).
+    pub config: Arc<ServerConfig>,
     store: Arc<S>,
-    /// Ed25519 verification key lookup function.
-    /// In production, this resolves DIDs to their verification keys.
-    /// For testing, a static key can be provided.
-    verify_key_fn: Arc<dyn Fn(&str) -> Option<[u8; 32]> + Send + Sync>,
 }
 
 impl<S: SessionStore + Clone + 'static> OpenAgentState<S> {
-    /// Creates a new OAAP state with a verification key resolver.
-    pub fn new(
-        config: ServerConfig,
-        store: S,
-        verify_key_fn: impl Fn(&str) -> Option<[u8; 32]> + Send + Sync + 'static,
-    ) -> Self {
+    /// Creates a new integration state.
+    pub fn new(config: ServerConfig, store: S) -> Self {
         Self {
             config: Arc::new(config),
             store: Arc::new(store),
-            verify_key_fn: Arc::new(verify_key_fn),
         }
     }
 
-    /// Creates state with a no-op key resolver (for testing discovery/present only).
-    pub fn new_without_verification(config: ServerConfig, store: S) -> Self {
-        Self {
-            config: Arc::new(config),
-            store: Arc::new(store),
-            verify_key_fn: Arc::new(|_| None),
-        }
+    /// The session store.
+    pub fn store(&self) -> &S {
+        &self.store
     }
 }
 
-/// Axum extractor that provides the authenticated agent context.
+/// Axum extractor providing the authenticated agent context.
 ///
-/// Routes guarded by `OpenAgentLayer` can extract this to get the
-/// authenticated agent's DID and session information.
+/// Routes can take this as an argument to get the verified session.
 #[derive(Debug, Clone)]
 pub struct OpenAgentExtractor {
     session: Session,
 }
 
 impl OpenAgentExtractor {
-    /// Returns the authenticated agent's DID.
+    /// Returns the authenticated agent's DID (or presented-key placeholder
+    /// until a resolver names it).
     pub fn peer_did(&self) -> &str {
         &self.session.initiator_did
     }
 
-    /// Returns the session ID.
-    pub fn session_id(&self) -> &str {
+    /// Returns the session token.
+    pub fn session_token(&self) -> &str {
         &self.session.id
     }
 
@@ -93,48 +79,79 @@ impl OpenAgentExtractor {
     }
 }
 
+#[axum::async_trait]
 impl<S> FromRequestParts<OpenAgentState<S>> for OpenAgentExtractor
 where
     S: SessionStore + Clone + Send + Sync + 'static,
 {
     type Rejection = Response;
 
-    fn from_request_parts(
+    async fn from_request_parts(
         parts: &mut Parts,
         state: &OpenAgentState<S>,
-    ) -> impl std::future::Future<Output = Result<Self, Self::Rejection>> + Send {
-        let session_header = parts
+    ) -> Result<Self, Self::Rejection> {
+        let token = parts
             .headers
-            .get(headers::HEADER_OPENAGENT_SESSION)
+            .get(axum::http::header::AUTHORIZATION)
             .and_then(|v| v.to_str().ok())
+            .and_then(headers::extract_openagent_token)
             .map(|s| s.to_owned());
 
-        let store = Arc::clone(&state.store);
+        let token = match token {
+            Some(t) => t,
+            None => {
+                // The reactive flow, per the HTTP binding: a request with no
+                // usable credential gets a 401 carrying a fresh challenge in
+                // WWW-Authenticate.
+                return Err(challenge_response(state).await);
+            }
+        };
 
-        async move {
-            let session_id = session_header.ok_or_else(|| {
-                (StatusCode::UNAUTHORIZED, "Missing X-OpenAgent-Session header").into_response()
-            })?;
+        let session =
+            match server::validate_authenticated_request(state.store.as_ref(), &token).await {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::debug!(error = %e, "session validation failed");
+                    return Err(challenge_response(state).await);
+                }
+            };
 
-            let session = server::validate_authenticated_request(store.as_ref(), &session_id)
-                .await
-                .map_err(|e| {
-                    tracing::debug!(error = %e, "OAAP auth validation failed");
-                    (StatusCode::UNAUTHORIZED, format!("Authentication failed: {e}")).into_response()
-                })?;
+        Ok(OpenAgentExtractor { session })
+    }
+}
 
-            Ok(OpenAgentExtractor { session })
+/// Build a `401 Unauthorized` response carrying a fresh challenge in
+/// `WWW-Authenticate`, per the HTTP binding's reactive flow.
+async fn challenge_response<S: SessionStore + Clone + Send + Sync + 'static>(
+    state: &OpenAgentState<S>,
+) -> Response {
+    match server::handle_challenge(&state.config, state.store.as_ref()).await {
+        Ok(challenge) => {
+            let header = headers::build_challenge_header(&challenge);
+            (
+                StatusCode::UNAUTHORIZED,
+                [(axum::http::header::WWW_AUTHENTICATE, header)],
+                Json(challenge),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "failed to issue challenge");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to issue challenge",
+            )
+                .into_response()
         }
     }
 }
 
-/// Build an Axum router with the OAAP well-known endpoints.
+/// Build an Axum router with the well-known endpoints:
 ///
-/// This adds three routes:
-/// - `GET /.well-known/openagent` — Discovery
-/// - `POST /.well-known/openagent/auth` — PRESENT -> CHALLENGE
-/// - `POST /.well-known/openagent/auth/prove` — PROVE -> ESTABLISHED
-pub fn oaap_routes<S>(state: OpenAgentState<S>) -> Router
+/// - `GET /.well-known/openagent` — discovery
+/// - `POST /.well-known/openagent/auth` — issue an [`openagent_auth_protocol::message::IdentityChallenge`]
+/// - `POST /.well-known/openagent/auth/prove` — verify an [`IdentityProof`], return [`IdentityVerified`]
+pub fn core_routes<S>(state: OpenAgentState<S>) -> Router
 where
     S: SessionStore + Clone + Send + Sync + 'static,
 {
@@ -143,24 +160,21 @@ where
             "/.well-known/openagent",
             get({
                 let state = state.clone();
-                move || async move {
-                    let doc = server::handle_discovery(&state.config);
-                    Json(doc)
-                }
+                move || async move { Json(server::handle_discovery(&state.config)) }
             }),
         )
         .route(
             "/.well-known/openagent/auth",
             post({
                 let state = state.clone();
-                move |Json(msg): Json<PresentMessage>| {
+                move || {
                     let state = state.clone();
                     async move {
-                        match server::handle_present(&state.config, state.store.as_ref(), msg).await {
+                        match server::handle_challenge(&state.config, state.store.as_ref()).await {
                             Ok(challenge) => (StatusCode::OK, Json(challenge)).into_response(),
                             Err(e) => {
-                                tracing::warn!(error = %e, "PRESENT handler error");
-                                (StatusCode::BAD_REQUEST, e.to_string()).into_response()
+                                tracing::warn!(error = %e, "challenge handler error");
+                                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
                             }
                         }
                     }
@@ -171,35 +185,17 @@ where
             "/.well-known/openagent/auth/prove",
             post({
                 let state = state.clone();
-                move |Json(msg): Json<ProveMessage>| {
+                move |Json(proof): Json<IdentityProof>| {
                     let state = state.clone();
                     async move {
-                        // Look up the verification key for the DID.
-                        let vk = (state.verify_key_fn)(&msg.did);
-                        match vk {
-                            Some(key) => {
-                                match server::handle_prove(
-                                    &state.config,
-                                    state.store.as_ref(),
-                                    msg,
-                                    &key,
-                                )
-                                .await
-                                {
-                                    Ok(established) => {
-                                        (StatusCode::OK, Json(established)).into_response()
-                                    }
-                                    Err(e) => {
-                                        tracing::warn!(error = %e, "PROVE handler error");
-                                        (StatusCode::UNAUTHORIZED, e.to_string()).into_response()
-                                    }
-                                }
+                        match server::handle_prove(&state.config, state.store.as_ref(), &proof)
+                            .await
+                        {
+                            Ok(verified) => (StatusCode::OK, Json(verified)).into_response(),
+                            Err(e) => {
+                                tracing::warn!(error = %e, "prove handler error");
+                                (StatusCode::UNAUTHORIZED, e.to_string()).into_response()
                             }
-                            None => (
-                                StatusCode::UNAUTHORIZED,
-                                format!("Unknown DID: {}", msg.did),
-                            )
-                                .into_response(),
                         }
                     }
                 }
@@ -207,9 +203,7 @@ where
         )
 }
 
-/// Convenience: Build a complete OAAP-protected Axum router.
-///
-/// Merges the well-known endpoints with your application routes.
+/// Convenience: merge the well-known endpoints with application routes.
 pub fn protected_router<S>(
     state: OpenAgentState<S>,
     app_routes: Router<OpenAgentState<S>>,
@@ -217,6 +211,5 @@ pub fn protected_router<S>(
 where
     S: SessionStore + Clone + Send + Sync + 'static,
 {
-    let well_known = oaap_routes(state.clone());
-    well_known.merge(app_routes.with_state(state))
+    core_routes(state.clone()).merge(app_routes.with_state(state))
 }

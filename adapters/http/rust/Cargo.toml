@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
-description = "HTTP adapter for the OpenAgent Auth Protocol (OAAP). Axum middleware, HTTP client, and discovery for agent-to-service mutual authentication."
+description = "HTTP binding for the OpenAgent Core Protocol identity flow. Axum integration, HTTP client, and discovery for agent challenge-response authentication."
 repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["openagent", "http", "auth", "middleware", "axum"]
 categories = ["authentication", "web-programming::http-server"]
@@ -43,9 +43,8 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 
 # Crypto (aligned with auth-protocol)
 ed25519-dalek = { version = "2.1", features = ["serde", "rand_core"] }
-x25519-dalek = { version = "2.0", features = ["static_secrets", "zeroize"] }
-blake3 = "1.5"
 rand = "0.8"
+hex = "0.4"
 zeroize = { version = "1.7", features = ["derive"] }
 
 # Serialization + encoding

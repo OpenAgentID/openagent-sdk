@@ -1,34 +1,23 @@
 // Copyright (c) 2026 L1fe Labs, Inc. — Apache-2.0 OR MIT
-//! HTTP adapter for the OpenAgent Auth Protocol (OAAP).
+//! HTTP binding for the OpenAgent Core Protocol identity flow.
 //!
-//! This crate maps the OAAP 4-step mutual authentication handshake to HTTP,
-//! providing:
+//! This crate carries the Section 15 identity flow over HTTP per the
+//! specification's Section 16 HTTP binding, providing:
 //!
-//! - **Server middleware** (`axum` feature): Drop-in Axum [`Layer`] + [`Extractor`]
-//! - **Client**: HTTP-based auth client with session management
+//! - **Server handlers** (`server`): framework-agnostic challenge/prove logic
+//! - **Axum integration** (`axum` feature): well-known routes, an extractor
+//!   that validates sessions, and the reactive `401` + `WWW-Authenticate`
+//!   challenge flow
+//! - **Client**: HTTP auth client with session management
 //! - **Discovery**: `GET /.well-known/openagent` resolution
-//! - **Transport**: [`HttpTransport`] implementing the core `AuthTransport` trait
-//!
-//! # Quick Start (Server)
-//!
-//! ```ignore
-//! use openagent_http::axum::{OpenAgentLayer, OpenAgentExtractor};
-//! use axum::{Router, routing::post, Json};
-//!
-//! let app = Router::new()
-//!     .route("/api/tools", post(handle_tools))
-//!     .layer(OpenAgentLayer::new(config));
-//!
-//! async fn handle_tools(ctx: OpenAgentExtractor, body: Json<serde_json::Value>) {
-//!     println!("Agent: {}", ctx.peer_did());
-//! }
-//! ```
+//! - **Transport**: [`HttpTransport`] implementing the core `AuthTransport`
+//!   trait
 //!
 //! # Quick Start (Client)
 //!
 //! ```ignore
-//! use openagent_http::client::HttpAuthClient;
-//! let client = HttpAuthClient::new(config);
+//! use openagent_http::client::{ClientConfig, HttpAuthClient};
+//! let client = HttpAuthClient::new(config, &signing_key_bytes)?;
 //! let session = client.authenticate("https://api.example.com").await?;
 //! let resp = session.get("/tools").await?;
 //! ```
@@ -47,7 +36,7 @@ pub mod transport;
 #[cfg(feature = "axum-integration")]
 pub mod axum;
 
-pub use headers::{HEADER_OPENAGENT_DID, HEADER_OPENAGENT_SESSION, OAS_AUTH_SCHEME};
+pub use headers::{HEADER_OPENAGENT_DID, HEADER_OPENAGENT_SESSION, OPENAGENT_AUTH_SCHEME};
 pub use transport::HttpTransport;
 
 /// Crate version.

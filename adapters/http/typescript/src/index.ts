@@ -1,31 +1,36 @@
 /**
- * @openagent/http — HTTP adapter for the OpenAgent Auth Protocol (OAAP).
+ * @openagent/http — HTTP binding for the OpenAgent Core Protocol identity
+ * flow.
  *
- * Maps the OAAP 4-step mutual authentication handshake to HTTP, providing
+ * Carries the Section 15 identity flow (challenge → proof → verified
+ * session) over HTTP per the specification's Section 16 HTTP binding:
  * middleware, client, discovery, and session management.
  */
 
 // Headers
 export {
-  OAS_AUTH_SCHEME,
+  OPENAGENT_AUTH_SCHEME,
   HEADER_OPENAGENT_DID,
   HEADER_OPENAGENT_SESSION,
   CONTENT_TYPE_JSON,
-  extractOasToken,
-  buildOasHeader,
+  extractOpenAgentToken,
+  buildOpenAgentHeader,
 } from './headers.js';
 
 // Transport
 export {
   HttpTransport,
   TransportError,
-  type PresentMessage,
-  type ChallengeMessage,
-  type ProveMessage,
-  type EstablishedMessage,
+  CHALLENGE_TYPE,
+  canonicalChallengeBytes,
+  identityChallengeSchema,
+  identityVerifiedSchema,
+  type IdentityChallenge,
+  type IdentityProof,
+  type IdentityVerified,
+  type KeyType,
+  type TrustTier,
   type HttpTransportConfig,
-  challengeMessageSchema,
-  establishedMessageSchema,
 } from './transport.js';
 
 // Discovery
@@ -43,9 +48,8 @@ export {
 
 // Server
 export {
-  PROTOCOL_VERSION,
   DEFAULT_SESSION_TTL_SECS,
-  DEFAULT_CHALLENGE_EXPIRY_SECS,
+  DEFAULT_CHALLENGE_TTL_SECS,
   type ServerConfig,
   type SessionState,
   type StoredSession,
@@ -53,10 +57,10 @@ export {
   type VerifySignatureFn,
   type AuthResult,
   InMemorySessionStore,
-  OaapServerError,
+  CoreAuthError,
   createServerConfig,
   handleDiscovery,
-  handlePresent,
+  handleChallenge,
   handleProve,
   authenticateRequest,
 } from './server.js';

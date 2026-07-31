@@ -3,17 +3,27 @@ import {
   InMemorySessionStore,
   createServerConfig,
   handleDiscovery,
-  handlePresent,
+  handleChallenge,
   handleProve,
   authenticateRequest,
-  OaapServerError,
-  PROTOCOL_VERSION,
+  CoreAuthError,
+  type StoredSession,
 } from '../src/server.js';
-import { HEADER_OPENAGENT_SESSION } from '../src/headers.js';
+import { CHALLENGE_TYPE, canonicalChallengeBytes, type IdentityProof } from '../src/transport.js';
+import { HEADER_OPENAGENT_SESSION, buildOpenAgentHeader } from '../src/headers.js';
+
+function validProof(nonce: string): IdentityProof {
+  return {
+    signature: 'c2ln',
+    public_key: 'a2V5',
+    key_type: 'ed25519',
+    nonce,
+  };
+}
 
 describe('server', () => {
   let store: InMemorySessionStore;
-  const config = createServerConfig('did:oas:l1fe:service:test');
+  const config = createServerConfig('https://api.example.com');
 
   beforeEach(() => {
     store = new InMemorySessionStore();
@@ -22,179 +32,141 @@ describe('server', () => {
   describe('handleDiscovery', () => {
     it('returns a valid discovery document', () => {
       const doc = handleDiscovery(config);
-      expect(doc.server_did).toBe('did:oas:l1fe:service:test');
-      expect(doc.supported_versions).toContain(PROTOCOL_VERSION);
+      expect(doc.server_did).toBe('https://api.example.com');
+      expect(doc.supported_versions).toContain(1);
       expect(doc.auth_endpoint).toBe('/.well-known/openagent/auth');
-      expect(doc.required_conformance_level).toBe('L2');
     });
   });
 
-  describe('handlePresent', () => {
-    const validPresent = {
-      version: PROTOCOL_VERSION,
-      did: 'did:oas:l1fe:agent:alice',
-      did_document: '{}',
-      ephemeral_public_key: btoa(String.fromCharCode(...new Uint8Array(32))),
-    };
-
-    it('returns a challenge for a valid PRESENT', async () => {
-      const challenge = await handlePresent(config, store, validPresent);
-      expect(challenge.session_id).toBeTruthy();
-      expect(challenge.nonce).toBeTruthy();
-      expect(challenge.responder_did).toBe(config.serverDid);
-      expect(challenge.expires_at).toBeGreaterThan(0);
+  describe('handleChallenge', () => {
+    it('issues a spec-shaped challenge', async () => {
+      const challenge = await handleChallenge(config, store);
+      expect(challenge.type).toBe(CHALLENGE_TYPE);
+      expect(challenge.nonce).toMatch(/^[0-9a-f]{64}$/);
+      expect(challenge.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+      expect(challenge.origin).toBe('https://api.example.com');
+      expect(challenge.realm).toBeUndefined();
     });
 
-    it('rejects unsupported protocol version', async () => {
-      await expect(
-        handlePresent(config, store, { ...validPresent, version: 99 }),
-      ).rejects.toThrow(OaapServerError);
-    });
-
-    it('rejects invalid DID', async () => {
-      await expect(
-        handlePresent(config, store, { ...validPresent, did: 'not-a-did' }),
-      ).rejects.toThrow(OaapServerError);
-    });
-
-    it('stores the session', async () => {
-      const challenge = await handlePresent(config, store, validPresent);
-      const session = await store.get(challenge.session_id);
-      expect(session).toBeDefined();
-      expect(session?.state).toBe('awaiting_proof');
-      expect(session?.initiatorDid).toBe('did:oas:l1fe:agent:alice');
+    it('stores a pending session keyed by the nonce', async () => {
+      const challenge = await handleChallenge(config, store);
+      const pending = await store.get(challenge.nonce);
+      expect(pending).toBeDefined();
+      expect(pending?.state).toBe('awaiting_proof');
+      expect(pending?.challengeTimestamp).toBe(challenge.timestamp);
     });
   });
 
   describe('handleProve', () => {
-    it('rejects unknown session', async () => {
-      const prove = { session_id: 'nonexistent', signature: 'AAAA', did: 'did:oas:test:agent:x' };
-      const verifyFn = async () => true;
-      await expect(handleProve(config, store, prove, verifyFn)).rejects.toThrow(
-        OaapServerError,
+    const acceptAll = async () => true;
+
+    it('verifies a correct proof and issues a session token', async () => {
+      const challenge = await handleChallenge(config, store);
+      const verified = await handleProve(config, store, validProof(challenge.nonce), acceptAll);
+      expect(verified.session_token).toBeTruthy();
+      expect(verified.trust_tier).toBe('anonymous');
+      expect(verified.session_expires).toMatch(/Z$/);
+    });
+
+    it('consumes the nonce so a second answer is replay', async () => {
+      const challenge = await handleChallenge(config, store);
+      await handleProve(config, store, validProof(challenge.nonce), acceptAll);
+      await expect(
+        handleProve(config, store, validProof(challenge.nonce), acceptAll),
+      ).rejects.toThrow(CoreAuthError);
+    });
+
+    it('rejects and consumes a bad signature', async () => {
+      const challenge = await handleChallenge(config, store);
+      await expect(
+        handleProve(config, store, validProof(challenge.nonce), async () => false),
+      ).rejects.toThrow(CoreAuthError);
+      // The nonce is consumed on failure: even a now-accepting verifier fails.
+      await expect(
+        handleProve(config, store, validProof(challenge.nonce), acceptAll),
+      ).rejects.toThrow(CoreAuthError);
+    });
+
+    it('rejects a secp256k1 proof with a named reason', async () => {
+      const challenge = await handleChallenge(config, store);
+      const proof: IdentityProof = { ...validProof(challenge.nonce), key_type: 'secp256k1' };
+      await expect(handleProve(config, store, proof, acceptAll)).rejects.toThrow(
+        /ed25519 only/,
       );
     });
 
-    it('rejects DID mismatch', async () => {
-      const validPresent = {
-        version: PROTOCOL_VERSION,
-        did: 'did:oas:l1fe:agent:alice',
-        did_document: '{}',
-        ephemeral_public_key: btoa(String.fromCharCode(...new Uint8Array(32))),
-      };
-      const challenge = await handlePresent(config, store, validPresent);
-
-      const prove = {
-        session_id: challenge.session_id,
-        signature: 'AAAA',
-        did: 'did:oas:l1fe:agent:bob',
-      };
-      const verifyFn = async () => true;
-      await expect(handleProve(config, store, prove, verifyFn)).rejects.toThrow(
-        /DID mismatch/,
-      );
+    it('rejects a nonce with no pending challenge', async () => {
+      await expect(
+        handleProve(config, store, validProof('f'.repeat(64)), acceptAll),
+      ).rejects.toThrow(CoreAuthError);
     });
+  });
 
-    it('rejects failed signature verification', async () => {
-      const validPresent = {
-        version: PROTOCOL_VERSION,
-        did: 'did:oas:l1fe:agent:alice',
-        did_document: '{}',
-        ephemeral_public_key: btoa(String.fromCharCode(...new Uint8Array(32))),
-      };
-      const challenge = await handlePresent(config, store, validPresent);
-
-      const prove = {
-        session_id: challenge.session_id,
-        signature: 'AAAA',
-        did: 'did:oas:l1fe:agent:alice',
-      };
-      const verifyFn = async () => false;
-      await expect(handleProve(config, store, prove, verifyFn)).rejects.toThrow(
-        /Signature verification failed/,
-      );
-    });
-
-    it('establishes session on valid proof', async () => {
-      const validPresent = {
-        version: PROTOCOL_VERSION,
-        did: 'did:oas:l1fe:agent:alice',
-        did_document: '{}',
-        ephemeral_public_key: btoa(String.fromCharCode(...new Uint8Array(32))),
-      };
-      const challenge = await handlePresent(config, store, validPresent);
-
-      const prove = {
-        session_id: challenge.session_id,
-        signature: 'AAAA',
-        did: 'did:oas:l1fe:agent:alice',
-      };
-      const verifyFn = async () => true;
-      const established = await handleProve(config, store, prove, verifyFn);
-
-      expect(established.session_id).toBe(challenge.session_id);
-      expect(established.expires_at).toBeGreaterThan(0);
-
-      const session = await store.get(challenge.session_id);
-      expect(session?.state).toBe('established');
+  describe('canonical payload reconstruction', () => {
+    it('rebuilds the exact signed challenge from the session record', async () => {
+      const challenge = await handleChallenge(config, store);
+      const pending = await store.get(challenge.nonce);
+      expect(pending).toBeDefined();
+      const rebuilt = canonicalChallengeBytes({
+        type: CHALLENGE_TYPE,
+        nonce: pending!.nonce,
+        timestamp: pending!.challengeTimestamp,
+        origin: pending!.responderDid,
+      });
+      const original = canonicalChallengeBytes(challenge);
+      expect(rebuilt).toEqual(original);
     });
   });
 
   describe('authenticateRequest', () => {
-    it('rejects request without session header', async () => {
-      const req = new Request('http://localhost/api/tools');
-      const result = await authenticateRequest(req, store);
-      expect(result.authenticated).toBe(false);
-      expect(result.error).toContain('Missing');
-    });
-
-    it('rejects unknown session', async () => {
-      const req = new Request('http://localhost/api/tools', {
-        headers: { [HEADER_OPENAGENT_SESSION]: 'unknown-session' },
-      });
-      const result = await authenticateRequest(req, store);
-      expect(result.authenticated).toBe(false);
-    });
-
-    it('authenticates valid session', async () => {
-      // Create an established session directly.
-      await store.put({
-        id: 'sess-valid',
+    function establishedSession(id: string): StoredSession {
+      return {
+        id,
         state: 'established',
         initiatorDid: 'did:oas:l1fe:agent:alice',
-        responderDid: config.serverDid,
-        nonce: 'test',
+        responderDid: 'https://api.example.com',
+        nonce: 'n',
+        challengeTimestamp: '2026-03-21T12:00:00Z',
         createdAt: Math.floor(Date.now() / 1000),
         expiresAt: Math.floor(Date.now() / 1000) + 300,
         capabilities: [],
-      });
+      };
+    }
 
-      const req = new Request('http://localhost/api/tools', {
-        headers: { [HEADER_OPENAGENT_SESSION]: 'sess-valid' },
+    it('authenticates via Authorization: OpenAgent', async () => {
+      await store.put(establishedSession('sess-1'));
+      const req = new Request('http://localhost/api', {
+        headers: { authorization: buildOpenAgentHeader('sess-1') },
       });
       const result = await authenticateRequest(req, store);
       expect(result.authenticated).toBe(true);
       expect(result.peerDid).toBe('did:oas:l1fe:agent:alice');
     });
 
-    it('rejects expired session', async () => {
-      await store.put({
-        id: 'sess-expired',
-        state: 'established',
-        initiatorDid: 'did:oas:l1fe:agent:alice',
-        responderDid: config.serverDid,
-        nonce: 'test',
-        createdAt: Math.floor(Date.now() / 1000) - 600,
-        expiresAt: Math.floor(Date.now() / 1000) - 1,
-        capabilities: [],
+    it('authenticates via the session header fallback', async () => {
+      await store.put(establishedSession('sess-2'));
+      const req = new Request('http://localhost/api', {
+        headers: { [HEADER_OPENAGENT_SESSION]: 'sess-2' },
       });
+      const result = await authenticateRequest(req, store);
+      expect(result.authenticated).toBe(true);
+    });
 
-      const req = new Request('http://localhost/api/tools', {
-        headers: { [HEADER_OPENAGENT_SESSION]: 'sess-expired' },
+    it('rejects missing credentials', async () => {
+      const result = await authenticateRequest(new Request('http://localhost/api'), store);
+      expect(result.authenticated).toBe(false);
+    });
+
+    it('rejects and removes an expired session', async () => {
+      const expired = establishedSession('sess-3');
+      expired.expiresAt = Math.floor(Date.now() / 1000) - 10;
+      await store.put(expired);
+      const req = new Request('http://localhost/api', {
+        headers: { [HEADER_OPENAGENT_SESSION]: 'sess-3' },
       });
       const result = await authenticateRequest(req, store);
       expect(result.authenticated).toBe(false);
-      expect(result.error).toContain('expired');
+      expect(await store.get('sess-3')).toBeUndefined();
     });
   });
 });

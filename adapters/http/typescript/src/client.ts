@@ -1,46 +1,51 @@
 /**
- * HTTP client for initiating the OAAP handshake.
+ * HTTP client for the OpenAgent Core Protocol identity flow.
  *
- * Performs the full 4-step handshake and returns an `AuthenticatedSession`.
+ * Fetches a challenge, signs the JCS-canonical challenge bytes, proves, and
+ * holds the resulting session in an `AuthenticatedSession`.
  */
 
-import { fetchDiscovery, resolveAuthEndpoint } from './discovery.js';
+import { fetchDiscovery, resolveAuthEndpoint, resolveProveEndpoint } from './discovery.js';
 import { AuthenticatedSession } from './session.js';
-import { HttpTransport, type PresentMessage, type ProveMessage, TransportError } from './transport.js';
-
-/** Current protocol version. */
-const PROTOCOL_VERSION = 1;
+import {
+  canonicalChallengeBytes,
+  HttpTransport,
+  type IdentityProof,
+  type KeyType,
+} from './transport.js';
 
 /** Client configuration. */
 export interface ClientConfig {
-  /** The agent's DID. */
+  /**
+   * The agent's DID. Reported to the server for audit and, where the
+   * deployment resolves DIDs, for trust-tier assignment. The agent proves
+   * possession of the key - lineage evaluation is the server's job.
+   */
   did: string;
-  /** Serialized DID document (JSON string). */
-  didDocument: string;
-  /** Optional serialized lineage proof. */
-  lineageProof?: string;
-  /** Optional conformance level claim. */
-  conformanceLevel?: string;
+  /** The signature scheme the `sign` function implements. */
+  keyType?: KeyType;
   /** Request timeout in milliseconds. Default: 30000. */
   timeoutMs?: number;
 }
 
 /**
- * Function that signs a payload and returns a base64-encoded signature.
+ * Function that signs a payload and returns a base64url (no padding)
+ * encoded signature.
  *
- * The caller provides this — it may use crypto-wasm, Web Crypto, or
- * any Ed25519 implementation.
+ * The caller provides this — it may use @openagent/crypto-wasm, Web Crypto,
+ * or any Ed25519 implementation.
  */
 export type SignFn = (payload: Uint8Array) => Promise<string>;
 
 /**
- * HTTP client that performs the OAAP 4-step handshake.
+ * HTTP client that performs the Core Protocol identity flow.
  *
  * Usage:
  * ```ts
  * const client = new HttpAuthClient({
- *   config: { did: 'did:oas:l1fe:agent:my-bot', didDocument: '...' },
- *   sign: async (payload) => base64Encode(ed25519Sign(privateKey, payload)),
+ *   config: { did: 'did:oas:l1fe:agent:my-bot' },
+ *   sign: async (payload) => base64url(ed25519Sign(privateKey, payload)),
+ *   publicKey: async () => base64url(ed25519PublicKey(privateKey)),
  * });
  * const session = await client.authenticate('https://api.example.com');
  * const resp = await session.get('/api/tools');
@@ -49,74 +54,65 @@ export type SignFn = (payload: Uint8Array) => Promise<string>;
 export class HttpAuthClient {
   private readonly config: ClientConfig;
   private readonly sign: SignFn;
+  private readonly publicKey: () => Promise<string>;
   private readonly transport: HttpTransport;
 
   constructor(params: {
     config: ClientConfig;
     sign: SignFn;
+    /** Returns the agent's raw public key, base64url (no padding). */
+    publicKey: () => Promise<string>;
     transport?: HttpTransport;
   }) {
     this.config = params.config;
     this.sign = params.sign;
+    this.publicKey = params.publicKey;
     this.transport = params.transport ?? new HttpTransport({ timeoutMs: params.config.timeoutMs });
   }
 
   /**
-   * Perform the full OAAP handshake against the given base URL.
+   * Perform the full identity flow against the given base URL.
    *
-   * 1. Discovers the auth endpoint via `GET /.well-known/openagent`
-   * 2. Sends PRESENT, receives CHALLENGE
-   * 3. Signs the challenge, sends PROVE, receives ESTABLISHED
-   * 4. Returns an `AuthenticatedSession`
+   * 1. Discovers the auth endpoints (tolerating discovery failure)
+   * 2. Fetches an `openagent-challenge-v1` challenge
+   * 3. Signs the JCS-canonical challenge bytes and proves
+   * 4. Returns an `AuthenticatedSession` carrying the session token
    */
   async authenticate(baseUrl: string): Promise<AuthenticatedSession> {
-    // Step 0: Discover endpoints.
-    const doc = await fetchDiscovery(baseUrl, this.config.timeoutMs);
-    const authEndpoint = resolveAuthEndpoint(baseUrl, doc);
+    // Step 0: discover endpoints, tolerating servers that do not publish a
+    // discovery document.
+    let authEndpoint: string;
+    let proveEndpoint: string;
+    try {
+      const doc = await fetchDiscovery(baseUrl, this.config.timeoutMs);
+      authEndpoint = resolveAuthEndpoint(baseUrl, doc);
+      proveEndpoint = resolveProveEndpoint(baseUrl, doc);
+    } catch {
+      const base = baseUrl.replace(/\/$/, '');
+      authEndpoint = `${base}/.well-known/openagent/auth`;
+      proveEndpoint = `${authEndpoint}/prove`;
+    }
 
-    // Generate ephemeral key placeholder.
-    // In production, this would use X25519 via crypto-wasm.
-    const ephemeralBytes = new Uint8Array(32);
-    crypto.getRandomValues(ephemeralBytes);
-    const ephemeralPubkey = btoa(String.fromCharCode(...ephemeralBytes));
+    // Step 1: fetch the challenge (validated by the transport before we sign).
+    const challenge = await this.transport.fetchChallenge(authEndpoint);
 
-    // Step 1: PRESENT
-    const present: PresentMessage = {
-      version: PROTOCOL_VERSION,
-      did: this.config.did,
-      did_document: this.config.didDocument,
-      lineage_proof: this.config.lineageProof,
-      ephemeral_public_key: ephemeralPubkey,
-      conformance_level: this.config.conformanceLevel,
+    // Step 2: sign the canonical challenge bytes and prove.
+    const payload = canonicalChallengeBytes(challenge);
+    const proof: IdentityProof = {
+      signature: await this.sign(payload),
+      public_key: await this.publicKey(),
+      key_type: this.config.keyType ?? 'ed25519',
+      nonce: challenge.nonce,
     };
+    const verified = await this.transport.prove(proveEndpoint, proof);
 
-    // Step 2: CHALLENGE (returned as response to PRESENT)
-    const challenge = await this.transport.present(authEndpoint, present);
-
-    // Step 3: PROVE -- sign the challenge payload.
-    // Build the canonical payload: SHA-256(session_id || nonce || did || responder_did)
-    const payloadStr = `${challenge.session_id}${challenge.nonce}${this.config.did}${challenge.responder_did}`;
-    const payloadBytes = new TextEncoder().encode(payloadStr);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', payloadBytes);
-    const payload = new Uint8Array(hashBuffer);
-
-    const signatureBase64 = await this.sign(payload);
-
-    const prove: ProveMessage = {
-      session_id: challenge.session_id,
-      signature: signatureBase64,
-      did: this.config.did,
-    };
-
-    // Step 4: ESTABLISHED (returned as response to PROVE)
-    const established = await this.transport.prove(authEndpoint, prove);
-
+    // Step 3: hold the session.
     return new AuthenticatedSession({
       baseUrl,
-      sessionId: established.session_id,
+      sessionId: verified.session_token,
       peerDid: this.config.did,
-      sessionToken: established.session_id,
-      expiresAt: established.expires_at,
+      sessionToken: verified.session_token,
+      expiresAt: Math.floor(Date.parse(verified.session_expires) / 1000),
     });
   }
 }

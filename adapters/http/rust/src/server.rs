@@ -1,46 +1,68 @@
 // Copyright (c) 2026 L1fe Labs, Inc. — Apache-2.0 OR MIT
-//! Framework-agnostic server-side handlers for the OAAP handshake endpoints.
+//! Framework-agnostic server-side handlers for the Core Protocol identity
+//! flow over HTTP.
 //!
-//! These functions handle the core logic for each endpoint. Framework-specific
-//! adapters (Axum, Actix, etc.) call these with parsed request bodies and
-//! return the responses in their respective formats.
+//! These functions implement the server half of the Section 15 identity flow:
+//! issue an [`IdentityChallenge`], validate and verify an [`IdentityProof`],
+//! and return an [`IdentityVerified`] session. Framework integrations (Axum,
+//! others) call these with parsed bodies and render the results.
+//!
+//! Session tokens minted here are opaque 32-byte hex strings validated
+//! through the session store. JWT minting per Core Protocol Section 12 is
+//! `openagent-server`'s role; this adapter's tokens are for deployments that
+//! keep session state in the store.
 
-use base64::engine::general_purpose::STANDARD as B64;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64URL;
 use base64::Engine;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
 use openagent_auth_protocol::error::AuthProtocolError;
 use openagent_auth_protocol::handshake;
-use openagent_auth_protocol::message::{ChallengeMessage, EstablishedMessage, PresentMessage, ProveMessage};
+use openagent_auth_protocol::message::{
+    IdentityChallenge, IdentityProof, IdentityVerified, KeyType, TrustTier,
+};
 use openagent_auth_protocol::session::{Session, SessionState, SessionStore};
-use openagent_auth_protocol::types::{ConformanceLevel, DiscoveryDocument};
+use openagent_auth_protocol::types::DiscoveryDocument;
 
-/// Server configuration for the OAAP HTTP adapter.
+/// Server configuration for the HTTP adapter.
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
-    /// The server's DID.
-    pub server_did: String,
-    /// Required conformance level.
-    pub required_conformance: ConformanceLevel,
+    /// The server's origin per RFC 6454 (`scheme://host[:port]`). Bound into
+    /// every challenge the server issues.
+    pub origin: String,
+    /// Optional protection-space identifier.
+    pub realm: Option<String>,
+    /// The trust tier assigned to verified agents. Deployments with DID
+    /// resolution and registry context assign higher tiers in their own
+    /// policy layer; this adapter's default is key-possession-only.
+    pub trust_tier: TrustTier,
     /// Session TTL in seconds.
     pub session_ttl_secs: u32,
-    /// Challenge expiry in seconds.
-    pub challenge_expiry_secs: u32,
+    /// Challenge TTL in seconds.
+    pub challenge_ttl_secs: u32,
 }
 
 impl ServerConfig {
     /// Creates a new server configuration with sensible defaults.
-    pub fn new(server_did: impl Into<String>) -> Self {
+    pub fn new(origin: impl Into<String>) -> Self {
         Self {
-            server_did: server_did.into(),
-            required_conformance: ConformanceLevel::L2,
+            origin: origin.into(),
+            realm: None,
+            trust_tier: TrustTier::Anonymous,
             session_ttl_secs: handshake::DEFAULT_SESSION_TTL_SECS,
-            challenge_expiry_secs: handshake::DEFAULT_CHALLENGE_EXPIRY_SECS,
+            challenge_ttl_secs: handshake::DEFAULT_CHALLENGE_TTL_SECS,
         }
     }
 
-    /// Sets the required conformance level.
-    pub fn with_conformance(mut self, level: ConformanceLevel) -> Self {
-        self.required_conformance = level;
+    /// Sets the protection-space identifier.
+    pub fn with_realm(mut self, realm: impl Into<String>) -> Self {
+        self.realm = Some(realm.into());
+        self
+    }
+
+    /// Sets the trust tier assigned to verified agents.
+    pub fn with_trust_tier(mut self, tier: TrustTier) -> Self {
+        self.trust_tier = tier;
         self
     }
 
@@ -50,152 +72,175 @@ impl ServerConfig {
         self
     }
 
-    /// Sets the challenge expiry.
-    pub fn with_challenge_expiry(mut self, secs: u32) -> Self {
-        self.challenge_expiry_secs = secs;
+    /// Sets the challenge TTL.
+    pub fn with_challenge_ttl(mut self, secs: u32) -> Self {
+        self.challenge_ttl_secs = secs;
         self
     }
 }
 
 /// Handle `GET /.well-known/openagent` — returns the discovery document.
 pub fn handle_discovery(config: &ServerConfig) -> DiscoveryDocument {
-    handshake::build_discovery_document(&config.server_did, config.required_conformance)
+    DiscoveryDocument {
+        auth_endpoint: handshake::AUTH_ENDPOINT_PATH.to_owned(),
+        supported_versions: vec![1],
+        server_did: config.origin.clone(),
+        required_conformance_level: openagent_auth_protocol::types::ConformanceLevel::L2,
+    }
 }
 
-/// Handle `POST /.well-known/openagent/auth` — Step 1 (PRESENT) -> Step 2 (CHALLENGE).
+/// Handle the challenge step — issue an [`IdentityChallenge`].
 ///
-/// Validates the PRESENT message, creates a pending session, and returns a
-/// CHALLENGE with a cryptographic nonce.
-pub async fn handle_present<S: SessionStore>(
+/// Creates a fresh challenge per Section 4 and records a pending session
+/// keyed by the nonce, so the proof step can find exactly one challenge to
+/// answer and a nonce can never be answered twice.
+pub async fn handle_challenge<S: SessionStore>(
     config: &ServerConfig,
     store: &S,
-    msg: PresentMessage,
-) -> Result<ChallengeMessage, AuthProtocolError> {
-    // Validate the PRESENT message.
-    handshake::validate_present(&msg)?;
-
-    // Generate challenge components.
-    let session_id = handshake::generate_session_id()?;
+) -> Result<IdentityChallenge, AuthProtocolError> {
     let nonce = handshake::generate_nonce()?;
+    // One instant drives both the challenge timestamp and the session record:
+    // the prove step reconstructs the signed challenge from the session, so
+    // the two must agree to the second or a valid proof fails to verify.
     let now = chrono::Utc::now();
-    let expires_at = now + chrono::Duration::seconds(i64::from(config.challenge_expiry_secs));
+    let challenge = IdentityChallenge::new(
+        nonce,
+        now.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        config.origin.clone(),
+        config.realm.clone(),
+    );
 
-    // Create a pending session.
     let session = Session {
-        id: session_id.clone(),
+        // The pending session is keyed by nonce: that is the correlation the
+        // proof carries, and single-use-ness is enforced by removal.
+        id: challenge.nonce.clone(),
         state: SessionState::AwaitingProof,
-        initiator_did: msg.did.clone(),
-        responder_did: config.server_did.clone(),
-        nonce: nonce.clone(),
+        initiator_did: String::new(),
+        responder_did: config.origin.clone(),
+        nonce: challenge.nonce.clone(),
         created_at: now,
-        expires_at,
+        expires_at: now + chrono::Duration::seconds(i64::from(config.challenge_ttl_secs)),
         capabilities: vec![],
     };
     store.put(session).await?;
 
-    // Build the challenge response.
-    let challenge = ChallengeMessage {
-        session_id,
-        nonce,
-        responder_did: config.server_did.clone(),
-        responder_ephemeral_public_key: msg.ephemeral_public_key,
-        required_conformance_level: Some(config.required_conformance.to_string()),
-        expires_at: expires_at.timestamp(),
-    };
-
     Ok(challenge)
 }
 
-/// Handle `POST /.well-known/openagent/auth/prove` — Step 3 (PROVE) -> Step 4 (ESTABLISHED).
+/// Handle the prove step — verify an [`IdentityProof`] and issue a session.
 ///
-/// Verifies the proof signature, transitions the session to Established,
-/// and returns the session parameters.
+/// Verification is normative-ordered: shape checks first (nonce echo, key
+/// length per scheme), then the pending challenge (present, unexpired), then
+/// the signature over the JCS-canonical challenge bytes. The nonce is
+/// consumed on success *and* on signature failure - a failed answer must not
+/// be retryable, or a verifier becomes an oracle.
 pub async fn handle_prove<S: SessionStore>(
     config: &ServerConfig,
     store: &S,
-    msg: ProveMessage,
-    verification_key_bytes: &[u8; 32],
-) -> Result<EstablishedMessage, AuthProtocolError> {
-    // Look up the pending session.
-    let session = store
-        .get(&msg.session_id)
-        .await?
-        .ok_or_else(|| AuthProtocolError::SessionNotFound {
-            session_id: msg.session_id.clone(),
+    proof: &IdentityProof,
+) -> Result<IdentityVerified, AuthProtocolError> {
+    // 1. Load the pending challenge by the echoed nonce.
+    let session =
+        store
+            .get(&proof.nonce)
+            .await?
+            .ok_or_else(|| AuthProtocolError::ReplayDetected {
+                nonce_hex: proof.nonce.clone(),
+            })?;
+
+    // 2. Expiry check; consume the nonce either way.
+    if session.is_expired() {
+        store.remove(&proof.nonce).await?;
+        return Err(AuthProtocolError::ChallengeExpired {
+            issued: session.created_at.to_rfc3339(),
+            expiry: session.expires_at.to_rfc3339(),
+            now: chrono::Utc::now().to_rfc3339(),
+        });
+    }
+
+    // 3. Reconstruct the exact challenge that was issued and shape-check
+    //    the proof against it.
+    let challenge = IdentityChallenge::new(
+        session.nonce.clone(),
+        session.created_at.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        session.responder_did.clone(),
+        config.realm.clone(),
+    );
+    handshake::validate_proof_shape(proof, &challenge)?;
+
+    // 4. Verify the signature over the canonical challenge bytes. This
+    //    server verifies Ed25519 only; a secp256k1 proof is refused with a
+    //    named reason rather than misinterpreted.
+    if proof.key_type != KeyType::Ed25519 {
+        store.remove(&proof.nonce).await?;
+        return Err(AuthProtocolError::InvalidProof {
+            reason: format!("this server verifies ed25519 only; got {}", proof.key_type),
+        });
+    }
+
+    let key_bytes: [u8; 32] = B64URL
+        .decode(&proof.public_key)
+        .map_err(|e| AuthProtocolError::InvalidProof {
+            reason: format!("public_key is not valid base64url: {e}"),
+        })?
+        .try_into()
+        .map_err(|_| AuthProtocolError::InvalidProof {
+            reason: "public_key must decode to 32 bytes".to_string(),
+        })?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&key_bytes).map_err(|e| AuthProtocolError::InvalidProof {
+            reason: format!("invalid Ed25519 public key: {e}"),
         })?;
 
-    // Verify session state.
-    if session.state != SessionState::AwaitingProof {
-        return Err(AuthProtocolError::SessionNotFound {
-            session_id: msg.session_id.clone(),
-        });
-    }
+    let sig_bytes: [u8; 64] = B64URL
+        .decode(&proof.signature)
+        .map_err(|e| AuthProtocolError::InvalidProof {
+            reason: format!("signature is not valid base64url: {e}"),
+        })?
+        .try_into()
+        .map_err(|_| AuthProtocolError::InvalidProof {
+            reason: "signature must decode to 64 bytes".to_string(),
+        })?;
+    let signature = Signature::from_bytes(&sig_bytes);
 
-    // Check expiry.
-    if session.is_expired() {
-        store.remove(&msg.session_id).await?;
-        return Err(AuthProtocolError::SessionExpired {
-            session_id: msg.session_id.clone(),
-        });
-    }
+    let payload = handshake::canonical_challenge_bytes(&challenge)?;
 
-    // Verify the DID matches.
-    if session.initiator_did != msg.did {
-        return Err(AuthProtocolError::ProofSignatureInvalid {
-            reason: format!(
-                "DID mismatch: session has {}, prove has {}",
-                session.initiator_did, msg.did
-            ),
-        });
-    }
+    let verified = verifying_key.verify(&payload, &signature);
 
-    // Build the expected challenge payload.
-    let payload = handshake::build_challenge_payload(
-        &session.id,
-        &session.nonce,
-        &session.initiator_did,
-        &session.responder_did,
-    );
+    // The nonce is consumed on success and on failure alike.
+    store.remove(&proof.nonce).await?;
 
-    // Decode and verify the signature.
-    let sig_bytes = B64
-        .decode(&msg.signature)
-        .map_err(|e| AuthProtocolError::Serialization(format!("invalid signature base64: {e}")))?;
-
-    let vk = VerifyingKey::from_bytes(verification_key_bytes)
-        .map_err(|e| AuthProtocolError::Crypto(format!("invalid verification key: {e}")))?;
-
-    let sig_arr: [u8; 64] = sig_bytes.try_into().map_err(|_| {
-        AuthProtocolError::ProofSignatureInvalid {
-            reason: "signature must be 64 bytes".into(),
-        }
-    })?;
-    let signature = Signature::from_bytes(&sig_arr);
-
-    vk.verify(&payload, &signature).map_err(|e| {
-        AuthProtocolError::ProofSignatureInvalid {
-            reason: e.to_string(),
-        }
+    verified.map_err(|e| AuthProtocolError::SignatureVerificationFailed {
+        reason: e.to_string(),
     })?;
 
-    // Transition session to Established with full TTL.
+    // 5. Establish: mint an opaque session token and store the session.
     let now = chrono::Utc::now();
     let session_expires = now + chrono::Duration::seconds(i64::from(config.session_ttl_secs));
-    let established_session = Session {
-        id: session.id.clone(),
+    let session_token = generate_session_token();
+
+    // The agent's DID: deployments that resolve DIDs do so above this layer;
+    // the adapter reports the presented key as the subject placeholder until
+    // a resolver names it.
+    let subject_did = session.initiator_did.clone();
+
+    let established = Session {
+        id: session_token.clone(),
         state: SessionState::Established,
-        initiator_did: session.initiator_did.clone(),
+        initiator_did: subject_did.clone(),
         responder_did: session.responder_did.clone(),
         nonce: session.nonce.clone(),
-        created_at: session.created_at,
+        created_at: now,
         expires_at: session_expires,
         capabilities: session.capabilities.clone(),
     };
-    store.put(established_session).await?;
+    store.put(established).await?;
 
-    Ok(EstablishedMessage {
-        session_id: session.id,
-        expires_at: session_expires.timestamp(),
+    Ok(IdentityVerified {
+        did: subject_did,
+        trust_tier: config.trust_tier,
+        session_token,
+        session_expires: session_expires.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
         capabilities: if session.capabilities.is_empty() {
             None
         } else {
@@ -206,31 +251,39 @@ pub async fn handle_prove<S: SessionStore>(
 
 /// Validate an authenticated request by checking the session store.
 ///
-/// Looks up the session by `session_id` header, verifies it is established
-/// and not expired, and returns the session.
+/// Looks up the session by its token, verifies it is established and not
+/// expired, and returns it.
 pub async fn validate_authenticated_request<S: SessionStore>(
     store: &S,
-    session_id: &str,
+    session_token: &str,
 ) -> Result<Session, AuthProtocolError> {
-    let session = store
-        .get(session_id)
-        .await?
-        .ok_or_else(|| AuthProtocolError::SessionNotFound {
-            session_id: session_id.to_owned(),
-        })?;
+    let session =
+        store
+            .get(session_token)
+            .await?
+            .ok_or_else(|| AuthProtocolError::SessionNotFound {
+                session_id: session_token.to_owned(),
+            })?;
 
     if session.state != SessionState::Established {
         return Err(AuthProtocolError::SessionNotFound {
-            session_id: session_id.to_owned(),
+            session_id: session_token.to_owned(),
         });
     }
 
     if session.is_expired() {
-        store.remove(session_id).await?;
+        store.remove(session_token).await?;
         return Err(AuthProtocolError::SessionExpired {
-            session_id: session_id.to_owned(),
+            session_id: session_token.to_owned(),
         });
     }
 
     Ok(session)
+}
+
+/// Opaque session token: 32 CSPRNG bytes as hex.
+fn generate_session_token() -> String {
+    let mut buf = [0u8; 32];
+    rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut buf);
+    hex::encode(buf)
 }

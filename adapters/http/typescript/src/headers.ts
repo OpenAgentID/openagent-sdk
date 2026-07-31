@@ -1,33 +1,33 @@
 /**
- * HTTP header constants and parsing utilities for OAAP.
+ * HTTP header constants and parsing utilities for the Core Protocol binding.
  */
 
-/** Authorization scheme for OAAP-authenticated requests. */
-export const OAS_AUTH_SCHEME = 'OAS';
+/** The canonical authorization scheme for OpenAgent-authenticated requests. */
+export const OPENAGENT_AUTH_SCHEME = 'OpenAgent';
 
 /** Header carrying the authenticated agent's DID. */
 export const HEADER_OPENAGENT_DID = 'x-openagent-did';
 
-/** Header carrying the session identifier. */
+/** Header carrying the session token (alternative to Authorization). */
 export const HEADER_OPENAGENT_SESSION = 'x-openagent-session';
 
-/** Content-Type for all OAAP JSON payloads. */
+/** Content-Type for all Core Protocol JSON payloads. */
 export const CONTENT_TYPE_JSON = 'application/json';
 
 /**
- * Extract the session token from an `Authorization: OAS <token>` header.
- * Returns `undefined` if the header is missing, malformed, or uses a different scheme.
+ * Extract the session token from an `Authorization: OpenAgent <token>`
+ * header. Returns `undefined` if the header is missing, malformed, or uses a
+ * different scheme.
  */
-export function extractOasToken(authorization: string): string | undefined {
+export function extractOpenAgentToken(authorization: string): string | undefined {
   const trimmed = authorization.trim();
-  if (trimmed.length < 5) return undefined;
-  const scheme = trimmed.slice(0, 4);
-  if (scheme.toLowerCase() !== 'oas ') return undefined;
-  const token = trimmed.slice(4).trim();
+  const [scheme, ...rest] = trimmed.split(' ');
+  if (!scheme || scheme.toLowerCase() !== OPENAGENT_AUTH_SCHEME.toLowerCase()) return undefined;
+  const token = rest.join(' ').trim();
   return token.length > 0 ? token : undefined;
 }
 
-/** Build an `Authorization: OAS <token>` header value. */
-export function buildOasHeader(token: string): string {
-  return `${OAS_AUTH_SCHEME} ${token}`;
+/** Build an `Authorization: OpenAgent <token>` header value. */
+export function buildOpenAgentHeader(token: string): string {
+  return `${OPENAGENT_AUTH_SCHEME} ${token}`;
 }

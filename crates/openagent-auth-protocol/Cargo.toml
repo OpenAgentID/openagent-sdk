@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.78"
 license = "Apache-2.0 OR MIT"
-description = "OAAP — OpenAgent Auth Protocol. Transport-agnostic 4-step mutual authentication handshake for autonomous agents using OAS DIDs, Ed25519, X25519 ECDH, and BLAKE3."
+description = "Transport-agnostic type layer for the OpenAgent Core Protocol identity flow (challenge-response authentication, Core Protocol Specification Section 15)."
 repository = "https://github.com/OpenAgentID/openagent-sdk"
 keywords = ["auth", "protocol", "handshake", "openagent", "did"]
 categories = ["authentication", "cryptography"]
@@ -21,12 +21,15 @@ unimplemented = "deny"
 
 [dependencies]
 # Crypto
-blake3 = "1.5"
 rand = "0.8"
+hex = "0.4"
 
 # Serialization + encoding
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# JCS (RFC 8785) canonicalization - the challenge signing payload is the
+# JCS bytes of the challenge object, per Core Protocol Specification S5.
+serde_jcs = "0.1"
 base64 = "0.22"
 
 # Async

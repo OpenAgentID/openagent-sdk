@@ -1,0 +1,10 @@
+# clippy.toml
+
+# The crate denies unwrap/expect/panic in Cargo.toml so a production code path
+# cannot abort. That policy does not serve the same purpose in a test, where
+# panicking *is* the mechanism by which a failure is reported; these settings
+# scope the denial to production code. The same pattern as the Arsenal
+# workspace, where the unscoped version made clippy structurally unrunnable.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

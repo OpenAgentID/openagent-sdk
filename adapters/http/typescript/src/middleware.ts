@@ -1,5 +1,5 @@
 /**
- * Framework middleware factories for OAAP authentication.
+ * Framework middleware factories for Core Protocol authentication.
  *
  * Works with Express, Hono, and any framework using the standard
  * Request/Response API.
@@ -9,9 +9,9 @@ import type { SessionStore, ServerConfig, VerifySignatureFn, AuthResult } from '
 import {
   authenticateRequest,
   handleDiscovery,
-  handlePresent,
+  handleChallenge,
   handleProve,
-  OaapServerError,
+  CoreAuthError,
   InMemorySessionStore,
   createServerConfig,
 } from './server.js';
@@ -27,8 +27,8 @@ export interface MiddlewareOptions {
   requiredConformance?: 'L0' | 'L1' | 'L2';
   /** Session TTL in seconds (default: 300). */
   sessionTtlSecs?: number;
-  /** Challenge expiry in seconds (default: 60). */
-  challengeExpirySecs?: number;
+  /** Challenge TTL in seconds (default: 60). */
+  challengeTtlSecs?: number;
   /** Signature verification function. */
   verifySignature: VerifySignatureFn;
   /** Paths to exclude from authentication (well-known paths are always excluded). */
@@ -66,7 +66,7 @@ export function createOpenAgentHandler(options: MiddlewareOptions): {
   const config = createServerConfig(options.serverDid, {
     requiredConformance: options.requiredConformance,
     sessionTtlSecs: options.sessionTtlSecs,
-    challengeExpirySecs: options.challengeExpirySecs,
+    challengeTtlSecs: options.challengeTtlSecs,
   });
   const store = options.store ?? new InMemorySessionStore();
   const excludePaths = [...OAAP_PUBLIC_PATHS, ...(options.excludePaths ?? [])];
@@ -84,17 +84,16 @@ export function createOpenAgentHandler(options: MiddlewareOptions): {
       });
     }
 
-    // Present endpoint.
+    // Challenge endpoint.
     if (path === '/.well-known/openagent/auth' && request.method === 'POST') {
       try {
-        const body: unknown = await request.json();
-        const challenge = await handlePresent(config, store, body);
+        const challenge = await handleChallenge(config, store);
         return new Response(JSON.stringify(challenge), {
           status: 200,
           headers: { 'content-type': CONTENT_TYPE_JSON },
         });
       } catch (err) {
-        if (err instanceof OaapServerError) {
+        if (err instanceof CoreAuthError) {
           return new Response(JSON.stringify({ error: err.message }), {
             status: err.statusCode,
             headers: { 'content-type': CONTENT_TYPE_JSON },
@@ -117,7 +116,7 @@ export function createOpenAgentHandler(options: MiddlewareOptions): {
           headers: { 'content-type': CONTENT_TYPE_JSON },
         });
       } catch (err) {
-        if (err instanceof OaapServerError) {
+        if (err instanceof CoreAuthError) {
           return new Response(JSON.stringify({ error: err.message }), {
             status: err.statusCode,
             headers: { 'content-type': CONTENT_TYPE_JSON },
@@ -158,7 +157,7 @@ export function createOpenAgentMiddleware(options: MiddlewareOptions): (
   res: { status: (code: number) => { json: (body: unknown) => void; end: () => void } },
   next: () => void,
 ) => Promise<void> {
-  const { handle, store } = createOpenAgentHandler(options);
+  const { handle } = createOpenAgentHandler(options);
 
   return async (req, res, next) => {
     // Build a minimal Request-like object for the handler.

@@ -1,40 +1,61 @@
 /**
- * Framework-agnostic server-side handlers for the OAAP handshake.
+ * Framework-agnostic server-side handlers for the Core Protocol identity
+ * flow over HTTP.
  *
- * These functions handle the core logic for each endpoint. Framework-specific
- * middleware (Express, Hono, etc.) calls these with parsed request bodies.
+ * These functions implement the server half of the Section 15 identity flow:
+ * issue an IdentityChallenge, validate and verify an IdentityProof, and
+ * return an IdentityVerified session. Framework middleware (Express, Hono,
+ * Next) calls these with parsed request bodies.
+ *
+ * Session tokens minted here are opaque 32-byte hex strings validated
+ * through the session store. JWT minting per Core Protocol Section 12 is
+ * openagent-server's role; this adapter's tokens are for deployments that
+ * keep session state in the store.
  */
 
 import { z } from 'zod';
 import type { ConformanceLevel, DiscoveryDocument } from './discovery.js';
-import { AUTH_ENDPOINT_PATH, PROVE_ENDPOINT_PATH } from './discovery.js';
-import type { ChallengeMessage, EstablishedMessage, PresentMessage, ProveMessage } from './transport.js';
-import { extractOasToken, HEADER_OPENAGENT_SESSION } from './headers.js';
-
-/** OAAP protocol version. */
-export const PROTOCOL_VERSION = 1;
+import { AUTH_ENDPOINT_PATH } from './discovery.js';
+import {
+  canonicalChallengeBytes,
+  CHALLENGE_TYPE,
+  type IdentityChallenge,
+  type IdentityVerified,
+  type TrustTier,
+} from './transport.js';
+import { HEADER_OPENAGENT_SESSION, extractOpenAgentToken } from './headers.js';
 
 /** Default session TTL in seconds. */
 export const DEFAULT_SESSION_TTL_SECS = 300;
 
-/** Default challenge expiry in seconds. */
-export const DEFAULT_CHALLENGE_EXPIRY_SECS = 60;
+/** Default challenge TTL in seconds (Section 7: default 30s, max 300s). */
+export const DEFAULT_CHALLENGE_TTL_SECS = 60;
 
-/** Server configuration for OAAP HTTP endpoints. */
+/** Server configuration for the HTTP endpoints. */
 export interface ServerConfig {
-  serverDid: string;
-  requiredConformance: ConformanceLevel;
-  sessionTtlSecs: number;
-  challengeExpirySecs: number;
+  /** The server's origin per RFC 6454 (`scheme://host[:port]`). Bound into every challenge. */
+  origin: string;
+  /** Optional protection-space identifier. */
+  realm?: string;
+  /** The trust tier assigned to verified agents. Default: anonymous. */
+  trustTier?: TrustTier;
+  /** Session TTL in seconds. */
+  sessionTtlSecs?: number;
+  /** Challenge TTL in seconds. */
+  challengeTtlSecs?: number;
+  /** Conformance level advertised in discovery. */
+  requiredConformance?: ConformanceLevel;
 }
 
 /** Create a server config with sensible defaults. */
-export function createServerConfig(serverDid: string, overrides?: Partial<ServerConfig>): ServerConfig {
+export function createServerConfig(origin: string, overrides?: Partial<ServerConfig>): Required<Pick<ServerConfig, 'origin' | 'trustTier' | 'sessionTtlSecs' | 'challengeTtlSecs' | 'requiredConformance'>> & ServerConfig {
   return {
-    serverDid,
-    requiredConformance: overrides?.requiredConformance ?? 'L2',
-    sessionTtlSecs: overrides?.sessionTtlSecs ?? DEFAULT_SESSION_TTL_SECS,
-    challengeExpirySecs: overrides?.challengeExpirySecs ?? DEFAULT_CHALLENGE_EXPIRY_SECS,
+    origin,
+    trustTier: 'anonymous',
+    sessionTtlSecs: DEFAULT_SESSION_TTL_SECS,
+    challengeTtlSecs: DEFAULT_CHALLENGE_TTL_SECS,
+    requiredConformance: 'L2',
+    ...overrides,
   };
 }
 
@@ -48,6 +69,8 @@ export interface StoredSession {
   initiatorDid: string;
   responderDid: string;
   nonce: string;
+  /** The exact challenge timestamp (spec format); needed to reconstruct the signed payload. */
+  challengeTimestamp: string;
   createdAt: number;
   expiresAt: number;
   capabilities: string[];
@@ -77,155 +100,174 @@ export class InMemorySessionStore implements SessionStore {
   }
 }
 
-/** Zod schema for PresentMessage validation. */
-const presentMessageSchema = z.object({
-  version: z.number(),
-  did: z.string().min(1),
-  did_document: z.string().min(1),
-  lineage_proof: z.string().optional(),
-  ephemeral_public_key: z.string().min(1),
-  conformance_level: z.string().optional(),
-});
-
-/** Zod schema for ProveMessage validation. */
-const proveMessageSchema = z.object({
-  session_id: z.string().min(1),
-  signature: z.string().min(1),
-  did: z.string().min(1),
-});
-
-/** Generate a cryptographic random string (base64). */
-function generateRandom(byteLength: number): string {
-  const bytes = new Uint8Array(byteLength);
-  crypto.getRandomValues(bytes);
-  return btoa(String.fromCharCode(...bytes));
-}
-
-/** Error returned by server handlers. */
-export class OaapServerError extends Error {
+/** Error returned by server handlers, carrying the HTTP status to render. */
+export class CoreAuthError extends Error {
   public readonly statusCode: number;
 
   constructor(message: string, statusCode: number) {
     super(message);
-    this.name = 'OaapServerError';
+    this.name = 'CoreAuthError';
     this.statusCode = statusCode;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
+/** Zod schema for an inbound proof. */
+const identityProofSchema = z.object({
+  signature: z.string().min(1),
+  public_key: z.string().min(1),
+  key_type: z.enum(['ed25519', 'secp256k1']),
+  nonce: z.string().min(1),
+});
+
+function generateHex(byteLength: number): string {
+  const bytes = new Uint8Array(byteLength);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function specTimestamp(date: Date): string {
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 /** Handle `GET /.well-known/openagent` - returns the discovery document. */
-export function handleDiscovery(config: ServerConfig): DiscoveryDocument {
+export function handleDiscovery(config: ServerConfig & { requiredConformance?: ConformanceLevel }): DiscoveryDocument {
   return {
     auth_endpoint: AUTH_ENDPOINT_PATH,
-    supported_versions: [PROTOCOL_VERSION],
-    server_did: config.serverDid,
-    required_conformance_level: config.requiredConformance,
+    supported_versions: [1],
+    server_did: config.origin,
+    required_conformance_level: config.requiredConformance ?? 'L2',
   };
 }
 
-/** Handle `POST /.well-known/openagent/auth` - PRESENT -> CHALLENGE. */
-export async function handlePresent(
-  config: ServerConfig,
+/**
+ * Handle the challenge step - issue an IdentityChallenge.
+ *
+ * Records a pending session keyed by the nonce: the proof carries exactly
+ * that correlation, and single-use-ness is enforced by removal.
+ */
+export async function handleChallenge(
+  config: ServerConfig & { requiredConformance?: ConformanceLevel },
   store: SessionStore,
-  body: unknown,
-): Promise<ChallengeMessage> {
-  const msg = presentMessageSchema.parse(body);
-
-  if (msg.version !== PROTOCOL_VERSION) {
-    throw new OaapServerError(`Unsupported protocol version: ${msg.version}`, 400);
-  }
-  if (!msg.did.startsWith('did:')) {
-    throw new OaapServerError(`Invalid DID: ${msg.did}`, 400);
-  }
-
-  const sessionId = generateRandom(24);
-  const nonce = generateRandom(32);
-  const now = Math.floor(Date.now() / 1000);
-  const expiresAt = now + config.challengeExpirySecs;
+): Promise<IdentityChallenge> {
+  const nonce = generateHex(32);
+  // One instant drives both the challenge timestamp and the session record:
+  // the prove step reconstructs the signed challenge from the session, so
+  // the two must agree to the second or a valid proof fails to verify.
+  const now = new Date();
+  const challenge: IdentityChallenge = {
+    type: CHALLENGE_TYPE,
+    nonce,
+    timestamp: specTimestamp(now),
+    origin: config.origin,
+    ...(config.realm !== undefined ? { realm: config.realm } : {}),
+  };
 
   const session: StoredSession = {
-    id: sessionId,
+    id: nonce,
     state: 'awaiting_proof',
-    initiatorDid: msg.did,
-    responderDid: config.serverDid,
+    initiatorDid: '',
+    responderDid: config.origin,
     nonce,
-    createdAt: now,
-    expiresAt,
+    challengeTimestamp: challenge.timestamp,
+    createdAt: Math.floor(now.getTime() / 1000),
+    expiresAt: Math.floor(now.getTime() / 1000) + (config.challengeTtlSecs ?? DEFAULT_CHALLENGE_TTL_SECS),
     capabilities: [],
   };
   await store.put(session);
 
-  return {
-    session_id: sessionId,
-    nonce,
-    responder_did: config.serverDid,
-    responder_ephemeral_public_key: msg.ephemeral_public_key,
-    required_conformance_level: config.requiredConformance,
-    expires_at: expiresAt,
-  };
+  return challenge;
 }
 
-/** Signature verifier function type. */
-export type VerifySignatureFn = (
-  did: string,
-  payload: Uint8Array,
-  signatureBase64: string,
-) => Promise<boolean>;
+/**
+ * Signature verifier function. The caller provides this (crypto-wasm,
+ * libsodium, noble-ed25519, a KMS call) since Ed25519 verification is not in
+ * every runtime's Web Crypto.
+ */
+export type VerifySignatureFn = (params: {
+  publicKeyBase64Url: string;
+  payload: Uint8Array;
+  signatureBase64Url: string;
+}) => Promise<boolean>;
 
-/** Handle `POST /.well-known/openagent/auth/prove` - PROVE -> ESTABLISHED. */
+/**
+ * Handle the prove step - verify an IdentityProof and issue a session.
+ *
+ * Verification is normative-ordered: pending challenge first (present,
+ * unexpired), then shape checks (nonce echo), then the signature over the
+ * JCS-canonical challenge bytes. The nonce is consumed on success *and* on
+ * failure - a failed answer must not be retryable, or a verifier becomes an
+ * oracle.
+ */
 export async function handleProve(
-  config: ServerConfig,
+  config: ServerConfig & { requiredConformance?: ConformanceLevel },
   store: SessionStore,
   body: unknown,
   verifySignature: VerifySignatureFn,
-): Promise<EstablishedMessage> {
-  const msg = proveMessageSchema.parse(body);
+): Promise<IdentityVerified> {
+  const proof = identityProofSchema.parse(body);
 
-  const session = await store.get(msg.session_id);
+  // 1. Load the pending challenge by the echoed nonce.
+  const session = await store.get(proof.nonce);
   if (!session) {
-    throw new OaapServerError(`Unknown session: ${msg.session_id}`, 401);
-  }
-  if (session.state !== 'awaiting_proof') {
-    throw new OaapServerError(`Session not awaiting proof: ${msg.session_id}`, 401);
+    throw new CoreAuthError(`replay detected: nonce ${proof.nonce} has no pending challenge`, 401);
   }
 
   const now = Math.floor(Date.now() / 1000);
   if (now >= session.expiresAt) {
-    await store.remove(msg.session_id);
-    throw new OaapServerError(`Session expired: ${msg.session_id}`, 401);
+    await store.remove(proof.nonce);
+    throw new CoreAuthError('challenge expired', 401);
   }
 
-  if (session.initiatorDid !== msg.did) {
-    throw new OaapServerError(
-      `DID mismatch: session has ${session.initiatorDid}, prove has ${msg.did}`,
-      401,
-    );
+  // 2. Reconstruct the exact signed payload.
+  const challenge: IdentityChallenge = {
+    type: CHALLENGE_TYPE,
+    nonce: session.nonce,
+    timestamp: session.challengeTimestamp,
+    origin: session.responderDid,
+    ...(config.realm !== undefined ? { realm: config.realm } : {}),
+  };
+  const payload = canonicalChallengeBytes(challenge);
+
+  // 3. This server verifies Ed25519 only; a secp256k1 proof is refused with
+  //    a named reason rather than misinterpreted.
+  if (proof.key_type !== 'ed25519') {
+    await store.remove(proof.nonce);
+    throw new CoreAuthError(`this server verifies ed25519 only; got ${proof.key_type}`, 401);
   }
 
-  // Build the expected challenge payload (BLAKE3 equivalent using SHA-256 for TS).
-  const payloadStr = `${session.id}${session.nonce}${session.initiatorDid}${session.responderDid}`;
-  const payloadBytes = new TextEncoder().encode(payloadStr);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', payloadBytes);
-  const payload = new Uint8Array(hashBuffer);
-
-  // Verify signature.
-  const valid = await verifySignature(msg.did, payload, msg.signature);
+  // 4. Verify; consume the nonce on success and failure alike.
+  const valid = await verifySignature({
+    publicKeyBase64Url: proof.public_key,
+    payload,
+    signatureBase64Url: proof.signature,
+  }).catch(async () => {
+    await store.remove(proof.nonce);
+    return false;
+  });
   if (!valid) {
-    throw new OaapServerError('Signature verification failed', 401);
+    await store.remove(proof.nonce);
+    throw new CoreAuthError('signature verification failed', 401);
   }
+  await store.remove(proof.nonce);
 
-  // Transition to established.
-  const sessionExpiresAt = now + config.sessionTtlSecs;
+  // 5. Establish: mint an opaque session token and store the session.
+  const sessionToken = generateHex(32);
+  const expiresAt = now + (config.sessionTtlSecs ?? DEFAULT_SESSION_TTL_SECS);
   const established: StoredSession = {
     ...session,
+    id: sessionToken,
     state: 'established',
-    expiresAt: sessionExpiresAt,
+    createdAt: now,
+    expiresAt,
   };
   await store.put(established);
 
   return {
-    session_id: session.id,
-    expires_at: sessionExpiresAt,
+    did: session.initiatorDid,
+    trust_tier: config.trustTier ?? 'anonymous',
+    session_token: sessionToken,
+    session_expires: specTimestamp(new Date(expiresAt * 1000)),
     capabilities: session.capabilities.length > 0 ? session.capabilities : undefined,
   };
 }
@@ -234,39 +276,36 @@ export async function handleProve(
 export interface AuthResult {
   authenticated: boolean;
   peerDid?: string;
-  sessionId?: string;
-  conformanceLevel?: ConformanceLevel;
+  sessionToken?: string;
   error?: string;
 }
 
-/** Authenticate an incoming request by checking session headers. */
+/** Authenticate an incoming request by checking the session token. */
 export async function authenticateRequest(
   request: Request,
   store: SessionStore,
 ): Promise<AuthResult> {
-  const sessionId = request.headers.get(HEADER_OPENAGENT_SESSION);
-  if (!sessionId) {
-    return { authenticated: false, error: 'Missing X-OpenAgent-Session header' };
+  const header = request.headers.get('authorization');
+  const token = header ? extractOpenAgentToken(header) : undefined;
+  const sessionToken = token ?? request.headers.get(HEADER_OPENAGENT_SESSION) ?? undefined;
+  if (!sessionToken) {
+    return { authenticated: false, error: 'missing credentials' };
   }
 
-  const session = await store.get(sessionId);
-  if (!session) {
-    return { authenticated: false, error: 'Unknown session' };
-  }
-
-  if (session.state !== 'established') {
-    return { authenticated: false, error: 'Session not established' };
+  const session = await store.get(sessionToken);
+  if (!session || session.state !== 'established') {
+    return { authenticated: false, error: 'unknown session' };
   }
 
   const now = Math.floor(Date.now() / 1000);
   if (now >= session.expiresAt) {
-    await store.remove(sessionId);
-    return { authenticated: false, error: 'Session expired' };
+    await store.remove(sessionToken);
+    return { authenticated: false, error: 'session expired' };
   }
 
   return {
     authenticated: true,
     peerDid: session.initiatorDid,
-    sessionId: session.id,
+    sessionToken: session.id,
   };
 }

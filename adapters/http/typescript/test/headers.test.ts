@@ -1,43 +1,44 @@
 import { describe, it, expect } from 'vitest';
-import { extractOasToken, buildOasHeader, OAS_AUTH_SCHEME } from '../src/headers.js';
+import { extractOpenAgentToken, buildOpenAgentHeader, OPENAGENT_AUTH_SCHEME } from '../src/headers.js';
 
 describe('headers', () => {
-  describe('extractOasToken', () => {
-    it('extracts token from valid OAS header', () => {
-      expect(extractOasToken('OAS abc123')).toBe('abc123');
+  describe('extractOpenAgentToken', () => {
+    it('extracts token from valid OpenAgent header', () => {
+      expect(extractOpenAgentToken('OpenAgent abc123')).toBe('abc123');
     });
 
     it('is case-insensitive for scheme', () => {
-      expect(extractOasToken('oas abc123')).toBe('abc123');
-      expect(extractOasToken('Oas abc123')).toBe('abc123');
+      expect(extractOpenAgentToken('openagent abc123')).toBe('abc123');
+      expect(extractOpenAgentToken('Openagent abc123')).toBe('abc123');
     });
 
     it('trims whitespace', () => {
-      expect(extractOasToken('OAS  abc123')).toBe('abc123');
-      expect(extractOasToken(' OAS abc123 ')).toBe('abc123');
+      expect(extractOpenAgentToken('OpenAgent  abc123')).toBe('abc123');
+      expect(extractOpenAgentToken(' OpenAgent abc123 ')).toBe('abc123');
     });
 
-    it('returns undefined for Bearer scheme', () => {
-      expect(extractOasToken('Bearer abc123')).toBeUndefined();
+    it('returns undefined for other schemes', () => {
+      expect(extractOpenAgentToken('Bearer abc123')).toBeUndefined();
+      expect(extractOpenAgentToken('OAS abc123')).toBeUndefined();
     });
 
     it('returns undefined for empty token', () => {
-      expect(extractOasToken('OAS ')).toBeUndefined();
-      expect(extractOasToken('OAS')).toBeUndefined();
+      expect(extractOpenAgentToken('OpenAgent ')).toBeUndefined();
+      expect(extractOpenAgentToken('OpenAgent')).toBeUndefined();
     });
 
     it('returns undefined for empty string', () => {
-      expect(extractOasToken('')).toBeUndefined();
+      expect(extractOpenAgentToken('')).toBeUndefined();
     });
   });
 
-  describe('buildOasHeader', () => {
+  describe('buildOpenAgentHeader', () => {
     it('builds correct header format', () => {
-      expect(buildOasHeader('tok123')).toBe('OAS tok123');
+      expect(buildOpenAgentHeader('tok123')).toBe('OpenAgent tok123');
     });
 
-    it('uses the OAS_AUTH_SCHEME constant', () => {
-      expect(buildOasHeader('x')).toContain(OAS_AUTH_SCHEME);
+    it('uses the OPENAGENT_AUTH_SCHEME constant', () => {
+      expect(buildOpenAgentHeader('x')).toContain(OPENAGENT_AUTH_SCHEME);
     });
   });
 });

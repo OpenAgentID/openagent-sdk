@@ -2,13 +2,13 @@
  * Authenticated HTTP session with header attachment.
  *
  * After a successful handshake, the client holds an `AuthenticatedSession`
- * that transparently attaches OAAP headers to every request.
+ * that transparently attaches OpenAgent headers to every request.
  */
 
-import { buildOasHeader, HEADER_OPENAGENT_DID, HEADER_OPENAGENT_SESSION } from './headers.js';
+import { buildOpenAgentHeader, HEADER_OPENAGENT_DID, HEADER_OPENAGENT_SESSION } from './headers.js';
 import { TransportError } from './transport.js';
 
-/** An authenticated HTTP session obtained after a successful OAAP handshake. */
+/** An authenticated HTTP session obtained after a successful Core Protocol identity flow. */
 export class AuthenticatedSession {
   private readonly baseUrl: string;
   private readonly sessionId: string;
@@ -59,7 +59,7 @@ export class AuthenticatedSession {
   async fetch(path: string, init?: RequestInit): Promise<Response> {
     const url = this.resolveUrl(path);
     const headers = new Headers(init?.headers);
-    headers.set('authorization', buildOasHeader(this.sessionToken));
+    headers.set('authorization', buildOpenAgentHeader(this.sessionToken));
     headers.set(HEADER_OPENAGENT_DID, this.peerDid);
     headers.set(HEADER_OPENAGENT_SESSION, this.sessionId);
 

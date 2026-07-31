@@ -15,29 +15,30 @@ pub async fn fetch_discovery(
     http_client: &reqwest::Client,
     base_url: &str,
 ) -> Result<DiscoveryDocument, AuthProtocolError> {
-    let url = format!(
-        "{}/.well-known/openagent",
-        base_url.trim_end_matches('/')
-    );
+    let url = format!("{}/.well-known/openagent", base_url.trim_end_matches('/'));
 
     let resp = http_client
         .get(&url)
         .header("accept", "application/json")
         .send()
         .await
-        .map_err(|e| AuthProtocolError::Transport(format!("discovery request failed: {e}")))?;
+        .map_err(|e| AuthProtocolError::TransportFailed {
+            reason: format!("discovery request failed: {e}"),
+        })?;
 
     if !resp.status().is_success() {
-        return Err(AuthProtocolError::Transport(format!(
-            "discovery returned HTTP {}",
-            resp.status()
-        )));
+        return Err(AuthProtocolError::TransportFailed {
+            reason: format!("discovery returned HTTP {}", resp.status()),
+        });
     }
 
-    let doc: DiscoveryDocument = resp
-        .json()
-        .await
-        .map_err(|e| AuthProtocolError::Serialization(format!("invalid discovery JSON: {e}")))?;
+    let doc: DiscoveryDocument =
+        resp.json()
+            .await
+            .map_err(|e| AuthProtocolError::SerializationFailed {
+                message_type: "DiscoveryDocument".to_string(),
+                reason: format!("invalid discovery JSON: {e}"),
+            })?;
 
     Ok(doc)
 }

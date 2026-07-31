@@ -1,5 +1,9 @@
 // Copyright (c) 2026 L1fe Labs, Inc. — Apache-2.0 OR MIT
-//! Session state management for authenticated OAAP connections.
+//! Session state management for authenticated Core Protocol connections.
+//!
+//! Server-side state for the identity flow: a session begins when a challenge
+//! is issued and becomes usable when the proof verifies (Core Protocol
+//! Specification, Section 12).
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};

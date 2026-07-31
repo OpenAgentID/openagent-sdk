@@ -1,10 +1,18 @@
 // Copyright (c) 2026 L1fe Labs, Inc. — Apache-2.0 OR MIT
-//! # openagent-weave
+//! # openagent-weave — INFORMATIVE (Phase 2)
 //!
-//! Weave/libp2p transport adapter for the OpenAgent Auth Protocol (OAAP).
+//! Weave/libp2p transport adapter for the OpenAgent Core Protocol.
 //!
-//! This crate maps OAAP's 4-step mutual authentication handshake onto a custom
-//! libp2p request-response protocol (`/openagent/auth/1.0.0`). It provides:
+//! **Status**: mid-migration and does not currently compile. The Core
+//! Protocol Specification marks the Weave binding as *informative* for
+//! Phase 2; the normative binding is HTTP (`openagent-http`). This crate
+//! still carries the retired OAAP 4-step handshake (PRESENT / CHALLENGE /
+//! PROVE / ESTABLISHED) and is queued for a port to the Section 15 identity
+//! flow alongside the spec's Weave binding section. It is excluded from the
+//! workspace CI gate until that port lands.
+//!
+//! When ported, this crate will map the identity flow onto a libp2p
+//! request-response protocol (`/openagent/auth/1.0.0`). It provides:
 //!
 //! - A [`WeaveTransport`] that implements [`AuthTransport`] from the OAAP core.
 //! - A [`WeaveAuthBehaviour`] (`NetworkBehaviour`) that can be composed into any
