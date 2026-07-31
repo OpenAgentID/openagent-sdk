@@ -5,6 +5,20 @@ All notable changes to `openagent-crypto-wasm` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-07-31
+
+### Added
+
+- The npm package is now buildable and verified: `scripts/build-wasm.mjs`
+  produces the `@openagent/crypto-wasm` package with **two targets** -
+  `bundler` (browsers, bundlers, Deno, Bun, Workers) and `nodejs` (Node,
+  whose ESM loader cannot consume the bundler target's static `.wasm`
+  import) - wired through conditional exports with the `node` condition
+  first. `scripts/smoke-test.mjs` proves the publishable artifact loads and
+  runs Ed25519 keygen/sign/verify, tamper and foreign-key rejection, BLAKE3,
+  and HKDF-SHA256 in Node; both scripts run in CI on every change. The `pkg/`
+  output is a build artifact and is not committed.
+
 ## [0.1.0] — 2026-04-11
 
 ### Added

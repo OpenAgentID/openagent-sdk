@@ -126,6 +126,38 @@ jobs:
           npx tsc --noEmit
           npx tsup
 
+  wasm:
+    name: crypto-wasm build and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: 'latest'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build the WASM package
+        # Builds both targets (bundler + nodejs) and patches the package to
+        # the scoped @openagent/crypto-wasm name.
+        working-directory: crates/openagent-crypto-wasm
+        run: node scripts/build-wasm.mjs
+
+      - name: Smoke test the built package
+        # Proves the publishable artifact loads and runs its core primitives
+        # in Node before anything downstream may depend on it.
+        working-directory: crates/openagent-crypto-wasm
+        run: node scripts/smoke-test.mjs
+
   conformance:
     name: conformance vectors (rust + ts)
     runs-on: ubuntu-latest
