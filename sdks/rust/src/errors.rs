@@ -97,26 +97,26 @@ impl From<arsenal_core::error::ArsenalError> for OpenAgentError {
     }
 }
 
-impl From<aegis_core::VerificationError> for OpenAgentError {
-    fn from(err: aegis_core::VerificationError) -> Self {
+impl From<openagent_aegis_core::VerificationError> for OpenAgentError {
+    fn from(err: openagent_aegis_core::VerificationError) -> Self {
         Self::Verification(err.to_string())
     }
 }
 
-impl From<aegis_core::AuthError> for OpenAgentError {
-    fn from(err: aegis_core::AuthError) -> Self {
+impl From<openagent_aegis_core::AuthError> for OpenAgentError {
+    fn from(err: openagent_aegis_core::AuthError) -> Self {
         Self::Authentication(err.to_string())
     }
 }
 
-impl From<aegis_core::PolicyError> for OpenAgentError {
-    fn from(err: aegis_core::PolicyError) -> Self {
+impl From<openagent_aegis_core::PolicyError> for OpenAgentError {
+    fn from(err: openagent_aegis_core::PolicyError) -> Self {
         Self::Authorization(err.to_string())
     }
 }
 
-impl From<aegis_core::DelegationError> for OpenAgentError {
-    fn from(err: aegis_core::DelegationError) -> Self {
+impl From<openagent_aegis_core::DelegationError> for OpenAgentError {
+    fn from(err: openagent_aegis_core::DelegationError) -> Self {
         Self::Delegation(err.to_string())
     }
 }

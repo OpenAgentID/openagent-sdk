@@ -32,9 +32,9 @@ npm install @openagent/sdk
 
 Peer dependencies (optional — the SDK ships with safe stubs for local dev):
 
-- `@oas/sdk` — OAS identity resolver, signer, and Sigil-backed lineage verifier contract
-- `@arsenal/sdk` — Arsenal credential broker client
-- `@aegis/sdk` — AEGIS verification client
+- `@openagent/oas-sdk` — OAS identity resolver, signer, and Sigil-backed lineage verifier contract
+- `@openagent/arsenal-sdk` — Arsenal credential broker client
+- `@openagent/aegis-sdk` — AEGIS verification client
 - `@openagent/crypto-wasm` — Shared WASM crypto primitives
 
 ## The three-function happy path

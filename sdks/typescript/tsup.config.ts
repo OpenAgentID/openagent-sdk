@@ -21,9 +21,9 @@ export default defineConfig({
   target: 'es2022',
   platform: 'neutral',
   external: [
-    '@aegis/sdk',
-    '@arsenal/sdk',
-    '@oas/sdk',
+    '@openagent/aegis-sdk',
+    '@openagent/arsenal-sdk',
+    '@openagent/oas-sdk',
     '@openagent/crypto-wasm',
     'node:crypto',
     'node:buffer',

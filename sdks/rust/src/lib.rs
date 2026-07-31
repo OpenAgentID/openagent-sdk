@@ -100,7 +100,7 @@ pub use verification::{
 // ---------------------------------------------------------------------------
 
 /// The wrapped AEGIS SDK.
-pub use aegis_sdk;
+pub use openagent_aegis_sdk;
 /// The wrapped Arsenal SDK.
 pub use arsenal_sdk;
 /// The wrapped OAS SDK.

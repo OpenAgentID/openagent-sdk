@@ -2,12 +2,12 @@
  * OAS (Open Agent Specification) identity wrapper.
  *
  * This module defines the minimal surface the OpenAgent SDK needs from the
- * `@oas/sdk` package. When `@oas/sdk` ships, a thin adapter binds its public
+ * `@openagent/oas-sdk` package. When `@openagent/oas-sdk` ships, a thin adapter binds its public
  * types to {@link IdentityProvider}. Until then, we ship a safe in-process
  * {@link StubIdentityProvider} that generates valid Ed25519 keypairs via
  * `@openagent/crypto-wasm` (optional) or Node's native `crypto`.
  *
- * INTEGRATION_NOTES.md tracks the exact shape we expect from `@oas/sdk`.
+ * INTEGRATION_NOTES.md tracks the exact shape we expect from `@openagent/oas-sdk`.
  */
 
 import { z } from 'zod';
@@ -50,7 +50,7 @@ export interface SignedAssertion {
 }
 
 /**
- * The OAS identity facade. Concrete providers come from `@oas/sdk`
+ * The OAS identity facade. Concrete providers come from `@openagent/oas-sdk`
  * (production) or from {@link StubIdentityProvider} (test / offline dev).
  */
 export interface IdentityProvider {
@@ -97,7 +97,7 @@ export function parseIdentityDocument(raw: unknown): IdentityDocument {
 }
 
 /**
- * Stub identity provider used when `@oas/sdk` is not available.
+ * Stub identity provider used when `@openagent/oas-sdk` is not available.
  *
  * Generates deterministic-looking DIDs and public keys. Suitable for unit
  * tests and local development; NOT cryptographically sound for production.
@@ -179,7 +179,7 @@ function toBase64Url(bytes: Uint8Array): string {
 /**
  * Narrow any unknown value into an {@link IdentityProvider}, or throw.
  *
- * This is the integration point where `@oas/sdk`'s client is adapted into
+ * This is the integration point where `@openagent/oas-sdk`'s client is adapted into
  * our interface. When that SDK is finalized, replace the duck-typing below
  * with a direct import.
  */

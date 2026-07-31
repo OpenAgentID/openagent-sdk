@@ -46,12 +46,12 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@oas/sdk": "^0.1.0",
-    "@arsenal/sdk": "^0.1.0"
+    "@openagent/oas-sdk": "^0.1.0",
+    "@openagent/arsenal-sdk": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@oas/sdk": { "optional": true },
-    "@arsenal/sdk": { "optional": true }
+    "@openagent/oas-sdk": { "optional": true },
+    "@openagent/arsenal-sdk": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

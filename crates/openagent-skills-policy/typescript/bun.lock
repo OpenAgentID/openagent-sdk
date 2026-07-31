@@ -16,10 +16,10 @@
         "vitest": "^2.1.0",
       },
       "peerDependencies": {
-        "@arsenal/sdk": "^0.1.0",
+        "@openagent/arsenal-sdk": "^0.1.0",
       },
       "optionalPeers": [
-        "@arsenal/sdk",
+        "@openagent/arsenal-sdk",
       ],
     },
   },

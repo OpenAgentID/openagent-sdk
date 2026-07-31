@@ -12,12 +12,12 @@ should be required outside the file listed for each gap.
 
 | Package                   | Status                | Gap owner file                  |
 |---------------------------|-----------------------|---------------------------------|
-| `@oas/sdk`                | Not yet published     | `src/identity.ts`               |
-| `@arsenal/sdk`            | Not yet published     | `src/credentials.ts`            |
-| `@aegis/sdk`              | Not yet published     | `src/verification.ts`           |
+| `@openagent/oas-sdk`                | Not yet published     | `src/identity.ts`               |
+| `@openagent/arsenal-sdk`            | Not yet published     | `src/credentials.ts`            |
+| `@openagent/aegis-sdk`              | Not yet published     | `src/verification.ts`           |
 | `@openagent/crypto-wasm`  | Rust crate exists; wasm-pack build pending | `src/identity.ts` (signChallenge) |
 
-## `@oas/sdk` — identity provider
+## `@openagent/oas-sdk` — identity provider
 
 The SDK expects an exported class (or factory) matching `IdentityProvider`
 in `src/identity.ts`:
@@ -46,15 +46,15 @@ Things the OAS SDK must supply that are currently stubbed:
 
 Replace plan:
 
-- Delete `StubIdentityProvider` once `@oas/sdk` ships a conforming class.
+- Delete `StubIdentityProvider` once `@openagent/oas-sdk` ships a conforming class.
 - In `agent.ts#buildSubsystems`, replace the `new StubIdentityProvider(...)`
   fallback with `new OasIdentityClient(...)`.
 - Keep `toIdentityProvider()` — it remains useful for user-supplied
   wrappers and mocks.
 
-## `@arsenal/sdk` — credential broker client
+## `@openagent/arsenal-sdk` — credential broker client
 
-The SDK expects `@arsenal/sdk` to export a class matching `ArsenalClient`
+The SDK expects `@openagent/arsenal-sdk` to export a class matching `ArsenalClient`
 in `src/credentials.ts`:
 
 ```ts
@@ -101,9 +101,9 @@ Replace plan:
 - In `agent.ts#buildSubsystems`, replace `stubArsenalClient()` with
   `new ArsenalBrokerClient({ endpoint: resolved.endpoints.arsenalBroker, ... })`.
 
-## `@aegis/sdk` — verification client
+## `@openagent/aegis-sdk` — verification client
 
-The SDK expects `@aegis/sdk` to export a class matching `VerificationClient`
+The SDK expects `@openagent/aegis-sdk` to export a class matching `VerificationClient`
 in `src/verification.ts`:
 
 ```ts

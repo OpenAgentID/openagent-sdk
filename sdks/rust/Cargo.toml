@@ -29,8 +29,8 @@ oas-document = { git = "https://github.com/OpenAgentID/oas", branch = "main", ve
 oas-lineage = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0" }
 arsenal-sdk = { git = "https://github.com/OpenAgentID/arsenal", branch = "main", version = "1.0.0" }
 arsenal-core = { git = "https://github.com/OpenAgentID/arsenal", branch = "main", version = "1.0.0" }
-aegis-sdk = { git = "https://github.com/OpenAgentID/aegis", branch = "main", version = "0.2.0" }
-aegis-core = { git = "https://github.com/OpenAgentID/aegis", branch = "main", version = "0.2.0" }
+openagent-aegis-sdk = { git = "https://github.com/OpenAgentID/aegis", branch = "main", version = "0.2.0" }
+openagent-aegis-core = { git = "https://github.com/OpenAgentID/aegis", branch = "main", version = "0.2.0" }
 
 # Async + util.
 tokio = { version = "1.36", features = ["sync", "rt", "macros"] }

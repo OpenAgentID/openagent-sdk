@@ -32,10 +32,10 @@
     "claude"
   ],
   "peerDependencies": {
-    "@arsenal/sdk": "^0.1.0"
+    "@openagent/arsenal-sdk": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@arsenal/sdk": {
+    "@openagent/arsenal-sdk": {
       "optional": true
     }
   },

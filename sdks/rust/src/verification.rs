@@ -1,6 +1,6 @@
 //! AEGIS verification + authorization wrapper.
 //!
-//! [`Verifier`] wraps an [`aegis_sdk::AegisClient`] and exposes the three
+//! [`Verifier`] wraps an [`openagent_aegis_sdk::AegisClient`] and exposes the three
 //! operations the OpenAgent facade actually needs:
 //!
 //! 1. **Verify** an inbound DID (resolve, signature, lineage, revocation,
@@ -10,10 +10,10 @@
 
 use std::sync::Arc;
 
-use aegis_core::{
+use openagent_aegis_core::{
     AuthCredential, IdentityType, PluginRegistry, PolicyDecision, PolicyRequest, VerificationResult,
 };
-use aegis_sdk::AegisClient;
+use openagent_aegis_sdk::AegisClient;
 use oas_document::OasDocument;
 use oas_lineage::{config::VerifyConfig, provider::DocumentProvider};
 use oas_sdk::lineage::{verify_privileged_authority, AuthorityPathKind, LineageAuthoritySource};
@@ -195,7 +195,7 @@ impl VerifiedContext {
     /// Combines signature, lineage, revocation, and liveness into a single
     /// boolean. Use [`Self::result`] for the breakdown.
     pub fn is_valid(&self) -> bool {
-        use aegis_core::{LivenessStatus, RevocationStatus};
+        use openagent_aegis_core::{LivenessStatus, RevocationStatus};
         self.result.signature_valid
             && self.result.lineage_valid
             && matches!(self.result.revocation_status, RevocationStatus::Active)

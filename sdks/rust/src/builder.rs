@@ -6,8 +6,8 @@
 
 use std::sync::Arc;
 
-use aegis_core::PluginRegistry;
-use aegis_sdk::AegisClient;
+use openagent_aegis_core::PluginRegistry;
+use openagent_aegis_sdk::AegisClient;
 use arsenal_sdk::ArsenalClient;
 
 use crate::agent::{CreateAgentOptions, OpenAgent};

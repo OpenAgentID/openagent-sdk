@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking.** The AEGIS dependencies are renamed to `openagent-aegis-core`
+  and `openagent-aegis-sdk`, tracking the upstream rename (the bare names are
+  taken on crates.io by unrelated third parties). The public re-export
+  changes with them: `openagent_sdk::aegis_sdk` is now
+  `openagent_sdk::openagent_aegis_sdk`, and `use aegis_*::` paths become
+  `use openagent_aegis_*::`. The peer TypeScript packages move under the
+  `@openagent` scope as `@openagent/oas-sdk`, `@openagent/arsenal-sdk`, and
+  `@openagent/aegis-sdk`, replacing the broken `@oas/sdk` peer declaration
+  (a package that never existed) and the `@arsenal/sdk` / `@aegis/sdk`
+  names.
 - Updated repository metadata and git dependencies to target the
   `OpenAgentID` GitHub organization for source-based installs. Those
   repositories are private during the identity-stack consolidation, so an

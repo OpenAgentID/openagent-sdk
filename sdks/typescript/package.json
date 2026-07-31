@@ -75,15 +75,15 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@aegis/sdk": "^0.1.0",
-    "@arsenal/sdk": "^0.1.0",
-    "@oas/sdk": "^0.1.0",
+    "@openagent/aegis-sdk": "^0.1.0",
+    "@openagent/arsenal-sdk": "^0.1.0",
+    "@openagent/oas-sdk": "^0.1.0",
     "@openagent/crypto-wasm": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@aegis/sdk": { "optional": true },
-    "@arsenal/sdk": { "optional": true },
-    "@oas/sdk": { "optional": true },
+    "@openagent/aegis-sdk": { "optional": true },
+    "@openagent/arsenal-sdk": { "optional": true },
+    "@openagent/oas-sdk": { "optional": true },
     "@openagent/crypto-wasm": { "optional": true }
   },
   "devDependencies": {

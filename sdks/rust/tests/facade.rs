@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use aegis_core::PluginRegistry;
+use openagent_aegis_core::PluginRegistry;
 use arsenal_core::identity::TenantId;
 use arsenal_sdk::{AgentIdentityLoader, ArsenalClient};
 use oas_lineage::provider::InMemoryProvider;
