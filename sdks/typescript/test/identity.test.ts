@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { StubIdentityProvider } from '@openagent/sdk-testing';
 import {
-  StubIdentityProvider,
   parseIdentityDocument,
   toIdentityProvider,
   identityDocumentSchema,

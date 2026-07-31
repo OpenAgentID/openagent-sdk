@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { OpenAgent, OpenAgentRuntime } from '../src/agent.js';
 import { ConfigError, IdentityError } from '../src/errors.js';
-import { StubVerificationClient } from '../src/verification.js';
+import { StubVerificationClient, createTestingConfig } from '@openagent/sdk-testing';
 
 describe('OpenAgentRuntime.createAgent', () => {
   it('returns a usable agent instance from a minimal config', async () => {
-    const runtime = new OpenAgentRuntime();
+    const runtime = new OpenAgentRuntime(createTestingConfig());
     const agent = await runtime.createAgent({
       parent: 'did:oas:l1fe:hmr:alice',
       name: 'bot',
@@ -17,7 +17,7 @@ describe('OpenAgentRuntime.createAgent', () => {
   });
 
   it('binds explicit skills to the new agent', async () => {
-    const runtime = new OpenAgentRuntime();
+    const runtime = new OpenAgentRuntime(createTestingConfig());
     const agent = await runtime.createAgent({
       parent: 'did:oas:l1fe:hmr:alice',
       name: 'bot',
@@ -29,7 +29,7 @@ describe('OpenAgentRuntime.createAgent', () => {
   });
 
   it('withSkillsPolicy returns a new instance', async () => {
-    const runtime = new OpenAgentRuntime();
+    const runtime = new OpenAgentRuntime(createTestingConfig());
     const agent = await runtime.createAgent({
       parent: 'did:oas:l1fe:hmr:alice',
       name: 'bot',
@@ -42,7 +42,7 @@ describe('OpenAgentRuntime.createAgent', () => {
   });
 
   it('credentialsFor returns a working handle backed by the stub broker', async () => {
-    const runtime = new OpenAgentRuntime();
+    const runtime = new OpenAgentRuntime(createTestingConfig());
     const agent = await runtime.createAgent({
       parent: 'did:oas:l1fe:hmr:alice',
       name: 'bot',
@@ -55,7 +55,7 @@ describe('OpenAgentRuntime.createAgent', () => {
   });
 
   it('throws ConfigError on invalid createAgent input', async () => {
-    const runtime = new OpenAgentRuntime();
+    const runtime = new OpenAgentRuntime(createTestingConfig());
     await expect(
       runtime.createAgent({
         parent: 'not-a-did',
@@ -66,7 +66,7 @@ describe('OpenAgentRuntime.createAgent', () => {
   });
 
   it('loadAgent resolves an existing DID', async () => {
-    const runtime = new OpenAgentRuntime();
+    const runtime = new OpenAgentRuntime(createTestingConfig());
     const agent = await runtime.createAgent({
       parent: 'did:oas:l1fe:hmr:alice',
       name: 'bot',
@@ -78,7 +78,7 @@ describe('OpenAgentRuntime.createAgent', () => {
   });
 
   it('loadAgent wraps unknown errors in IdentityError', async () => {
-    const runtime = new OpenAgentRuntime();
+    const runtime = new OpenAgentRuntime(createTestingConfig());
     await expect(runtime.loadAgent('did:oas:l1fe:agent:unknown')).rejects.toBeInstanceOf(
       IdentityError,
     );
@@ -99,9 +99,61 @@ describe('OpenAgentRuntime.authenticate', () => {
   });
 });
 
+describe('fail-closed behavior (no silent stubs)', () => {
+  it('createAgent rejects with ConfigError when no identity client is configured', async () => {
+    const runtime = new OpenAgentRuntime();
+    await expect(
+      runtime.createAgent({
+        parent: 'did:oas:l1fe:hmr:alice',
+        name: 'bot',
+        scopes: ['openai:chat:completions'],
+      }),
+    ).rejects.toBeInstanceOf(ConfigError);
+  });
+
+  it('loadAgent rejects with ConfigError when no identity client is configured', async () => {
+    const runtime = new OpenAgentRuntime();
+    await expect(runtime.loadAgent('did:oas:l1fe:agent:bot')).rejects.toBeInstanceOf(ConfigError);
+  });
+
+  it('authenticate rejects with ConfigError when no verification client is configured', async () => {
+    const runtime = new OpenAgentRuntime();
+    const req = new Request('https://api.example.com/', {
+      headers: { Authorization: 'Bearer stub:did:oas:l1fe:agent:bot' },
+    });
+    await expect(runtime.authenticate(req)).rejects.toBeInstanceOf(ConfigError);
+  });
+
+  it('credentialsFor rejects with ConfigError when no credentials client is configured', async () => {
+    const runtime = new OpenAgentRuntime(createTestingConfig({ clients: { credentials: undefined } }));
+    const agent = await runtime.createAgent({
+      parent: 'did:oas:l1fe:hmr:alice',
+      name: 'bot',
+      scopes: ['openai:chat:completions'],
+    });
+    await expect(agent.credentialsFor('openai')).rejects.toBeInstanceOf(ConfigError);
+  });
+
+  it('the error names the missing subsystem and the packages that provide one', async () => {
+    const runtime = new OpenAgentRuntime();
+    const failure = await runtime
+      .createAgent({
+        parent: 'did:oas:l1fe:hmr:alice',
+        name: 'bot',
+        scopes: ['openai:chat:completions'],
+      })
+      .catch((err: unknown) => err);
+    expect(failure).toBeInstanceOf(ConfigError);
+    const message = (failure as Error).message;
+    expect(message).toContain('identity');
+    expect(message).toContain('@openagent/oas-sdk');
+    expect(message).toContain('@openagent/sdk-testing');
+  });
+});
+
 describe('OpenAgent singleton facade', () => {
   it('configure() returns a runtime that createAgent() reuses', async () => {
-    const runtime = OpenAgent.configure();
+    const runtime = OpenAgent.configure(createTestingConfig());
     expect(runtime).toBeInstanceOf(OpenAgentRuntime);
     const agent = await OpenAgent.createAgent({
       parent: 'did:oas:l1fe:hmr:alice',

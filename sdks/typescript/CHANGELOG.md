@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking. The silent stub fallback is removed.** Until now the SDK
+  silently substituted fake implementations - `StubIdentityProvider` minted
+  unsigned "signatures", `StubVerificationClient` accepted any `stub:` token,
+  and a fallback Arsenal client echoed deterministic proxy URLs - whenever a
+  protocol client was missing from `OpenAgentConfig.clients`. A production
+  deployment with a misconfigured peer would sign and verify with fake
+  cryptography without anyone having chosen that. The subsystems are now
+  optional at construction and **fail closed at use**: `createAgent`,
+  `loadAgent`, `authenticate`, `credentialsFor`, and the escape hatches throw
+  a `ConfigError` naming the missing client, the package a real one comes
+  from (`@openagent/oas-sdk`, `@openagent/arsenal-sdk`,
+  `@openagent/aegis-sdk`), and the testing package for unit tests. The stub
+  exports (`StubIdentityProvider`, `StubVerificationClient`) are gone from
+  this package; equivalent in-memory backends now live in
+  **`@openagent/sdk-testing`** behind an explicit import that cannot sneak
+  into a dependency graph unnoticed, plus a `createTestingConfig()` helper
+  that wires all three for tests.
 - Added a root GitHub-installable package wrapper so
   `npm install github:OpenAgentID/openagent-sdk` resolves to the TypeScript
   facade before npm registry publication is available.

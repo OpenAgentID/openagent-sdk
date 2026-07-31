@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { StubVerificationClient } from '@openagent/sdk-testing';
 import {
-  StubVerificationClient,
   PrivilegedAuthorityVerificationClient,
   extractBearerToken,
   assertScopes,

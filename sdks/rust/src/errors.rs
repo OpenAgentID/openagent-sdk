@@ -30,6 +30,7 @@ pub enum OpenAgentError {
     Identity(#[from] oas_sdk::error::OasError),
 
     /// An error from the Arsenal capability/credential layer.
+    #[cfg(feature = "arsenal")]
     #[error("credential error: {code:?}: {message}")]
     Credential {
         /// Numeric Arsenal error code.
@@ -88,6 +89,7 @@ impl OpenAgentError {
     }
 }
 
+#[cfg(feature = "arsenal")]
 impl From<arsenal_core::error::ArsenalError> for OpenAgentError {
     fn from(err: arsenal_core::error::ArsenalError) -> Self {
         Self::Credential {
@@ -97,24 +99,28 @@ impl From<arsenal_core::error::ArsenalError> for OpenAgentError {
     }
 }
 
+#[cfg(feature = "aegis")]
 impl From<openagent_aegis_core::VerificationError> for OpenAgentError {
     fn from(err: openagent_aegis_core::VerificationError) -> Self {
         Self::Verification(err.to_string())
     }
 }
 
+#[cfg(feature = "aegis")]
 impl From<openagent_aegis_core::AuthError> for OpenAgentError {
     fn from(err: openagent_aegis_core::AuthError) -> Self {
         Self::Authentication(err.to_string())
     }
 }
 
+#[cfg(feature = "aegis")]
 impl From<openagent_aegis_core::PolicyError> for OpenAgentError {
     fn from(err: openagent_aegis_core::PolicyError) -> Self {
         Self::Authorization(err.to_string())
     }
 }
 
+#[cfg(feature = "aegis")]
 impl From<openagent_aegis_core::DelegationError> for OpenAgentError {
     fn from(err: openagent_aegis_core::DelegationError) -> Self {
         Self::Delegation(err.to_string())

@@ -9,7 +9,6 @@
  * verifier works in Node, Bun, Deno, browsers, and Cloudflare Workers.
  */
 
-import { didSchema } from './config.js';
 import { ErrorCode, VerificationError, wrapError } from './errors.js';
 import type { Did } from './identity.js';
 
@@ -232,83 +231,6 @@ function assertAuthorityContext(
   }
 }
 
-/**
- * Stub verification client for tests and offline dev.
- *
- * Accepts any request that carries `Authorization: OpenAgent stub:<did>` or
- * `Authorization: Bearer stub:<did>` and returns a synthetic
- * {@link AuthContext}. NOT a real verifier.
- */
-export class StubVerificationClient implements VerificationClient {
-  private readonly challenges = new Map<string, Uint8Array>();
-
-  async verifyRequest(req: Request, options?: VerifyRequestOptions): Promise<AuthContext> {
-    const token = extractBearerToken(req);
-    if (!token) {
-      throw new VerificationError('No bearer token present', {
-        code: ErrorCode.AUTH_REQUIRED,
-      });
-    }
-    if (!token.startsWith('stub:')) {
-      throw new VerificationError('Stub verifier only accepts stub: tokens', {
-        code: ErrorCode.VERIFICATION_FAILED,
-      });
-    }
-    const did = token.slice('stub:'.length);
-    didSchema.parse(did);
-    const ctx: AuthContext = {
-      did,
-      root: did,
-      lineage: [did],
-      scopes: [],
-      expiresAt: Math.floor(Date.now() / 1000) + 300,
-      presentedToken: token,
-    };
-    if (options?.requiredScopes?.length) {
-      assertScopes(ctx, options.requiredScopes);
-    }
-    if (options?.requiredAncestor) {
-      assertAncestor(ctx, options.requiredAncestor);
-    }
-    if (options?.requirePrivilegedAuthority) {
-      throw new VerificationError('Privileged authority requires OAS + Sigil lineage', {
-        code: ErrorCode.IDENTITY_LINEAGE_INVALID,
-        context: {
-          requiredAuthorityPath: options.requiredAuthorityPath,
-          verifier: 'stub',
-        },
-      });
-    }
-    return ctx;
-  }
-
-  async issueChallenge(): Promise<{ challenge: Uint8Array; challengeId: string }> {
-    const challenge = new Uint8Array(32);
-    if (typeof globalThis.crypto?.getRandomValues === 'function') {
-      globalThis.crypto.getRandomValues(challenge);
-    }
-    const challengeId = Math.random().toString(36).slice(2);
-    this.challenges.set(challengeId, challenge);
-    return { challenge, challengeId };
-  }
-
-  async verifyChallengeResponse(params: {
-    challengeId: string;
-    agentDid: Did;
-    signatureBase64: string;
-  }): Promise<AuthContext> {
-    if (!this.challenges.has(params.challengeId)) {
-      throw new VerificationError('Unknown challenge', {
-        code: ErrorCode.AUTH_CHALLENGE_INVALID,
-      });
-    }
-    this.challenges.delete(params.challengeId);
-    return {
-      did: params.agentDid,
-      root: params.agentDid,
-      lineage: [params.agentDid],
-      scopes: [],
-      expiresAt: Math.floor(Date.now() / 1000) + 300,
-    };
-  }
-}
+// In-memory verification backends for tests live in `@openagent/sdk-testing`.
+// This module defines the production interface only; a missing client fails
+// closed at the call site rather than falling back to a fake verifier.

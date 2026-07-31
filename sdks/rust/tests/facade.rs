@@ -2,13 +2,18 @@
 //!
 //! These hit the real OAS / Arsenal / AEGIS Rust SDKs. They do not require
 //! network access; everything runs against in-memory components.
+//!
+//! The whole file requires both optional subsystems: with default features
+//! the facade's Arsenal and AEGIS layers are not compiled, so there is
+//! nothing here to exercise.
+#![cfg(all(feature = "arsenal", feature = "aegis"))]
 
 use std::sync::Arc;
 
-use openagent_aegis_core::PluginRegistry;
 use arsenal_core::identity::TenantId;
 use arsenal_sdk::{AgentIdentityLoader, ArsenalClient};
 use oas_lineage::provider::InMemoryProvider;
+use openagent_aegis_core::PluginRegistry;
 
 use openagent_sdk::{
     AllowListPolicy, CreateAgentOptions, OpenAgent, OpenAgentBuilder, OpenAgentConfig,

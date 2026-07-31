@@ -4,30 +4,43 @@
 //! wire in their own Arsenal client, AEGIS verifier, or skill policy. The
 //! 80% case should still use [`crate::OpenAgent::create_agent`].
 
+#[cfg(feature = "aegis")]
 use std::sync::Arc;
 
-use openagent_aegis_core::PluginRegistry;
-use openagent_aegis_sdk::AegisClient;
+#[cfg(feature = "arsenal")]
 use arsenal_sdk::ArsenalClient;
+#[cfg(feature = "aegis")]
+use openagent_aegis_core::PluginRegistry;
+#[cfg(feature = "aegis")]
+use openagent_aegis_sdk::AegisClient;
 
 use crate::agent::{CreateAgentOptions, OpenAgent};
 use crate::config::OpenAgentConfig;
+#[cfg(feature = "arsenal")]
 use crate::credentials::CredentialClient;
 use crate::errors::{OpenAgentError, Result};
 use crate::identity::{derive_agent, mint_human_root, AgentIdentityRecord};
 use crate::skills::{SkillsPolicy, SkillsPolicyHandle};
+#[cfg(feature = "aegis")]
 use crate::verification::Verifier;
 
 /// Fluent builder for an [`OpenAgent`].
 ///
 /// All setters consume `self` and return a new builder; the builder itself is
 /// `Default`-friendly so you can chain straight from a function call.
+///
+/// Setters for a disabled Cargo feature are absent rather than ignored: a
+/// `with_arsenal_client` call cannot exist in a build that would discard the
+/// client.
 #[derive(Default)]
 pub struct OpenAgentBuilder {
     config: OpenAgentConfig,
     skills: Option<SkillsPolicyHandle>,
+    #[cfg(feature = "arsenal")]
     arsenal: Option<ArsenalClient>,
+    #[cfg(feature = "aegis")]
     aegis: Option<AegisClient>,
+    #[cfg(feature = "aegis")]
     aegis_registry: Option<Arc<PluginRegistry>>,
     parent: Option<AgentIdentityRecord>,
 }
@@ -49,12 +62,14 @@ impl OpenAgentBuilder {
     /// Without this call, agents built by this builder cannot fetch
     /// credentials and [`OpenAgent::credentials_for`] will return a
     /// [`crate::errors::OpenAgentError::Config`].
+    #[cfg(feature = "arsenal")]
     pub fn with_arsenal_client(mut self, client: ArsenalClient) -> Self {
         self.arsenal = Some(client);
         self
     }
 
     /// Wire in an existing [`AegisClient`].
+    #[cfg(feature = "aegis")]
     pub fn with_aegis_client(mut self, client: AegisClient) -> Self {
         self.aegis = Some(client);
         self
@@ -62,6 +77,7 @@ impl OpenAgentBuilder {
 
     /// Wire in an AEGIS plugin registry. The builder will materialise an
     /// [`AegisClient`] from this when needed.
+    #[cfg(feature = "aegis")]
     pub fn with_aegis_registry(mut self, registry: Arc<PluginRegistry>) -> Self {
         self.aegis_registry = Some(registry);
         self
@@ -135,10 +151,12 @@ impl OpenAgentBuilder {
             (None, None) => mint_human_root(&self.config.namespace, opts.name)?,
         };
 
+        #[cfg(feature = "arsenal")]
         let credentials = self.arsenal.map(|client| {
             CredentialClient::new(client, scopes.clone(), self.config.default_ttl_seconds)
         });
 
+        #[cfg(feature = "aegis")]
         let verifier = match (self.aegis, self.aegis_registry) {
             (Some(client), _) => Some(Verifier::from_client(client)),
             (None, Some(registry)) => Some(Verifier::new(registry)),
@@ -150,7 +168,9 @@ impl OpenAgentBuilder {
         Ok(OpenAgent::from_parts(
             record,
             self.config,
+            #[cfg(feature = "arsenal")]
             credentials,
+            #[cfg(feature = "aegis")]
             verifier,
             skills,
             scopes,
@@ -160,9 +180,11 @@ impl OpenAgentBuilder {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "arsenal", feature = "aegis"))]
     use super::*;
 
     #[tokio::test]
+    #[cfg(feature = "arsenal")]
     async fn builder_with_no_arsenal_produces_unwired_agent() {
         let agent = OpenAgentBuilder::new()
             .build(CreateAgentOptions {
@@ -180,6 +202,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "aegis")]
     async fn builder_with_aegis_registry_attaches_verifier() {
         let registry = Arc::new(PluginRegistry::new());
         let agent = OpenAgentBuilder::new()

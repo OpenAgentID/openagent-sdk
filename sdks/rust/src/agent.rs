@@ -27,10 +27,12 @@ use oas_crypto::keypair::OasKeyPair;
 use oas_document::OasDocument;
 
 use crate::config::OpenAgentConfig;
+#[cfg(feature = "arsenal")]
 use crate::credentials::CredentialClient;
 use crate::errors::{OpenAgentError, Result};
 use crate::identity::{derive_agent, mint_human_root, AgentIdentityRecord, ParsedDid};
 use crate::skills::{SkillsPolicy, SkillsPolicyHandle};
+#[cfg(feature = "aegis")]
 use crate::verification::Verifier;
 
 /// Options for creating a new agent in one call.
@@ -70,7 +72,9 @@ pub struct OpenAgent {
 struct OpenAgentInner {
     record: AgentIdentityRecord,
     config: OpenAgentConfig,
+    #[cfg(feature = "arsenal")]
     credentials: Option<CredentialClient>,
+    #[cfg(feature = "aegis")]
     verifier: Option<Verifier>,
     skills: SkillsPolicyHandle,
     default_scopes: Vec<String>,
@@ -82,11 +86,15 @@ impl OpenAgent {
     /// Most callers should use [`crate::builder::OpenAgentBuilder`] or
     /// [`OpenAgent::create_agent`] instead. This constructor exists so test
     /// harnesses (and the builder itself) can wire pre-built components.
+    ///
+    /// The signature varies with the enabled Cargo features: `credentials`
+    /// exists only with `arsenal`, `verifier` only with `aegis`. A subsystem
+    /// left disabled is absent from the type, not silently stubbed.
     pub fn from_parts(
         record: AgentIdentityRecord,
         config: OpenAgentConfig,
-        credentials: Option<CredentialClient>,
-        verifier: Option<Verifier>,
+        #[cfg(feature = "arsenal")] credentials: Option<CredentialClient>,
+        #[cfg(feature = "aegis")] verifier: Option<Verifier>,
         skills: SkillsPolicyHandle,
         default_scopes: Vec<String>,
     ) -> Self {
@@ -94,7 +102,9 @@ impl OpenAgent {
             inner: Arc::new(OpenAgentInner {
                 record,
                 config,
+                #[cfg(feature = "arsenal")]
                 credentials,
+                #[cfg(feature = "aegis")]
                 verifier,
                 skills,
                 default_scopes,
@@ -164,7 +174,9 @@ impl OpenAgent {
         Ok(Self::from_parts(
             record,
             config,
+            #[cfg(feature = "arsenal")]
             None,
+            #[cfg(feature = "aegis")]
             None,
             SkillsPolicyHandle::default(),
             scopes,
@@ -217,8 +229,14 @@ impl OpenAgent {
                 keypair: self.inner.record.keypair.clone(),
             },
             self.inner.config.clone(),
-            self.inner.credentials.clone(),
-            self.inner.verifier.clone(),
+            #[cfg(feature = "arsenal")]
+            {
+                self.inner.credentials.clone()
+            },
+            #[cfg(feature = "aegis")]
+            {
+                self.inner.verifier.clone()
+            },
             handle,
             self.inner.default_scopes.clone(),
         )
@@ -242,6 +260,7 @@ impl OpenAgent {
     /// # Errors
     ///
     /// Returns [`OpenAgentError::Config`] if no credential client is wired in.
+    #[cfg(feature = "arsenal")]
     pub async fn credentials_for(&self, provider: &str) -> Result<CredentialClient> {
         let creds = self.inner.credentials.as_ref().ok_or_else(|| {
             OpenAgentError::config(format!(
@@ -255,6 +274,7 @@ impl OpenAgent {
     }
 
     /// Reference to the AEGIS verifier (if configured).
+    #[cfg(feature = "aegis")]
     pub fn verifier(&self) -> Option<&Verifier> {
         self.inner.verifier.as_ref()
     }
@@ -262,12 +282,14 @@ impl OpenAgent {
 
 impl std::fmt::Debug for OpenAgent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("OpenAgent")
-            .field("did", &self.did())
-            .field("default_scopes", &self.inner.default_scopes)
-            .field("has_credentials", &self.inner.credentials.is_some())
-            .field("has_verifier", &self.inner.verifier.is_some())
-            .finish()
+        let mut dbg = f.debug_struct("OpenAgent");
+        dbg.field("did", &self.did())
+            .field("default_scopes", &self.inner.default_scopes);
+        #[cfg(feature = "arsenal")]
+        dbg.field("has_credentials", &self.inner.credentials.is_some());
+        #[cfg(feature = "aegis")]
+        dbg.field("has_verifier", &self.inner.verifier.is_some());
+        dbg.finish()
     }
 }
 
@@ -285,6 +307,7 @@ impl std::fmt::Debug for OpenAgent {
 ///
 /// Returns [`OpenAgentError::Verification`] on pipeline failure or
 /// [`OpenAgentError::Config`] if no verifier was supplied.
+#[cfg(feature = "aegis")]
 pub async fn authenticate_with_verifier(
     verifier: &Verifier,
     did: &str,
@@ -377,8 +400,11 @@ mod tests {
         })
         .await
         .unwrap_or_else(|e| unreachable!("{e}"));
-        let err = agent.credentials_for("openai").await;
-        assert!(matches!(err, Err(OpenAgentError::Config(_))));
+        #[cfg(feature = "arsenal")]
+        {
+            let err = agent.credentials_for("openai").await;
+            assert!(matches!(err, Err(OpenAgentError::Config(_))));
+        }
     }
     #[tokio::test]
     async fn debug_includes_did() {

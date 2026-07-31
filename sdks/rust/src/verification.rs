@@ -10,13 +10,13 @@
 
 use std::sync::Arc;
 
+use oas_document::OasDocument;
+use oas_lineage::{config::VerifyConfig, provider::DocumentProvider};
+use oas_sdk::lineage::{verify_privileged_authority, AuthorityPathKind, LineageAuthoritySource};
 use openagent_aegis_core::{
     AuthCredential, IdentityType, PluginRegistry, PolicyDecision, PolicyRequest, VerificationResult,
 };
 use openagent_aegis_sdk::AegisClient;
-use oas_document::OasDocument;
-use oas_lineage::{config::VerifyConfig, provider::DocumentProvider};
-use oas_sdk::lineage::{verify_privileged_authority, AuthorityPathKind, LineageAuthoritySource};
 
 use crate::errors::{OpenAgentError, Result};
 

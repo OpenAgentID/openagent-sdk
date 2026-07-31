@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking. The `aegis` / `arsenal` / `full` Cargo features are real now.**
+  They were no-ops that always linked every wrapped SDK; declaring
+  `features = ["arsenal"]` changed nothing. The features now gate both the
+  dependencies and the modules: a build without them neither compiles
+  `credentials` / `verification` nor links the crates, so a verifier-only
+  consumer pays for nothing it does not use. `OpenAgent::from_parts` takes
+  the gated parameters conditionally, the builder's `with_arsenal_client` /
+  `with_aegis_*` setters exist only with their features, and calls into a
+  disabled subsystem fail closed with a config error. CI verifies both the
+  default and all-features configurations; facade integration tests require
+  `--all-features`.
 - **Breaking.** Arsenal dependencies pin to `^2.0.0`. Arsenal 2.0 requires an
   OAS DID for agent identities (`AgentIdentityLoader` constructors take the
   DID as their first argument) and mints the canonical ACT wire format; test

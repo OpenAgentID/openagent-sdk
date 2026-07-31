@@ -66,11 +66,19 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
 
-      - name: Clippy
+      - name: Clippy (default features)
         run: cargo clippy --all-targets
 
-      - name: Test
-        run: cargo test
+      - name: Clippy (all features)
+        # sdks/rust has real feature gates (arsenal, aegis): the minimal
+        # configuration and the full one are different programs, and both
+        # must stay green.
+        run: cargo clippy --all-targets --all-features
+
+      - name: Test (all features)
+        # Facade integration tests require both optional subsystems; default
+        # features would skip them silently.
+        run: cargo test --all-features
 
       - name: Remove git credentials
         if: always()
@@ -105,6 +113,15 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Build and typecheck sdk-testing
+        # The in-memory backends the SDK's own tests import. Built here so a
+        # break in the sibling package surfaces in the same run.
+        working-directory: sdks/testing
+        run: |
+          npm install --no-audit --no-fund --loglevel=error
+          npx tsc --noEmit
+          npx tsup
 
   conformance:
     name: conformance vectors (rust + ts)

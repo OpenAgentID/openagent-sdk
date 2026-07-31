@@ -35,12 +35,10 @@ import {
 import {
   type IdentityDocument,
   type IdentityProvider,
-  StubIdentityProvider,
   toIdentityProvider,
   type Did,
 } from './identity.js';
 import {
-  StubVerificationClient,
   toVerificationClient,
   type AuthContext,
   type VerificationClient,
@@ -52,12 +50,49 @@ import {
   type SkillId,
 } from './skills.js';
 
-/** Internal resolver bundle. */
+/**
+ * Internal resolver bundle.
+ *
+ * Each subsystem is optional at construction and required at use: a call that
+ * needs an unconfigured subsystem fails closed with a `ConfigError` naming the
+ * missing client. The production SDK has no fallback implementations - test
+ * backends live in `@openagent/sdk-testing`, behind an explicit import,
+ * because a silent fake-signature fallback is the class of bug that ships
+ * "working" identity to production with no one having chosen it.
+ */
 interface Subsystems {
   config: ResolvedOpenAgentConfig;
-  identity: IdentityProvider;
-  arsenal: ArsenalClient;
-  verification: VerificationClient;
+  identity: IdentityProvider | undefined;
+  arsenal: ArsenalClient | undefined;
+  verification: VerificationClient | undefined;
+}
+
+/** The package a real production client for a subsystem comes from. */
+const SUBSYSTEM_PACKAGES = {
+  identity: '@openagent/oas-sdk',
+  credentials: '@openagent/arsenal-sdk',
+  verification: '@openagent/aegis-sdk',
+} as const;
+
+/**
+ * Require a subsystem or fail closed.
+ *
+ * The error names the missing client, the package a real one comes from, and
+ * the testing package for unit tests - so the failure itself teaches the fix.
+ */
+function requireSubsystem<T>(
+  subsystem: T | undefined,
+  name: keyof typeof SUBSYSTEM_PACKAGES,
+): T {
+  if (subsystem === undefined) {
+    throw new ConfigError(
+      `OpenAgent: no ${name} client configured. ` +
+        `Production: pass a ${SUBSYSTEM_PACKAGES[name]} client via ` +
+        `OpenAgentConfig.clients.${name}. Tests: use @openagent/sdk-testing.`,
+      { code: ErrorCode.INVALID_CONFIG, context: { subsystem: name } },
+    );
+  }
+  return subsystem;
 }
 
 /** A live, fully-authenticated agent handle. */
@@ -97,17 +132,17 @@ export class OpenAgentRuntime {
 
   /** Identity / OAS escape hatch. */
   identity(): IdentityProvider {
-    return this.#subsystems.identity;
+    return requireSubsystem(this.#subsystems.identity, 'identity');
   }
 
   /** Credentials / Arsenal escape hatch. */
   arsenal(): ArsenalClient {
-    return this.#subsystems.arsenal;
+    return requireSubsystem(this.#subsystems.arsenal, 'credentials');
   }
 
   /** Verification / AEGIS escape hatch. */
   verification(): VerificationClient {
-    return this.#subsystems.verification;
+    return requireSubsystem(this.#subsystems.verification, 'verification');
   }
 
   /**
@@ -118,9 +153,10 @@ export class OpenAgentRuntime {
    */
   async createAgent(input: CreateAgentInput): Promise<OpenAgentInstance> {
     const parsed = parseCreateAgentInput(input);
+    const identity = requireSubsystem(this.#subsystems.identity, 'identity');
     let document: IdentityDocument;
     try {
-      document = await this.#subsystems.identity.createAgentIdentity(parsed);
+      document = await identity.createAgentIdentity(parsed);
     } catch (err) {
       throw err instanceof IdentityError
         ? err
@@ -139,9 +175,10 @@ export class OpenAgentRuntime {
    * the agent was created out-of-band (e.g. by a parent orchestrator).
    */
   async loadAgent(did: Did, skills?: readonly SkillId[]): Promise<OpenAgentInstance> {
+    const identity = requireSubsystem(this.#subsystems.identity, 'identity');
     let document: IdentityDocument;
     try {
-      document = await this.#subsystems.identity.resolve(did);
+      document = await identity.resolve(did);
     } catch (err) {
       throw err instanceof IdentityError
         ? err
@@ -157,8 +194,9 @@ export class OpenAgentRuntime {
 
   /** One-call authentication over a WHATWG `Request`. */
   async authenticate(req: Request, options?: VerifyRequestOptions): Promise<AuthContext> {
+    const verification = requireSubsystem(this.#subsystems.verification, 'verification');
     try {
-      return await this.#subsystems.verification.verifyRequest(req, options);
+      return await verification.verifyRequest(req, options);
     } catch (err) {
       throw wrapError(err, 'Authentication failed');
     }
@@ -224,21 +262,19 @@ function parseCreateAgentInput(input: CreateAgentInput): CreateAgentInput {
 function buildSubsystems(config: OpenAgentConfig): Subsystems {
   const resolved = resolveConfig(config);
 
+  // No fallbacks: an unconfigured subsystem stays undefined until a call
+  // needs it, and fails closed there with a `ConfigError` naming the client.
   const identityClient = resolved.clients.identity;
-  const identity: IdentityProvider =
-    identityClient === undefined
-      ? new StubIdentityProvider(resolved.namespace)
-      : toIdentityProvider(identityClient);
+  const identity: IdentityProvider | undefined =
+    identityClient === undefined ? undefined : toIdentityProvider(identityClient);
 
   const arsenalClient = resolved.clients.credentials;
-  const arsenal: ArsenalClient =
-    arsenalClient === undefined ? stubArsenalClient(resolved) : (arsenalClient as ArsenalClient);
+  const arsenal: ArsenalClient | undefined =
+    arsenalClient === undefined ? undefined : (arsenalClient as ArsenalClient);
 
   const verificationClient = resolved.clients.verification;
-  const verification: VerificationClient =
-    verificationClient === undefined
-      ? new StubVerificationClient()
-      : toVerificationClient(verificationClient);
+  const verification: VerificationClient | undefined =
+    verificationClient === undefined ? undefined : toVerificationClient(verificationClient);
 
   return { config: resolved, identity, arsenal, verification };
 }
@@ -253,35 +289,17 @@ function buildInstance(
     document,
     skillsPolicy: () => skills,
     withSkillsPolicy: (policy: SkillsPolicy) => buildInstance(subsystems, document, policy),
-    credentialsFor: async (provider: string, scopes?: readonly string[]) =>
-      createCredentialHandle({
+    credentialsFor: async (provider: string, scopes?: readonly string[]) => {
+      const arsenal = requireSubsystem(subsystems.arsenal, 'credentials');
+      return createCredentialHandle({
         agentDid: document.did,
         provider,
-        arsenal: subsystems.arsenal,
+        arsenal,
         fetchImpl: subsystems.config.fetch,
         requestTimeoutMs: subsystems.config.requestTimeoutMs,
         ...(scopes !== undefined ? { scopes } : {}),
-      }),
-    identity: () => subsystems.identity,
-  };
-}
-
-/**
- * Minimal fallback Arsenal client for tests and offline dev. It echoes a
- * deterministic proxy URL per provider without actually minting credentials.
- */
-function stubArsenalClient(_resolved: ResolvedOpenAgentConfig): ArsenalClient {
-  return {
-    async requestCredential({ agentDid, provider }) {
-      const now = Math.floor(Date.now() / 1000);
-      return {
-        provider,
-        proxyUrl: `https://stub.arsenal.invalid/proxy?agent=${encodeURIComponent(agentDid)}&provider=${provider}`,
-        expiresAt: now + 300,
-      };
+      });
     },
-    async release() {
-      // no-op
-    },
+    identity: () => requireSubsystem(subsystems.identity, 'identity'),
   };
 }

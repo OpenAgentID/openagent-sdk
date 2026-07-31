@@ -2,10 +2,11 @@
  * OAS (Open Agent Specification) identity wrapper.
  *
  * This module defines the minimal surface the OpenAgent SDK needs from the
- * `@openagent/oas-sdk` package. When `@openagent/oas-sdk` ships, a thin adapter binds its public
- * types to {@link IdentityProvider}. Until then, we ship a safe in-process
- * {@link StubIdentityProvider} that generates valid Ed25519 keypairs via
- * `@openagent/crypto-wasm` (optional) or Node's native `crypto`.
+ * `@openagent/oas-sdk` package: the {@link IdentityProvider} interface and
+ * runtime validation for identity documents. Production identity comes from
+ * `@openagent/oas-sdk` via `clients.identity`; test identity comes from
+ * `@openagent/sdk-testing` — never from a silent fallback. If no provider is
+ * configured, calls that need one fail closed with a `ConfigError`.
  *
  * INTEGRATION_NOTES.md tracks the exact shape we expect from `@openagent/oas-sdk`.
  */
@@ -94,86 +95,6 @@ export function parseIdentityDocument(raw: unknown): IdentityDocument {
       cause: err,
     });
   }
-}
-
-/**
- * Stub identity provider used when `@openagent/oas-sdk` is not available.
- *
- * Generates deterministic-looking DIDs and public keys. Suitable for unit
- * tests and local development; NOT cryptographically sound for production.
- * The SDK emits a warning when this provider is active.
- */
-export class StubIdentityProvider implements IdentityProvider {
-  private readonly store = new Map<Did, IdentityDocument>();
-  private readonly namespace: string;
-
-  constructor(namespace = 'l1fe') {
-    this.namespace = namespace;
-  }
-
-  async createAgentIdentity(input: CreateAgentInput): Promise<IdentityDocument> {
-    const id = `stub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    const did: Did = `did:oas:${input.namespace ?? this.namespace}:agent:${id}`;
-    const doc: IdentityDocument = {
-      did,
-      parent: input.parent,
-      publicKeyMultibase: `z${id}`,
-      kind: 'agent',
-      scopes: [...input.scopes],
-      createdAt: new Date().toISOString(),
-      ...(input.metadata ? { metadata: input.metadata } : {}),
-    };
-    this.store.set(did, doc);
-    return doc;
-  }
-
-  async resolve(did: Did): Promise<IdentityDocument> {
-    const doc = this.store.get(did);
-    if (!doc) {
-      throw new IdentityError(`Unknown DID: ${did}`, {
-        code: ErrorCode.IDENTITY_RESOLVE_FAILED,
-        context: { did },
-      });
-    }
-    return doc;
-  }
-
-  async signChallenge(did: Did, challenge: Uint8Array): Promise<SignedAssertion> {
-    if (!this.store.has(did)) {
-      throw new IdentityError(`Unknown DID: ${did}`, {
-        code: ErrorCode.IDENTITY_SIGNATURE_INVALID,
-        context: { did },
-      });
-    }
-    const now = Math.floor(Date.now() / 1000);
-    // Stub signature: tag + challenge as base64. NOT real crypto.
-    const sig = toBase64(new Uint8Array([0xaa, 0xbb, ...challenge]));
-    return {
-      token: `stub.${toBase64Url(new TextEncoder().encode(did))}.${sig}`,
-      signature: sig,
-      signer: did,
-      issuedAt: now,
-      expiresAt: now + 300,
-    };
-  }
-
-  async publicKey(did: Did): Promise<string> {
-    const doc = await this.resolve(did);
-    return doc.publicKeyMultibase;
-  }
-}
-
-function toBase64(bytes: Uint8Array): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(bytes).toString('base64');
-  }
-  let s = '';
-  for (const b of bytes) s += String.fromCharCode(b);
-  return btoa(s);
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  return toBase64(bytes).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
 /**

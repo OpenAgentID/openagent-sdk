@@ -74,23 +74,29 @@
 pub mod agent;
 pub mod builder;
 pub mod config;
+#[cfg(feature = "arsenal")]
 pub mod credentials;
 pub mod errors;
 pub mod identity;
 pub mod skills;
+#[cfg(feature = "aegis")]
 pub mod verification;
 
 // ---------------------------------------------------------------------------
 // Top-level re-exports — these are the names a typical app touches.
 // ---------------------------------------------------------------------------
 
-pub use agent::{authenticate_with_verifier, CreateAgentOptions, OpenAgent};
+#[cfg(feature = "aegis")]
+pub use agent::authenticate_with_verifier;
+pub use agent::{CreateAgentOptions, OpenAgent};
 pub use builder::OpenAgentBuilder;
 pub use config::{BrokerMtlsConfig, OpenAgentConfig};
+#[cfg(feature = "arsenal")]
 pub use credentials::CredentialClient;
 pub use errors::{OpenAgentError, Result};
 pub use identity::{AgentIdentityRecord, ParsedDid};
 pub use skills::{AllowListPolicy, SkillsPolicy, SkillsPolicyHandle};
+#[cfg(feature = "aegis")]
 pub use verification::{
     authority_context_from_oas, LineageAuthorityContext, VerifiedContext, Verifier,
 };
@@ -99,12 +105,14 @@ pub use verification::{
 // Wrapped-SDK re-exports — drop down here when the facade isn't enough.
 // ---------------------------------------------------------------------------
 
-/// The wrapped AEGIS SDK.
-pub use openagent_aegis_sdk;
 /// The wrapped Arsenal SDK.
+#[cfg(feature = "arsenal")]
 pub use arsenal_sdk;
 /// The wrapped OAS SDK.
 pub use oas_sdk;
+/// The wrapped AEGIS SDK.
+#[cfg(feature = "aegis")]
+pub use openagent_aegis_sdk;
 
 /// Synchronous helpers for CLI tooling.
 ///
