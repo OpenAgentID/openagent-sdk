@@ -16,7 +16,7 @@
 // Usage: node scripts/build-wasm.mjs
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,6 +34,17 @@ execFileSync(
   ['build', '--target', 'nodejs', '--release', '--out-dir', 'pkg/node', '--', ...features],
   { cwd: crate, stdio: 'inherit' },
 );
+
+// wasm-pack writes a .gitignore into out dirs; npm honors it and would
+// exclude the whole nodejs target from the published tarball. Remove any
+// of them before packaging.
+for (const rel of ['pkg/.gitignore', 'pkg/node/.gitignore']) {
+  try {
+    rmSync(join(crate, rel));
+  } catch {
+    // already absent
+  }
+}
 
 // The nodejs target emits CommonJS; declare it so the .js files inside are
 // not parsed as ESM (the root package is "type": "module").
