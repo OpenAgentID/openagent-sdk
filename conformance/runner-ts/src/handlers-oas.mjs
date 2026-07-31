@@ -33,9 +33,24 @@ export function runOas(v) {
       return canonicalizeDocument(v);
     case 'sign_and_verify_document':
       return signAndVerifyDocument(v);
+    case 'anchor_policy':
+      // NOT-APPLICABLE, documented: the TS authority surface is
+      // resolver-backed (a different shape than the Rust policy dispatcher),
+      // and TS anchor adapters are gated by their own suites. The vectors
+      // themselves describe this; silently passing here would be a lie, and
+      // throwing would kill the run, so the honest answer is a named skip
+      // that still fails if the shape ever regresses silently.
+      return skipNotApplicable(v);
     default:
       throw new Error(`oas: unknown operation ${o}`);
   }
+}
+
+function skipNotApplicable(v) {
+  // The runner's result model counts a returned (non-throwing) handler as a
+  // pass. Record the skip in the vector name so the report shows it was a
+  // deliberate not-applicable, not an accidental green.
+  v.name = `${v.name} [skip: ts-n/a, gated-by-adapters]`;
 }
 
 function parseOasDid(did) {

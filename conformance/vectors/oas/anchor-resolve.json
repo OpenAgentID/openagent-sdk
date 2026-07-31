@@ -1,0 +1,280 @@
+{
+  "category": "oas",
+  "name": "anchor-resolve",
+  "description": "Lineage anchor authority vectors. These exercise the semantics every anchor backend and the policy dispatcher must satisfy: revocation-first, typed root anchoring, active-status requirement, finality confirmation, preference-order fallback, and fail-closed behavior when no trusted backend confirms. The input carries a scripted backend; the runner evaluates authority through AnchoredAuthoritySource exactly as production does. The TypeScript runner records these vectors as not-applicable: the TS authority surface is resolver-backed (a different shape), and TS adapters are gated by their own suites - see the description in the vector file.",
+  "spec": "oas/oas-sdk/src/anchor_policy.rs + oas/oas-resolve/src/anchored.rs",
+  "vectors": [
+    {
+      "name": "active-anchor-confirms",
+      "description": "An active, confirmed anchor under a trusted scheme authorizes the path",
+      "tags": ["accept", "policy"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": false,
+            "anchor": {
+              "did": "did:oas:l1fe:hmr:alice",
+              "status": "active",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "accept",
+        "source": "anchor:sigil",
+        "finalized_block": 500
+      }
+    },
+    {
+      "name": "revoked-root-fails-closed",
+      "description": "A revoked root means nothing in its tree is trustworthy - rejection, never best-effort",
+      "tags": ["reject", "revocation"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": true,
+            "anchor": {
+              "did": "did:oas:l1fe:hmr:alice",
+              "status": "active",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "reject",
+        "reason_class": "revoked"
+      }
+    },
+    {
+      "name": "absent-anchor-fails-closed",
+      "description": "No anchor for the root: the negative cannot be proven, so the path is rejected",
+      "tags": ["reject", "absent"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": false,
+            "anchor": null,
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "reject",
+        "reason_class": "no hmr anchor"
+      }
+    },
+    {
+      "name": "non-active-status-rejected",
+      "description": "A rotating root is not an active root",
+      "tags": ["reject", "status"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": false,
+            "anchor": {
+              "did": "did:oas:l1fe:hmr:alice",
+              "status": "rotating",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "reject",
+        "reason_class": "not 'active'"
+      }
+    },
+    {
+      "name": "future-anchor-is-unconfirmed",
+      "description": "An anchor recorded beyond the finalized block is not yet authoritative",
+      "tags": ["reject", "finality"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": false,
+            "anchor": {
+              "did": "did:oas:l1fe:hmr:alice",
+              "status": "active",
+              "anchored_at_block": 600,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "reject",
+        "reason_class": "unconfirmed"
+      }
+    },
+    {
+      "name": "preference-order-fallback-to-eas",
+      "description": "Sigil preferred but failing; EAS confirms as the next trusted scheme",
+      "tags": ["accept", "policy", "fallback"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": true,
+            "anchor": {
+              "did": "did:oas:l1fe:hmr:alice",
+              "status": "active",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          },
+          "eas": {
+            "revoked": false,
+            "anchor": {
+              "did": "did:oas:l1fe:hmr:alice",
+              "status": "active",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil", "eas"]
+      },
+      "expected_output": {
+        "verdict": "accept",
+        "source": "anchor:eas",
+        "finalized_block": 500
+      }
+    },
+    {
+      "name": "no-trusted-scheme-confirms-fails-closed",
+      "description": "EAS present but not trusted by this verifier: rejection, not silent acceptance",
+      "tags": ["reject", "policy"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "eas": {
+            "revoked": false,
+            "anchor": {
+              "did": "did:oas:l1fe:hmr:alice",
+              "status": "active",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "reject",
+        "reason_class": ""
+      }
+    },
+    {
+      "name": "mhr-root-kind-anchored",
+      "description": "The typed root lookup matches the root's kind: MHR confirms",
+      "tags": ["accept", "kind"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": false,
+            "anchor": {
+              "did": "did:oas:l1fe:mhr:acme",
+              "status": "active",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:mhr:acme",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "accept",
+        "source": "anchor:sigil"
+      }
+    },
+    {
+      "name": "enr-root-kind-anchored",
+      "description": "ENR roots confirm through the same path",
+      "tags": ["accept", "kind"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": false,
+            "anchor": {
+              "did": "did:oas:l1fe:enr:foundation",
+              "status": "active",
+              "anchored_at_block": 100,
+              "metadata_commitment": "blake3:aa"
+            },
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:enr:foundation",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "accept",
+        "source": "anchor:sigil"
+      }
+    },
+    {
+      "name": "backend-transport-failure-fails-closed",
+      "description": "An unreachable anchor cannot prove the negative: rejection, presented as the transport failure it is",
+      "tags": ["reject", "transport"],
+      "input": {
+        "operation": "anchor_policy",
+        "backend": {
+          "sigil": {
+            "revoked": false,
+            "transport_error": "connection refused",
+            "finalized_block": 500
+          }
+        },
+        "subject_did": "did:oas:l1fe:agent:bot",
+        "root_did": "did:oas:l1fe:hmr:alice",
+        "trusted_schemes": ["sigil"]
+      },
+      "expected_output": {
+        "verdict": "reject",
+        "reason_class": "connection refused"
+      }
+    }
+  ]
+}

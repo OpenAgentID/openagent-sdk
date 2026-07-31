@@ -547,7 +547,197 @@ mod oas {
             "verify_signed_document" => verify_signed_document(v),
             "canonicalize_document" => canonicalize_document(v),
             "sign_and_verify_document" => sign_and_verify_document(v),
+            "anchor_policy" => anchor_policy(v),
             other => Err(format!("oas: unknown operation {other}")),
+        }
+    }
+
+    /// Anchor authority vectors: scripted backends through the production
+    /// dispatcher (AnchoredAuthoritySource), asserting verdicts, sources,
+    /// finality arithmetic, and fail-closed behavior.
+    fn anchor_policy(v: &Vector) -> Result<(), String> {
+        use oas_resolve::{AnchorError, AnchorRecord, AnchorStatus, LineageAnchor, OrgLineageRoot};
+        use oas_sdk::anchor_policy::{AnchorPolicy, AnchoredAuthoritySource};
+        use oas_sdk::lineage::{AuthorityPathKind, LineageAuthorityRequest, LineageAuthoritySource};
+
+        struct Scripted {
+            revoked: bool,
+            anchor: Option<AnchorRecord>,
+            finalized: u64,
+            transport_error: Option<String>,
+        }
+
+        #[async_trait::async_trait]
+        impl LineageAnchor for Scripted {
+            async fn check_revocation(&self, _did: &str) -> Result<AnchorStatus, AnchorError> {
+                if let Some(e) = &self.transport_error {
+                    return Err(AnchorError::Transport(e.clone()));
+                }
+                Ok(AnchorStatus {
+                    revoked: self.revoked,
+                    reason_commitment: self.revoked.then(|| "scripted".to_string()),
+                })
+            }
+            async fn get_hmr(&self, did: &str) -> Result<Option<AnchorRecord>, AnchorError> {
+                if let Some(e) = &self.transport_error {
+                    return Err(AnchorError::Transport(e.clone()));
+                }
+                Ok(self.anchor.clone().filter(|a| a.did == did))
+            }
+            async fn get_mhr(&self, did: &str) -> Result<Option<AnchorRecord>, AnchorError> {
+                if let Some(e) = &self.transport_error {
+                    return Err(AnchorError::Transport(e.clone()));
+                }
+                Ok(self.anchor.clone().filter(|a| a.did == did))
+            }
+            async fn get_enr(&self, did: &str) -> Result<Option<AnchorRecord>, AnchorError> {
+                if let Some(e) = &self.transport_error {
+                    return Err(AnchorError::Transport(e.clone()));
+                }
+                Ok(self.anchor.clone().filter(|a| a.did == did))
+            }
+            async fn get_org_root(&self, _: &str) -> Result<Option<OrgLineageRoot>, AnchorError> {
+                Ok(None)
+            }
+            async fn current_finalized_block(&self) -> Result<u64, AnchorError> {
+                if let Some(e) = &self.transport_error {
+                    return Err(AnchorError::Transport(e.clone()));
+                }
+                Ok(self.finalized)
+            }
+        }
+
+        let backend_obj = v
+            .input
+            .get("backend")
+            .and_then(|b| b.as_object())
+            .ok_or("missing input.backend")?;
+        let trusted: Vec<String> = v
+            .input
+            .get("trusted_schemes")
+            .and_then(|s| s.as_array())
+            .ok_or("missing trusted_schemes")?
+            .iter()
+            .filter_map(|x| x.as_str().map(str::to_string))
+            .collect();
+        if trusted.is_empty() {
+            return Err("trusted_schemes must be non-empty".to_string());
+        }
+
+        let mut scripted: Vec<(String, Scripted)> = Vec::new();
+        for (scheme, spec) in backend_obj {
+            let revoked = spec.get("revoked").and_then(|b| b.as_bool()).unwrap_or(false);
+            let finalized = spec
+                .get("finalized_block")
+                .and_then(|n| n.as_u64())
+                .ok_or_else(|| format!("backend {scheme}: missing finalized_block"))?;
+            let transport_error = spec
+                .get("transport_error")
+                .and_then(|s| s.as_str())
+                .map(str::to_string);
+            let anchor = match spec.get("anchor") {
+                Some(serde_json::Value::Null) | None => None,
+                Some(a) => Some(AnchorRecord {
+                    did: a
+                        .get("did")
+                        .and_then(|s| s.as_str())
+                        .ok_or_else(|| format!("backend {scheme}: anchor missing did"))?
+                        .to_string(),
+                    status: a
+                        .get("status")
+                        .and_then(|s| s.as_str())
+                        .ok_or_else(|| format!("backend {scheme}: anchor missing status"))?
+                        .to_string(),
+                    anchored_at_block: a
+                        .get("anchored_at_block")
+                        .and_then(|n| n.as_u64())
+                        .ok_or_else(|| format!("backend {scheme}: anchor missing anchored_at_block"))?,
+                    metadata_commitment: a
+                        .get("metadata_commitment")
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("blake3:aa")
+                        .to_string(),
+                }),
+            };
+            scripted.push((scheme.clone(), Scripted { revoked, anchor, finalized, transport_error }));
+        }
+
+        let mut backends: oas_sdk::anchor_policy::AnchorBackends = std::collections::HashMap::new();
+        for (scheme, backend) in &scripted {
+            backends.insert(scheme.clone(), backend);
+        }
+
+        let source = AnchoredAuthoritySource::new(AnchorPolicy::trusting(trusted), backends);
+        let request = LineageAuthorityRequest {
+            subject_did: v
+                .input
+                .get("subject_did")
+                .and_then(|s| s.as_str())
+                .ok_or("missing subject_did")?
+                .to_string(),
+            local_root_did: v
+                .input
+                .get("root_did")
+                .and_then(|s| s.as_str())
+                .ok_or("missing root_did")?
+                .to_string(),
+            local_chain: vec![],
+            path_kind: AuthorityPathKind::HumanToAgent,
+            required_scopes: vec![],
+            min_finalized_block: None,
+        };
+
+        let verdict = v
+            .expected_output
+            .get("verdict")
+            .and_then(|s| s.as_str())
+            .ok_or("expected verdict")?;
+        let result = source.verify_authority(&request);
+
+        match (result, verdict) {
+            (Ok(record), "accept") => {
+                if let Some(expected_source) = v.expected_output.get("source").and_then(|s| s.as_str()) {
+                    if record.source != expected_source {
+                        return Err(format!(
+                            "source mismatch: got {} expected {expected_source}",
+                            record.source
+                        ));
+                    }
+                }
+                if let Some(expected_block) = v
+                    .expected_output
+                    .get("finalized_block")
+                    .and_then(|n| n.as_u64())
+                {
+                    if record.finalized_block != expected_block {
+                        return Err(format!(
+                            "finalized_block mismatch: got {} expected {expected_block}",
+                            record.finalized_block
+                        ));
+                    }
+                }
+                Ok(())
+            }
+            (Ok(record), "reject") => Err(format!(
+                "expected reject, authority confirmed (source {})",
+                record.source
+            )),
+            (Err(e), "reject") => {
+                let reason_class = v
+                    .expected_output
+                    .get("reason_class")
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("");
+                let message = format!("{e:?}");
+                if !reason_class.is_empty() && !message.contains(reason_class) {
+                    return Err(format!(
+                        "reason class mismatch: error \"{message}\" does not contain \"{reason_class}\""
+                    ));
+                }
+                Ok(())
+            }
+            (Err(e), "accept") => Err(format!("expected accept, authority failed: {e:?}")),
+            (_, other) => Err(format!("unknown verdict {other}")),
         }
     }
 
