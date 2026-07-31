@@ -245,6 +245,10 @@ jobs:
       - name: Test
         run: go test ./...
 
+      - name: README quickstart compiles
+        # The docs-truth gate.
+        run: go build ./examples/quickstart
+
       - name: ACT conformance vectors
         # The same 13 canonical vectors that gate Rust, TypeScript, and
         # Python.
@@ -271,6 +275,11 @@ jobs:
 
       - name: Test
         run: python -m pytest -q
+
+      - name: README quickstart compiles
+        # The docs-truth gate: if the README sample stops compiling, the
+        # README has drifted from the package.
+        run: python -m py_compile examples/quickstart.py
 
       - name: ACT conformance vectors
         # The same 13 canonical vectors that gate Rust and TypeScript. The
