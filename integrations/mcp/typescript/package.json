@@ -2,7 +2,7 @@
   "name": "@openagent/mcp",
   "version": "0.1.0",
   "description": "OpenAgent middleware for the Model Context Protocol — adds OAS identity, Arsenal capability tokens, and AEGIS authorization to any MCP server in three lines.",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 OR MIT",
   "author": "L1fe AI <eng@l1fe.ai>",
   "homepage": "https://openagent.id/docs/integrations/mcp",
   "repository": {

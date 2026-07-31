@@ -2,7 +2,7 @@
   "name": "@openagent/scim",
   "version": "0.1.0",
   "description": "SCIM 2.0 provisioning bridge for OpenAgent — enterprise agent lifecycle via RFC 7644",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 OR MIT",
   "author": "L1fe AI <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {

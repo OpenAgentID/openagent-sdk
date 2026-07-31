@@ -2,7 +2,7 @@
   "name": "@openagent/sdk",
   "version": "0.1.0",
   "description": "OpenAgent SDK — Clerk for autonomous agents. One import for identity, credentials, and verification.",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 OR MIT",
   "author": "L1fe AI <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {

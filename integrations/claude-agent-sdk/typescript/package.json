@@ -2,7 +2,7 @@
   "name": "@openagent/claude-agent",
   "version": "0.1.0",
   "description": "OpenAgent identity, capability control, and audit for the Claude Agent SDK — drop-in plugin that gives any Claude agent a verified did:oas:* identity, scoped credential access, and tamper-evident audit logging.",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 OR MIT",
   "author": "L1fe AI <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {

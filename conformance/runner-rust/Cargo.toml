@@ -3,7 +3,7 @@ name = "conformance-runner"
 version = "0.1.0"
 edition = "2021"
 description = "OpenAgent SDK conformance test runner (Rust) — loads JSON vectors and diffs against the reference Rust crypto stack"
-license = "Apache-2.0"
+license = "Apache-2.0 OR MIT"
 publish = false
 default-run = "conformance-runner"
 

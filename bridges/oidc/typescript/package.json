@@ -2,7 +2,7 @@
   "name": "@openagent/oidc",
   "version": "0.1.0",
   "description": "OIDC/OAuth2 bridge for OpenAgent SDK — maps between human OIDC tokens and OAS agent DIDs + Arsenal capability tokens.",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 OR MIT",
   "author": "L1fe AI <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {

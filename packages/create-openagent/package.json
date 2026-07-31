@@ -2,7 +2,7 @@
   "name": "create-openagent",
   "version": "0.1.0",
   "description": "Scaffold an OpenAgent project — agent, MCP server, web dashboard, or full-stack.",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 OR MIT",
   "author": "L1fe AI <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {
