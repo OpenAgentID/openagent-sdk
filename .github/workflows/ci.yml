@@ -180,6 +180,28 @@ jobs:
         if: always()
         run: rm -f ~/.gitconfig
 
+  swift:
+    name: swift sdk build and test (with vectors)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: sdks/swift
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: swiftlang/swift-setup-action@v2
+        with:
+          swift-version: '6.2'
+
+      - name: Build
+        run: swift build
+
+      - name: Test (includes the 13 canonical ACT vectors)
+        # The VectorTests target executes the same conformance vectors that
+        # gate Rust, TypeScript, Python, and Go.
+        run: swift test
+
   go:
     name: go sdk vet, test, and vectors
     runs-on: ubuntu-latest

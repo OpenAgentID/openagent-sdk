@@ -1,0 +1,19 @@
+{
+  "": {
+    "swift-dependencies": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/master.swiftdeps"
+  },
+  "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/Tests/OpenAgentSDKTests/OpenAgentSDKTests.swift": {
+    "dependencies": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/OpenAgentSDKTests.d",
+    "object": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/OpenAgentSDKTests.swift.o",
+    "swiftmodule": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/OpenAgentSDKTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/OpenAgentSDKTests.swiftdeps",
+    "diagnostics": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/OpenAgentSDKTests.dia"
+  },
+  "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/Tests/OpenAgentSDKTests/VectorTests.swift": {
+    "dependencies": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/VectorTests.d",
+    "object": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/VectorTests.swift.o",
+    "swiftmodule": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/VectorTests~partial.swiftmodule",
+    "swift-dependencies": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/VectorTests.swiftdeps",
+    "diagnostics": "/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/OpenAgentSDKTests.build/VectorTests.dia"
+  }
+}

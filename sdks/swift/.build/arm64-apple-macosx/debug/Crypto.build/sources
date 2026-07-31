@@ -1,0 +1,81 @@
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/AEADs/AES/GCM/AES-GCM.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/AEADs/AES/GCM/BoringSSL/AES-GCM_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/AEADs/ChachaPoly/BoringSSL/ChaChaPoly_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/AEADs/ChachaPoly/ChaChaPoly.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/AEADs/Cipher.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/AEADs/Nonces.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/ASN1.swift
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1Any.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1BitString.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1Boolean.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1Identifier.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1Integer.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1Null.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1OctetString.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ASN1Strings.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ArraySliceBigint.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/GeneralizedTime.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/Basic ASN1 Types/ObjectIdentifier.swift'
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/ECDSASignature.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/PEMDocument.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/PKCS8PrivateKey.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/SEC1PrivateKey.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/ASN1/SubjectPublicKeyInfo.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/CryptoError_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/CryptoKitErrors.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Digests/BoringSSL/Digest_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Digests/Digest.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Digests/Digests.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Digests/HashFunctions.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Digests/HashFunctions_SHA2.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-AEAD.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-Ciphersuite.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-KDF.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-KexKeyDerivation.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-LabeledExtract.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/HPKE-Utils.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/KEM/Conformances/DHKEM.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/KEM/Conformances/HPKE-KEM-Curve25519.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/KEM/Conformances/HPKE-NIST-EC-KEMs.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Ciphersuite/KEM/HPKE-KEM.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/HPKE-Errors.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/HPKE.swift
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Key Schedule/HPKE-Context.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Key Schedule/HPKE-KeySchedule.swift'
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/HPKE/Modes/HPKE-Modes.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Insecure/Insecure.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Insecure/Insecure_HashFunctions.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/KEM/KEM.swift
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Key Agreement/BoringSSL/ECDH_boring.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Key Agreement/DH.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Key Agreement/ECDH.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Key Derivation/HKDF.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Key Wrapping/AESWrap.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Key Wrapping/BoringSSL/AESWrap_boring.swift'
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/EC/BoringSSL/Ed25519_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/EC/BoringSSL/NISTCurvesKeys_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/EC/BoringSSL/X25519Keys_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/EC/Curve25519.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/EC/Ed25519Keys.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/EC/NISTCurvesKeys.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/EC/X25519Keys.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Keys/Symmetric/SymmetricKeys.swift
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Message Authentication Codes/HMAC/HMAC.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Message Authentication Codes/MACFunctions.swift'
+'/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Message Authentication Codes/MessageAuthenticationCode.swift'
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/PRF/AES.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Signatures/BoringSSL/ECDSASignature_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Signatures/BoringSSL/ECDSA_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Signatures/BoringSSL/EdDSA_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Signatures/ECDSA.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Signatures/Ed25519.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Signatures/Signature.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/BoringSSL/CryptoKitErrors_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/BoringSSL/RNG_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/BoringSSL/SafeCompare_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/BoringSSL/Zeroization_boring.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/PrettyBytes.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/SafeCompare.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/SecureBytes.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/checkouts/swift-crypto/Sources/Crypto/Util/Zeroization.swift
+/Volumes/L1feAI/l1feosx/openagent-sdk/sdks/swift/.build/arm64-apple-macosx/debug/Crypto.build/DerivedSources/resource_bundle_accessor.swift
