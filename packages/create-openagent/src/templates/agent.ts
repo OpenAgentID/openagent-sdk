@@ -17,15 +17,15 @@ export function generateAgentTemplate(options: ProjectOptions): TemplateFile[] {
 
 function packageJson(options: ProjectOptions): string {
   const deps: Record<string, string> = {
-    '@openagent/sdk': '^0.1.0',
+    '@openagentid/sdk': '^0.1.0',
   };
 
   if (options.bioagentic) {
-    deps['@openagent/bioagentic'] = '^0.1.0';
+    deps['@openagentid/bioagentic'] = '^0.1.0';
   }
 
   if (options.fabrics) {
-    deps['@openagent/fabrics'] = '^0.1.0';
+    deps['@openagentid/fabrics'] = '^0.1.0';
   }
 
   return JSON.stringify(
@@ -84,7 +84,7 @@ function agentTs(options: ProjectOptions): string {
  * Agent identity and authentication setup.
  */
 
-import { OpenAgent, type OpenAgentInstance } from '@openagent/sdk';
+import { OpenAgent, type OpenAgentInstance } from '@openagentid/sdk';
 
 /** Configure the OpenAgent runtime. */
 OpenAgent.configure({

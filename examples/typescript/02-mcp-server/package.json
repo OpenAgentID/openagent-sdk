@@ -8,7 +8,7 @@
     "test-client": "bun run src/test-client.ts"
   },
   "dependencies": {
-    "@openagent/sdk": "workspace:*",
+    "@openagentid/sdk": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {

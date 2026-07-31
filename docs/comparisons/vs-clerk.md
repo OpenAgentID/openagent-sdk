@@ -40,7 +40,7 @@ Here is the canonical way they fit together:
 ```ts
 // in a Next.js API route
 import { auth as clerkAuth } from '@clerk/nextjs/server';
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 export async function POST(req: Request) {
   const { userId } = await clerkAuth();       // human via Clerk

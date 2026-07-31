@@ -5,7 +5,7 @@ This guide covers everything you need to mint an agent: picking a parent, choosi
 ## The minimal call
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 const agent = await OpenAgent.createAgent({
   parent: 'did:oas:acme:hmr:alice',
@@ -95,7 +95,7 @@ If the calling process needs to act as multiple agents (for example, a multi-ten
 
 ```ts
 // scripts/provision-agent.ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 import { writeFileSync } from 'node:fs';
 
 const parent = process.env.PARENT_DID ?? 'did:oas:acme:hmr:alice';

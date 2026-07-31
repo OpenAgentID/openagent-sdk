@@ -12,12 +12,12 @@ should be required outside the file listed for each gap.
 
 | Package                   | Status                | Gap owner file                  |
 |---------------------------|-----------------------|---------------------------------|
-| `@openagent/oas-sdk`                | Not yet published     | `src/identity.ts`               |
-| `@openagent/arsenal-sdk`            | Not yet published     | `src/credentials.ts`            |
-| `@openagent/aegis-sdk`              | Not yet published     | `src/verification.ts`           |
-| `@openagent/crypto-wasm`  | Rust crate exists; wasm-pack build pending | `src/identity.ts` (signChallenge) |
+| `@openagentid/oas-sdk`                | Not yet published     | `src/identity.ts`               |
+| `@openagentid/arsenal-sdk`            | Not yet published     | `src/credentials.ts`            |
+| `@openagentid/aegis-sdk`              | Not yet published     | `src/verification.ts`           |
+| `@openagentid/crypto-wasm`  | Rust crate exists; wasm-pack build pending | `src/identity.ts` (signChallenge) |
 
-## `@openagent/oas-sdk` — identity provider
+## `@openagentid/oas-sdk` — identity provider
 
 The SDK expects an exported class (or factory) matching `IdentityProvider`
 in `src/identity.ts`:
@@ -33,7 +33,7 @@ interface IdentityProvider {
 
 Things the OAS SDK must supply that are currently stubbed:
 
-1. **Key generation** — real Ed25519 keypairs via `@openagent/crypto-wasm`
+1. **Key generation** — real Ed25519 keypairs via `@openagentid/crypto-wasm`
    rather than the deterministic-string placeholder in
    `StubIdentityProvider.createAgentIdentity`.
 2. **DID assembly** — use the canonical `did:oas:<namespace>:<kind>:<id>`
@@ -46,15 +46,15 @@ Things the OAS SDK must supply that are currently stubbed:
 
 Replace plan:
 
-- Delete `StubIdentityProvider` once `@openagent/oas-sdk` ships a conforming class.
+- Delete `StubIdentityProvider` once `@openagentid/oas-sdk` ships a conforming class.
 - In `agent.ts#buildSubsystems`, replace the `new StubIdentityProvider(...)`
   fallback with `new OasIdentityClient(...)`.
 - Keep `toIdentityProvider()` — it remains useful for user-supplied
   wrappers and mocks.
 
-## `@openagent/arsenal-sdk` — credential broker client
+## `@openagentid/arsenal-sdk` — credential broker client
 
-The SDK expects `@openagent/arsenal-sdk` to export a class matching `ArsenalClient`
+The SDK expects `@openagentid/arsenal-sdk` to export a class matching `ArsenalClient`
 in `src/credentials.ts`:
 
 ```ts
@@ -101,9 +101,9 @@ Replace plan:
 - In `agent.ts#buildSubsystems`, replace `stubArsenalClient()` with
   `new ArsenalBrokerClient({ endpoint: resolved.endpoints.arsenalBroker, ... })`.
 
-## `@openagent/aegis-sdk` — verification client
+## `@openagentid/aegis-sdk` — verification client
 
-The SDK expects `@openagent/aegis-sdk` to export a class matching `VerificationClient`
+The SDK expects `@openagentid/aegis-sdk` to export a class matching `VerificationClient`
 in `src/verification.ts`:
 
 ```ts
@@ -135,7 +135,7 @@ Replace plan:
 - In `agent.ts#buildSubsystems`, replace `new StubVerificationClient()`
   with `new AegisVerifier({ endpoint: resolved.endpoints.aegisVerifier, ... })`.
 
-## `@openagent/crypto-wasm`
+## `@openagentid/crypto-wasm`
 
 The Rust crate exists at
 `/Volumes/L1feAI/l1feosx/openagent-sdk/crates/openagent-crypto-wasm/` but

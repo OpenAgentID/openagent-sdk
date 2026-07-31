@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { assertScopes, OpenAgent, OpenAgentError } from '@openagent/sdk';
+import { assertScopes, OpenAgent, OpenAgentError } from '@openagentid/sdk';
 
 OpenAgent.configure({
   brokerUrl: process.env.OPENAGENT_BROKER_URL ?? 'fake://in-memory',

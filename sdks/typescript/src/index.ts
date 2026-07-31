@@ -1,10 +1,10 @@
 /**
- * @openagent/sdk — Clerk for autonomous agents.
+ * @openagentid/sdk — Clerk for autonomous agents.
  *
  * Three-line happy path:
  *
  * ```ts
- * import { OpenAgent } from '@openagent/sdk';
+ * import { OpenAgent } from '@openagentid/sdk';
  *
  * const agent = await OpenAgent.createAgent({
  *   parent: 'did:oas:l1fe:hmr:alice',

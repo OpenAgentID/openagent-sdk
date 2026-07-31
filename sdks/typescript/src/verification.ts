@@ -2,7 +2,7 @@
  * AEGIS verification wrapper.
  *
  * Turns incoming HTTP requests into {@link AuthContext} objects that
- * downstream code can trust. Wraps `@openagent/aegis-sdk`'s challenge-response flow
+ * downstream code can trust. Wraps `@openagentid/aegis-sdk`'s challenge-response flow
  * and delegation policy engine.
  *
  * Framework-agnostic: takes the standard WHATWG `Request` so the same
@@ -73,7 +73,7 @@ export interface VerifyRequestOptions {
 }
 
 /**
- * AEGIS verifier facade. Concrete implementation lives in `@openagent/aegis-sdk`.
+ * AEGIS verifier facade. Concrete implementation lives in `@openagentid/aegis-sdk`.
  *
  * The OpenAgent SDK never decodes assertions itself — it delegates to
  * AEGIS for all verification, lineage walking, and policy evaluation.
@@ -146,7 +146,7 @@ export function assertAncestor(ctx: AuthContext, ancestor: Did): void {
 
 /**
  * Narrow any unknown value into a {@link VerificationClient}, or throw.
- * Duck-typed for forward compatibility with `@openagent/aegis-sdk`.
+ * Duck-typed for forward compatibility with `@openagentid/aegis-sdk`.
  */
 export function toVerificationClient(client: unknown): VerificationClient {
   if (
@@ -231,6 +231,6 @@ function assertAuthorityContext(
   }
 }
 
-// In-memory verification backends for tests live in `@openagent/sdk-testing`.
+// In-memory verification backends for tests live in `@openagentid/sdk-testing`.
 // This module defines the production interface only; a missing client fails
 // closed at the call site rather than falling back to a fake verifier.

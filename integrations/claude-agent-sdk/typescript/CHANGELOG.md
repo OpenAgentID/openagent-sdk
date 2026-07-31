@@ -5,6 +5,12 @@ All notable changes to `@openagent/claude-agent` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** package renamed from `@openagent/claude-agent` to `@openagentid/claude-agent`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
+
 ## [0.1.0] — 2026-04-11
 
 ### Added

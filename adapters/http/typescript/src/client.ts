@@ -32,7 +32,7 @@ export interface ClientConfig {
  * Function that signs a payload and returns a base64url (no padding)
  * encoded signature.
  *
- * The caller provides this — it may use @openagent/crypto-wasm, Web Crypto,
+ * The caller provides this — it may use @openagentid/crypto-wasm, Web Crypto,
  * or any Ed25519 implementation.
  */
 export type SignFn = (payload: Uint8Array) => Promise<string>;

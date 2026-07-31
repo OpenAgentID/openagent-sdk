@@ -28,7 +28,7 @@ Each chain has a canonical derivation path that AEGIS uses by default (BIP-44 / 
 ## Creating a wallet
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 const agent = await OpenAgent.loadAgent(process.env.AGENT_DID!);
 const wallet = await agent.wallet();

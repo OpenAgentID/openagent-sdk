@@ -1,4 +1,4 @@
-# @openagent/mcp
+# @openagentid/mcp
 
 OpenAgent middleware for the [Model Context Protocol](https://modelcontextprotocol.io).
 
@@ -7,14 +7,14 @@ Add OAS identity verification, Arsenal capability tokens, and AEGIS authorizatio
 ## Install
 
 ```bash
-npm install @openagent/mcp @modelcontextprotocol/sdk @openagent/sdk
+npm install @openagentid/mcp @modelcontextprotocol/sdk @openagentid/sdk
 ```
 
 ## Server: add auth to MCP in 3 lines
 
 ```ts
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { withOpenAgent } from '@openagent/mcp';
+import { withOpenAgent } from '@openagentid/mcp';
 import { agent } from './my-agent.js';
 
 const server = new McpServer({ name: 'my-tools', version: '0.1.0' });
@@ -44,7 +44,7 @@ That is it. Every tool call now:
 
 ```ts
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { withOpenAgentClient } from '@openagent/mcp';
+import { withOpenAgentClient } from '@openagentid/mcp';
 import { agent } from './my-agent.js';
 
 const client = new Client({ name: 'my-agent', version: '0.1.0' });
@@ -93,7 +93,7 @@ import {
   withOpenAgent,
   createSkillsPolicy,
   InMemorySkillsPolicyStore,
-} from '@openagent/mcp';
+} from '@openagentid/mcp';
 
 const skillsPolicy = createSkillsPolicy({
   store: new InMemorySkillsPolicyStore([

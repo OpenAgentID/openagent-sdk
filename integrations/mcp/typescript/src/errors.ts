@@ -1,5 +1,5 @@
 /**
- * Error types for @openagent/mcp.
+ * Error types for @openagentid/mcp.
  *
  * These map onto MCP JSON-RPC error codes so callers see consistent
  * failure modes regardless of which middleware step rejected the call.

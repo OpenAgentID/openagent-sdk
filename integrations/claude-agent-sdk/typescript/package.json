@@ -1,5 +1,5 @@
 {
-  "name": "@openagent/claude-agent",
+  "name": "@openagentid/claude-agent",
   "version": "0.1.0",
   "description": "OpenAgent identity, capability control, and audit for the Claude Agent SDK — drop-in plugin that gives any Claude agent a verified did:oas:* identity, scoped credential access, and tamper-evident audit logging.",
   "license": "Apache-2.0 OR MIT",
@@ -58,11 +58,11 @@
   },
   "peerDependencies": {
     "@anthropic-ai/claude-agent-sdk": ">=0.1.0",
-    "@openagent/sdk": "^0.1.0"
+    "@openagentid/sdk": "^0.1.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/claude-agent-sdk": { "optional": false },
-    "@openagent/sdk": { "optional": true }
+    "@openagentid/sdk": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

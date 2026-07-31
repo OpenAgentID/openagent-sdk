@@ -7,7 +7,7 @@
  *
  * Usage with a framework:
  * ```ts
- * import { createScimRouter } from '@openagent/scim';
+ * import { createScimRouter } from '@openagentid/scim';
  *
  * const scim = createScimRouter({ namespace: 'acme', bearerTokens: ['secret'] });
  *

@@ -1,5 +1,5 @@
 /**
- * @openagent/oidc -- OIDC/OAuth2 bridge for the OpenAgent SDK.
+ * @openagentid/oidc -- OIDC/OAuth2 bridge for the OpenAgent SDK.
  *
  * Maps between human OIDC tokens (Okta, Auth0, Keycloak, Azure AD, Google)
  * and OAS agent DIDs + Arsenal capability tokens.
@@ -11,7 +11,7 @@
  *
  * @example
  * ```ts
- * import { OidcBridge } from '@openagent/oidc';
+ * import { OidcBridge } from '@openagentid/oidc';
  *
  * const bridge = new OidcBridge({
  *   issuer: 'https://dev-123.okta.com/oauth2/default',

@@ -11,7 +11,7 @@ This is enforced in two places: the SDK checks it client-side before making the 
 ## Delegating as a parent
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 // Inside a parent agent's process
 const parent = await OpenAgent.loadAgent(process.env.PARENT_DID!);

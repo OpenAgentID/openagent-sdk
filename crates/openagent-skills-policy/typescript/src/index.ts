@@ -1,5 +1,5 @@
 /**
- * @openagent/skills-policy
+ * @openagentid/skills-policy
  *
  * Governance for agent skills.
  *
@@ -9,7 +9,7 @@
  * hash-chained audit log.
  *
  * ```ts
- * import { Did, InvocationContext, SkillsPolicy } from "@openagent/skills-policy";
+ * import { Did, InvocationContext, SkillsPolicy } from "@openagentid/skills-policy";
  *
  * const policy = SkillsPolicy.fromYaml(`
  * version: 1

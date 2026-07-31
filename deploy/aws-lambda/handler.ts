@@ -12,7 +12,7 @@
  * Deploy via SAM or CDK (see template.yaml).
  */
 
-import { OpenAgent, type OpenAgentConfig } from '@openagent/sdk';
+import { OpenAgent, type OpenAgentConfig } from '@openagentid/sdk';
 
 interface LambdaEvent {
   readonly httpMethod: string;

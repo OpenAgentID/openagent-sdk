@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { OpenAgent, OpenAgentRuntime } from '../src/agent.js';
 import { ConfigError, IdentityError } from '../src/errors.js';
-import { StubVerificationClient, createTestingConfig } from '@openagent/sdk-testing';
+import { StubVerificationClient, createTestingConfig } from '@openagentid/sdk-testing';
 
 describe('OpenAgentRuntime.createAgent', () => {
   it('returns a usable agent instance from a minimal config', async () => {
@@ -146,8 +146,8 @@ describe('fail-closed behavior (no silent stubs)', () => {
     expect(failure).toBeInstanceOf(ConfigError);
     const message = (failure as Error).message;
     expect(message).toContain('identity');
-    expect(message).toContain('@openagent/oas-sdk');
-    expect(message).toContain('@openagent/sdk-testing');
+    expect(message).toContain('@openagentid/oas-sdk');
+    expect(message).toContain('@openagentid/sdk-testing');
   });
 });
 

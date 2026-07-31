@@ -1,5 +1,5 @@
 {
-  "name": "@openagent/http",
+  "name": "@openagentid/http",
   "version": "0.1.0",
   "description": "HTTP adapter for the OpenAgent Auth Protocol (OAAP). Middleware, client, and discovery for agent-to-service mutual authentication.",
   "license": "Apache-2.0 OR MIT",
@@ -65,10 +65,10 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openagent/auth-protocol": "^0.1.0"
+    "@openagentid/auth-protocol": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@openagent/auth-protocol": {
+    "@openagentid/auth-protocol": {
       "optional": true
     }
   },

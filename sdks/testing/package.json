@@ -1,7 +1,7 @@
 {
-  "name": "@openagent/sdk-testing",
+  "name": "@openagentid/sdk-testing",
   "version": "0.1.0",
-  "description": "In-memory test backends for @openagent/sdk. NOT cryptographically sound - never load in production.",
+  "description": "In-memory test backends for @openagentid/sdk. NOT cryptographically sound - never load in production.",
   "license": "Apache-2.0 OR MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -27,7 +27,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openagent/sdk": "^0.1.0"
+    "@openagentid/sdk": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

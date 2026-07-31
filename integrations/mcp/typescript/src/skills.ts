@@ -1,5 +1,5 @@
 /**
- * Skills policy support for @openagent/mcp.
+ * Skills policy support for @openagentid/mcp.
  *
  * MCP tools and SKILLS.md entries describe the same thing: a capability
  * an agent can invoke. When an MCP server exposes a tool that proxies

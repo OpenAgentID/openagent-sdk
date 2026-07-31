@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Smoke test for the built @openagent/crypto-wasm package (nodejs target).
+// Smoke test for the built @openagentid/crypto-wasm package (nodejs target).
 //
 // Proves the artifact that would be published actually loads and runs its
 // core primitives in Node: Ed25519 keygen/sign/verify (exceptional-verify:

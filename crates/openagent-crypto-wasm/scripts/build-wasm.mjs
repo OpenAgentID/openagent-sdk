@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Build the @openagent/crypto-wasm WASM package.
+// Build the @openagentid/crypto-wasm WASM package.
 //
 // Two targets, one package:
 //
@@ -56,7 +56,7 @@ writeFileSync(
 const pkgPath = join(crate, 'pkg', 'package.json');
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 
-pkg.name = '@openagent/crypto-wasm';
+pkg.name = '@openagentid/crypto-wasm';
 pkg.publishConfig = { access: 'public' };
 pkg.sideEffects = false;
 pkg.exports = {

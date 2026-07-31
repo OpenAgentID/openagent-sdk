@@ -5,22 +5,22 @@ OpenAgent ships in TypeScript (Node 20+, Bun, Deno, edge runtimes) and Rust (sta
 ## TypeScript
 
 ```bash
-npm install @openagent/sdk
+npm install @openagentid/sdk
 # or
-pnpm add @openagent/sdk
+pnpm add @openagentid/sdk
 # or
-bun add @openagent/sdk
+bun add @openagentid/sdk
 # or
-yarn add @openagent/sdk
+yarn add @openagentid/sdk
 ```
 
-The package ships as ES modules with TypeScript declarations built in. There is no `@types/openagent` — you already have types. The package has a single runtime dependency: `@openagent/crypto-wasm`, the shared Rust-compiled crypto core. On most platforms npm will pull down the prebuilt binary; on unusual platforms it falls back to the pure-JS fallback and emits a warning.
+The package ships as ES modules with TypeScript declarations built in. There is no `@types/openagent` — you already have types. The package has a single runtime dependency: `@openagentid/crypto-wasm`, the shared Rust-compiled crypto core. On most platforms npm will pull down the prebuilt binary; on unusual platforms it falls back to the pure-JS fallback and emits a warning.
 
 Minimum runtimes:
 
 - Node.js 20.0 or later (ESM required; CommonJS consumers can use dynamic `import()`).
 - Bun 1.1 or later.
-- Deno 1.40 or later (import from `npm:@openagent/sdk`).
+- Deno 1.40 or later (import from `npm:@openagentid/sdk`).
 - Cloudflare Workers, Vercel Edge, Deno Deploy — all supported. The WASM core is under 120 KB gzipped.
 
 ## Rust
@@ -53,7 +53,7 @@ Minimum Rust version is 1.78. The SDK is `no_std`-friendly for the core identity
 Both SDKs expose a `healthCheck()` / `health_check()` that runs a self-test on the crypto core (generates a DID, signs a nonce, verifies the signature). It's a good first smoke test:
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 console.log(await OpenAgent.healthCheck());
 // { ok: true, version: '0.1.0', cryptoCore: 'wasm', did: 'did:oas:test:...' }
 ```

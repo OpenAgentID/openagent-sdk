@@ -18,7 +18,7 @@ If any step fails, the SDK throws `OpenAgentError` with a `code` you can switch 
 ## TypeScript example
 
 ```ts
-import { OpenAgent, OpenAgentError } from '@openagent/sdk';
+import { OpenAgent, OpenAgentError } from '@openagentid/sdk';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 export async function handle(req: IncomingMessage, res: ServerResponse) {
@@ -73,9 +73,9 @@ Scopes are checked with `has_scope`/`hasScope`, or enforced with `require_scope`
 
 Most frameworks have a middleware or plugin shape. OpenAgent ships ready-made adapters:
 
-- **Express / Connect** — `import { expressMiddleware } from '@openagent/sdk/express'`
-- **Fastify** — `import { fastifyPlugin } from '@openagent/sdk/fastify'`
-- **Hono** — `import { honoMiddleware } from '@openagent/sdk/hono'`
+- **Express / Connect** — `import { expressMiddleware } from '@openagentid/sdk/express'`
+- **Fastify** — `import { fastifyPlugin } from '@openagentid/sdk/fastify'`
+- **Hono** — `import { honoMiddleware } from '@openagentid/sdk/hono'`
 - **Axum** — `use openagent_sdk::axum::OpenAgentLayer` (feature-gated on `axum`)
 - **Tower** — `use openagent_sdk::tower::OpenAgentService`
 

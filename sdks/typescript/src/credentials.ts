@@ -1,7 +1,7 @@
 /**
  * Arsenal credentials wrapper.
  *
- * Wraps the `@openagent/arsenal-sdk` broker client with a developer-friendly surface
+ * Wraps the `@openagentid/arsenal-sdk` broker client with a developer-friendly surface
  * centered on a single method: {@link CredentialHandle.fetch}. The returned
  * `fetch` is a drop-in replacement for the global `fetch` that transparently
  * injects the right Authorization / API-Key / OAuth bearer header for the
@@ -44,7 +44,7 @@ export interface IssuedCredential {
 }
 
 /**
- * Arsenal broker client facade. The real client lives in `@openagent/arsenal-sdk`
+ * Arsenal broker client facade. The real client lives in `@openagentid/arsenal-sdk`
  * and is injected by the application; see `INTEGRATION_NOTES.md`.
  */
 export interface ArsenalClient {

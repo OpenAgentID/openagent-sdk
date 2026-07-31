@@ -8,7 +8,7 @@
 //! - SCIM resource types (User + Agent extension)
 //! - OAS Agent <-> SCIM User mapping functions
 //!
-//! The TypeScript implementation (`@openagent/scim`) is the primary SDK.
+//! The TypeScript implementation (`@openagentid/scim`) is the primary SDK.
 //! This Rust crate provides trait definitions and reference types for
 //! Rust-native integrations.
 

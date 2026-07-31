@@ -12,7 +12,7 @@ OpenAgent handles both. For HTTP MCP servers, use `OpenAgent.authenticate` on th
 
 ```ts
 import { createServer } from 'node:http';
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server';
 import { StreamableHTTPTransport } from '@modelcontextprotocol/sdk/server/streamableHttp';
 
@@ -47,7 +47,7 @@ The pattern is: authenticate at the HTTP boundary, shove the `Context` into the 
 ## TypeScript — stdio server
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 import { Server as McpServer } from '@modelcontextprotocol/sdk/server';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio';
 

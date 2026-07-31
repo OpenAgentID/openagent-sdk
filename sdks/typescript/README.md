@@ -1,11 +1,11 @@
-# @openagent/sdk
+# @openagentid/sdk
 
 **Agent auth in 3 lines.** Clerk for autonomous agents.
 
 One `import` wraps [OAS](https://openagent.id) identity, [Arsenal](https://github.com/OpenAgentID/arsenal) scoped credentials, and [AEGIS](https://github.com/OpenAgentID/aegis) verification into a single developer-facing surface. Works in Node 20+, Bun, Deno, the browser, and Cloudflare Workers.
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 const agent = await OpenAgent.createAgent({
   parent: 'did:oas:l1fe:hmr:alice',
@@ -25,17 +25,17 @@ That's it. You now have an OAS identity whose privileged authority must resolve 
 ## Install
 
 ```sh
-bun add @openagent/sdk
+bun add @openagentid/sdk
 # or
-npm install @openagent/sdk
+npm install @openagentid/sdk
 ```
 
 Peer dependencies (optional — the SDK ships with safe stubs for local dev):
 
-- `@openagent/oas-sdk` — OAS identity resolver, signer, and Sigil-backed lineage verifier contract
-- `@openagent/arsenal-sdk` — Arsenal credential broker client
-- `@openagent/aegis-sdk` — AEGIS verification client
-- `@openagent/crypto-wasm` — Shared WASM crypto primitives
+- `@openagentid/oas-sdk` — OAS identity resolver, signer, and Sigil-backed lineage verifier contract
+- `@openagentid/arsenal-sdk` — Arsenal credential broker client
+- `@openagentid/aegis-sdk` — AEGIS verification client
+- `@openagentid/crypto-wasm` — Shared WASM crypto primitives
 
 ## The three-function happy path
 
@@ -94,7 +94,7 @@ runtime.verification();  // -> VerificationClient (AEGIS)
 You can also instantiate multiple runtimes in one process:
 
 ```ts
-import { OpenAgentRuntime } from '@openagent/sdk';
+import { OpenAgentRuntime } from '@openagentid/sdk';
 
 const runtime = new OpenAgentRuntime({
   namespace: 'mytenant',
@@ -124,7 +124,7 @@ runtime primitive.
 All SDK errors extend `OpenAgentError` with a stable machine-readable `code`:
 
 ```ts
-import { OpenAgentError, ErrorCode } from '@openagent/sdk';
+import { OpenAgentError, ErrorCode } from '@openagentid/sdk';
 
 try {
   await agent.credentialsFor('openai');

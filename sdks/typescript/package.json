@@ -1,5 +1,5 @@
 {
-  "name": "@openagent/sdk",
+  "name": "@openagentid/sdk",
   "version": "0.1.0",
   "description": "OpenAgent SDK — Clerk for autonomous agents. One import for identity, credentials, and verification.",
   "license": "Apache-2.0 OR MIT",
@@ -75,16 +75,16 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openagent/aegis-sdk": "^0.1.0",
-    "@openagent/arsenal-sdk": "^0.1.0",
-    "@openagent/oas-sdk": "^0.1.0",
-    "@openagent/crypto-wasm": "^0.1.0"
+    "@openagentid/aegis-sdk": "^0.1.0",
+    "@openagentid/arsenal-sdk": "^0.1.0",
+    "@openagentid/oas-sdk": "^0.1.0",
+    "@openagentid/crypto-wasm": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@openagent/aegis-sdk": { "optional": true },
-    "@openagent/arsenal-sdk": { "optional": true },
-    "@openagent/oas-sdk": { "optional": true },
-    "@openagent/crypto-wasm": { "optional": true }
+    "@openagentid/aegis-sdk": { "optional": true },
+    "@openagentid/arsenal-sdk": { "optional": true },
+    "@openagentid/oas-sdk": { "optional": true },
+    "@openagentid/crypto-wasm": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

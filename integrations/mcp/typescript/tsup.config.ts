@@ -18,7 +18,7 @@ export default defineConfig({
   minify: false,
   target: 'es2022',
   platform: 'neutral',
-  external: ['@modelcontextprotocol/sdk', '@openagent/sdk'],
+  external: ['@modelcontextprotocol/sdk', '@openagentid/sdk'],
   esbuildOptions(options) {
     options.conditions = ['import', 'module', 'default'];
   },

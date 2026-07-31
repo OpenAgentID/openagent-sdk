@@ -21,14 +21,14 @@ export function generateWebDashboardTemplate(options: ProjectOptions): TemplateF
 
 function packageJson(options: ProjectOptions): string {
   const deps: Record<string, string> = {
-    '@openagent/sdk': '^0.1.0',
+    '@openagentid/sdk': '^0.1.0',
     next: '^15.0.0',
     react: '^19.0.0',
     'react-dom': '^19.0.0',
   };
 
   if (options.bioagentic) {
-    deps['@openagent/bioagentic'] = '^0.1.0';
+    deps['@openagentid/bioagentic'] = '^0.1.0';
   }
 
   return JSON.stringify(
@@ -241,7 +241,7 @@ function openagentLib(): string {
  * OpenAgent SDK setup — shared runtime instance.
  */
 
-import { OpenAgent, type OpenAgentRuntime } from '@openagent/sdk';
+import { OpenAgent, type OpenAgentRuntime } from '@openagentid/sdk';
 
 let runtime: OpenAgentRuntime | undefined;
 

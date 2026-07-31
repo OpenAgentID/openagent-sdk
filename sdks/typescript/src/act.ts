@@ -5,7 +5,7 @@
  * This module is the five-minute path for that:
  *
  * ```ts
- * import { act } from '@openagent/sdk';
+ * import { act } from '@openagentid/sdk';
  *
  * const claims = await act.verify(tokenBytes)
  *   .issuer('arsenal:broker:prod-1')
@@ -16,7 +16,7 @@
  * ```
  *
  * Verification itself runs in the canonical Rust crate compiled to WASM
- * (`@openagent/crypto-wasm`): envelope decode, version/algorithm checks,
+ * (`@openagentid/crypto-wasm`): envelope decode, version/algorithm checks,
  * Ed25519 signature verification (before any claim check), temporal checks,
  * and issuer/audience/scope policy. TypeScript carries none of the rules, so
  * it cannot drift from the format the way three handwritten implementations
@@ -86,7 +86,7 @@ let wasmBinding: ActVerifyBinding | undefined;
 
 /**
  * Inject the crypto-wasm binding. Called by consumers at startup (and by
- * tests with a mock). The binding is the `@openagent/crypto-wasm` module's
+ * tests with a mock). The binding is the `@openagentid/crypto-wasm` module's
  * nodejs or bundler build, already instantiated.
  */
 export function setActCryptoBinding(binding: ActVerifyBinding): void {
@@ -96,7 +96,7 @@ export function setActCryptoBinding(binding: ActVerifyBinding): void {
 function binding(): ActVerifyBinding {
   if (!wasmBinding) {
     throw new OpenAgentError(
-      'ACT verification requires the @openagent/crypto-wasm binding: call ' +
+      'ACT verification requires the @openagentid/crypto-wasm binding: call ' +
         'setActCryptoBinding(await cryptoWasmInit()) at startup.',
       { code: ErrorCode.INVALID_CONFIG },
     );

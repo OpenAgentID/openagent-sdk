@@ -6,13 +6,13 @@ export default defineConfig({
     alias: {
       // Tests exercise the in-memory backends from their sibling source so no
       // build step is needed before vitest. Consumers take the built package.
-      '@openagent/sdk-testing': fileURLToPath(
+      '@openagentid/sdk-testing': fileURLToPath(
         new URL('../testing/src/index.ts', import.meta.url),
       ),
-      // The testing package imports '@openagent/sdk'; mapping it to this
+      // The testing package imports '@openagentid/sdk'; mapping it to this
       // package's source keeps error classes identical across the boundary
       // (a dist/src split would make `instanceof` fail for the same class).
-      '@openagent/sdk': fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+      '@openagentid/sdk': fileURLToPath(new URL('./src/index.ts', import.meta.url)),
     },
   },
   test: {

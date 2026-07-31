@@ -1,11 +1,11 @@
 /**
- * @openagent/scim — SCIM 2.0 provisioning bridge for OpenAgent.
+ * @openagentid/scim — SCIM 2.0 provisioning bridge for OpenAgent.
  *
  * Enterprise agent lifecycle management via RFC 7644. Compatible with
  * Okta, Azure AD, OneLogin, JumpCloud, and any SCIM 2.0 client.
  *
  * ```ts
- * import { createScimRouter } from '@openagent/scim';
+ * import { createScimRouter } from '@openagentid/scim';
  *
  * const scim = createScimRouter({
  *   namespace: 'acme',

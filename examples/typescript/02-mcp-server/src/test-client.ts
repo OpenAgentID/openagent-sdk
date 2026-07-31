@@ -1,4 +1,4 @@
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 OpenAgent.configure({
   brokerUrl: process.env.OPENAGENT_BROKER_URL ?? 'fake://in-memory',

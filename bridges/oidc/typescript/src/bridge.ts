@@ -47,7 +47,7 @@ import {
  *
  * @example
  * ```ts
- * import { OidcBridge } from '@openagent/oidc';
+ * import { OidcBridge } from '@openagentid/oidc';
  *
  * const bridge = new OidcBridge({
  *   issuer: 'https://dev-123.okta.com/oauth2/default',

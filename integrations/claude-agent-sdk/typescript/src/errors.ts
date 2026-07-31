@@ -1,6 +1,6 @@
 /**
  * Plugin-specific error hierarchy. These extend `Error` directly so the
- * package has no hard runtime dep on `@openagent/sdk` — when that SDK is
+ * package has no hard runtime dep on `@openagentid/sdk` — when that SDK is
  * present, callers can additionally check `instanceof OpenAgentError`
  * via duck typing on `code`.
  */

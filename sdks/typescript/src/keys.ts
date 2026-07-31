@@ -6,11 +6,11 @@
  * deterministically from that seed — so persisting a single secret file
  * restores the whole identity across restarts. This mirrors Arsenal's
  * `identity_loader` in Rust; the derivation here is the same BLAKE3
- * context-separated derivation, via `@openagent/crypto-wasm`, so a seed
+ * context-separated derivation, via `@openagentid/crypto-wasm`, so a seed
  * moved between the two SDKs produces the same keys.
  *
  * ```ts
- * import { keys } from '@openagent/sdk';
+ * import { keys } from '@openagentid/sdk';
  *
  * const agent = await keys.generate();            // fresh identity
  * await keys.saveSeed(agent, 'agent.seed');       // persist (0600)
@@ -40,7 +40,7 @@ export function setKeyCryptoBinding(binding: KeyCryptoBinding): void {
 function binding(): KeyCryptoBinding {
   if (!cryptoBinding) {
     throw new OpenAgentError(
-      'key custody requires the @openagent/crypto-wasm binding: call ' +
+      'key custody requires the @openagentid/crypto-wasm binding: call ' +
         'setKeyCryptoBinding(await cryptoWasmInit()) at startup.',
       { code: ErrorCode.INVALID_CONFIG },
     );

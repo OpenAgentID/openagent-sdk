@@ -1,4 +1,4 @@
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 import { ClaudeAgent, openagentPlugin } from './mock-claude-agent.js';
 
 async function main() {

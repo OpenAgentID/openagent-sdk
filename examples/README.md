@@ -51,7 +51,7 @@ Examples assume you have an Arsenal broker reachable at `OPENAGENT_BROKER_URL` a
 
 ## Relationship to the SDKs
 
-Examples reference `@openagent/sdk` (TS) and `openagent-sdk` (Rust) as workspace dependencies. If you're running outside the workspace, change the reference to a published version or a path dependency.
+Examples reference `@openagentid/sdk` (TS) and `openagent-sdk` (Rust) as workspace dependencies. If you're running outside the workspace, change the reference to a published version or a path dependency.
 
 ## License
 

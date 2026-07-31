@@ -1,11 +1,11 @@
 /**
  * Shared types for the OpenAgent x Claude Agent SDK plugin.
  *
- * These mirror the public surface of `@openagent/sdk` but are duplicated
+ * These mirror the public surface of `@openagentid/sdk` but are duplicated
  * here so the plugin can run in environments where the SDK is not yet
  * resolved (e.g., bun's optional peer dep handling, dev installs).
  *
- * When `@openagent/sdk` is present, the runtime objects passed by the
+ * When `@openagentid/sdk` is present, the runtime objects passed by the
  * caller are structurally compatible with the interfaces below.
  */
 

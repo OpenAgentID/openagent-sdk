@@ -38,7 +38,7 @@ again.
   attribution.
 - **Vectors before features.** A new cross-language behavior gets a
   conformance vector with the implementation, or it does not merge.
-- **npm packages live under `@openagent/*`.** Rust crates name
+- **npm packages live under `@openagentid/*`.** Rust crates name
   `openagent-*`. No new scopes.
 
 ## License

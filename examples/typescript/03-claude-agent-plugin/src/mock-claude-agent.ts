@@ -1,7 +1,7 @@
 // Minimal mock of the Claude Agent SDK shape so this example runs without an API key.
 // The real SDK has the same plugin surface — swap the import and it works.
 
-import type { Agent as OpenAgentAgent } from '@openagent/sdk';
+import type { Agent as OpenAgentAgent } from '@openagentid/sdk';
 
 export interface ToolMetadata {
   openagent?: {

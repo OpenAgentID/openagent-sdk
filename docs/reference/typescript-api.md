@@ -1,8 +1,8 @@
 # TypeScript API Reference
 
-This page documents every public export of `@openagent/sdk`. For conceptual docs and task-oriented walkthroughs, see the [guides](../guides/creating-an-agent.md). For the underlying wire formats, see [wire-formats.md](wire-formats.md).
+This page documents every public export of `@openagentid/sdk`. For conceptual docs and task-oriented walkthroughs, see the [guides](../guides/creating-an-agent.md). For the underlying wire formats, see [wire-formats.md](wire-formats.md).
 
-## Module: `@openagent/sdk`
+## Module: `@openagentid/sdk`
 
 ### `OpenAgent` (namespace)
 
@@ -214,11 +214,11 @@ The full code table with recommended HTTP status and remediation is in [error-co
 
 ## Subpath exports
 
-- `@openagent/sdk/express` — `expressMiddleware(options)` for Express/Connect.
-- `@openagent/sdk/fastify` — `fastifyPlugin(options)` for Fastify.
-- `@openagent/sdk/hono` — `honoMiddleware(options)` for Hono.
-- `@openagent/sdk/claude-agent` — `openagentPlugin(options)` for the Claude Agent SDK.
-- `@openagent/sdk/mcp` — helpers for MCP server integration (`authenticateTransport`, `filterTools`).
-- `@openagent/sdk/testing` — a test double (`FakeBroker`, `stubAgent`, `stubContext`).
+- `@openagentid/sdk/express` — `expressMiddleware(options)` for Express/Connect.
+- `@openagentid/sdk/fastify` — `fastifyPlugin(options)` for Fastify.
+- `@openagentid/sdk/hono` — `honoMiddleware(options)` for Hono.
+- `@openagentid/sdk/claude-agent` — `openagentPlugin(options)` for the Claude Agent SDK.
+- `@openagentid/sdk/mcp` — helpers for MCP server integration (`authenticateTransport`, `filterTools`).
+- `@openagentid/sdk/testing` — a test double (`FakeBroker`, `stubAgent`, `stubContext`).
 
 Each subpath has a small dedicated API surface — the common case is a single function that returns a middleware.

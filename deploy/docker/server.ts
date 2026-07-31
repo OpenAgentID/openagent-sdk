@@ -2,7 +2,7 @@
  * OpenAgent Docker Server — standalone auth gateway.
  *
  * Runs as a minimal HTTP server using Node's built-in http module.
- * No external framework dependencies beyond @openagent/sdk.
+ * No external framework dependencies beyond @openagentid/sdk.
  *
  * Endpoints:
  *   GET  /health                              — Health check
@@ -14,7 +14,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { OpenAgent, type OpenAgentConfig } from '@openagent/sdk';
+import { OpenAgent, type OpenAgentConfig } from '@openagentid/sdk';
 
 const PORT = parseInt(process.env.PORT ?? '3100', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';

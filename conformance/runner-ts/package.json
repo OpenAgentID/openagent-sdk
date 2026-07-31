@@ -1,5 +1,5 @@
 {
-  "name": "@openagent/conformance-runner",
+  "name": "@openagentid/conformance-runner",
   "private": true,
   "version": "0.1.0",
   "description": "OpenAgent SDK conformance test runner (TypeScript) — loads JSON vectors and diffs against the Node TS reference stack",

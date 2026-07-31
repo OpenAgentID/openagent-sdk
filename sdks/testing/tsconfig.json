@@ -26,8 +26,8 @@
     "baseUrl": ".",
     "paths": {
       // Typecheck against the sibling SDK source; tsup builds the package with
-      // '@openagent/sdk' external, and consumers resolve the real package.
-      "@openagent/sdk": ["../typescript/src/index.ts"]
+      // '@openagentid/sdk' external, and consumers resolve the real package.
+      "@openagentid/sdk": ["../typescript/src/index.ts"]
     }
   },
   "include": ["src/**/*"],

@@ -1,5 +1,5 @@
 /**
- * @openagent/http — HTTP binding for the OpenAgent Core Protocol identity
+ * @openagentid/http — HTTP binding for the OpenAgent Core Protocol identity
  * flow.
  *
  * Carries the Section 15 identity flow (challenge → proof → verified

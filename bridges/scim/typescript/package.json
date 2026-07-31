@@ -1,5 +1,5 @@
 {
-  "name": "@openagent/scim",
+  "name": "@openagentid/scim",
   "version": "0.1.0",
   "description": "SCIM 2.0 provisioning bridge for OpenAgent — enterprise agent lifecycle via RFC 7644",
   "license": "Apache-2.0 OR MIT",
@@ -44,10 +44,10 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openagent/sdk": "^0.1.0"
+    "@openagentid/sdk": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@openagent/sdk": { "optional": true }
+    "@openagentid/sdk": { "optional": true }
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

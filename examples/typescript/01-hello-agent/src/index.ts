@@ -1,4 +1,4 @@
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 async function main() {
   OpenAgent.configure({

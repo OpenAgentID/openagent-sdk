@@ -2,13 +2,13 @@
  * OAS (Open Agent Specification) identity wrapper.
  *
  * This module defines the minimal surface the OpenAgent SDK needs from the
- * `@openagent/oas-sdk` package: the {@link IdentityProvider} interface and
+ * `@openagentid/oas-sdk` package: the {@link IdentityProvider} interface and
  * runtime validation for identity documents. Production identity comes from
- * `@openagent/oas-sdk` via `clients.identity`; test identity comes from
- * `@openagent/sdk-testing` — never from a silent fallback. If no provider is
+ * `@openagentid/oas-sdk` via `clients.identity`; test identity comes from
+ * `@openagentid/sdk-testing` — never from a silent fallback. If no provider is
  * configured, calls that need one fail closed with a `ConfigError`.
  *
- * INTEGRATION_NOTES.md tracks the exact shape we expect from `@openagent/oas-sdk`.
+ * INTEGRATION_NOTES.md tracks the exact shape we expect from `@openagentid/oas-sdk`.
  */
 
 import { z } from 'zod';
@@ -51,7 +51,7 @@ export interface SignedAssertion {
 }
 
 /**
- * The OAS identity facade. Concrete providers come from `@openagent/oas-sdk`
+ * The OAS identity facade. Concrete providers come from `@openagentid/oas-sdk`
  * (production) or from {@link StubIdentityProvider} (test / offline dev).
  */
 export interface IdentityProvider {
@@ -100,7 +100,7 @@ export function parseIdentityDocument(raw: unknown): IdentityDocument {
 /**
  * Narrow any unknown value into an {@link IdentityProvider}, or throw.
  *
- * This is the integration point where `@openagent/oas-sdk`'s client is adapted into
+ * This is the integration point where `@openagentid/oas-sdk`'s client is adapted into
  * our interface. When that SDK is finalized, replace the duck-typing below
  * with a direct import.
  */

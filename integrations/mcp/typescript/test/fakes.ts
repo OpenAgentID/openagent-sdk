@@ -1,9 +1,9 @@
 /**
- * Test fakes for @openagent/mcp.
+ * Test fakes for @openagentid/mcp.
  *
  * Provides an in-memory {@link IdentityVerifier} and {@link Agent}
  * implementation suitable for unit and integration tests. Production
- * code should use the verifier from `@openagent/sdk` instead.
+ * code should use the verifier from `@openagentid/sdk` instead.
  */
 
 import {

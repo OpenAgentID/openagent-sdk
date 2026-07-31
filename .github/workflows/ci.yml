@@ -169,7 +169,7 @@ jobs:
 
       - name: Build the WASM package
         # Builds both targets (bundler + nodejs) and patches the package to
-        # the scoped @openagent/crypto-wasm name.
+        # the scoped @openagentid/crypto-wasm name.
         working-directory: crates/openagent-crypto-wasm
         run: node scripts/build-wasm.mjs
 

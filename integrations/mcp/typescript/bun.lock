@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "@openagent/mcp",
+      "name": "@openagentid/mcp",
       "devDependencies": {
         "@modelcontextprotocol/sdk": "^1.27.1",
         "@types/node": "^20.11.30",
@@ -14,10 +14,10 @@
       },
       "peerDependencies": {
         "@modelcontextprotocol/sdk": "^1.27.0",
-        "@openagent/sdk": "^0.1.0",
+        "@openagentid/sdk": "^0.1.0",
       },
       "optionalPeers": [
-        "@openagent/sdk",
+        "@openagentid/sdk",
       ],
     },
   },

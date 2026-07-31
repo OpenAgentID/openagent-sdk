@@ -1,5 +1,5 @@
 {
-  "name": "@openagent/anchor-eas",
+  "name": "@openagentid/anchor-eas",
   "version": "0.1.0",
   "description": "Ethereum Attestation Service (EAS) adapter for the OAS lineage anchor seam: resolution via EAS GraphQL, publishing via the maintained EAS SDK.",
   "license": "Apache-2.0 OR MIT",

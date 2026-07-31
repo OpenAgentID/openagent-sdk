@@ -1,4 +1,4 @@
-import { OpenAgent, OpenAgentError } from '@openagent/sdk';
+import { OpenAgent, OpenAgentError } from '@openagentid/sdk';
 
 async function main() {
   OpenAgent.configure({

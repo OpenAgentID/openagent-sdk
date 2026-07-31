@@ -1,9 +1,9 @@
-# @openagent/sdk-testing
+# @openagentid/sdk-testing
 
-In-memory backends for [`@openagent/sdk`](../typescript). **Unit tests and
+In-memory backends for [`@openagentid/sdk`](../typescript). **Unit tests and
 offline development only — nothing here is cryptographically sound.**
 
-These backends used to live inside `@openagent/sdk` as silent fallbacks when
+These backends used to live inside `@openagentid/sdk` as silent fallbacks when
 no protocol client was configured. A production deployment with a missing
 peer would sign and "verify" with fake crypto without anyone choosing that.
 The production SDK now fails closed, and the fakes live here, behind an
@@ -12,8 +12,8 @@ explicit import.
 ## Usage
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
-import { createTestingConfig } from '@openagent/sdk-testing';
+import { OpenAgent } from '@openagentid/sdk';
+import { createTestingConfig } from '@openagentid/sdk-testing';
 
 OpenAgent.configure(createTestingConfig());
 
@@ -31,7 +31,7 @@ import {
   StubIdentityProvider,
   StubVerificationClient,
   stubArsenalClient,
-} from '@openagent/sdk-testing';
+} from '@openagentid/sdk-testing';
 
 OpenAgent.configure({
   clients: {

@@ -4,7 +4,7 @@
  * Usage:
  * ```ts
  * import { query } from '@anthropic-ai/claude-agent-sdk';
- * import { openAgentPlugin } from '@openagent/claude-agent';
+ * import { openAgentPlugin } from '@openagentid/claude-agent';
  *
  * const result = query({
  *   prompt: 'Help me refactor this code',
@@ -85,7 +85,7 @@ export interface OpenAgentPluginOptions {
 /** Shape returned by {@link openAgentPlugin}. */
 export interface OpenAgentPlugin {
   /** Stable plugin identifier. */
-  readonly name: '@openagent/claude-agent';
+  readonly name: '@openagentid/claude-agent';
   /** Plugin schema version. */
   readonly version: string;
   /** Bound hook handlers — wired to the Claude Agent SDK lifecycle. */
@@ -206,7 +206,7 @@ export function openAgentPlugin(opts: OpenAgentPluginOptions): OpenAgentPlugin {
   };
 
   return {
-    name: '@openagent/claude-agent',
+    name: '@openagentid/claude-agent',
     version: PLUGIN_VERSION,
     hooks,
     inspectAudit() {

@@ -21,7 +21,7 @@ export default defineConfig({
   target: 'es2022',
   platform: 'neutral',
   external: [
-    '@openagent/auth-protocol',
+    '@openagentid/auth-protocol',
     'node:crypto',
     'node:buffer',
   ],

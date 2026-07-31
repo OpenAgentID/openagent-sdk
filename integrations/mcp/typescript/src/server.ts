@@ -1,5 +1,5 @@
 /**
- * Server-side middleware for @openagent/mcp.
+ * Server-side middleware for @openagentid/mcp.
  *
  * Wraps an MCP {@link McpServer} (from `@modelcontextprotocol/sdk`) so that
  * every tool registration runs through an OpenAgent authentication
@@ -76,7 +76,7 @@ type ToolRegistrationMethod = (typeof TOOL_REGISTRATION_METHODS)[number];
  * @example
  * ```ts
  * import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
- * import { withOpenAgent } from '@openagent/mcp';
+ * import { withOpenAgent } from '@openagentid/mcp';
  * import { agent } from './my-agent.js';
  *
  * const server = new McpServer({ name: 'my-tools', version: '0.1.0' });

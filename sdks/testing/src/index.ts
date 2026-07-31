@@ -1,20 +1,20 @@
 /**
- * @openagent/sdk-testing — in-memory backends for `@openagent/sdk`.
+ * @openagentid/sdk-testing — in-memory backends for `@openagentid/sdk`.
  *
  * # When to use this package
  *
  * In unit tests and offline development only. These backends fabricate
  * identity documents, accept `stub:` bearer tokens, and echo deterministic
  * proxy URLs. **Nothing here is cryptographically sound.** They used to live
- * inside `@openagent/sdk` as silent fallbacks when no protocol client was
+ * inside `@openagentid/sdk` as silent fallbacks when no protocol client was
  * configured - which meant a production deployment with a missing peer would
  * sign and "verify" with fake crypto without anyone choosing that. The
  * production SDK now fails closed instead, and the fakes live here, behind
  * an explicit import that cannot sneak into a dependency graph unnoticed.
  *
  * ```ts
- * import { OpenAgent } from '@openagent/sdk';
- * import { createTestingConfig } from '@openagent/sdk-testing';
+ * import { OpenAgent } from '@openagentid/sdk';
+ * import { createTestingConfig } from '@openagentid/sdk-testing';
  *
  * OpenAgent.configure(createTestingConfig());
  * const agent = await OpenAgent.createAgent({ parent, name, scopes });
@@ -39,7 +39,7 @@ import {
   type SignedAssertion,
   type VerificationClient,
   type VerifyRequestOptions,
-} from '@openagent/sdk';
+} from '@openagentid/sdk';
 
 /**
  * In-memory identity provider for tests.

@@ -1,4 +1,4 @@
-# `@openagent/claude-agent`
+# `@openagentid/claude-agent`
 
 **OAS identity + capability control for Claude agents in 3 lines.**
 
@@ -26,16 +26,16 @@ any agent code.
 ## Install
 
 ```bash
-npm install @openagent/claude-agent @anthropic-ai/claude-agent-sdk @openagent/sdk
+npm install @openagentid/claude-agent @anthropic-ai/claude-agent-sdk @openagentid/sdk
 # or
-bun add @openagent/claude-agent @anthropic-ai/claude-agent-sdk @openagent/sdk
+bun add @openagentid/claude-agent @anthropic-ai/claude-agent-sdk @openagentid/sdk
 ```
 
 ## Three-line usage
 
 ```ts
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { openAgentPlugin, StaticCapabilityChecker } from '@openagent/claude-agent';
+import { openAgentPlugin, StaticCapabilityChecker } from '@openagentid/claude-agent';
 
 const result = query({
   prompt: 'Help me refactor this code',
@@ -60,7 +60,7 @@ You can construct an `OpenAgentIdentity` directly, or get one from the
 OpenAgent SDK:
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 const agent = await OpenAgent.createAgent({
   namespace: 'acme',
@@ -83,7 +83,7 @@ import {
   CompositeSkillsPolicy,
   DenyUnlessScopedSkillsPolicy,
   openAgentPlugin,
-} from '@openagent/claude-agent';
+} from '@openagentid/claude-agent';
 
 openAgentPlugin({
   agent,
@@ -120,7 +120,7 @@ record_n.hash     = blake3(canonical_json(record_n - hash))
 Verify a chain at any time:
 
 ```ts
-import { verifyChain } from '@openagent/claude-agent';
+import { verifyChain } from '@openagentid/claude-agent';
 const { valid, brokenAt } = verifyChain(records);
 ```
 
@@ -130,7 +130,7 @@ Node's stdlib so there are zero hard runtime deps.
 ## Custom audit sink
 
 ```ts
-import type { AuditSink, AuditRecord } from '@openagent/claude-agent';
+import type { AuditSink, AuditRecord } from '@openagentid/claude-agent';
 
 class AkashaSink implements AuditSink {
   async append(record: AuditRecord): Promise<void> {

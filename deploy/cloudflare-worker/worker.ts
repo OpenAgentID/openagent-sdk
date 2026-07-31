@@ -9,7 +9,7 @@
  * Deploy: `wrangler deploy`
  */
 
-import { OpenAgent, type AuthContext, type OpenAgentConfig } from '@openagent/sdk';
+import { OpenAgent, type AuthContext, type OpenAgentConfig } from '@openagentid/sdk';
 
 export interface Env {
   /** KV namespace for session and challenge state. */

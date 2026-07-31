@@ -16,7 +16,7 @@ The integration is a one-line install and a configuration block.
 
 ```ts
 import { ClaudeAgent } from '@anthropic/claude-agent-sdk';
-import { openagentPlugin } from '@openagent/sdk/claude-agent';
+import { openagentPlugin } from '@openagentid/sdk/claude-agent';
 
 const agent = new ClaudeAgent({
   model: 'claude-sonnet-4-6',

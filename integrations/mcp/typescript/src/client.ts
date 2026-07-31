@@ -1,5 +1,5 @@
 /**
- * Client-side interceptor for @openagent/mcp.
+ * Client-side interceptor for @openagentid/mcp.
  *
  * Adds an OpenAgent identity envelope (`_meta.openagent.identity`) to
  * outbound MCP `tools/call` requests so an authenticated server can
@@ -11,7 +11,7 @@
  *
  * ```ts
  * import { Client } from '@modelcontextprotocol/sdk/client/index.js';
- * import { withOpenAgentClient } from '@openagent/mcp/client';
+ * import { withOpenAgentClient } from '@openagentid/mcp/client';
  *
  * const client = new Client({ name: 'my-agent', version: '0.1.0' });
  * const authedClient = withOpenAgentClient(client, { agent });

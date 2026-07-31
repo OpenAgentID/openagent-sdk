@@ -4,7 +4,7 @@
  * Three lines to get an authenticated, credential-injecting agent:
  *
  * ```ts
- * import { OpenAgent } from '@openagent/sdk';
+ * import { OpenAgent } from '@openagentid/sdk';
  *
  * OpenAgent.configure({ endpoints: { ... } });
  *
@@ -56,7 +56,7 @@ import {
  * Each subsystem is optional at construction and required at use: a call that
  * needs an unconfigured subsystem fails closed with a `ConfigError` naming the
  * missing client. The production SDK has no fallback implementations - test
- * backends live in `@openagent/sdk-testing`, behind an explicit import,
+ * backends live in `@openagentid/sdk-testing`, behind an explicit import,
  * because a silent fake-signature fallback is the class of bug that ships
  * "working" identity to production with no one having chosen it.
  */
@@ -69,9 +69,9 @@ interface Subsystems {
 
 /** The package a real production client for a subsystem comes from. */
 const SUBSYSTEM_PACKAGES = {
-  identity: '@openagent/oas-sdk',
-  credentials: '@openagent/arsenal-sdk',
-  verification: '@openagent/aegis-sdk',
+  identity: '@openagentid/oas-sdk',
+  credentials: '@openagentid/arsenal-sdk',
+  verification: '@openagentid/aegis-sdk',
 } as const;
 
 /**
@@ -88,7 +88,7 @@ function requireSubsystem<T>(
     throw new ConfigError(
       `OpenAgent: no ${name} client configured. ` +
         `Production: pass a ${SUBSYSTEM_PACKAGES[name]} client via ` +
-        `OpenAgentConfig.clients.${name}. Tests: use @openagent/sdk-testing.`,
+        `OpenAgentConfig.clients.${name}. Tests: use @openagentid/sdk-testing.`,
       { code: ErrorCode.INVALID_CONFIG, context: { subsystem: name } },
     );
   }

@@ -1,13 +1,13 @@
 /**
- * Public types for @openagent/mcp.
+ * Public types for @openagentid/mcp.
  *
  * These interfaces describe the contract the middleware expects from an
  * OpenAgent {@link Agent} instance and the surrounding configuration. They are
- * defined locally so the package can be installed without `@openagent/sdk` in
+ * defined locally so the package can be installed without `@openagentid/sdk` in
  * tests, in CI, and in environments where the host application brings its own
  * verifier implementation.
  *
- * The real `@openagent/sdk` exports types that are structurally compatible
+ * The real `@openagentid/sdk` exports types that are structurally compatible
  * with these — there is no runtime dependency.
  */
 
@@ -57,7 +57,7 @@ export interface VerifiedIdentity {
 }
 
 /**
- * The verifier interface — implemented by `@openagent/sdk` (production) and
+ * The verifier interface — implemented by `@openagentid/sdk` (production) and
  * by the in-memory test agent shipped here.
  *
  * Implementations MUST be deterministic for a given input and MUST NOT

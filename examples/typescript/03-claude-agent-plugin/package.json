@@ -7,7 +7,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@openagent/sdk": "workspace:*"
+    "@openagentid/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

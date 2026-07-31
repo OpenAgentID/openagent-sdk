@@ -1,5 +1,5 @@
 /**
- * `@openagent/claude-agent`
+ * `@openagentid/claude-agent`
  *
  * Drop-in plugin for the Claude Agent SDK that wires OpenAgent identity,
  * Arsenal-backed capability control, and tamper-evident audit logging
@@ -9,7 +9,7 @@
  *
  * ```ts
  * import { query } from '@anthropic-ai/claude-agent-sdk';
- * import { openAgentPlugin } from '@openagent/claude-agent';
+ * import { openAgentPlugin } from '@openagentid/claude-agent';
  *
  * const result = query({
  *   prompt: 'Refactor this',

@@ -40,7 +40,7 @@ The file is parsed once at agent boot, compiled to a policy AST, and evaluated o
 ## Wiring into your agent
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 const agent = await OpenAgent.loadAgent(process.env.AGENT_DID!, {
   skillsPolicyPath: './SKILLS.md',

@@ -4,6 +4,12 @@ All notable changes to the `@openagent/skills-policy` package are recorded
 here. This file follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** package renamed from `@openagent/skills-policy` to `@openagentid/skills-policy`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
+
 ## [0.1.0] — 2026-04-11
 
 ### Added

@@ -18,16 +18,16 @@ export function generateMcpServerTemplate(options: ProjectOptions): TemplateFile
 
 function packageJson(options: ProjectOptions): string {
   const deps: Record<string, string> = {
-    '@openagent/sdk': '^0.1.0',
+    '@openagentid/sdk': '^0.1.0',
     '@modelcontextprotocol/sdk': '^1.0.0',
   };
 
   if (options.bioagentic) {
-    deps['@openagent/bioagentic'] = '^0.1.0';
+    deps['@openagentid/bioagentic'] = '^0.1.0';
   }
 
   if (options.fabrics) {
-    deps['@openagent/fabrics'] = '^0.1.0';
+    deps['@openagentid/fabrics'] = '^0.1.0';
   }
 
   return JSON.stringify(
@@ -78,7 +78,7 @@ function serverTs(options: ProjectOptions): string {
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { OpenAgent, type AuthContext } from '@openagent/sdk';
+import { OpenAgent, type AuthContext } from '@openagentid/sdk';
 import { tools } from './tools/index.js';
 
 const PORT = parseInt(process.env.PORT ?? '3200', 10);

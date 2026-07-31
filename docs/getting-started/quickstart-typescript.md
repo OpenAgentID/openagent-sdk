@@ -5,7 +5,7 @@ This is the three-line demo. Given a parent identity and some scopes, you can mi
 ## The three lines
 
 ```ts
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 const agent = await OpenAgent.createAgent({ parent: 'did:oas:acme:hmr:alice', name: 'research-bot', scopes: ['openai:chat:invoke'] });
 const ctx   = await OpenAgent.authenticate(request);
@@ -20,7 +20,7 @@ Here's a real Node HTTP server that gates a `/chat` endpoint by agent identity:
 
 ```ts
 import { createServer } from 'node:http';
-import { OpenAgent } from '@openagent/sdk';
+import { OpenAgent } from '@openagentid/sdk';
 
 const server = createServer(async (req, res) => {
   try {

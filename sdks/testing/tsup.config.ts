@@ -11,5 +11,5 @@ export default defineConfig({
   minify: false,
   target: 'es2022',
   platform: 'neutral',
-  external: ['@openagent/sdk', 'node:crypto', 'node:buffer'],
+  external: ['@openagentid/sdk', 'node:crypto', 'node:buffer'],
 });

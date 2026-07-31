@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking. Package renamed from `@openagent/sdk` to `@openagentid/sdk`.** The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
 - **Breaking. The silent stub fallback is removed.** Until now the SDK
   silently substituted fake implementations - `StubIdentityProvider` minted
   unsigned "signatures", `StubVerificationClient` accepted any `stub:` token,

@@ -109,7 +109,7 @@ See [`rust/`](./rust/) for the full crate. Tests: `cargo test`.
 ## TypeScript
 
 ```ts
-import { Did, InvocationContext, SkillsPolicy } from "@openagent/skills-policy";
+import { Did, InvocationContext, SkillsPolicy } from "@openagentid/skills-policy";
 
 const policy = SkillsPolicy.fromYaml(yaml);
 
@@ -171,7 +171,7 @@ rather than mutating existing state.
 
 ## Integration
 
-The top-level `@openagent/sdk` package and `openagent-sdk` Rust crate
+The top-level `@openagentid/sdk` package and `openagent-sdk` Rust crate
 consume this package and expose it as `agent.skillsPolicy()` — the
 MCP integration and Claude Agent SDK integration consult it before
 allowing any skill invocation.

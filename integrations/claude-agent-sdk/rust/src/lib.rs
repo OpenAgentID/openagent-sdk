@@ -7,7 +7,7 @@
 //!
 //! Anthropic does not (yet) ship an official Rust Claude Agent SDK — the
 //! reference integration lives in the TypeScript package
-//! `@openagent/claude-agent`. This crate is the **framework-agnostic Rust
+//! `@openagentid/claude-agent`. This crate is the **framework-agnostic Rust
 //! analog**: a small trait surface plus drop-in policy / audit primitives
 //! that any Rust agent harness can implement.
 //!

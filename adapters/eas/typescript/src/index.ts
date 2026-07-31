@@ -1,5 +1,5 @@
 /**
- * @openagent/anchor-eas — Ethereum Attestation Service adapter for the OAS
+ * @openagentid/anchor-eas — Ethereum Attestation Service adapter for the OAS
  * lineage anchor seam.
  *
  * # The split

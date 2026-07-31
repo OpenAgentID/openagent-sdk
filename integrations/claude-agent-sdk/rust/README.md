@@ -10,7 +10,7 @@ agent harness.
 
 Anthropic does **not** currently ship an official Rust Claude Agent SDK
 — the reference integration lives in the TypeScript package
-[`@openagent/claude-agent`](../typescript). This crate is the **Rust
+[`@openagentid/claude-agent`](../typescript). This crate is the **Rust
 analog**: a small trait surface plus drop-in policy / audit primitives
 that any Rust agent harness can implement.
 
