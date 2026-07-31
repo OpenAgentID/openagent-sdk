@@ -902,7 +902,104 @@ mod arsenal {
             "sign_tamper_verify" => sign_tamper_verify(v),
             "evaluate" => evaluate(v),
             "evaluate_with_context" => evaluate_with_context(v),
+            "verify" => act_verify(v),
             other => Err(format!("arsenal: unknown operation {other}")),
+        }
+    }
+
+    /// Canonical ACT verification (act/SPECIFICATION.md), run through the
+    /// reference implementation - never a handwritten re-implementation,
+    /// which is the drift this suite exists to prevent.
+    fn act_verify(v: &Vector) -> Result<(), String> {
+        let envelope = input_hex(v, "envelope_hex")?;
+        let trusted_key = input_hex(v, "trusted_key_hex")?;
+        if trusted_key.len() != 32 {
+            return Err(format!("trusted_key_hex must be 32 bytes, got {}", trusted_key.len()));
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&trusted_key);
+
+        let issuer = v
+            .input
+            .get("issuer")
+            .and_then(|s| s.as_str())
+            .ok_or("missing input.issuer")?;
+        let audience = v
+            .input
+            .get("audience")
+            .and_then(|s| s.as_str())
+            .ok_or("missing input.audience")?;
+        let scopes: Vec<agent_capability_token::Scope> = v
+            .input
+            .get("scopes")
+            .and_then(|s| s.as_array())
+            .ok_or("missing input.scopes")?
+            .iter()
+            .filter_map(|x| x.as_str())
+            .map(agent_capability_token::Scope::parse)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("scope parse: {e}"))?;
+        let leeway = v
+            .input
+            .get("leeway_seconds")
+            .and_then(|s| s.as_i64())
+            .unwrap_or(0);
+        let now = v
+            .input
+            .get("now_unix_seconds")
+            .and_then(|s| s.as_i64())
+            .ok_or("missing input.now_unix_seconds")?;
+
+        let mut verifier = agent_capability_token::Verifier::new(vec![key], issuer, audience)
+            .map_err(|e| format!("verifier: {e}"))?
+            .with_leeway_seconds(leeway)
+            .with_clock(now);
+        if !scopes.is_empty() {
+            verifier = verifier.requiring_scopes(scopes);
+        }
+
+        let verdict = v
+            .expected_output
+            .get("verdict")
+            .and_then(|s| s.as_str())
+            .ok_or("expected verdict")?;
+
+        match (agent_capability_token::verify(&envelope, &verifier), verdict) {
+            (Ok(claims), "accept") => {
+                for field in ["sub", "jti", "tenant_id"] {
+                    if let Some(expected) = v.expected_output.get(field).and_then(|s| s.as_str()) {
+                        let actual = match field {
+                            "sub" => &claims.sub,
+                            "jti" => &claims.jti,
+                            "tenant_id" => &claims.tenant_id,
+                            _ => unreachable!(),
+                        };
+                        if actual != expected {
+                            return Err(format!("{field} mismatch: got {actual} expected {expected}"));
+                        }
+                    }
+                }
+                Ok(())
+            }
+            (Ok(claims), "reject") => Err(format!(
+                "expected reject, token verified (sub {})",
+                claims.sub
+            )),
+            (Err(e), "reject") => {
+                let reason_class = v
+                    .expected_output
+                    .get("reason_class")
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("");
+                if !reason_class.is_empty() && !e.to_string().contains(reason_class) {
+                    return Err(format!(
+                        "reason class mismatch: error \"{e}\" does not contain \"{reason_class}\""
+                    ));
+                }
+                Ok(())
+            }
+            (Err(e), "accept") => Err(format!("expected accept, verification failed: {e}")),
+            (_, other) => Err(format!("unknown verdict {other}")),
         }
     }
 

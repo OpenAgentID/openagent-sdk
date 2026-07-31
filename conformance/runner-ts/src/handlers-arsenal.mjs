@@ -1,8 +1,37 @@
-// Arsenal handlers: ACT encoding, scope parsing, policy evaluation.
+// Arsenal handlers: ACT encoding, scope parsing, policy evaluation, and
+// canonical ACT verification (act-verify vectors, run through the
+// crypto-wasm binding - never a handwritten re-implementation, which is the
+// drift this suite exists to prevent).
 
 import { Buffer } from 'node:buffer';
+import { createRequire } from 'node:module';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ed25519 } from '@noble/curves/ed25519';
 import { expectedBool, inputHex, jcsStringify, op } from './util.mjs';
+
+// The crypto-wasm binding (nodejs target), loaded lazily on the first
+// act-verify vector so runners without the built package only fail then.
+let actBinding;
+function actVerifyBinding() {
+  if (!actBinding) {
+    const require = createRequire(import.meta.url);
+    const pkg = join(
+      fileURLToPath(import.meta.url),
+      '..',
+      '..',
+      '..',
+      '..',
+      'crates',
+      'openagent-crypto-wasm',
+      'pkg',
+      'node',
+      'openagent_crypto_wasm.js',
+    );
+    actBinding = require(pkg);
+  }
+  return actBinding;
+}
 
 const MAX_SCOPE_LENGTH = 512;
 
@@ -45,9 +74,69 @@ export function runArsenal(v) {
       return evaluate(v);
     case 'evaluate_with_context':
       return evaluateWithContext(v);
+    case 'verify':
+      return actVerify(v);
     default:
       throw new Error(`arsenal: unknown operation ${o}`);
   }
+}
+
+// Canonical ACT verification (act/SPECIFICATION.md) through the crypto-wasm
+// binding, which runs the reference implementation compiled to WASM.
+function actVerify(v) {
+  const envelope = inputHex(v, 'envelope_hex');
+  const trustedKey = inputHex(v, 'trusted_key_hex');
+  if (trustedKey.length !== 32) throw new Error(`trusted_key_hex must be 32 bytes, got ${trustedKey.length}`);
+
+  const issuer = v.input.issuer;
+  const audience = v.input.audience;
+  if (typeof issuer !== 'string' || typeof audience !== 'string') {
+    throw new Error('missing issuer/audience');
+  }
+  const scopes = Array.isArray(v.input.scopes) ? v.input.scopes : [];
+  const leeway = BigInt(v.input.leeway_seconds ?? 0);
+  const now = BigInt(v.input.now_unix_seconds ?? 0);
+
+  const verdict = v.expected_output && v.expected_output.verdict;
+
+  let claims;
+  let failure;
+  try {
+    const json = actVerifyBinding().act_verify(
+      envelope,
+      trustedKey,
+      issuer,
+      audience,
+      scopes,
+      leeway,
+      now,
+    );
+    claims = JSON.parse(json);
+  } catch (err) {
+    failure = err;
+  }
+
+  if (verdict === 'accept') {
+    if (failure) throw new Error(`expected accept, verification failed: ${failure.message}`);
+    for (const field of ['sub', 'jti', 'tenant_id']) {
+      const expected = v.expected_output[field];
+      if (expected !== undefined && claims[field] !== expected) {
+        throw new Error(`${field} mismatch: got ${claims[field]} expected ${expected}`);
+      }
+    }
+    return;
+  }
+  if (verdict === 'reject') {
+    if (!failure) throw new Error(`expected reject, token verified (sub ${claims.sub})`);
+    const reasonClass = v.expected_output.reason_class ?? '';
+    if (reasonClass && !failure.message.includes(reasonClass)) {
+      throw new Error(
+        `reason class mismatch: error "${failure.message}" does not contain "${reasonClass}"`,
+      );
+    }
+    return;
+  }
+  throw new Error(`unknown verdict ${verdict}`);
 }
 
 function parseScope(v) {

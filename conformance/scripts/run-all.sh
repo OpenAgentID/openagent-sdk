@@ -28,6 +28,10 @@ SUMMARY="$REPORTS/SUMMARY.md"
 echo "==> Building Rust runner"
 (cd "$RUST_BIN_DIR" && cargo build --release --quiet)
 
+# Resolve the binary through cargo metadata rather than assuming ./target:
+# environments that set CARGO_TARGET_DIR place it elsewhere.
+RUST_BIN="$(cd "$RUST_BIN_DIR" && cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release/conformance-runner")')"
+
 echo "==> Installing TS runner deps"
 if [ ! -d "$TS_DIR/node_modules" ]; then
   (cd "$TS_DIR" && npm install --no-audit --no-fund --loglevel=error)
@@ -35,7 +39,7 @@ fi
 
 echo "==> Running Rust runner"
 set +e
-(cd "$RUST_BIN_DIR" && ./target/release/conformance-runner "$VECTORS" --junit "$RUST_JUNIT") >"$RUST_LOG" 2>&1
+(cd "$RUST_BIN_DIR" && "$RUST_BIN" "$VECTORS" --junit "$RUST_JUNIT") >"$RUST_LOG" 2>&1
 RUST_EXIT=$?
 set -e
 

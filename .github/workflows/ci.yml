@@ -199,14 +199,27 @@ jobs:
           git config --global url."https://x-access-token:${CI_PAT}@github.com/".insteadOf "https://github.com/"
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: 'latest'
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: conformance/runner-rust
+
+      - name: Build the crypto-wasm package
+        # The TS runner's act-verify vectors run through this binding; it
+        # must exist before the suite executes.
+        working-directory: crates/openagent-crypto-wasm
+        run: node scripts/build-wasm.mjs
 
       - name: Run all vectors
         # The conformance suite is the drift control for the whole stack:

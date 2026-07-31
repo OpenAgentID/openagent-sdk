@@ -20,6 +20,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_jcs = "0.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+# The canonical ACT implementation - runners verify through this, never a
+# handwritten re-implementation (the drift rule).
+agent-capability-token = { git = "https://github.com/OpenAgentID/act", branch = "main", version = "0.1.0" }
 hkdf = "0.12"
 sha2 = "0.10"
 hmac = "0.12"
