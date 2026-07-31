@@ -117,6 +117,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build and test anchor-eas adapter
+        # The EAS lineage-anchor adapter (resolver + publisher surface).
+        working-directory: adapters/eas/typescript
+        run: |
+          npm install --no-audit --no-fund --loglevel=error
+          npx tsc --noEmit
+          npx vitest run
+          npm run build
+
       - name: Build and typecheck sdk-testing
         # The in-memory backends the SDK's own tests import. Built here so a
         # break in the sibling package surfaces in the same run.

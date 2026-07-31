@@ -1,0 +1,40 @@
+{
+  "name": "@openagent/anchor-eas",
+  "version": "0.1.0",
+  "description": "Ethereum Attestation Service (EAS) adapter for the OAS lineage anchor seam: resolution via EAS GraphQL, publishing via the maintained EAS SDK.",
+  "license": "Apache-2.0 OR MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ethereum-attestation-service/eas-sdk": "^2.4.0",
+    "@noble/hashes": "^1.4.0",
+    "viem": "^2.21.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
