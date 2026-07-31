@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-04-26
 
+### Added
+
+- **Verify-first ACT surface** (`act` module). `act::verify(&token).issuer(...).for_audience(...).require_scope(...).trusted_keys(...).run()` wraps the canonical `agent-capability-token` verifier in the SDK's fluent style; every rule lives in the canonical crate. With the `axum` feature, `act::axum_support::ActPolicy` + `ActContext` extractor guard Axum routes: a missing, forged, expired, wrong-audience, or under-scoped token gets a 401 with `WWW-Authenticate: OpenAgent` and the route never runs.
+
 ### Changed
 
 - **Breaking. The `aegis` / `arsenal` / `full` Cargo features are real now.**

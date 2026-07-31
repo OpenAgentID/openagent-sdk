@@ -78,6 +78,99 @@ check('public key derives from private', () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// ACT verification - the canonical format, verified by the Rust crate through
+// WASM. The fixture is minted by `cargo run --example mint_act`.
+// ---------------------------------------------------------------------------
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const fixturePath = join(process.cwd(), 'scripts', 'act_fixture.hex');
+const [pubHex, envelopeHex] = readFileSync(fixturePath, 'utf8').trim().split('\n');
+const trustedKey = Uint8Array.from(Buffer.from(pubHex, 'hex'));
+const envelope = Uint8Array.from(Buffer.from(envelopeHex, 'hex'));
+
+// The fixture's claims are pinned: iat/nbf 1_800_000_000, exp 1_800_000_600.
+const AT_VALID = 1800000300n;
+
+check('act_verify accepts a valid token and returns claims', () => {
+  const json = wasm.act_verify(
+    envelope,
+    trustedKey,
+    'arsenal:broker:test-1',
+    'omerta',
+    ['tools:calendar:invoke'],
+    0n,    AT_VALID,  );
+  const claims = JSON.parse(json);
+  if (claims.sub !== 'did:oas:l1fe:agent:smoke') throw new Error(`sub mismatch: ${claims.sub}`);
+  if (claims.tenant_id !== 'tenant-a') throw new Error('tenant mismatch');
+});
+
+check('act_verify wildcard grant covers the required scope', () => {
+  // The grant carries tools:*:invoke; the request tools:calendar:invoke is covered.
+  const json = wasm.act_verify(
+    envelope,
+    trustedKey,
+    'arsenal:broker:test-1',
+    'omerta',
+    ['tools:calendar:invoke'],
+    0n,    AT_VALID,  );
+  if (!json) throw new Error('wildcard grant did not cover');
+});
+
+check('act_verify rejects a scope the grant does not cover', () => {
+  let threw = false;
+  try {
+    wasm.act_verify(
+      envelope,
+      trustedKey,
+      'arsenal:broker:test-1',
+      'omerta',
+      ['billing:invoices:write'],
+      0n,      AT_VALID,    );
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error('uncovered scope accepted');
+});
+
+check('act_verify rejects the wrong audience', () => {
+  let threw = false;
+  try {
+    wasm.act_verify(envelope, trustedKey, 'arsenal:broker:test-1', 'someone-else', [], 0n, AT_VALID);
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error('wrong audience accepted');
+});
+
+check('act_verify rejects expiry at the boundary', () => {
+  let threw = false;
+  try {
+    wasm.act_verify(envelope, trustedKey, 'arsenal:broker:test-1', 'omerta', [], 0n, 1800000601n);
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error('expired token accepted');
+});
+
+check('act_verify rejects a foreign signing key', () => {
+  let threw = false;
+  try {
+    const foreign = wasm.ed25519_generate_keypair();
+    wasm.act_verify(envelope, foreign.verifying_key, 'arsenal:broker:test-1', 'omerta', [], 0n, AT_VALID);
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error('foreign signature accepted');
+});
+
+check('act_decode_unverified marks its output as unverified', () => {
+  const out = wasm.act_decode_unverified(envelope);
+  if (!out.startsWith('UNVERIFIED:')) throw new Error('unverified prefix missing');
+});
+
 if (failures > 0) {
   console.error(`${failures} smoke check(s) failed`);
   process.exit(1);

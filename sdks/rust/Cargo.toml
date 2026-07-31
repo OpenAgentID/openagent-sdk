@@ -18,8 +18,10 @@ default = []
 aegis = ["dep:openagent-aegis-sdk", "dep:openagent-aegis-core"]
 # Enable Arsenal credential proxy + capability features (pulls in the broker client).
 arsenal = ["dep:arsenal-sdk", "dep:arsenal-core"]
+# Axum middleware for ACT verification (extractor + layer helpers).
+axum = ["dep:axum"]
 # Convenience: turn everything on.
-full = ["aegis", "arsenal"]
+full = ["aegis", "arsenal", "axum"]
 
 [dependencies]
 # Wrapped SDKs.
@@ -27,6 +29,10 @@ oas-sdk = { git = "https://github.com/OpenAgentID/oas", branch = "main", version
 oas-crypto = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0" }
 oas-document = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0" }
 oas-lineage = { git = "https://github.com/OpenAgentID/oas", branch = "main", version = "1.1.0" }
+# Canonical ACT wire format (verification half). Always linked: the SDK is
+# verify-first, and act verification is the path every consumer takes.
+agent-capability-token = { git = "https://github.com/OpenAgentID/act", branch = "main", version = "0.1.0" }
+axum = { version = "0.7", optional = true }
 # Optional subsystems. The features used to be no-ops and always linked these;
 # they are real now: a build without them neither compiles the modules nor
 # links the crates, so a verifier-only consumer pays for nothing it does not

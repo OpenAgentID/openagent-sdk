@@ -399,3 +399,107 @@ pub fn frost_verify(
 pub fn version() -> String {
     crate::VERSION.to_string()
 }
+
+// ---------------------------------------------------------------------------
+// Agent Capability Token (ACT) verification - the canonical format, verified
+// in Rust so every TypeScript consumer shares one implementation of the rules.
+// ---------------------------------------------------------------------------
+
+/// Verifies an ACT envelope against the trusted key set and policy, and
+/// returns the claims as a JSON string.
+///
+/// This is the full normative procedure from `agent-capability-token`, not a
+/// re-implementation: envelope decode, version/algorithm checks, Ed25519
+/// signature verification (checked **before** any claim, so an attacker
+/// cannot plant unauthenticated claim content), temporal checks with leeway,
+/// and issuer/audience/scope policy.
+///
+/// Arguments:
+/// - `token_bytes`: the ACT envelope bytes (CBOR).
+/// - `trusted_keys`: concatenated raw 32-byte Ed25519 public keys (exactly 32
+///   bytes each, any count > 0). Keys are tried in order; `kid` is a hint for
+///   audit, never authoritative for selection.
+/// - `expected_issuer` / `expected_audience`: the policy bindings. Both are
+///   required, deliberately: a verifier that does not bind the token's
+///   intended audience accepts tokens meant for someone else.
+/// - `required_scopes`: each entry a `service:resource:action` scope string
+///   the token must grant; wildcards in the GRANT expand, in the REQUEST are
+///   literal.
+/// - `leeway_seconds`: symmetric clock-skew allowance on temporal checks.
+/// - `now_unix_seconds`: 0 for the system clock, or a pinned time for tests
+///   and for replaying a decision at a known instant.
+///
+/// Errors (thrown on the JS side) are the canonical `ActError` reasons, so a
+/// forged token reports distinctly from an expired one and an unimplemented
+/// format version distinctly from both.
+#[wasm_bindgen]
+pub fn act_verify(
+    token_bytes: &[u8],
+    trusted_keys: &[u8],
+    expected_issuer: &str,
+    expected_audience: &str,
+    required_scopes: Vec<String>,
+    leeway_seconds: i64,
+    now_unix_seconds: i64,
+) -> Result<String, JsError> {
+    if trusted_keys.is_empty() || trusted_keys.len() % 32 != 0 {
+        return Err(JsError::new(
+            "trusted_keys must be a non-empty multiple of 32 bytes",
+        ));
+    }
+    if expected_issuer.is_empty() || expected_audience.is_empty() {
+        return Err(JsError::new(
+            "expected_issuer and expected_audience are required",
+        ));
+    }
+    let keys: Vec<[u8; 32]> = trusted_keys
+        .chunks_exact(32)
+        .map(|c| {
+            let mut k = [0u8; 32];
+            k.copy_from_slice(c);
+            k
+        })
+        .collect();
+
+    let mut verifier = agent_capability_token::Verifier::new(keys, expected_issuer, expected_audience)
+        .map_err(js_err)?
+        .with_leeway_seconds(leeway_seconds);
+
+    if now_unix_seconds != 0 {
+        verifier = verifier.with_clock(now_unix_seconds);
+    }
+
+    let scopes: Result<Vec<_>, _> = required_scopes
+        .iter()
+        .map(|s| agent_capability_token::Scope::parse(s))
+        .collect();
+    let scopes = scopes.map_err(js_err)?;
+    if !scopes.is_empty() {
+        verifier = verifier.requiring_scopes(scopes);
+    }
+
+    let claims = agent_capability_token::verify(token_bytes, &verifier).map_err(js_err)?;
+
+    // The claims cross the boundary as JSON: the typed fields serialize
+    // directly, and the ext map passes through with its values as raw CBOR
+    // hex for the caller's own interpretation.
+    serde_json::to_string(&claims)
+        .map_err(|e| JsError::new(&format!("claims JSON serialization: {e}")))
+}
+
+/// Decodes an ACT envelope's claims WITHOUT verifying the signature, for
+/// diagnostics and tooling. The returned string is prefixed so callers cannot
+/// accidentally treat the contents as verified.
+///
+/// Never use this for authorization: unverified claims are attacker
+/// controlled. Authorization decisions go through [`act_verify`].
+#[wasm_bindgen]
+pub fn act_decode_unverified(token_bytes: &[u8]) -> Result<String, JsError> {
+    let envelope = agent_capability_token::ActEnvelope::decode(token_bytes).map_err(js_err)?;
+    let claims_bytes: &[u8] = envelope.claims.as_ref();
+    let claims: agent_capability_token::ActClaims =
+        ciborium::from_reader(claims_bytes).map_err(js_err)?;
+    let json = serde_json::to_string(&claims)
+        .map_err(|e| JsError::new(&format!("claims JSON serialization: {e}")))?;
+    Ok(format!("UNVERIFIED:{json}"))
+}

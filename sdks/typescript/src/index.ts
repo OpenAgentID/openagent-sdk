@@ -83,6 +83,30 @@ export {
   allowAllSkills,
 } from './skills.js';
 
+// ACT verification (verify-first)
+export {
+  act,
+  ActVerifierBuilder,
+  setActCryptoBinding,
+  type ActClaims,
+  type ActVerifyOptions,
+} from './act.js';
+
+// Verification middleware
+export {
+  withAct,
+  requireActExpress,
+  type RequireActConfig,
+} from './middleware.js';
+
+// Key custody
+export {
+  keys,
+  setKeyCryptoBinding,
+  type AgentKeys,
+  type KeyCryptoBinding,
+} from './keys.js';
+
 // Errors
 export {
   OpenAgentError,

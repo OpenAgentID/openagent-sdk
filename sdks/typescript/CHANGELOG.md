@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-04-26
 
+### Added
+
+- **Verify-first ACT surface.** `act.verify(token).issuer(...).forAudience(...).requireScope(...).trustedKeys(...).run()` verifies Agent Capability Tokens through the canonical Rust crate compiled to WASM (`@openagent/crypto-wasm`) - envelope decode, version/algorithm checks, Ed25519 signature verification *before* any claim check, temporal checks with leeway, and issuer/audience/scope policy. TypeScript carries none of the format rules, so it cannot drift from the specification. The binding is injected once at startup via `setActCryptoBinding()`; verifier misconfiguration and token failures report distinctly (`OpenAgentError` vs `VerificationError` carrying the canonical reason).
+- **Verification middleware.** `withAct(config, handler)` guards fetch-standard handlers (Next.js route handlers, Hono, Workers), and `requireActExpress(config)` guards Express routes - a request with a missing, forged, expired, wrong-audience, or under-scoped token gets a 401 with the reason and never reaches the application.
+- **Key custody** (`keys` namespace). `keys.generate()` mints an identity; everything derives deterministically from one 32-byte seed - the Ed25519 signing keypair and an X25519 encryption keypair via the same BLAKE3 context-separated derivation as Arsenal's `identity_loader`, so a seed moves between the Rust and TypeScript SDKs and restores the same keys. `keys.saveSeed()` writes owner-only (0600) seed files in Arsenal's format; `keys.fromSeed()`, `keys.fromSeedHex()`, `keys.fromSeedFile()`, and `keys.fromEnv()` restore.
+
 ### Changed
 
 - **Breaking. The silent stub fallback is removed.** Until now the SDK

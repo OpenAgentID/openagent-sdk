@@ -133,6 +133,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Authenticate git for private sibling dependencies
+        # The crate depends on agent-capability-token from the private
+        # OpenAgentID/act repository.
+        env:
+          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
+        run: |
+          if [ -z "$CI_PAT" ]; then
+            echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
+            exit 1
+          fi
+          git config --global url."https://x-access-token:${CI_PAT}@github.com/".insteadOf "https://github.com/"
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -152,11 +164,21 @@ jobs:
         working-directory: crates/openagent-crypto-wasm
         run: node scripts/build-wasm.mjs
 
+      - name: Mint the ACT smoke fixture
+        # Regenerates the canonical test envelope deterministically (fixed
+        # seed, pinned claims), so the smoke test also proves minting.
+        working-directory: crates/openagent-crypto-wasm
+        run: cargo run --example mint_act --quiet > scripts/act_fixture.hex
+
       - name: Smoke test the built package
         # Proves the publishable artifact loads and runs its core primitives
         # in Node before anything downstream may depend on it.
         working-directory: crates/openagent-crypto-wasm
         run: node scripts/smoke-test.mjs
+
+      - name: Remove git credentials
+        if: always()
+        run: rm -f ~/.gitconfig
 
   conformance:
     name: conformance vectors (rust + ts)

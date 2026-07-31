@@ -71,6 +71,7 @@
 
 #![doc(html_root_url = "https://docs.rs/openagent-sdk/0.1.0")]
 
+pub mod act;
 pub mod agent;
 pub mod builder;
 pub mod config;

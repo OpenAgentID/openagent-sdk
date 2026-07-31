@@ -30,6 +30,11 @@ native = []
 wasm = ["dep:wasm-bindgen", "dep:js-sys", "getrandom/js"]
 
 [dependencies]
+# Canonical ACT wire format (verification half only - the crate's `sign`
+# feature stays off here, so this WASM package never holds a signing path).
+agent-capability-token = { git = "https://github.com/OpenAgentID/act", branch = "main", version = "0.1.0" }
+ciborium = "0.2"
+
 # Core crypto primitives
 ed25519-dalek = { version = "2.1", default-features = false, features = ["std", "rand_core", "zeroize", "fast"] }
 x25519-dalek = { version = "2.0", default-features = false, features = ["static_secrets", "zeroize"] }
@@ -67,6 +72,10 @@ js-sys = { version = "0.3", optional = true }
 [dev-dependencies]
 hex-literal = "0.4"
 serde_json = "1.0"
+# The mint example signs test envelopes for the WASM smoke test; the signing
+# half of the canonical crate stays a dev-only dependency.
+agent-capability-token = { git = "https://github.com/OpenAgentID/act", branch = "main", version = "0.1.0", features = ["sign"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 
 [package.metadata.docs.rs]
 all-features = true

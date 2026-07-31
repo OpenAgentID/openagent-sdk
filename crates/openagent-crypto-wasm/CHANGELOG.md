@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ACT verification through WASM.** `act_verify()` runs the full normative
+  procedure from the canonical `agent-capability-token` crate - envelope
+  decode, version/algorithm checks, Ed25519 signature verification before
+  any claim check, temporal checks with leeway, issuer/audience/scope
+  policy - and returns the claims as JSON. `act_decode_unverified()` decodes
+  without verifying for diagnostics, with a mandatory `UNVERIFIED:` prefix
+  so the output cannot be mistaken for verified claims. The canonical
+  crate's `sign` feature stays off in this package: it never holds a signing
+  path. The smoke test now proves seven ACT behaviors through the built
+  artifact against a fixture minted by `examples/mint_act.rs` (valid token,
+  wildcard coverage, scope refusal, audience refusal, expiry, foreign key,
+  unverified decode marking).
 - The npm package is now buildable and verified: `scripts/build-wasm.mjs`
   produces the `@openagent/crypto-wasm` package with **two targets** -
   `bundler` (browsers, bundlers, Deno, Bun, Workers) and `nodejs` (Node,
