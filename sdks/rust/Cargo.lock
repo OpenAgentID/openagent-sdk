@@ -154,6 +154,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "agent-capability-token"
+version = "0.1.0"
+source = "git+https://github.com/OpenAgentID/act?branch=main#8fda81b18c8b74726d1cbd9e7915d443b5630dcb"
+dependencies = [
+ "ciborium",
+ "ed25519-dalek",
+ "serde",
+ "serde_bytes",
+ "thiserror",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -203,14 +215,16 @@ checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
 name = "arsenal-core"
-version = "1.0.0"
-source = "git+https://github.com/OpenAgentID/arsenal?branch=main#a1d13026f391f20bc9b74a9b42377f6dfed808ce"
+version = "2.0.0"
+source = "git+https://github.com/OpenAgentID/arsenal?branch=main#4f2af968c30786ceb0b006d9a91c35e03b005a44"
 dependencies = [
+ "agent-capability-token",
  "base64",
  "blake3",
  "chrono",
  "ciborium",
  "hex",
+ "oas-did",
  "secrecy",
  "serde",
  "serde_json",
@@ -222,8 +236,8 @@ dependencies = [
 
 [[package]]
 name = "arsenal-crypto"
-version = "1.0.0"
-source = "git+https://github.com/OpenAgentID/arsenal?branch=main#a1d13026f391f20bc9b74a9b42377f6dfed808ce"
+version = "2.0.0"
+source = "git+https://github.com/OpenAgentID/arsenal?branch=main#4f2af968c30786ceb0b006d9a91c35e03b005a44"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -251,8 +265,8 @@ dependencies = [
 
 [[package]]
 name = "arsenal-sdk"
-version = "1.0.0"
-source = "git+https://github.com/OpenAgentID/arsenal?branch=main#a1d13026f391f20bc9b74a9b42377f6dfed808ce"
+version = "2.0.0"
+source = "git+https://github.com/OpenAgentID/arsenal?branch=main#4f2af968c30786ceb0b006d9a91c35e03b005a44"
 dependencies = [
  "arsenal-core",
  "arsenal-crypto",
@@ -261,6 +275,7 @@ dependencies = [
  "blake3",
  "chrono",
  "hex",
+ "oas-did",
  "rand 0.8.5",
  "reqwest",
  "serde",
@@ -274,8 +289,8 @@ dependencies = [
 
 [[package]]
 name = "arsenal-store"
-version = "1.0.0"
-source = "git+https://github.com/OpenAgentID/arsenal?branch=main#a1d13026f391f20bc9b74a9b42377f6dfed808ce"
+version = "2.0.0"
+source = "git+https://github.com/OpenAgentID/arsenal?branch=main#4f2af968c30786ceb0b006d9a91c35e03b005a44"
 dependencies = [
  "arsenal-core",
  "arsenal-crypto",
@@ -765,7 +780,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1592,6 +1607,7 @@ dependencies = [
  "base64",
  "chrono",
  "oas-crypto",
+ "oas-did",
  "oas-document",
  "oas-lineage",
  "oas-sdk",
@@ -2090,6 +2106,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bytes"
+version = "0.11.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5d440709e79d88e51ac01c4b72fc6cb7314017bb7da9eeff678aa94c10e3ea8"
+dependencies = [
+ "serde",
+ "serde_core",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2220,7 +2246,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

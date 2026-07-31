@@ -16,7 +16,11 @@ use openagent_sdk::{
 };
 
 fn fresh_arsenal_client() -> ArsenalClient {
-    let identity = AgentIdentityLoader::generate(TenantId::generate(), "facade-test")
+    // Arsenal 2.0: the loader mints key material, not identity - a DID must
+    // already exist for the agent whose keys these are.
+    let did = oas_did::OasDid::new("l1fe", oas_did::EntityKind::Agent, "facade-test")
+        .unwrap_or_else(|e| unreachable!("did construction failed: {e}"));
+    let identity = AgentIdentityLoader::generate(did, TenantId::generate(), "facade-test")
         .unwrap_or_else(|e| unreachable!("identity gen failed: {e}"));
     ArsenalClient::builder()
         .identity(identity)

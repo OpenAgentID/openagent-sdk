@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking.** Arsenal dependencies pin to `^2.0.0`. Arsenal 2.0 requires an
+  OAS DID for agent identities (`AgentIdentityLoader` constructors take the
+  DID as their first argument) and mints the canonical ACT wire format; test
+  fixtures and any consumer constructing identities must construct the DID
+  first. `oas-did` joins the dev-dependencies for exactly that.
 - **Breaking.** The AEGIS dependencies are renamed to `openagent-aegis-core`
   and `openagent-aegis-sdk`, tracking the upstream rename (the bare names are
   taken on crates.io by unrelated third parties). The public re-export

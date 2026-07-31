@@ -219,7 +219,10 @@ mod tests {
 
     fn build_offline_client() -> ArsenalClient {
         let tenant = TenantId::generate();
-        let identity = AgentIdentityLoader::generate(tenant, "openagent-test")
+        // Arsenal 2.0: the loader requires the agent's OAS DID as input.
+        let did = oas_did::OasDid::new("l1fe", oas_did::EntityKind::Agent, "openagent-test")
+            .unwrap_or_else(|e| unreachable!("did construction failed: {e}"));
+        let identity = AgentIdentityLoader::generate(did, tenant, "openagent-test")
             .unwrap_or_else(|e| unreachable!("identity gen failed: {e}"));
         ArsenalClient::builder()
             .identity(identity)
