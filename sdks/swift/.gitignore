@@ -1,0 +1,2 @@
+# Swift build artifacts (SwiftPM checkouts, build db, indexes)
+sdks/swift/.build/
