@@ -9,7 +9,7 @@ Every language implementation is gated by the same conformance suite — the can
 | Language | Package | Install | Docs |
 |---|---|---|---|
 | TypeScript | [`@openagentid/sdk`](https://www.npmjs.com/package/@openagentid/sdk) | `npm install @openagentid/sdk` | [sdks/typescript](sdks/typescript/) |
-| Python | [`openagent-sdk`](sdks/python/) | `pip install openagent-sdk` | [sdks/python](sdks/python/) |
+| Python | [`openagentid-sdk`](sdks/python/) | `pip install openagentid-sdk` | [sdks/python](sdks/python/) |
 | Rust | [`openagent-sdk`](sdks/rust/) | `cargo add openagent-sdk` | [sdks/rust](sdks/rust/) |
 | Go | [`openagent`](sdks/go/) | `go get github.com/OpenAgentID/openagent-sdk/sdks/go` | [sdks/go](sdks/go/) |
 | Swift | [`OpenAgentSDK`](sdks/swift/) | SwiftPM — this repo as a package dependency | [sdks/swift](sdks/swift/) |

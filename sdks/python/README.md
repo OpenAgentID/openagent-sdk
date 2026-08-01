@@ -50,8 +50,8 @@ claims = verifier.verify(token_bytes)
 ## Install
 
 ```bash
-pip install openagent-sdk            # core
-pip install "openagent-sdk[fastapi]" # with the FastAPI dependency
+pip install openagentid-sdk            # core
+pip install "openagentid-sdk[fastapi]" # with the FastAPI dependency
 pip install blake3                    # optional: canonical cross-SDK key derivation
 ```
 
