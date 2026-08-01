@@ -5,7 +5,18 @@ All notable changes to `openagent-crypto-wasm` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-07-31
+## [Unreleased] - 2026-08-01
+
+### Fixed
+
+- Corrected the RFC 8032 §7.1 Test 1 public-key vector in the Ed25519 unit
+  tests: the hardcoded byte array carried a corrupted 11-byte tail, so the
+  test failed against the correct key derived by the implementation. The
+  Test 1 vectors are now `hex!` literals formatted exactly as printed in the
+  RFC. No library code changed — signing, verification, and public-key
+  derivation in 0.1.1 were and remain correct.
+- The crate-level quick-start doc example now borrows the key byte arrays
+  when calling `ed25519::sign` / `ed25519::verify`, so the doctest compiles.
 
 ### Added
 

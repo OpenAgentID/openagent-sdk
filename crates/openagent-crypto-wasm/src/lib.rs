@@ -63,8 +63,8 @@
 //! use openagent_crypto_wasm::ed25519;
 //!
 //! let kp = ed25519::generate_keypair();
-//! let sig = ed25519::sign(kp.signing_key_bytes(), b"hello").unwrap();
-//! ed25519::verify(kp.verifying_key_bytes(), b"hello", &sig).unwrap();
+//! let sig = ed25519::sign(&kp.signing_key_bytes(), b"hello").unwrap();
+//! ed25519::verify(&kp.verifying_key_bytes(), b"hello", &sig).unwrap();
 //! ```
 //!
 //! ## Quick start (TypeScript, via `wasm-pack` build output)
