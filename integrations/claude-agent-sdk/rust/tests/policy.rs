@@ -37,7 +37,13 @@ async fn deny_unless_scoped_denies_missing() {
     let id = id();
     let d = p.evaluate("foo", &id, &c).await.expect("ok");
     assert!(!d.allowed);
-    assert!(d.reason.unwrap_or_default().contains("missing scope"));
+    // The policy propagates the capability checker's denial reason verbatim;
+    // its own "missing scope: ..." message is only a fallback for checkers
+    // that deny without giving a reason. StaticCapabilityChecker always
+    // supplies "no matching scope for ...", so that is what surfaces here —
+    // same semantics as the TypeScript suite's "denies when scope is missing"
+    // (integrations/claude-agent-sdk/typescript/test/policy.test.ts).
+    assert!(d.reason.unwrap_or_default().contains("no matching scope"));
 }
 
 #[tokio::test]
