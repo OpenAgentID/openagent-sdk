@@ -101,11 +101,17 @@ pub(crate) struct TypePeek {
     pub frame_type: String,
 }
 
-/// OAAP frame type constants.
+// ── OAAP frame type constants ─────────────────────────────────────────
+
+/// Wire value of the `type` field for [`PresentFrame`] (handshake step 1).
 pub const TYPE_PRESENT: &str = "oaap:present";
+/// Wire value of the `type` field for [`ChallengeFrame`] (handshake step 2).
 pub const TYPE_CHALLENGE: &str = "oaap:challenge";
+/// Wire value of the `type` field for [`ProveFrame`] (handshake step 3).
 pub const TYPE_PROVE: &str = "oaap:prove";
+/// Wire value of the `type` field for [`EstablishedFrame`] (handshake step 4).
 pub const TYPE_ESTABLISHED: &str = "oaap:established";
+/// Wire value of the `type` field for [`MessageFrame`] (post-handshake data).
 pub const TYPE_MESSAGE: &str = "oaap:message";
 
 #[cfg(test)]

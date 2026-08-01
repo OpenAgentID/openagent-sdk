@@ -2,6 +2,14 @@
 
 All notable changes to `openagent-ws` (Rust) will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Documented the OAAP frame-type constants (`TYPE_CHALLENGE`, `TYPE_PROVE`,
+  `TYPE_ESTABLISHED`, `TYPE_MESSAGE`). The crate denies `missing_docs`, so the
+  undocumented constants failed compilation.
+
 ## [0.1.0] - 2026-04-11
 
 ### Added
