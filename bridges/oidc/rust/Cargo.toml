@@ -18,7 +18,9 @@ oas-lineage = { git = "https://github.com/OpenAgentID/oas", branch = "main" }
 arsenal-core = { git = "https://github.com/OpenAgentID/arsenal", branch = "main" }
 
 # JWT
-jsonwebtoken = "9.3"
+# jsonwebtoken 10 makes the crypto backend pluggable; `rust_crypto` selects the
+# pure-Rust provider (HMAC/RSA/EdDSA/ECDSA) with no native build dependency.
+jsonwebtoken = { version = "10.3", features = ["rust_crypto"] }
 
 # HTTP + async
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

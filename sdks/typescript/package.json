@@ -81,21 +81,29 @@
   "peerDependencies": {
     "@openagentid/aegis-sdk": "^0.1.0",
     "@openagentid/arsenal-sdk": "^0.1.0",
-    "@openagentid/oas-sdk": "^0.1.0",
-    "@openagentid/crypto-wasm": "^0.1.0"
+    "@openagentid/crypto-wasm": "^0.1.0",
+    "@openagentid/oas-sdk": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@openagentid/aegis-sdk": { "optional": true },
-    "@openagentid/arsenal-sdk": { "optional": true },
-    "@openagentid/oas-sdk": { "optional": true },
-    "@openagentid/crypto-wasm": { "optional": true }
+    "@openagentid/aegis-sdk": {
+      "optional": true
+    },
+    "@openagentid/arsenal-sdk": {
+      "optional": true
+    },
+    "@openagentid/oas-sdk": {
+      "optional": true
+    },
+    "@openagentid/crypto-wasm": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^1.6.0",
+    "@vitest/coverage-v8": "^3.2.6",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0"
+    "vitest": "^3.2.6"
   },
   "keywords": [
     "openagent",

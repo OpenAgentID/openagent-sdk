@@ -35,9 +35,21 @@
   "devDependencies": {
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^2.0.0"
+    "vitest": "^3.2.6"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1",
+    "adm-zip": "^0.6.0",
+    "cookie": "^0.7.0",
+    "serialize-javascript": "^7.0.5",
+    "tmp": "^0.2.6",
+    "undici": "^6.28.0",
+    "uuid": "^11.1.1",
+    "@metamask/utils": "^11.0.0",
+    "@metamask/abi-utils": "^3.0.0",
+    "@openzeppelin/merkle-tree": "^1.0.8"
   }
 }

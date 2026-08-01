@@ -185,7 +185,7 @@ impl JwksClient {
 mod tests {
     use super::*;
     use jsonwebtoken::jwk::{
-        CommonParameters, Jwk, KeyAlgorithm, RsaKeyParameters, RsaKeyType,
+        CommonParameters, Jwk, KeyAlgorithm, RSAKeyParameters, RSAKeyType,
     };
 
     fn make_test_jwks(kid: Option<&str>) -> JwkSet {
@@ -201,8 +201,8 @@ mod tests {
                 x509_sha1_fingerprint: None,
                 x509_sha256_fingerprint: None,
             },
-            algorithm: jsonwebtoken::jwk::AlgorithmParameters::RSA(RsaKeyParameters {
-                key_type: RsaKeyType::RSA,
+            algorithm: jsonwebtoken::jwk::AlgorithmParameters::RSA(RSAKeyParameters {
+                key_type: RSAKeyType::RSA,
                 n: "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw".to_string(),
                 e: "AQAB".to_string(),
             }),

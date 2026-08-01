@@ -5,6 +5,16 @@ All notable changes to `openagent-mcp` are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-08-01
+
+### Security
+
+- Bumped the optional `rmcp` dependency from 0.2 to 1.4 (resolves to 1.8) to
+  clear the rmcp Streamable-HTTP DNS-rebinding advisory (GHSA-89vp-x53w-74fx,
+  fixed in 1.4.0). The `rmcp_adapter` converts via `serde_json` rather than
+  importing rmcp's API, so no adapter changes were required; the default and
+  `--features rmcp` builds and tests remain green.
+
 ## [0.1.0] - 2026-04-11
 
 ### Added

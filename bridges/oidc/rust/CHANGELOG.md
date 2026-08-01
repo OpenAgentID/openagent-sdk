@@ -2,6 +2,22 @@
 
 All notable changes to `openagent-oidc` (Rust) will be documented in this file.
 
+## [Unreleased] - 2026-08-01
+
+### Security
+
+- Upgraded `jsonwebtoken` from 9.3 to 10.3 to resolve the type-confusion
+  authorization-bypass advisory (GHSA-h395-gr6q-cpjc). jsonwebtoken 10 makes
+  the crypto backend pluggable, so the dependency now enables the pure-Rust
+  `rust_crypto` provider. Migrated the JWKS test fixtures to the renamed v10
+  `RSAKeyParameters`/`RSAKeyType` types.
+
+### Fixed
+
+- `lineage_depth()` now reads `LineageSection::generation` (the field OAS
+  renamed from `depth`), unblocking compilation against current `oas` `main`.
+  The full test suite (76 tests) passes.
+
 ## [0.1.0] - 2026-04-11
 
 ### Added

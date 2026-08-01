@@ -32,10 +32,12 @@ tokio = { version = "1.36", default-features = false, features = ["sync", "rt", 
 tracing = "0.1"
 uuid = { version = "1.7", features = ["v4"] }
 
-# Pinned to the last 0.x line we have validated against. The adapter
-# under `src/rmcp_adapter.rs` targets this exact API surface; bump
-# carefully.
-rmcp = { version = "0.2", optional = true, default-features = false, features = ["server"] }
+# Pulled in only when the `rmcp` feature is enabled. The adapter is
+# API-agnostic (it converts via serde_json rather than importing rmcp
+# types), so this tracks a maintained release that resolves the rmcp
+# Streamable-HTTP DNS-rebinding advisory (GHSA-89vp-x53w-74fx, fixed in
+# 1.4.0); downstream applications can override to match their server.
+rmcp = { version = "1.4", optional = true, default-features = false, features = ["server"] }
 
 [dev-dependencies]
 tokio = { version = "1.36", features = ["full"] }

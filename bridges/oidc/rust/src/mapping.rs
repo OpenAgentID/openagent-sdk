@@ -189,12 +189,10 @@ pub fn map_scopes(
 
 /// Compute the lineage depth from an OAS document.
 ///
-/// An HMR has depth 0, its direct child has depth 1, etc.
+/// Derived from the OAS `LineageSection::generation` (number of derivation
+/// steps from the human root); documents without a lineage section report 0.
 pub fn lineage_depth(doc: &OasDocument) -> u32 {
-    doc.lineage
-        .as_ref()
-        .map(|l| l.depth.unwrap_or(1) as u32)
-        .unwrap_or(0)
+    doc.lineage.as_ref().map(|l| l.generation).unwrap_or(0)
 }
 
 #[cfg(test)]

@@ -51,14 +51,16 @@
     "@openagentid/sdk": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@openagentid/sdk": { "optional": true }
+    "@openagentid/sdk": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^1.6.0",
+    "@vitest/coverage-v8": "^3.2.6",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0"
+    "vitest": "^3.2.6"
   },
   "keywords": [
     "openagent",
@@ -71,5 +73,8 @@
     "rfc7644",
     "okta",
     "azure-ad"
-  ]
+  ],
+  "overrides": {
+    "esbuild": "^0.28.1"
+  }
 }
