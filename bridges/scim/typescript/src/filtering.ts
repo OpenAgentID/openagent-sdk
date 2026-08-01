@@ -206,17 +206,19 @@ function parseComparison(tokens: readonly Token[], start: number): ParseResult {
 export function matchesFilter(record: AgentRecord, filter: ParsedFilter | undefined): boolean {
   if (!filter) return true;
 
-  if (filter.type === 'and') {
-    return filter.filters.every((f) => matchesFilter(record, f));
+  // Switch on the discriminant so every `ParsedFilter` variant narrows
+  // exhaustively; `LogicalFilter.type` is a union and does not narrow via
+  // early-return `===` checks.
+  switch (filter.type) {
+    case 'and':
+      return filter.filters.every((f) => matchesFilter(record, f));
+    case 'or':
+      return filter.filters.some((f) => matchesFilter(record, f));
+    case 'attribute': {
+      const fieldValue = resolveAttribute(record, filter.attribute);
+      return compareValue(fieldValue, filter.op, filter.value);
+    }
   }
-
-  if (filter.type === 'or') {
-    return filter.filters.some((f) => matchesFilter(record, f));
-  }
-
-  // Attribute filter
-  const fieldValue = resolveAttribute(record, filter.attribute);
-  return compareValue(fieldValue, filter.op, filter.value);
 }
 
 function resolveAttribute(record: AgentRecord, attribute: string): unknown {

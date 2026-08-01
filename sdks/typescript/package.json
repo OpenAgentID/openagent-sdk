@@ -55,8 +55,12 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "sideEffects": false,
   "engines": {
     "node": ">=20"

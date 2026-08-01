@@ -17,8 +17,13 @@
   "files": [
     "dist",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

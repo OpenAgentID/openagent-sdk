@@ -38,7 +38,7 @@ describe('DenyUnlessScopedSkillsPolicy', () => {
     };
     const d = await p.evaluate('foo', ctx);
     expect(d.allowed).toBe(false);
-    expect(d.reason).toContain('Missing scope');
+    expect(d.reason).toContain('No matching scope');
   });
 
   it('allows when scope is held', async () => {

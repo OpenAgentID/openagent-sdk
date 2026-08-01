@@ -117,6 +117,12 @@ export interface PluginHooks {
 export interface HookDecision {
   allow: boolean;
   reason?: string;
+  /**
+   * Hash of the canonicalised tool input (preToolUse only) — thread it into
+   * the matching postToolUse call so the audit chain links preflight to
+   * completion.
+   */
+  inputHash?: string;
 }
 
 const PLUGIN_VERSION = '0.1.0';
@@ -164,9 +170,9 @@ export function openAgentPlugin(opts: OpenAgentPluginOptions): OpenAgentPlugin {
         if (denyMode === 'throw') {
           throw new ToolDeniedError(input.toolName, r.reason);
         }
-        return { allow: false, ...(r.reason ? { reason: r.reason } : {}) };
+        return { allow: false, ...(r.reason ? { reason: r.reason } : {}), inputHash: r.inputHash };
       }
-      return { allow: true };
+      return { allow: true, inputHash: r.inputHash };
     },
 
     async postToolUse(input) {

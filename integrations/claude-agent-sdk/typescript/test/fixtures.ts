@@ -80,7 +80,12 @@ export class MockClaudeAgentSession {
   async runTool(toolName: string, args: unknown, result: unknown): Promise<unknown> {
     const pre = await this.plugin.hooks.preToolUse({ toolName, args });
     if (!pre.allow) return { denied: true, reason: pre.reason };
-    await this.plugin.hooks.postToolUse({ toolName, args, ok: true, result });
+    await this.plugin.hooks.postToolUse({
+      toolName,
+      ok: true,
+      result,
+      ...(pre.inputHash !== undefined ? { inputHash: pre.inputHash } : {}),
+    });
     return result;
   }
 
