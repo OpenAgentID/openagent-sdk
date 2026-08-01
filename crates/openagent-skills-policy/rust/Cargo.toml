@@ -15,8 +15,8 @@ crate-type = ["rlib"]
 
 [dependencies]
 # Arsenal primitives — we extend rather than reinvent
-arsenal-core = { git = "https://github.com/OpenAgentID/arsenal", branch = "main" }
-arsenal-policy = { git = "https://github.com/OpenAgentID/arsenal", branch = "main" }
+arsenal-core = { git = "https://github.com/OpenAgentID/arsenal", branch = "main", version = "2.0.0" }
+arsenal-policy = { git = "https://github.com/OpenAgentID/arsenal", branch = "main", version = "2.0.0" }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
