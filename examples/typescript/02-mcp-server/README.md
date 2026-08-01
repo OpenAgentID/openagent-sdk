@@ -41,3 +41,9 @@ A caller who authenticates but lacks the scope gets a structured denial. The ser
 - Add a second tool (e.g., `list_recent_files`) with different scope requirements and observe the per-tool gating.
 - Point `OPENAGENT_BROKER_URL` at a real broker and register a real Tavily credential.
 - Move on to [03-claude-agent-plugin](../03-claude-agent-plugin) to see the same auth layer integrated into a Claude Agent SDK run.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

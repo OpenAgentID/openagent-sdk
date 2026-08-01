@@ -38,3 +38,9 @@ Open `./SKILLS.md` and change a policy — for example, flip `delete-file` from 
 - Add a spend gate: `allow: if spend.daily(USD) < 100`.
 - Write a skills test file (see [guide](../../../docs/guides/skills-governance.md)) and run `openagent skills test`.
 - Use this pattern to gate tool invocations in [03-claude-agent-plugin](../03-claude-agent-plugin).
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

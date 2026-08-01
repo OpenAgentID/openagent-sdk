@@ -37,3 +37,9 @@ See `./SKILLS.md` for the policy file. Edit it to change what the agent can invo
 - Change `draft-pr-comment` to require a human approval window and watch the run pause.
 - Add a `scopes` entry to allow `merge_pr` and observe that it's still denied by the skills policy (defense in depth).
 - Compare the audit log between a successful and a denied run.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

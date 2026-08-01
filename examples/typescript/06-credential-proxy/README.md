@@ -63,3 +63,9 @@ See [error-codes.md](../../../docs/reference/error-codes.md) for the full code t
 - Add a second service and register credentials for both.
 - Enable semantic caching with `{ cache: { mode: 'semantic', ttlSeconds: 60 } }`.
 - Watch the audit log for credential fetches with `OpenAgent.audit(did).recent({ limit: 10 })`.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

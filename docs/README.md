@@ -35,3 +35,9 @@ The SDKs are versioned 0.1.0 at the time of this writing. The public facade (`Op
 ## Examples
 
 The companion [examples directory](../examples/) has runnable projects for each major workflow: hello-agent, MCP server integration, Claude Agent SDK plugin, delegated agents, skills governance, and credential proxy. Every example is a self-contained project that compiles and runs once the SDK packages resolve.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../LICENSE-APACHE) or [MIT license](../LICENSE-MIT), at your option.

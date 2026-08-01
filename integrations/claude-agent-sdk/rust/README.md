@@ -176,4 +176,6 @@ code in this crate needs to change. See the inline comments in
 
 ## License
 
-Apache-2.0 OR MIT
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

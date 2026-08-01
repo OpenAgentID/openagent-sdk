@@ -30,7 +30,7 @@ bun add @openagentid/sdk
 npm install @openagentid/sdk
 ```
 
-Peer dependencies (optional — the SDK ships with safe stubs for local dev):
+Peer dependencies (optional — production fails closed when a subsystem is unconfigured; in-memory fakes for tests live in `@openagentid/sdk-testing`):
 
 - `@openagentid/oas-sdk` — OAS identity resolver, signer, and Sigil-backed lineage verifier contract
 - `@openagentid/arsenal-sdk` — Arsenal credential broker client

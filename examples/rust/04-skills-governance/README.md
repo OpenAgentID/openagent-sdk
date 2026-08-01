@@ -37,3 +37,9 @@ Open `./SKILLS.md` and edit a policy — flip `delete-file` to `allow: always`, 
 - Add a `spend.daily(USD) < 100` gate to an LLM-using skill.
 - Write a test fixture (`skills.test.yaml`) and run `openagent skills test` against it.
 - Compare with the TypeScript example in [../../typescript/05-skills-governance](../../typescript/05-skills-governance) — the behavior is identical.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

@@ -34,3 +34,9 @@ The example runs against `fake://in-memory` by default, so no external broker is
 - Change `scopes` to include multiple services and observe them on the printed context.
 - Set `OPENAGENT_BROKER_URL` to a real broker (see the [installation docs](../../../docs/getting-started/installation.md)).
 - Move on to [02-mcp-server](../02-mcp-server) to see OpenAgent in a real HTTP server.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

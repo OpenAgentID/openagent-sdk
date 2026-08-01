@@ -33,3 +33,9 @@ By default the example runs against `fake://in-memory`, so no broker is needed. 
 - Inspect the agent's lineage via `agent.lineage()`.
 - Compare this example with the TypeScript version — the API shape is deliberately identical.
 - Move on to [02-mcp-server](../02-mcp-server) for a real HTTP server integration.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

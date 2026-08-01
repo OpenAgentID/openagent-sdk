@@ -111,3 +111,9 @@ cargo run --release -- ../vectors --filter oas:parse-hmr
 
 Both runners emit JUnit XML via `--junit <path>`. The reports are schema-compatible
 with the JUnit xunit format used by GitHub Actions, CircleCI, and GitLab runners.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../LICENSE-APACHE) or [MIT license](../LICENSE-MIT), at your option.

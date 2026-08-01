@@ -42,3 +42,9 @@ The no-amplification rule is enforced in the SDK (fast fail) and in the broker (
 - Try revoking the parent and observe that the child and grandchild fail to refresh.
 - Add a time condition to the delegation and see it appear on the child's ACT.
 - Compare with the TypeScript version in [../../typescript/04-delegated-agent](../../typescript/04-delegated-agent).
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

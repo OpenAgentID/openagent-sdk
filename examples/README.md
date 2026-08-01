@@ -51,8 +51,10 @@ Examples assume you have an Arsenal broker reachable at `OPENAGENT_BROKER_URL` a
 
 ## Relationship to the SDKs
 
-Examples reference `@openagentid/sdk` (TS) and `openagent-sdk` (Rust) as workspace dependencies. If you're running outside the workspace, change the reference to a published version or a path dependency.
+Examples reference `@openagentid/sdk` (TS) and `openagent-sdk` (Rust) as workspace dependencies. If you're running outside the workspace, change the reference to a published version or a path dependency. Feel free to copy and adapt.
 
 ## License
 
-Examples are released under the same license as the SDK itself (see repository root). Feel free to copy and adapt.
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../LICENSE-APACHE) or [MIT license](../LICENSE-MIT), at your option.

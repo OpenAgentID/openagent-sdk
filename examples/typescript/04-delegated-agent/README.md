@@ -44,3 +44,9 @@ The no-amplification rule is the single most important invariant in OpenAgent. N
 - Add a time condition to the child's delegation and observe it on the grandchild.
 - Revoke the parent and observe that both child and grandchild become unusable.
 - Move on to [05-skills-governance](../05-skills-governance) to see policy-level gating on top of scope-level gating.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.

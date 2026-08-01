@@ -68,3 +68,9 @@ The drift rule: Python verifies through its own spec-exact implementation of
 the published format, and the vectors prove it agrees with the canonical
 crate — the suite that exists so three handwritten implementations never
 drift again.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](../../LICENSE-APACHE) or [MIT license](../../LICENSE-MIT), at your option.
