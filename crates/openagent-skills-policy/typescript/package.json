@@ -1,8 +1,9 @@
 {
   "name": "@openagentid/skills-policy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Governance for agent skills — a specialized Arsenal policy that gates which SKILLS.md entries an agent may invoke, with rate limiting, argument constraints, time windows, consent, and hash-chained audit receipts.",
   "license": "Apache-2.0 OR MIT",
+  "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

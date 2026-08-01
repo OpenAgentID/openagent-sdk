@@ -44,4 +44,6 @@ Denials are typed errors (`NotAllowedError`, `RateLimitExceededError`, `Argument
 
 ## License
 
-Apache-2.0 OR MIT © L1fe AI
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.

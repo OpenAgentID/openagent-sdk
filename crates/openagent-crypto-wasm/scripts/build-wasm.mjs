@@ -57,6 +57,7 @@ const pkgPath = join(crate, 'pkg', 'package.json');
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 
 pkg.name = '@openagentid/crypto-wasm';
+pkg.author = 'L1fe Labs, Inc. <eng@l1fe.ai>';
 pkg.publishConfig = { access: 'public' };
 pkg.sideEffects = false;
 pkg.exports = {

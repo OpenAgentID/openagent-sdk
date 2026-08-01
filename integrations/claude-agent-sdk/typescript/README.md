@@ -158,4 +158,6 @@ bun run build
 
 ## License
 
-Apache-2.0
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.

@@ -1,9 +1,9 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenAgent SDK — Clerk for autonomous agents. One import for identity, credentials, and verification.",
   "license": "Apache-2.0 OR MIT",
-  "author": "L1fe AI <eng@l1fe.ai>",
+  "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {
     "type": "git",

@@ -4,7 +4,7 @@
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",
-  "author": "L1fe AI <eng@l1fe.ai>",
+  "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {
     "type": "git",

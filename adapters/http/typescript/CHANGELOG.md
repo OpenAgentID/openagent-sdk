@@ -4,6 +4,12 @@
 
 - **Breaking:** package renamed from `@openagent/http` to `@openagentid/http`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
 
+## [0.1.1] - 2026-07-31
+
+### Fixed
+
+- Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
+
 ## 0.1.0 (2026-04-11)
 
 - Initial release.

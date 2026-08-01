@@ -1,8 +1,9 @@
 {
   "name": "@openagentid/anchor-eas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ethereum Attestation Service (EAS) adapter for the OAS lineage anchor seam: resolution via EAS GraphQL, publishing via the maintained EAS SDK.",
   "license": "Apache-2.0 OR MIT",
+  "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

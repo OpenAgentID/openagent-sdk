@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a verification test proving the offline stub rejects privileged authority requests instead of pretending local identity is enough.
 - Added `PrivilegedAuthorityVerificationClient` and `PrivilegedAuthorityVerifier` so runtime request verification can wrap an AEGIS verifier, call an OAS-backed authority verifier when `requirePrivilegedAuthority` is set, attach normalized authority context, and fail closed on malformed subject, root, path-kind, or scope results.
 
+## [0.1.1] - 2026-07-31
+
+### Fixed
+
+- Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
+
 ## [0.1.0] - 2026-04-11
 
 ### Added

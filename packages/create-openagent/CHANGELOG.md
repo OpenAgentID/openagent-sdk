@@ -1,5 +1,11 @@
 # Changelog — create-openagent
 
+## [0.1.1] - 2026-07-31
+
+### Fixed
+
+- Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
+
 ## 0.1.0 (2026-04-11)
 
 - Initial release of `create-openagent` CLI scaffolding tool

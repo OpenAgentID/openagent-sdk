@@ -1,9 +1,9 @@
 {
   "name": "@openagentid/http",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "HTTP adapter for the OpenAgent Auth Protocol (OAAP). Middleware, client, and discovery for agent-to-service mutual authentication.",
   "license": "Apache-2.0 OR MIT",
-  "author": "L1fe AI <eng@l1fe.ai>",
+  "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
   "repository": {
     "type": "git",

@@ -10,6 +10,12 @@ and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 - **Breaking:** package renamed from `@openagent/skills-policy` to `@openagentid/skills-policy`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
 
+## [0.1.1] - 2026-07-31
+
+### Fixed
+
+- Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
+
 ## [0.1.0] — 2026-04-11
 
 ### Added

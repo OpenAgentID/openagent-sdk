@@ -46,3 +46,9 @@ OpenAgent.configure({
 `StubIdentityProvider.signChallenge` returns a tagged base64 blob, not an
 Ed25519 signature. `stubArsenalClient` echoes deterministic proxy URLs and
 mints nothing.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
