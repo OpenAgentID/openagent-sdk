@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.1 — animated agent characters, 2026-10-11
+
+- Add an open, deterministic character SDK and public Fetch API with OpenAPI
+  3.1, animated SVGs, CORS, bounded inputs and conditional GET/HEAD caching.
+- Make Autos the default agent skin; provide SpaceX with eight geometric
+  shapes. Both skins share sixteen live-eye expressions, height-based blinking
+  and bounded gaze. Skin selection is independent of expression and identity.
+- Add versioned avatarSkin and preferred avatarExpression profile fields;
+  preserve HTTPS overrides and explicit OAS Glyph selection with avatarSkin:null.
+- Add the deployable Node service and interactive preview, reduced-motion
+  controls, independent remote BLAKE3 vectors and real HTTP regression checks.
+- Publish the preceding SDK/OIDC 0.2.0 identity release; character work remains
+  a separate SDK release. OIDC stays at 0.2.0.
+
 ### 0.2.0 self-rooted agent identities — 2026-10-11
 
 - Support explicitly authorized self-rooted agents and their signed descendants

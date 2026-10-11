@@ -1,7 +1,7 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.2.0",
-  "description": "OpenAgent SDK: open agent identity, verified ownership, OATS and OAS Glyph avatars.",
+  "version": "0.2.1",
+  "description": "OpenAgent SDK: open agent identity, OATS and animated Autos/SpaceX avatar skins.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
@@ -69,6 +69,16 @@
       "types": "./dist/oats.d.ts",
       "import": "./dist/oats.js",
       "require": "./dist/oats.cjs"
+    },
+    "./characters": {
+      "types": "./dist/characters.d.ts",
+      "import": "./dist/characters.js",
+      "require": "./dist/characters.cjs"
+    },
+    "./character-api": {
+      "types": "./dist/character-api.d.ts",
+      "import": "./dist/character-api.js",
+      "require": "./dist/character-api.cjs"
     }
   },
   "files": [

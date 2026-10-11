@@ -133,6 +133,34 @@ const runtime = new OpenAgentRuntime({
 });
 ```
 
+## Agent avatars and the open character API
+
+Autos is the default body/face skin for agents. SpaceX provides geometric
+shapes. Both use the same sixteen expressions and two live pill eyes. Change
+skin independently of expression, blink or gaze; neither changes the DID.
+
+```ts
+import { agentAvatar, generateCharacter, createCharacterApiHandler } from '@openagentid/sdk';
+
+const did = 'did:oas:openagent:agent:preview';
+const character = generateCharacter(did, { expression: 'curious' }); // Autos
+const svg = generateCharacter(did, { skin: 'spacex', shape: 'cloud', expression: 'curious' }).svg;
+const avatarUrl = agentAvatar(did, {
+  avatarSkin: { skin: 'autos', skinVersion: 1, eyeStyle: 'live-v1' },
+  avatarExpression: 'happy',
+}, { animated: false, state: { blink: 0.25, gaze: { x: 0.4, y: 0 } } });
+const handle = createCharacterApiHandler(); // Fetch Request -> Promise<Response>
+```
+
+`avatarOverride` remains a user/agent-selected HTTPS image with highest
+priority. Clearing it restores the selected skin; `avatarSkin:null` explicitly
+selects the OAS Glyph. Non-agent principals still default to their Glyph.
+For reduced motion or runtime-controlled eyes, use `animated:false`.
+Character generation is public decoration, not identity authentication.
+
+See [the full API contract](../../docs/characters.md) and
+[OpenAPI 3.1 schema](../../docs/character-api.openapi.json).
+
 ## Runtime support
 
 | Runtime            | Status       |

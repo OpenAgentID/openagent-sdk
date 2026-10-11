@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1 — animated agent characters, 2026-10-11
+
+- Export characters and character-api subpaths: deterministic Autos/SpaceX
+  skins, eleven shapes, sixteen shared expressions and animated/static live eyes.
+- Add the public Fetch character API, strict OpenAPI 3.1 contract, CORS,
+  streaming input limits, ETags and safe SVG responses.
+- agentAvatar now defaults agent principals to Autos. Select body/face through
+  avatarSkin and eyes through avatarExpression or runtime expression/state;
+  avatarSkin:null retains OAS Glyph. HTTPS overrides take precedence.
+- Preserve the existing OAS Glyph encoding and non-agent default avatars.
+
 ### 0.2.0 self-rooted agent identities — 2026-10-11
 
 - Support explicitly authorized self-rooted agents and their signed descendants

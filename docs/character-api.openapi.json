@@ -1,0 +1,2277 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAgentID Character API",
+    "version": "1.0.0",
+    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill skin; SpaceX offers eight silhouette shapes. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits."
+  },
+  "servers": [
+    {
+      "url": "/v1/characters"
+    }
+  ],
+  "security": [],
+  "paths": {
+    "/skins": {
+      "get": {
+        "summary": "List versioned character skins",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CharacterSkinV1"
+                  }
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      },
+      "head": {
+        "summary": "Headers for list versioned character skins",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "description": "Same status, headers and Content-Length as GET, no response body.",
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "405": {
+            "description": "Not allowed, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "summary": "Public CORS preflight",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No body; schema-valid requests can be made cross-origin without credentials.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Access-Control-Allow-Methods": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "schema": {
+                  "type": "string",
+                  "const": "Content-Type, If-None-Match"
+                }
+              },
+              "Access-Control-Max-Age": {
+                "schema": {
+                  "type": "integer",
+                  "const": 86400
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      }
+    },
+    "/svg/{did}": {
+      "get": {
+        "summary": "Render a character SVG",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/did"
+          },
+          {
+            "$ref": "#/components/parameters/skin"
+          },
+          {
+            "$ref": "#/components/parameters/skinVersion"
+          },
+          {
+            "$ref": "#/components/parameters/eyeStyle"
+          },
+          {
+            "$ref": "#/components/parameters/size"
+          },
+          {
+            "$ref": "#/components/parameters/animated"
+          },
+          {
+            "$ref": "#/components/parameters/blink"
+          },
+          {
+            "$ref": "#/components/parameters/gazeX"
+          },
+          {
+            "$ref": "#/components/parameters/gazeY"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          },
+          {
+            "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/expression"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              },
+              "Content-Security-Policy": {
+                "$ref": "#/components/headers/SvgCsp"
+              }
+            },
+            "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              },
+              "Content-Security-Policy": {
+                "$ref": "#/components/headers/SvgCsp"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      },
+      "head": {
+        "summary": "Headers for render a character svg",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/did"
+          },
+          {
+            "$ref": "#/components/parameters/skin"
+          },
+          {
+            "$ref": "#/components/parameters/skinVersion"
+          },
+          {
+            "$ref": "#/components/parameters/eyeStyle"
+          },
+          {
+            "$ref": "#/components/parameters/size"
+          },
+          {
+            "$ref": "#/components/parameters/animated"
+          },
+          {
+            "$ref": "#/components/parameters/blink"
+          },
+          {
+            "$ref": "#/components/parameters/gazeX"
+          },
+          {
+            "$ref": "#/components/parameters/gazeY"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          },
+          {
+            "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/expression"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "description": "Same status, headers and Content-Length as GET, no response body.",
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              },
+              "Content-Security-Policy": {
+                "$ref": "#/components/headers/SvgCsp"
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              },
+              "Content-Security-Policy": {
+                "$ref": "#/components/headers/SvgCsp"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "405": {
+            "description": "Not allowed, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "summary": "Public CORS preflight",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/did"
+          },
+          {
+            "$ref": "#/components/parameters/skin"
+          },
+          {
+            "$ref": "#/components/parameters/skinVersion"
+          },
+          {
+            "$ref": "#/components/parameters/eyeStyle"
+          },
+          {
+            "$ref": "#/components/parameters/size"
+          },
+          {
+            "$ref": "#/components/parameters/animated"
+          },
+          {
+            "$ref": "#/components/parameters/blink"
+          },
+          {
+            "$ref": "#/components/parameters/gazeX"
+          },
+          {
+            "$ref": "#/components/parameters/gazeY"
+          },
+          {
+            "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/expression"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No body; schema-valid requests can be made cross-origin without credentials.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Access-Control-Allow-Methods": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "schema": {
+                  "type": "string",
+                  "const": "Content-Type, If-None-Match"
+                }
+              },
+              "Access-Control-Max-Age": {
+                "schema": {
+                  "type": "integer",
+                  "const": 86400
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      }
+    },
+    "/{did}": {
+      "get": {
+        "summary": "Generate a character descriptor",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/did"
+          },
+          {
+            "$ref": "#/components/parameters/skin"
+          },
+          {
+            "$ref": "#/components/parameters/skinVersion"
+          },
+          {
+            "$ref": "#/components/parameters/eyeStyle"
+          },
+          {
+            "$ref": "#/components/parameters/size"
+          },
+          {
+            "$ref": "#/components/parameters/animated"
+          },
+          {
+            "$ref": "#/components/parameters/blink"
+          },
+          {
+            "$ref": "#/components/parameters/gazeX"
+          },
+          {
+            "$ref": "#/components/parameters/gazeY"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          },
+          {
+            "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/expression"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterDescriptorV1"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      },
+      "head": {
+        "summary": "Headers for generate a character descriptor",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/did"
+          },
+          {
+            "$ref": "#/components/parameters/skin"
+          },
+          {
+            "$ref": "#/components/parameters/skinVersion"
+          },
+          {
+            "$ref": "#/components/parameters/eyeStyle"
+          },
+          {
+            "$ref": "#/components/parameters/size"
+          },
+          {
+            "$ref": "#/components/parameters/animated"
+          },
+          {
+            "$ref": "#/components/parameters/blink"
+          },
+          {
+            "$ref": "#/components/parameters/gazeX"
+          },
+          {
+            "$ref": "#/components/parameters/gazeY"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          },
+          {
+            "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/expression"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "description": "Same status, headers and Content-Length as GET, no response body.",
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "405": {
+            "description": "Not allowed, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "summary": "Public CORS preflight",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/did"
+          },
+          {
+            "$ref": "#/components/parameters/skin"
+          },
+          {
+            "$ref": "#/components/parameters/skinVersion"
+          },
+          {
+            "$ref": "#/components/parameters/eyeStyle"
+          },
+          {
+            "$ref": "#/components/parameters/size"
+          },
+          {
+            "$ref": "#/components/parameters/animated"
+          },
+          {
+            "$ref": "#/components/parameters/blink"
+          },
+          {
+            "$ref": "#/components/parameters/gazeX"
+          },
+          {
+            "$ref": "#/components/parameters/gazeY"
+          },
+          {
+            "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/expression"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No body; schema-valid requests can be made cross-origin without credentials.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Access-Control-Allow-Methods": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "schema": {
+                  "type": "string",
+                  "const": "Content-Type, If-None-Match"
+                }
+              },
+              "Access-Control-Max-Age": {
+                "schema": {
+                  "type": "integer",
+                  "const": 86400
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      }
+    },
+    "/generate": {
+      "post": {
+        "summary": "Generate a character descriptor from JSON",
+        "description": "Stateless and unauthenticated; no query parameters. Unknown fields are rejected at every level. Streamed body size is checked independently of Content-Length.",
+        "x-max-body-bytes": 16384,
+        "x-reject-unknown-query-parameters": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CharacterGenerateRequestV1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Generated descriptor; no-store, no ETag.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CharacterDescriptorV1"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          },
+          "413": {
+            "$ref": "#/components/responses/BodyTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          }
+        }
+      },
+      "options": {
+        "summary": "Public CORS preflight",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No body; schema-valid requests can be made cross-origin without credentials.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Access-Control-Allow-Methods": {
+                "schema": {
+                  "type": "string",
+                  "const": "POST, OPTIONS"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "schema": {
+                  "type": "string",
+                  "const": "Content-Type, If-None-Match"
+                }
+              },
+              "Access-Control-Max-Age": {
+                "schema": {
+                  "type": "integer",
+                  "const": 86400
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "Read this OpenAPI schema",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenAPI 3.1 document; servers[0].url reflects the configured mount path."
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      },
+      "head": {
+        "summary": "Headers for read this openapi schema",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "description": "Same status, headers and Content-Length as GET, no response body.",
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "405": {
+            "description": "Not allowed, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "summary": "Public CORS preflight",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No body; schema-valid requests can be made cross-origin without credentials.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Access-Control-Allow-Methods": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "schema": {
+                  "type": "string",
+                  "const": "Content-Type, If-None-Match"
+                }
+              },
+              "Access-Control-Max-Age": {
+                "schema": {
+                  "type": "integer",
+                  "const": 86400
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentDid": {
+        "type": "string",
+        "maxLength": 512,
+        "pattern": "^did:(?:oas:[a-z0-9][a-z0-9-]{0,63}|l1fe):agent(?::instance)?:[A-Za-z0-9._-]+$",
+        "description": "Existing agent or agent:instance DID; generation neither verifies nor registers it."
+      },
+      "CharacterAppearanceV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "skin"
+        ],
+        "properties": {
+          "skin": {
+            "type": "string",
+            "enum": [
+              "autos",
+              "spacex"
+            ],
+            "default": "autos"
+          },
+          "skinVersion": {
+            "type": "integer",
+            "const": 1,
+            "default": 1
+          },
+          "eyeStyle": {
+            "type": "string",
+            "const": "live-v1",
+            "default": "live-v1",
+            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "slender",
+              "wide",
+              "circle",
+              "pebble",
+              "squircle",
+              "capsule",
+              "triangle",
+              "hexagon",
+              "cloud",
+              "droplet"
+            ],
+            "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "skin"
+              ],
+              "properties": {
+                "skin": {
+                  "const": "spacex"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "circle",
+                    "pebble",
+                    "squircle",
+                    "capsule",
+                    "triangle",
+                    "hexagon",
+                    "cloud",
+                    "droplet"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "GazeV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "x",
+          "y"
+        ],
+        "properties": {
+          "x": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1,
+            "default": 0
+          },
+          "y": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1,
+            "default": 0
+          }
+        }
+      },
+      "LiveEyeStateV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "blink": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0
+          },
+          "gaze": {
+            "$ref": "#/components/schemas/GazeV1"
+          }
+        }
+      },
+      "CharacterOptionsV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "skin": {
+            "type": "string",
+            "enum": [
+              "autos",
+              "spacex"
+            ],
+            "default": "autos"
+          },
+          "skinVersion": {
+            "type": "integer",
+            "const": 1,
+            "default": 1
+          },
+          "eyeStyle": {
+            "type": "string",
+            "const": "live-v1",
+            "default": "live-v1",
+            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 2048,
+            "default": 512
+          },
+          "animated": {
+            "type": "boolean",
+            "default": true,
+            "description": "Native SMIL animation with no JavaScript or CSS."
+          },
+          "state": {
+            "$ref": "#/components/schemas/LiveEyeStateV1"
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "slender",
+              "wide",
+              "circle",
+              "pebble",
+              "squircle",
+              "capsule",
+              "triangle",
+              "hexagon",
+              "cloud",
+              "droplet"
+            ],
+            "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          },
+          "expression": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "attentive",
+              "surprised",
+              "excited",
+              "happy",
+              "laughing",
+              "angry",
+              "sad",
+              "scared",
+              "suspicious",
+              "confused",
+              "curious",
+              "proud",
+              "shy",
+              "unimpressed",
+              "sleepy"
+            ],
+            "default": "neutral",
+            "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "skin"
+              ],
+              "properties": {
+                "skin": {
+                  "const": "spacex"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "circle",
+                    "pebble",
+                    "squircle",
+                    "capsule",
+                    "triangle",
+                    "hexagon",
+                    "cloud",
+                    "droplet"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CharacterGenerateRequestV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "did"
+        ],
+        "properties": {
+          "did": {
+            "$ref": "#/components/schemas/AgentDid"
+          },
+          "skin": {
+            "type": "string",
+            "enum": [
+              "autos",
+              "spacex"
+            ],
+            "default": "autos"
+          },
+          "skinVersion": {
+            "type": "integer",
+            "const": 1,
+            "default": 1
+          },
+          "eyeStyle": {
+            "type": "string",
+            "const": "live-v1",
+            "default": "live-v1",
+            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 2048,
+            "default": 512
+          },
+          "animated": {
+            "type": "boolean",
+            "default": true,
+            "description": "Native SMIL animation with no JavaScript or CSS."
+          },
+          "state": {
+            "$ref": "#/components/schemas/LiveEyeStateV1"
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "slender",
+              "wide",
+              "circle",
+              "pebble",
+              "squircle",
+              "capsule",
+              "triangle",
+              "hexagon",
+              "cloud",
+              "droplet"
+            ],
+            "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          },
+          "expression": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "attentive",
+              "surprised",
+              "excited",
+              "happy",
+              "laughing",
+              "angry",
+              "sad",
+              "scared",
+              "suspicious",
+              "confused",
+              "curious",
+              "proud",
+              "shy",
+              "unimpressed",
+              "sleepy"
+            ],
+            "default": "neutral",
+            "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "skin"
+              ],
+              "properties": {
+                "skin": {
+                  "const": "spacex"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "circle",
+                    "pebble",
+                    "squircle",
+                    "capsule",
+                    "triangle",
+                    "hexagon",
+                    "cloud",
+                    "droplet"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CharacterDescriptorV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "did",
+          "skin",
+          "skinVersion",
+          "eyeStyle",
+          "shape",
+          "color",
+          "size",
+          "animated",
+          "state",
+          "svg",
+          "expression"
+        ],
+        "properties": {
+          "did": {
+            "$ref": "#/components/schemas/AgentDid"
+          },
+          "skin": {
+            "type": "string",
+            "enum": [
+              "autos",
+              "spacex"
+            ],
+            "default": "autos"
+          },
+          "skinVersion": {
+            "type": "integer",
+            "const": 1,
+            "default": 1
+          },
+          "eyeStyle": {
+            "type": "string",
+            "const": "live-v1",
+            "default": "live-v1",
+            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 2048,
+            "default": 512
+          },
+          "animated": {
+            "type": "boolean",
+            "default": true,
+            "description": "Native SMIL animation with no JavaScript or CSS."
+          },
+          "state": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "blink",
+              "gaze"
+            ],
+            "properties": {
+              "blink": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0
+              },
+              "gaze": {
+                "$ref": "#/components/schemas/GazeV1"
+              }
+            }
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "svg": {
+            "type": "string",
+            "description": "Escaped, self-contained SVG on a transparent background. No external resources, JavaScript, CSS or fonts."
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "slender",
+              "wide",
+              "circle",
+              "pebble",
+              "squircle",
+              "capsule",
+              "triangle",
+              "hexagon",
+              "cloud",
+              "droplet"
+            ],
+            "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          },
+          "expression": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "attentive",
+              "surprised",
+              "excited",
+              "happy",
+              "laughing",
+              "angry",
+              "sad",
+              "scared",
+              "suspicious",
+              "confused",
+              "curious",
+              "proud",
+              "shy",
+              "unimpressed",
+              "sleepy"
+            ],
+            "default": "neutral",
+            "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "skin"
+              ],
+              "properties": {
+                "skin": {
+                  "const": "spacex"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "circle",
+                    "pebble",
+                    "squircle",
+                    "capsule",
+                    "triangle",
+                    "hexagon",
+                    "cloud",
+                    "droplet"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CharacterSkinV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "version",
+          "eyeStyles",
+          "shapes",
+          "expressions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "autos",
+              "spacex"
+            ],
+            "default": "autos"
+          },
+          "label": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "const": 1
+          },
+          "eyeStyles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "const": "live-v1",
+              "default": "live-v1",
+              "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "shapes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "standard",
+                "slender",
+                "wide",
+                "circle",
+                "pebble",
+                "squircle",
+                "capsule",
+                "triangle",
+                "hexagon",
+                "cloud",
+                "droplet"
+              ],
+              "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "expressions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "neutral",
+                "attentive",
+                "surprised",
+                "excited",
+                "happy",
+                "laughing",
+                "angry",
+                "sad",
+                "scared",
+                "suspicious",
+                "confused",
+                "curious",
+                "proud",
+                "shy",
+                "unimpressed",
+                "sleepy"
+              ],
+              "default": "neutral",
+              "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+            },
+            "minItems": 16,
+            "maxItems": 16,
+            "uniqueItems": true
+          }
+        }
+      },
+      "CharacterApiError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "body_too_large",
+              "unsupported_media_type",
+              "method_not_allowed",
+              "not_found"
+            ]
+          }
+        }
+      }
+    },
+    "parameters": {
+      "did": {
+        "name": "did",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/AgentDid"
+        },
+        "description": "Percent-encode the entire DID as one path segment."
+      },
+      "IfNoneMatch": {
+        "name": "If-None-Match",
+        "in": "header",
+        "schema": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "description": "GET/HEAD accepts a strong/weak validator, comma-separated list or *. Headers over 4096 characters are ignored."
+      },
+      "skin": {
+        "name": "skin",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "autos",
+            "spacex"
+          ],
+          "default": "autos"
+        }
+      },
+      "skinVersion": {
+        "name": "skinVersion",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "const": 1,
+          "default": 1
+        }
+      },
+      "eyeStyle": {
+        "name": "eyeStyle",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "const": "live-v1",
+          "default": "live-v1",
+          "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+        }
+      },
+      "size": {
+        "name": "size",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 32,
+          "maximum": 2048,
+          "default": 512
+        },
+        "description": "Unsigned decimal integer, no leading zeroes."
+      },
+      "animated": {
+        "name": "animated",
+        "in": "query",
+        "schema": {
+          "type": "boolean",
+          "default": true,
+          "description": "Native SMIL animation with no JavaScript or CSS."
+        },
+        "description": "Exactly true or false."
+      },
+      "blink": {
+        "name": "blink",
+        "in": "query",
+        "schema": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0
+        },
+        "description": "Finite ordinary decimal notation, no exponent, whitespace or leading +."
+      },
+      "gazeX": {
+        "name": "gazeX",
+        "in": "query",
+        "schema": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        },
+        "description": "Finite ordinary decimal notation, no exponent, whitespace or leading +. gazeX and gazeY must be supplied together."
+      },
+      "gazeY": {
+        "name": "gazeY",
+        "in": "query",
+        "schema": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "default": 0
+        },
+        "description": "Finite ordinary decimal notation, no exponent, whitespace or leading +. gazeX and gazeY must be supplied together."
+      },
+      "shape": {
+        "name": "shape",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "slender",
+            "wide",
+            "circle",
+            "pebble",
+            "squircle",
+            "capsule",
+            "triangle",
+            "hexagon",
+            "cloud",
+            "droplet"
+          ],
+          "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+        }
+      },
+      "expression": {
+        "name": "expression",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "neutral",
+            "attentive",
+            "surprised",
+            "excited",
+            "happy",
+            "laughing",
+            "angry",
+            "sad",
+            "scared",
+            "suspicious",
+            "confused",
+            "curious",
+            "proud",
+            "shy",
+            "unimpressed",
+            "sleepy"
+          ],
+          "default": "neutral",
+          "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+        }
+      }
+    },
+    "headers": {
+      "CorsOrigin": {
+        "schema": {
+          "type": "string",
+          "const": "*"
+        }
+      },
+      "CorsExpose": {
+        "schema": {
+          "type": "string",
+          "const": "ETag, Content-Length"
+        }
+      },
+      "NoSniff": {
+        "schema": {
+          "type": "string",
+          "const": "nosniff"
+        }
+      },
+      "CacheControl": {
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ETag": {
+        "schema": {
+          "type": "string"
+        },
+        "description": "Strong SHA-256 validator for exact response bytes."
+      },
+      "ContentLength": {
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "SvgCsp": {
+        "schema": {
+          "type": "string",
+          "const": "default-src 'none'; img-src 'none'; style-src 'none'; sandbox"
+        }
+      }
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "Invalid DID, malformed value or JSON, unknown field, unknown or duplicate query parameter.",
+        "headers": {
+          "Access-Control-Allow-Origin": {
+            "$ref": "#/components/headers/CorsOrigin"
+          },
+          "Access-Control-Expose-Headers": {
+            "$ref": "#/components/headers/CorsExpose"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CharacterApiError"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Route outside this handler or unsupported route shape.",
+        "headers": {
+          "Access-Control-Allow-Origin": {
+            "$ref": "#/components/headers/CorsOrigin"
+          },
+          "Access-Control-Expose-Headers": {
+            "$ref": "#/components/headers/CorsExpose"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CharacterApiError"
+            }
+          }
+        }
+      },
+      "MethodNotAllowed": {
+        "description": "Method not supported; Allow identifies allowed methods.",
+        "headers": {
+          "Access-Control-Allow-Origin": {
+            "$ref": "#/components/headers/CorsOrigin"
+          },
+          "Access-Control-Expose-Headers": {
+            "$ref": "#/components/headers/CorsExpose"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          },
+          "Allow": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CharacterApiError"
+            }
+          }
+        }
+      },
+      "BodyTooLarge": {
+        "description": "Announced or streamed body exceeds 16384 bytes.",
+        "headers": {
+          "Access-Control-Allow-Origin": {
+            "$ref": "#/components/headers/CorsOrigin"
+          },
+          "Access-Control-Expose-Headers": {
+            "$ref": "#/components/headers/CorsExpose"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CharacterApiError"
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "Requires uncompressed UTF-8 application/json, optionally charset=utf-8.",
+        "headers": {
+          "Access-Control-Allow-Origin": {
+            "$ref": "#/components/headers/CorsOrigin"
+          },
+          "Access-Control-Expose-Headers": {
+            "$ref": "#/components/headers/CorsExpose"
+          },
+          "X-Content-Type-Options": {
+            "$ref": "#/components/headers/NoSniff"
+          },
+          "Cache-Control": {
+            "$ref": "#/components/headers/CacheControl"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CharacterApiError"
+            }
+          }
+        }
+      }
+    }
+  }
+}

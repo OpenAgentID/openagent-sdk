@@ -130,6 +130,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify public character service over HTTP
+        if: matrix.package == 'sdks/typescript'
+        working-directory: .
+        run: node --test services/character-api/test.mjs
+
       - name: Build and test anchor-eas adapter
         if: matrix.package == 'sdks/typescript'
         # The EAS lineage-anchor adapter (resolver + publisher surface).
