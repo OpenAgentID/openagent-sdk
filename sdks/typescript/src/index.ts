@@ -139,4 +139,3 @@ export * from './character-api.js';
 export { isAgentAvatarDid } from './avatar-did.js';
 
 export * from './character-animation.js';
-export * from './character-player.js';

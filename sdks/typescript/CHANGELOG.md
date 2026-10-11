@@ -9,7 +9,8 @@
   transitions preserve eye position and velocity, while identity-seeded blinking
   and gaze keep their timeline. Respect system reduced motion and cleanly stop
   animation and listeners on disposal or hidden documents.
-- Publish a self-contained browser module, a public status catalog and mirrored
+- Keep the DOM player in explicit browser subpaths so Node imports do not gain
+  a DOM type requirement. Publish a self-contained browser module, a public status catalog and mirrored
   OpenAPI contract; update the hosted demo to exercise state updates in place.
   Preserve default Autos, optional SpaceX, existing DID/body/color derivation,
   profile overrides and all authentication/authorization behavior.
