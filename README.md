@@ -19,6 +19,10 @@ Autos is the default agent skin, SpaceX provides eight geometric shapes, and
 both share sixteen live-eye expressions with blinking and gaze. A skin chooses
 the body/face; the avatar expression chooses its eye state. Identity stays stable.
 
+**SDK 0.2.2** adds avatar-only compatibility with literal existing IAM
+agent-instance ULIDs and exports `isAgentAvatarDid` for consumer display
+selection. The assigned DID stays unchanged; authentication admission does too.
+
 **Agent auth in 3 lines.** One SDK for identity, credentials, and verification — built on [OAS](https://github.com/OpenAgentID/oas) (W3C DID identity), [Arsenal](https://github.com/OpenAgentID/arsenal) (scoped capability tokens), and [AEGIS](https://github.com/OpenAgentID/aegis) (verification and policy).
 
 Every language implementation is gated by the same conformance suite — the canonical ACT verification vectors in [`conformance/`](conformance/) — so a token that verifies in one language verifies in all of them.

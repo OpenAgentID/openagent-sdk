@@ -46,6 +46,17 @@ generation and authentication; their legacy namespace is used for v1 payloads.
 The `enr` organization alias remains readable as the `ao` glyph kind. Display
 sizes scale a fixed 512-unit geometry rather than changing grid padding.
 
+SDK 0.2.2 adds display-only compatibility for IAM's literal
+`did:oas:agent-instance:<canonical uppercase ULID>` identifiers. These opaque
+ULIDs always use avatar profile v2's full-DID digest, including when their
+characters also happen to be valid base58. Their namespace digest uses the
+empty string because IAM assigned no namespace; no namespace or key is
+invented. `isAgentAvatarDid` also classifies this rendering input. Identity
+schemas and proof/OIDC admission remain unchanged. The existing `oaid glyph`
+CLI renders these display identifiers too; it never authenticates them.
+The nine upstream v1 fixtures and all previously generated avatars retain
+unchanged encoding.
+
 SVG output contains only generated numbers, colors and fixed markup. The HTTP
 handler uses `image/svg+xml`, a restrictive CSP and `nosniff`, with immutable
 caching. It never embeds raw DID strings, URLs, scripts or private material.

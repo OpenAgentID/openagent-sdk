@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "OpenAgent SDK: open agent identity, OATS and animated Autos/SpaceX avatar skins.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",

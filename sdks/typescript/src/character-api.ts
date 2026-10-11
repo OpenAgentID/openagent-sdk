@@ -1,7 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
-import { DID_REGEX, LEGACY_DID_REGEX } from './config.js';
-import { generateCharacter, getCharacterExpressions, getCharacterSkins, type CharacterOptions } from './characters.js';
+import { generateCharacter, getCharacterExpressions, getCharacterSkins, isAgentAvatarDid, type CharacterOptions } from './characters.js';
 
 export interface CharacterApiHandlerOptions {
   /** The complete mount path, without a trailing slash. Default: /v1/characters. */
@@ -35,9 +34,7 @@ function onlyKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>):
 }
 
 function agentDid(value: unknown): string {
-  if (typeof value !== 'string' || value.length > 512 ||
-      !(DID_REGEX.test(value) || LEGACY_DID_REGEX.test(value)) ||
-      !/:(?:agent|agent:instance):[A-Za-z0-9._-]+$/.test(value)) invalid();
+  if (!isAgentAvatarDid(value)) invalid();
   return value;
 }
 
@@ -1589,8 +1586,8 @@ export const characterApiOpenApi = {
       "AgentDid": {
         "type": "string",
         "maxLength": 512,
-        "pattern": "^did:(?:oas:[a-z0-9][a-z0-9-]{0,63}|l1fe):agent(?::instance)?:[A-Za-z0-9._-]+$",
-        "description": "Existing agent or agent:instance DID; generation neither verifies nor registers it."
+        "pattern": "^did:(?:(?:oas:[a-z0-9][a-z0-9-]{0,63}|l1fe):agent(?::instance)?:[A-Za-z0-9._-]+|oas:agent-instance:[0-7][0-9A-HJKMNP-TV-Z]{25})(?![\\s\\S])",
+        "description": "Existing agent or agent:instance DID, including the literal IAM did:oas:agent-instance:<canonical uppercase ULID> avatar format. Generation preserves the assigned DID and neither verifies nor registers a principal; authentication schemas are unchanged."
       },
       "CharacterAppearanceV1": {
         "type": "object",

@@ -1,6 +1,7 @@
 /** OpenAgent character profile v1: deterministic bodies and shared live-v1 eyes. */
 import { blake3 } from '@noble/hashes/blake3';
-import { didSchema } from './config.js';
+import { isAgentAvatarDid } from './avatar-did.js';
+export { isAgentAvatarDid } from './avatar-did.js';
 
 export type CharacterSkin = 'autos' | 'spacex';
 export type CharacterEyeStyle = 'live-v1';
@@ -232,8 +233,7 @@ function eyes(expression: AvatarExpression, state: CharacterDescriptor['state'],
 
 /** Self-contained SVG character. Public DID-derived pixels are not identity proof. */
 export function generateCharacter(did: string, options?: CharacterOptions): CharacterDescriptor {
-  didSchema.parse(did);
-  if (!/:(?:agent|agent:instance):[A-Za-z0-9._-]+$/.test(did)) {
+  if (!isAgentAvatarDid(did)) {
     throw new TypeError('Characters require an agent or agent instance DID');
   }
   const normalized = normalizedOptions(options);
