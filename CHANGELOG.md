@@ -25,6 +25,8 @@
   OAS dependencies to the existing canonical SDK Git revision.
   Use the patched Vitest 4.1.11 test runner for both npm release packages.
   Verify OIDC code/UserInfo flows for persistent agents and agent instances.
+  Align the WASM verifier expression with the Rust 1.99 CI formatter and
+  propagate test errors without weakening the auth-protocol Clippy policy.
 - Consolidate the useful legacy claim/discovery/CLI behavior into this
   canonical repository and document the free Open Software core versus Life's
   hosted integration boundaries. Production authorities, hosted acceptance,

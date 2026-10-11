@@ -195,6 +195,8 @@ fn decode_base64url(input: &str, field: &str) -> Result<Vec<u8>, AuthProtocolErr
 mod tests {
     use super::*;
 
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
     fn valid_challenge() -> IdentityChallenge {
         IdentityChallenge::new(
             "a3f1c9".to_string() + &"0".repeat(58),
@@ -205,36 +207,39 @@ mod tests {
     }
 
     #[test]
-    fn nonce_is_64_lowercase_hex() {
-        let nonce = generate_nonce().expect("nonce");
+    fn nonce_is_64_lowercase_hex() -> TestResult {
+        let nonce = generate_nonce()?;
         assert_eq!(nonce.len(), 64);
         assert!(nonce
             .chars()
             .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        Ok(())
     }
 
     #[test]
-    fn new_challenge_uses_spec_timestamp_format() {
-        let challenge = new_challenge("https://api.example.com", None).expect("challenge");
+    fn new_challenge_uses_spec_timestamp_format() -> TestResult {
+        let challenge = new_challenge("https://api.example.com", None)?;
         assert!(validate_challenge(&challenge).is_ok());
+        Ok(())
     }
 
     #[test]
-    fn canonical_bytes_are_deterministic_and_member_sorted() {
+    fn canonical_bytes_are_deterministic_and_member_sorted() -> TestResult {
         let challenge = valid_challenge();
-        let a = canonical_challenge_bytes(&challenge).expect("canonical");
-        let b = canonical_challenge_bytes(&challenge).expect("canonical");
+        let a = canonical_challenge_bytes(&challenge)?;
+        let b = canonical_challenge_bytes(&challenge)?;
         assert_eq!(a, b);
-        let text = String::from_utf8(a).expect("utf8");
+        let text = String::from_utf8(a)?;
         // JCS sorts object members lexicographically: nonce < origin <
         // timestamp < type.
-        let nonce_at = text.find("\"nonce\"").expect("nonce key");
-        let origin_at = text.find("\"origin\"").expect("origin key");
-        let timestamp_at = text.find("\"timestamp\"").expect("timestamp key");
-        let type_at = text.find("\"type\"").expect("type key");
+        let nonce_at = text.find("\"nonce\"").ok_or("nonce key missing")?;
+        let origin_at = text.find("\"origin\"").ok_or("origin key missing")?;
+        let timestamp_at = text.find("\"timestamp\"").ok_or("timestamp key missing")?;
+        let type_at = text.find("\"type\"").ok_or("type key missing")?;
         assert!(nonce_at < origin_at && origin_at < timestamp_at && timestamp_at < type_at);
         // No whitespace between tokens.
         assert!(!text.contains(": "));
+        Ok(())
     }
 
     #[test]

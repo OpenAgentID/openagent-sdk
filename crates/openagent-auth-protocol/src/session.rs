@@ -120,8 +120,10 @@ impl SessionStore for InMemorySessionStore {
 mod tests {
     use super::*;
 
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
     #[tokio::test]
-    async fn put_and_get_session() {
+    async fn put_and_get_session() -> TestResult {
         let store = InMemorySessionStore::new();
         let session = Session {
             id: "sess-001".into(),
@@ -133,21 +135,26 @@ mod tests {
             expires_at: Utc::now() + chrono::Duration::hours(1),
             capabilities: vec![],
         };
-        store.put(session.clone()).await.unwrap();
-        let retrieved = store.get("sess-001").await.unwrap();
+        store.put(session.clone()).await?;
+        let retrieved = store.get("sess-001").await?;
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().initiator_did, "did:oas:test:agent:alice");
+        assert_eq!(
+            retrieved.ok_or("persisted session missing")?.initiator_did,
+            "did:oas:test:agent:alice"
+        );
+        Ok(())
     }
 
     #[tokio::test]
-    async fn get_missing_session_returns_none() {
+    async fn get_missing_session_returns_none() -> TestResult {
         let store = InMemorySessionStore::new();
-        let result = store.get("nonexistent").await.unwrap();
+        let result = store.get("nonexistent").await?;
         assert!(result.is_none());
+        Ok(())
     }
 
     #[tokio::test]
-    async fn remove_session() {
+    async fn remove_session() -> TestResult {
         let store = InMemorySessionStore::new();
         let session = Session {
             id: "sess-002".into(),
@@ -159,9 +166,10 @@ mod tests {
             expires_at: Utc::now() + chrono::Duration::hours(1),
             capabilities: vec![],
         };
-        store.put(session).await.unwrap();
-        store.remove("sess-002").await.unwrap();
-        assert!(store.get("sess-002").await.unwrap().is_none());
+        store.put(session).await?;
+        store.remove("sess-002").await?;
+        assert!(store.get("sess-002").await?.is_none());
+        Ok(())
     }
 
     #[test]
