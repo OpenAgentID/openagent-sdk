@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2 — IAM avatar compatibility, 2026-10-11
+
+- Accept literal IAM agent-instance ULIDs for character and Glyph rendering;
+  preserve the assigned DID, deterministic seed, selected skin and expression.
+- Export `isAgentAvatarDid` from root, characters and glyph for display-only
+  consumer classification. Identity/authentication validators remain unchanged.
+- Strictly validate uppercase 128-bit ULIDs and render opaque Glyph v2 digests;
+  preserve the existing Autos/SpaceX defaults, overrides and Glyph reference
+  vectors. Update OpenAPI and add independent seed/API regression coverage.
+
 ## 0.2.1 — animated agent characters, 2026-10-11
 
 - Export characters and character-api subpaths: deterministic Autos/SpaceX

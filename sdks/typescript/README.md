@@ -29,6 +29,14 @@ using this flow. Unconfigured production subsystems fail closed. New identities
 default to the `openagent` namespace; signed legacy `did:l1fe` identities remain
 readable without changing their identifiers.
 
+## Version 0.2.2
+
+Autos remains the default animated agent skin; SpaceX is optional. Both share
+sixteen live-eye expressions. Existing IAM `did:oas:agent-instance:<ULID>`
+identifiers now render without rewriting their DID. `isAgentAvatarDid` from the
+root, characters and glyph exports classifies display input only. It grants
+no identity authority and does not change authentication schemas.
+
 ## Version 0.2.0
 
 - [Identity verification](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/identity-verification.md): `IdentityVerifier`, a fetch-compatible HTTP handler and remote client verify possession signatures, signed lineage to owned or self-rooted authorities, current revocation and replay prevention.

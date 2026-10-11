@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.2 — IAM avatar compatibility, 2026-10-11
+
+- Render established IAM `did:oas:agent-instance:<canonical ULID>` identifiers
+  through Autos, SpaceX and the public character/Glyph APIs without rewriting
+  the assigned DID or deriving it from an unrelated agent ID.
+- Export `isAgentAvatarDid` for consumer display selection. Strictly refuse
+  noncanonical ULIDs, trailing whitespace and non-agent inputs; keep identity,
+  proof, verification, OATS and OIDC admission unchanged.
+- Encode IAM ULIDs as opaque full-DID Glyph v2 digests with no invented
+  namespace. Preserve existing character seeds and upstream Glyph vectors.
+- Add independent remote BLAKE3 vectors, API/installed-package regression
+  checks and the mirrored OpenAPI contract. OIDC remains at 0.2.0.
+
 ## 0.2.1 — animated agent characters, 2026-10-11
 
 - Add an open, deterministic character SDK and public Fetch API with OpenAPI

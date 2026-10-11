@@ -127,7 +127,7 @@ export {
 } from './errors.js';
 
 /** SDK version — kept in sync with `package.json`. */
-export const VERSION = '0.2.1';
+export const VERSION = '0.2.2';
 
 // OpenAgentID 0.2 identity, avatars and verified trust evidence.
 export * from './glyph.js';
@@ -136,3 +136,4 @@ export * from './verification-api.js';
 export * from './oats.js';
 export * from './characters.js';
 export * from './character-api.js';
+export { isAgentAvatarDid } from './avatar-did.js';

@@ -1307,8 +1307,8 @@
       "AgentDid": {
         "type": "string",
         "maxLength": 512,
-        "pattern": "^did:(?:oas:[a-z0-9][a-z0-9-]{0,63}|l1fe):agent(?::instance)?:[A-Za-z0-9._-]+$",
-        "description": "Existing agent or agent:instance DID; generation neither verifies nor registers it."
+        "pattern": "^did:(?:(?:oas:[a-z0-9][a-z0-9-]{0,63}|l1fe):agent(?::instance)?:[A-Za-z0-9._-]+|oas:agent-instance:[0-7][0-9A-HJKMNP-TV-Z]{25})(?![\\s\\S])",
+        "description": "Existing agent or agent:instance DID, including the literal IAM did:oas:agent-instance:<canonical uppercase ULID> avatar format. Generation preserves the assigned DID and neither verifies nor registers a principal; authentication schemas are unchanged."
       },
       "CharacterAppearanceV1": {
         "type": "object",

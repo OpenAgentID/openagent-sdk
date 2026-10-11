@@ -1,7 +1,8 @@
 /** OAS Glyph v1 avatar encoding, ported from OpenAgentID/oas-glyph f0090dd. */
 import { blake3 } from '@noble/hashes/blake3';
 import { base58 } from '@scure/base';
-import { didSchema } from './config.js';
+import { isAgentAvatarDid, parseAvatarDid } from './avatar-did.js';
+export { isAgentAvatarDid } from './avatar-did.js';
 import { renderCharacterSvg, parseCharacterAppearance, type AvatarExpression, type CharacterAppearance, type LiveEyeState } from './characters.js';
 
 export interface GlyphOptions {
@@ -32,17 +33,12 @@ const kinds = ['hmr', 'mhr', 'ao', 'agent', 'agent:instance', 'tool', 'skill', '
 type Color = readonly [number, number, number];
 type CellType = 'finder' | 'kind' | 'alignment' | 'format' | 'data';
 
-function parts(did: string): { namespace: string; kind: number; identifier: string } {
-  didSchema.parse(did);
-  const fields = did.split(':');
-  const legacy = fields[1] === 'l1fe';
-  const namespace = legacy ? 'l1fe' : fields[2]!;
-  const offset = legacy ? 2 : 3;
-  const kind = fields.slice(offset, -1).join(':');
+function parts(did: string): { namespace: string; kind: number; identifier: string; opaque: boolean } {
+  const { namespace, kind, identifier, opaque } = parseAvatarDid(did);
   // The older SDK used `enr` for the organization root kind.
   const code = kinds.indexOf(kind === 'enr' ? 'ao' : kind);
   if (code < 0) throw new Error('Unsupported OAS Glyph entity kind');
-  return { namespace, kind: code, identifier: fields.at(-1)! };
+  return { namespace, kind: code, identifier, opaque };
 }
 
 /** Compact payload and BLAKE3 detection parity matching upstream glyph format v1.
@@ -53,7 +49,10 @@ export function glyphCodeword(did: string): Uint8Array {
   const encoded = parsed.identifier.startsWith('z') ? parsed.identifier.slice(1) : parsed.identifier;
   let identifier: Uint8Array;
   let version = 1;
-  if (parsed.identifier.startsWith('z')) {
+  if (parsed.opaque) {
+    version = 2;
+    identifier = blake3(encoder.encode('oas-glyph-avatar-v2\u0000' + did));
+  } else if (parsed.identifier.startsWith('z')) {
     // Explicit multibase identities must be valid; malformed keys are refused.
     identifier = base58.decode(encoded);
     if (identifier.length === 0 || identifier.length > 43) throw new Error('Glyph multibase identifier must encode 1–43 bytes');
@@ -187,10 +186,10 @@ export function parseAvatarOverride(value: unknown): string | null {
 
 /** Return an external override or a self-contained deterministic SVG data URL. */
 export function agentAvatar(did: string, profile: AgentAvatar = {}, options?: AvatarOptions): string {
-  didSchema.parse(did);
+  parseAvatarDid(did);
   const override = parseAvatarOverride(profile.avatarOverride);
   if (override) return override;
-  const agentDid = /^did:(?:oas:[^:]+:|l1fe:)agent(?::instance)?:/.test(did);
+  const agentDid = isAgentAvatarDid(did);
   const appearance = profile.avatarSkin === undefined || profile.avatarSkin === null
     ? undefined : parseCharacterAppearance(profile.avatarSkin);
   const expression = options?.expression === undefined ? profile.avatarExpression : options.expression;

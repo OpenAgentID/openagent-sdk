@@ -38,7 +38,16 @@ supported shapes and expressions. `getCharacterExpressions()` lists shared IDs.
 These exports are also available through `@openagentid/sdk/characters`.
 
 Agent and agent-instance DIDs are supported, including literal legacy
-`did:l1fe` identifiers. Validation refuses other entity kinds. Deterministic
+`did:l1fe` identifiers. SDK 0.2.2 also renders the established IAM format
+`did:oas:agent-instance:<ULID>` with exactly 26 uppercase Crockford base32
+characters and a first character from `0` through `7`. For example,
+`did:oas:agent-instance:01ARZ3NDEKTSV4RRFFQ69G5FAV` is a public ULID fixture.
+`isAgentAvatarDid(value)` is exported from the root, characters and glyph
+modules so consumers can classify supported **display input** consistently.
+It does not establish identity authority. `didSchema`, identity documents,
+proof verification and OIDC admission remain unchanged. Preserve the trusted
+producer's literal DID; never derive one from a handle or a separate agent ID.
+Validation refuses other entity kinds, malformed ULIDs and normalization. Deterministic
 body/color selection uses BLAKE3 over the exact UTF-8 string
 `oaid-character-v1\0${skin}\0${did}`; the DID is never rewritten. Shape overrides
 must belong to their skin. Expression, size, gaze and blink do not affect the
