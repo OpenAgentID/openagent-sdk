@@ -156,7 +156,10 @@ export class OpenAgentRuntime {
     const identity = requireSubsystem(this.#subsystems.identity, 'identity');
     let document: IdentityDocument;
     try {
-      document = await identity.createAgentIdentity(parsed);
+      document = await identity.createAgentIdentity({
+        ...parsed,
+        namespace: parsed.namespace ?? this.#subsystems.config.namespace,
+      });
     } catch (err) {
       throw err instanceof IdentityError
         ? err

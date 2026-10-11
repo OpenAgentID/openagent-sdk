@@ -11,7 +11,7 @@ describe('OpenAgentRuntime.createAgent', () => {
       name: 'bot',
       scopes: ['openai:chat:completions'],
     });
-    expect(agent.did.startsWith('did:oas:l1fe:agent:')).toBe(true);
+    expect(agent.did.startsWith('did:oas:openagent:agent:')).toBe(true);
     expect(agent.document.parent).toBe('did:oas:l1fe:hmr:alice');
     expect(agent.skillsPolicy().listAllowed()).toEqual([]);
   });

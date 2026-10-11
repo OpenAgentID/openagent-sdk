@@ -5,6 +5,7 @@
  * OAS/Arsenal (DIDs, lineage, capability scopes).
  */
 
+import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
 import type { ValidatedClaims } from './jwt.js';
 import { OidcBridgeError } from './errors.js';
 
@@ -32,65 +33,42 @@ export interface DerivedAgent {
  * identifier that doesn't leak PII.
  */
 export function hmrIdentifierFromClaims(issuer: string, hmrValue: string): string {
-  const input = `${issuer}:${hmrValue}`;
-  // Use a simple deterministic hash for the identifier.
-  // In production, the OAS SDK handles proper key derivation.
-  const hash = simpleHash(input);
-  return hash;
+  return createHash('sha256').update(JSON.stringify([issuer, hmrValue])).digest('hex');
 }
 
-/**
- * Derive an agent DID from validated OIDC claims.
- *
- * This is the core of Flow 1: Human JWT -> Agent DID.
- *
- * In a production deployment, this would use the OAS SDK's `create_hmr`
- * and `derive_child` functions (available via the WASM crypto module).
- * Here we produce the correct DID format and structure, with placeholder
- * keypairs that would be replaced by the real OAS SDK integration.
- */
+/** Real identity custody/derivation hook. The host must authorize the human owner. */
+export type IdentityDeriver = (
+  namespace: string, claims: ValidatedClaims, agentName: string,
+) => DerivedAgent;
+
+export function validateDerivedAgent(agent: DerivedAgent): DerivedAgent {
+  try {
+    if (!/^did:(?:oas:[a-z0-9_-]+|l1fe):agent:[A-Za-z0-9._%-]+$/.test(agent.agentDid)
+      || !agent.lineageProof || !agent.parentHmrDid || !Number.isSafeInteger(agent.lineageDepth)
+      || agent.lineageDepth < 1 || agent.agentKeypair.publicKey.length !== 32
+      || ![32, 64].includes(agent.agentKeypair.privateKey.length)) {
+      throw new Error('Missing owned identity, key material or signed lineage');
+    }
+    const seed = agent.agentKeypair.privateKey.slice(0, 32);
+    const privateKey = createPrivateKey({
+      key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.from(seed)]),
+      format: 'der', type: 'pkcs8',
+    });
+    const publicKey = createPublicKey(privateKey).export({ format: 'der', type: 'spki' }).subarray(-32);
+    if (!publicKey.equals(Buffer.from(agent.agentKeypair.publicKey))) throw new Error('Ed25519 keypair mismatch');
+    return agent;
+  } catch {
+    throw OidcBridgeError.mapping('Identity derivation must return real matching Ed25519 keys and owned lineage');
+  }
+}
+
+/** No fallback identity is issued when real custody/derivation is unconfigured. */
 export function deriveAgentFromClaims(
-  namespace: string,
-  claims: ValidatedClaims,
-  agentName: string,
+  namespace: string, claims: ValidatedClaims, agentName: string, derive?: IdentityDeriver,
 ): DerivedAgent {
-  if (!agentName) {
-    throw OidcBridgeError.mapping('Agent name cannot be empty');
-  }
-
-  if (!namespace) {
-    throw OidcBridgeError.mapping('Namespace cannot be empty');
-  }
-
-  const hmrId = hmrIdentifierFromClaims(claims.issuer, claims.hmrValue);
-  const parentHmrDid = `did:oas:${namespace}:hmr:${hmrId}`;
-  const agentDid = `did:oas:${namespace}:agent:${agentName}`;
-
-  // In production, these would come from the OAS SDK's Ed25519 key derivation.
-  // The WASM crypto module provides byte-identical results to the Rust implementation.
-  const dummyPublicKey = new Uint8Array(32);
-  const dummyPrivateKey = new Uint8Array(64);
-
-  // Seed the dummy keys deterministically from the DID (for testing parity).
-  const agentHash = simpleHash(agentDid);
-  for (let i = 0; i < 32 && i < agentHash.length; i++) {
-    dummyPublicKey[i] = agentHash.charCodeAt(i);
-  }
-
-  return {
-    agentDid,
-    agentKeypair: {
-      publicKey: dummyPublicKey,
-      privateKey: dummyPrivateKey,
-    },
-    lineageProof: {
-      parent: parentHmrDid,
-      depth: 1,
-      derivationPath: `agent/${agentName}`,
-    },
-    parentHmrDid,
-    lineageDepth: 1,
-  };
+  if (!namespace || !agentName) throw OidcBridgeError.mapping('Namespace and agent name are required');
+  if (!derive) throw OidcBridgeError.mapping('Configure an identity derivation callback backed by real key custody');
+  return validateDerivedAgent(derive(namespace, claims, agentName));
 }
 
 /**
@@ -123,22 +101,4 @@ export function mapScopes(
   }
 
   return result;
-}
-
-/** Simple deterministic string hash (not cryptographic -- for identifiers only). */
-function simpleHash(input: string): string {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c6ce57;
-  for (let i = 0; i < input.length; i++) {
-    const ch = input.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
-  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
-  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-
-  const combined = (h2 >>> 0) * 4294967296 + (h1 >>> 0);
-  return combined.toString(36);
 }

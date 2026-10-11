@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 — release candidate, 2026-10-11
+
+- Verify real agent signatures, ordered owner delegations, authoritative owner
+  binding, revocation and one-use possession challenges; add HTTP verification
+  handler, HTTPS verification client and `oaid verify` CLI.
+- Render OAS Glyph SVGs locally or through a safe SVG endpoint; support
+  authenticated-service-managed HTTPS avatar overrides and legacy DID reading.
+- Add verified OATS evidence ingestion with explicit trusted attesters,
+  exact DID/credential binding, strict dates/values/types and duplicate refusal.
+- Export the new subpaths, use `openagent` for new identity namespaces, and
+  correct the optional OAS dependency to its published 1.x family.
+- Consolidate provider-neutral OIDC discovery/JWKS doctor as `oaid oidc doctor`.
+  Publication and live hosted acceptance remain pending.
+
 All notable changes to `@openagent/sdk` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

@@ -38,7 +38,7 @@ import {
 } from './jwt.js';
 import {
   type DerivedAgent,
-  deriveAgentFromClaims,
+  validateDerivedAgent,
   mapScopes,
 } from './mapping.js';
 
@@ -64,6 +64,15 @@ import {
  * const response = await bridge.exchangeToken(humanJwt, ['openai:chat:completions']);
  * ```
  */
+export interface BridgeIdentityHooks {
+  /** Derive an owner-authorized identity using real OAS key custody and signed lineage. */
+  deriveAgent?: (namespace: string, claims: ValidatedClaims, agentName: string) => DerivedAgent | Promise<DerivedAgent>;
+  /** Authorize requested scopes and mint a genuine signed capability through the broker. */
+  mintCapability?: (input: {
+    agent: DerivedAgent; subject: ValidatedClaims; scopes: readonly string[]; request: TokenExchangeRequest;
+  }) => Promise<{ actB64: string; scopes: readonly string[]; expiresIn: number }>;
+}
+
 export class OidcBridge {
   private readonly config: OidcConfig;
   private readonly discovery: DiscoveryClient;
@@ -76,7 +85,7 @@ export class OidcBridge {
    *
    * @throws {OidcBridgeError} If the configuration is invalid.
    */
-  constructor(input: OidcConfig | SingleProviderInput) {
+  constructor(input: OidcConfig | SingleProviderInput, private readonly hooks: BridgeIdentityHooks = {}) {
     if ('providers' in input) {
       const parsed = oidcConfigSchema.safeParse(input);
       if (!parsed.success) {
@@ -119,7 +128,7 @@ export class OidcBridge {
     agentName: string,
   ): Promise<DerivedAgent> {
     const claims = await this.validateJwt(token);
-    return deriveAgentFromClaims(this.config.namespace, claims, agentName);
+    return this.deriveIdentity(claims, agentName);
   }
 
   // -- Flow 2: Agent ACT -> JWT --
@@ -200,11 +209,7 @@ export class OidcBridge {
     validateExchangeRequest(request);
 
     const claims = await this.validateJwt(request.subjectToken);
-    const agent = deriveAgentFromClaims(
-      this.config.namespace,
-      claims,
-      'exchange-agent',
-    );
+    const agent = await this.deriveIdentity(claims, 'exchange-agent');
 
     const issuer = extractUnverifiedIssuer(request.subjectToken);
     const provider = findProvider(this.config, issuer);
@@ -213,40 +218,39 @@ export class OidcBridge {
     }
 
     const requestedScopes = parseScopes(request.scope);
-    const arsenalScopes = requestedScopes.length > 0
-      ? mapScopes(requestedScopes, provider.scopeMapping)
-      : mapScopes(['default'], provider.scopeMapping);
-
-    // If no signing key is provided, return a placeholder response.
-    // In production, the signing key is always provided.
-    if (!signingKey) {
-      return successResponse(
-        'unsigned-token-placeholder',
-        TOKEN_TYPE_ACT,
-        this.config.jwtTtlSeconds,
-        arsenalScopes.join(' '),
-      );
-    }
-
-    const actClaims = buildActClaims({
-      agentDid: agent.agentDid,
-      bridgeIssuer,
-      audience: request.audience,
-      scopes: arsenalScopes,
-      lineageDepth: agent.lineageDepth,
-      parentHmr: agent.parentHmrDid,
-      actB64: 'exchange-act-placeholder',
-      ttlSeconds: this.config.jwtTtlSeconds,
-    });
-
-    const jwt = await signActJwt(actClaims, signingKey, algorithm);
-
-    return successResponse(
-      jwt,
-      TOKEN_TYPE_ACT,
-      this.config.jwtTtlSeconds,
-      arsenalScopes.join(' '),
+    const arsenalScopes = mapScopes(
+      requestedScopes.length > 0 ? requestedScopes : claims.scopes, provider.scopeMapping,
     );
+
+    if (!this.hooks.mintCapability) {
+      throw OidcBridgeError.exchange('Configure a real authorized capability broker callback');
+    }
+    const minted = await this.hooks.mintCapability({ agent, subject: claims, scopes: arsenalScopes, request });
+    if (!minted.actB64 || !Number.isSafeInteger(minted.expiresIn) || minted.expiresIn < 1
+      || minted.expiresIn > this.config.jwtTtlSeconds
+      || minted.scopes.some((scope) => !arsenalScopes.includes(scope))) {
+      throw OidcBridgeError.exchange('Capability broker returned invalid expiry or unauthorized scopes');
+    }
+    if ((request.requestedTokenType ?? TOKEN_TYPE_ACT) === TOKEN_TYPE_ACT) {
+      return successResponse(minted.actB64, TOKEN_TYPE_ACT, minted.expiresIn, minted.scopes.join(' '));
+    }
+    if (!signingKey || !request.audience) {
+      throw OidcBridgeError.exchange('JWT exchange requires an explicit signing key and audience');
+    }
+    const actClaims = buildActClaims({
+      agentDid: agent.agentDid, bridgeIssuer, audience: request.audience,
+      scopes: minted.scopes, lineageDepth: agent.lineageDepth, parentHmr: agent.parentHmrDid,
+      actB64: minted.actB64, ttlSeconds: minted.expiresIn,
+    });
+    const jwt = await signActJwt(actClaims, signingKey, algorithm);
+    return successResponse(jwt, 'urn:ietf:params:oauth:token-type:jwt', minted.expiresIn, minted.scopes.join(' '));
+  }
+
+  private async deriveIdentity(claims: ValidatedClaims, name: string): Promise<DerivedAgent> {
+    if (!this.hooks.deriveAgent) {
+      throw OidcBridgeError.mapping('Configure an identity derivation callback backed by real key custody');
+    }
+    return validateDerivedAgent(await this.hooks.deriveAgent(this.config.namespace, claims, name));
   }
 
   // -- Validation helpers (public) --

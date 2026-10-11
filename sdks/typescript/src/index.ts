@@ -39,6 +39,7 @@ export {
   DEFAULT_NAMESPACE,
   DEFAULT_REQUEST_TIMEOUT_MS,
   DID_REGEX,
+  LEGACY_DID_REGEX,
 } from './config.js';
 
 // Identity (OAS)
@@ -124,4 +125,10 @@ export {
 } from './errors.js';
 
 /** SDK version — kept in sync with `package.json`. */
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
+
+// OpenAgentID 0.2 identity, avatars and verified trust evidence.
+export * from './glyph.js';
+export * from './identity-verification.js';
+export * from './verification-api.js';
+export * from './oats.js';

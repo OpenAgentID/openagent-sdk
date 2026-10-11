@@ -30,7 +30,7 @@
  */
 
 // Bridge
-export { OidcBridge } from './bridge.js';
+export { OidcBridge, type BridgeIdentityHooks } from './bridge.js';
 
 // Config
 export {
@@ -89,10 +89,16 @@ export {
 // Mapping
 export {
   type DerivedAgent,
+  type IdentityDeriver,
+  validateDerivedAgent,
   deriveAgentFromClaims,
   hmrIdentifierFromClaims,
   mapScopes,
 } from './mapping.js';
 
 /** SDK version. */
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
+
+export { AgentOidcProvider, createAgentOidcProvider, type AgentOidcProviderOptions, type AgentInteraction } from './provider.js';
+export { LifeIdFederation, ownerFromLifeIdClaims, type LifeIdFederationOptions } from './federation.js';
+export { type AgentOwner, type AgentIdentityProof, type VerifiedAgentIdentity, type VerifyAgentContext } from './identity-types.js';

@@ -1,5 +1,18 @@
 # OpenAgent SDK
 
+OpenAgentID is a free, open [Open Software](https://open.software) core project
+alongside Henry, Weave, Flocks and Fleets. Life sells hosted services around
+this core. Human owners authenticate with LifeID; Blinds brokers agent
+credentials and Genesis KMS stores customer secrets.
+
+The **0.2.0 release candidate** adds a signing [OIDC provider](bridges/oidc/typescript/),
+[identity verification API/SDK/CLI](docs/identity-verification.md),
+[OAS Glyph avatars](docs/glyph.md) and [verified OATS scoring](docs/oats.md).
+See the [inventory](docs/inventory-2026-10-11.md) for the published 0.1.x baseline.
+The [0.2.0 shipment list](docs/release-0.2.0.md) defines the two package artifacts
+and migration requirements before publication.
+These source changes do not establish a deployed hosted issuer or publish a package.
+
 **Agent auth in 3 lines.** One SDK for identity, credentials, and verification — built on [OAS](https://github.com/OpenAgentID/oas) (W3C DID identity), [Arsenal](https://github.com/OpenAgentID/arsenal) (scoped capability tokens), and [AEGIS](https://github.com/OpenAgentID/aegis) (verification and policy).
 
 Every language implementation is gated by the same conformance suite — the canonical ACT verification vectors in [`conformance/`](conformance/) — so a token that verifies in one language verifies in all of them.

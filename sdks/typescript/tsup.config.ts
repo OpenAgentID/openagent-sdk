@@ -1,6 +1,6 @@
 import { defineConfig } from 'tsup';
 
-export default defineConfig({
+export default defineConfig([{
   entry: [
     'src/index.ts',
     'src/agent.ts',
@@ -10,6 +10,10 @@ export default defineConfig({
     'src/skills.ts',
     'src/errors.ts',
     'src/config.ts',
+    'src/glyph.ts',
+    'src/identity-verification.ts',
+    'src/verification-api.ts',
+    'src/oats.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
@@ -27,8 +31,18 @@ export default defineConfig({
     '@openagentid/crypto-wasm',
     'node:crypto',
     'node:buffer',
+    'node:*',
   ],
   esbuildOptions(options) {
     options.conditions = ['import', 'module', 'default'];
   },
-});
+}, {
+  entry: { cli: 'src/cli.ts' },
+  format: ['esm'],
+  dts: false,
+  sourcemap: true,
+  clean: false,
+  target: 'node20',
+  platform: 'node',
+  banner: { js: '#!/usr/bin/env node' },
+}]);
