@@ -5,6 +5,8 @@
 - Resolve npm's executable symlink when detecting the CLI entry point, so the
   installed `oaid` command executes and propagates successful/refused exits.
 - Use the patched Vitest 4.1.11 development runner and coverage tool.
+- Require explicit authoritative DID key purposes: authentication for possession
+  proofs and capabilityDelegation for delegations; reject absent or wrong purposes.
 
 ## 0.2.0 — release candidate, 2026-10-11
 

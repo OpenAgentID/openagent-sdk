@@ -109,7 +109,8 @@ async function identityService() {
     now: () => now,
     resolveDid: async did => {
       const publicKeyJwk = jwks.get(did);
-      return publicKeyJwk ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk }] } : null;
+      return publicKeyJwk ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk,
+        purposes: did === root ? ['capabilityDelegation'] as const : ['authentication'] as const }] } : null;
     },
     authorizeOwner: async did => {
       if (did !== root || !ownerActive) return null;

@@ -30,11 +30,21 @@ export interface AgentIdentityProof {
   readonly delegations: readonly string[];
 }
 
+/** DID verification relationships authorized by the authoritative resolver. */
+export type IdentityKeyPurpose =
+  | 'authentication'
+  | 'capabilityDelegation'
+  | 'assertionMethod'
+  | 'capabilityInvocation'
+  | 'keyAgreement';
+
 export interface ResolvedIdentityDocument {
   readonly did: string;
   readonly verificationMethods: readonly {
     readonly id: string;
     readonly publicKeyJwk: JWK;
+    /** Explicit current DID relationship authorizations, never inferred from a key's presence. */
+    readonly purposes: readonly IdentityKeyPurpose[];
   }[];
 }
 
@@ -293,7 +303,7 @@ export class IdentityVerifier {
   }
 
   private async signed(token: string, issuer: string, subject: string, audience: string,
-    typ: string, maxAge: number, now: number): Promise<JWTPayload> {
+    typ: 'oaid-proof+jwt' | 'oaid-delegation+jwt', maxAge: number, now: number): Promise<JWTPayload> {
     this.decode(token);
     const document = await this.document(issuer);
     try {
@@ -305,7 +315,14 @@ export class IdentityVerifier {
       }
       const methods = document.verificationMethods.filter((method) => method.id === header.kid);
       if (methods.length !== 1) invalid('Signing key is not uniquely bound to the authoritative DID');
-      const jwk = methods[0]!.publicKeyJwk;
+      const method = methods[0]!;
+      const purpose = typ === 'oaid-proof+jwt' ? 'authentication' : 'capabilityDelegation';
+      if (!Array.isArray(method.purposes) || method.purposes.length > 5 ||
+          !method.purposes.every((value) => ['authentication', 'capabilityDelegation', 'assertionMethod', 'capabilityInvocation', 'keyAgreement'].includes(value)) ||
+          !method.purposes.includes(purpose)) {
+        invalid('Signing key is not authorized for this identity verification purpose');
+      }
+      const jwk = method.publicKeyJwk;
       if (!jwk || typeof jwk !== 'object' || ['d', 'p', 'q', 'dp', 'dq', 'qi', 'k'].some((key) => key in jwk) ||
           (jwk.alg !== undefined && jwk.alg !== header.alg) || (jwk.use !== undefined && jwk.use !== 'sig') ||
           (jwk.key_ops !== undefined && !jwk.key_ops.includes('verify')) ||

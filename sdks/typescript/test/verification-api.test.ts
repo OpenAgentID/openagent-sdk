@@ -19,7 +19,8 @@ async function setup() {
   const verifier = new IdentityVerifier({
     async resolveDid(id) {
       const jwk = id === root ? rootJwk : id === did ? agentJwk : null;
-      return jwk ? { did: id, verificationMethods: [{ id: `${id}#signing`, publicKeyJwk: jwk }] } : null;
+      return jwk ? { did: id, verificationMethods: [{ id: `${id}#signing`, publicKeyJwk: jwk,
+        purposes: id === root ? ['capabilityDelegation'] as const : ['authentication'] as const }] } : null;
     },
     async authorizeOwner(id) { return id === root ? { issuer: 'https://auth.life.one', subject: 'authorized-person' } : null; },
     async checkRevocation() { return { revoked, checkedAt: Math.floor(Date.now() / 1000) }; },

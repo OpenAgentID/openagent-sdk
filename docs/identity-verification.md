@@ -32,7 +32,7 @@ discovery of trust roots and no development bypass.
 
 | Adapter | Required behavior |
 | --- | --- |
-| `resolveDid(did)` | Return the current authoritative `{did, verificationMethods: [{id, publicKeyJwk}]}` or `null`. Preserve the exact DID. Keys must come from a trusted OAS resolver/registry, with workload authentication and tenant authorization where needed. Never fetch a request-selected `jku` or accept its `jwk`. |
+| `resolveDid(did)` | Return the current authoritative `{did, verificationMethods: [{id, publicKeyJwk, purposes}]}` or `null`. `purposes` is an explicit array of current DID verification relationships. Possession signing requires `authentication`; delegation signing requires `capabilityDelegation`. Preserve the exact DID. Keys and relationship authorizations must come from a trusted OAS resolver/registry, with workload authentication and tenant authorization where needed. Never infer purpose from the presence of a public key, fetch a request-selected `jku`, or accept its `jwk`. |
 | `authorizeOwner(rootDid)` | Check the current binding from this owner root to an active real person or organization in LifeID/WorkOS. Return its trusted `{issuer, subject, organizationId?}` or `null`. Do not merely echo claims supplied by the agent. WorkOS membership/organization authority belongs in this adapter, not in the browser or proof payload. |
 | `checkRevocation({did, issuerDid?, credentialId?})` | Check both the DID and the particular credential when supplied. Return `{revoked: boolean, checkedAt: number}` only from an authoritative source. Check parent/root status as well as the leaf; missing status is an error. Default maximum age is 60 seconds. |
 | `replay.consume({issuer, tokenId, audience, nonce, expiresAt})` | Atomically validate/consume the service-issued, unexpired challenge bound to the correct audience/session and claim the unique issuer/token ID until its expiry. Return `true` once, `false` for invalid/reused challenges or credentials. Use shared durable storage across replicas. Separate read/write operations are insufficient. |
@@ -71,6 +71,12 @@ the approved owner root to the leaf agent. Each link is a compact signed JWT wit
 Use real signing keys managed by the authorized key service. Verification accepts
 only the public JWK resolved for the exact issuer and `kid`; embedded keys, remote
 key references, symmetric algorithms, ambiguous key IDs and private JWKs fail.
+The authoritative method must explicitly authorize its signing purpose:
+`authentication` for `oaid-proof+jwt` and `capabilityDelegation` for
+`oaid-delegation+jwt`. An `assertionMethod` key can sign a credential, but cannot
+authenticate an agent or delegate identity solely because its signature is valid.
+Missing or mismatched purpose authorization fails closed. Resolver adapters must
+map the current DID relationship lists rather than assign every method all purposes.
 The JWT transport adapts signed identity evidence to the SDK; it does not define
 a replacement DID method or automatically convert existing ACT/VC formats.
 Adapters for those formats must verify and bind their evidence explicitly.

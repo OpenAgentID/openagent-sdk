@@ -42,7 +42,8 @@ async function fixture() {
   const identityConfig: IdentityVerifierConfig = {
     resolveDid: async (did) => {
       const publicKeyJwk = keys.get(did);
-      return publicKeyJwk ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk }] } : null;
+      return publicKeyJwk ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk,
+        purposes: did === ROOT ? ['capabilityDelegation'] as const : ['assertionMethod'] as const }] } : null;
     },
     authorizeOwner: async (did) => {
       if (did !== ROOT || !ownerActive) return null;

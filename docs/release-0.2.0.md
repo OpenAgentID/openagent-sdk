@@ -23,6 +23,8 @@ of the exact built tarballs before publication.
 - Every successful identity verdict proves key possession, an authorized
   person/org root, signed delegations, current revocation and expiry. Proof
   verification additionally consumes its server-issued challenge atomically.
+  Resolvers must explicitly supply each key's authorized DID relationships:
+  `authentication` for proofs and `capabilityDelegation` for delegations.
 - Glyphs are deterministic SVGs. `avatarOverride` accepts a changeable HTTPS
   image URL; clearing it restores the identity-derived avatar. The v1 profile
   matches independent upstream Rust vectors. The documented v2 avatar profile

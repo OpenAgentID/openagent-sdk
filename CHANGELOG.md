@@ -8,6 +8,8 @@
 - Add signature, signed owner-chain, revocation and replay verification,
   a framework-neutral HTTP handler, remote SDK client and `oaid verify` CLI.
   Bind remote verdict DID and expiry to the submitted challenge proof.
+  Require authoritative DID authentication and capability-delegation key
+  relationships for possession proofs and signed delegations respectively.
 - Add deterministic OAS Glyph SVG avatars/endpoint and a changeable HTTPS
   avatar override. Read legacy `did:l1fe` identities without rewriting them;
   default new namespaces to `openagent`.

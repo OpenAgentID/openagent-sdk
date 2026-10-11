@@ -28,7 +28,8 @@ async function fixture(algorithm: 'EdDSA' | 'RS256' = 'EdDSA', legacy = false,
     now: () => now,
     async resolveDid(did) {
       const entry = entries.find((candidate) => candidate.did === did);
-      return entry ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk: entry.jwk }] } : null;
+      return entry ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk: entry.jwk,
+        purposes: did === leaf ? ['authentication'] as const : ['capabilityDelegation'] as const }] } : null;
     },
     async authorizeOwner(did) { return did === root ? owner : null; },
     async checkRevocation(check) {
@@ -96,6 +97,40 @@ describe('IdentityVerifier real signed identity proofs', () => {
       .setProtectedHeader({ alg: 'EdDSA', kid: `${f.leaf}#signing`, typ: 'oaid-proof+jwt' }).sign(attacker.privateKey);
     await expect(new IdentityVerifier(f.config).verify({ ...f.proof, token }, { audience, nonce }))
       .rejects.toMatchObject({ code: 'invalid_proof' });
+  });
+
+  it.each([
+    ['leaf', ['assertionMethod']],
+    ['leaf', ['capabilityDelegation']],
+    ['root', ['assertionMethod']],
+    ['root', ['authentication']],
+    ['parent', ['assertionMethod']],
+  ] as const)('rejects a correctly signed proof when the %s key has only %s purpose', async (link, purposes) => {
+    const f = await fixture();
+    const resolve = f.config.resolveDid;
+    f.config.resolveDid = async (did) => {
+      const document = await resolve(did);
+      return document && did === f[link] ? { ...document,
+        verificationMethods: document.verificationMethods.map((method) => ({ ...method, purposes })) } : document;
+    };
+    await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'invalid_proof', message: 'Signing key is not authorized for this identity verification purpose' });
+  });
+
+  it('fails closed when an authoritative method omits its purpose authorization', async () => {
+    const f = await fixture();
+    const resolve = f.config.resolveDid;
+    f.config.resolveDid = async (did) => {
+      const document = await resolve(did);
+      if (document && did === f.leaf) {
+        const malformed = JSON.parse(JSON.stringify(document));
+        delete malformed.verificationMethods[0].purposes;
+        return malformed;
+      }
+      return document;
+    };
+    await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'invalid_proof', message: 'Signing key is not authorized for this identity verification purpose' });
   });
 
   it('rejects an arbitrary root without a real person/org owner authority', async () => {
