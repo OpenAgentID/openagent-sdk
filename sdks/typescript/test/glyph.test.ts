@@ -3,6 +3,7 @@ import { agentAvatar, glyphCodeword, glyphEndpoint, oasGlyph, parseAvatarOverrid
 import { didSchema, resolveConfig } from '../src/config.js';
 import { parseIdentityDocument } from '../src/identity.js';
 import { readFileSync } from 'node:fs';
+import { getCharacterExpressions, renderCharacterSvg } from '../src/characters.js';
 
 interface ReferenceColor { hex: string; rgba: number[] }
 interface ReferenceVector {
@@ -63,16 +64,42 @@ describe('OAS Glyph avatars', () => {
     expect(oasGlyph(named)).toContain('<svg');
     expect(oasGlyph(named)).not.toBe(oasGlyph('did:l1fe:agent:agent-2'));
   });
-  it('uses a changeable HTTPS override and clearing it restores the glyph', () => {
+  it('uses a changeable HTTPS override and clearing it restores the default Autos skin', () => {
     const override = 'https://images.example.org/agent.png';
     expect(agentAvatar(did, { avatarOverride: override })).toBe(override);
     expect(agentAvatar(did, { avatarOverride: null })).toMatch(/^data:image\/svg\+xml/);
+    expect(decodeURIComponent(agentAvatar(did).split(',')[1]!)).toBe(renderCharacterSvg(did));
     const document = { did, parent: did.replace(':agent:', ':hmr:'), publicKeyMultibase: did.split(':').at(-1), kind: 'agent', scopes: [], createdAt: '2026-10-11T00:00:00Z', avatarOverride: override };
     expect(parseIdentityDocument(document).avatarOverride).toBe(override);
     for (const bad of ['javascript:alert(1)', 'data:image/svg+xml,<svg/>', 'http://images.example.org/a', 'https://user:secret@example.org/a']) {
       expect(() => parseAvatarOverride(bad)).toThrow();
       expect(() => parseIdentityDocument({ ...document, avatarOverride: bad })).toThrow();
     }
+  });
+  it('keeps profile skin and preferred expression independent, with runtime eye state', () => {
+    const profile = { avatarSkin: { skin: 'spacex' as const, shape: 'cloud' as const }, avatarExpression: 'curious' as const };
+    const decode = (url: string): string => decodeURIComponent(url.split(',')[1]!);
+    expect(decode(agentAvatar(did, profile, { animated: false }))).toBe(renderCharacterSvg(did, {
+      skin: 'spacex', shape: 'cloud', expression: 'curious', animated: false,
+    }));
+    expect(decode(agentAvatar(did, profile, { expression: 'happy', animated: false, state: { blink: 0.5 } })))
+      .toBe(renderCharacterSvg(did, { skin: 'spacex', shape: 'cloud', expression: 'happy', animated: false, state: { blink: 0.5 } }));
+    expect(decode(agentAvatar(did, { avatarSkin: null }))).toBe(oasGlyph(did));
+    const human = did.replace(':agent:', ':hmr:');
+    expect(decode(agentAvatar(human))).toBe(oasGlyph(human));
+    const document = { did, parent: human, publicKeyMultibase: did.split(':').at(-1), kind: 'agent', scopes: [], createdAt: '2026-10-11T00:00:00Z' };
+    for (const avatarExpression of getCharacterExpressions()) {
+      expect(parseIdentityDocument({ ...document, ...profile, avatarExpression }).avatarExpression).toBe(avatarExpression);
+    }
+    expect(parseIdentityDocument({ ...document, ...profile }).avatarSkin).toEqual(profile.avatarSkin);
+    expect(parseIdentityDocument({ ...document, avatarSkin: null }).avatarSkin).toBeNull();
+    for (const avatarSkin of [{ skin: 'unknown' }, { skin: 'spacex', shape: 'slender' }, { skin: 'autos', shape: 'circle' }, { skin: 'autos', expression: 'happy' }, { skin: 'autos', skinVersion: 2 }, { skin: 'autos', eyeStyle: 'other' }, { shape: 'standard' }]) {
+      expect(() => parseIdentityDocument({ ...document, avatarSkin })).toThrow();
+      expect(() => agentAvatar(did, { avatarSkin: avatarSkin as never })).toThrow();
+    }
+    expect(() => parseIdentityDocument({ ...document, avatarExpression: 'unknown' })).toThrow();
+    expect(() => agentAvatar(did, { avatarSkin: { skin: 'autos', size: 64 } as never })).toThrow();
+    expect(() => agentAvatar(did, profile, { expression: null as never })).toThrow();
   });
   it('rejects markup, malformed identifiers, excessive payloads and invalid sizes', () => {
     for (const bad of ['<script/>', did + '"/>', did.replace('z6Mkha', 'z0OIl'), did.replace(/z[^:]+$/, 'z' + 'A'.repeat(80))]) {

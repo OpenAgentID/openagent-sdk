@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { didSchema, scopeSchema, type CreateAgentInput } from './config.js';
 import { IdentityError, ErrorCode, wrapError } from './errors.js';
 import { parseAvatarOverride } from './glyph.js';
+import { getCharacterSkins, type CharacterAppearance, type AvatarExpression } from './characters.js';
 
 /** Fully qualified `did:oas` identifier. */
 export type Did = string;
@@ -33,8 +34,12 @@ export interface IdentityDocument {
   scopes: readonly string[];
   /** ISO-8601 creation timestamp. */
   createdAt: string;
-  /** User/agent-selected HTTPS avatar. Null or absent uses the OAS Glyph. */
+  /** User/agent-selected HTTPS avatar. Null or absent uses the selected skin. */
   avatarOverride?: string | null;
+  /** Body/face skin. Absent defaults to Autos; null explicitly uses OAS Glyph. */
+  avatarSkin?: CharacterAppearance | null;
+  /** Preferred live-eye expression, independent of body/face skin. */
+  avatarExpression?: AvatarExpression;
   /** Opaque metadata. */
   metadata?: Record<string, unknown>;
 }
@@ -71,6 +76,23 @@ export interface IdentityProvider {
   publicKey(did: Did): Promise<string>;
 }
 
+/** Versioned body/face selection. Runtime expression and gaze are independent. */
+export const characterAppearanceSchema = z.object({
+  skin: z.enum(['autos', 'spacex']),
+  skinVersion: z.literal(1).optional(),
+  eyeStyle: z.literal('live-v1').optional(),
+  shape: z.enum(['standard', 'slender', 'wide', 'circle', 'pebble', 'squircle', 'capsule', 'triangle', 'hexagon', 'cloud', 'droplet']).optional(),
+}).strict().superRefine((value, context) => {
+  const skin = getCharacterSkins().find(entry => entry.id === value.skin)!;
+  if (value.shape !== undefined && !skin.shapes.includes(value.shape)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['shape'], message: 'Unsupported shape for skin' });
+  }
+});
+
+export const avatarExpressionSchema = z.enum(['neutral', 'attentive', 'surprised', 'excited',
+  'happy', 'laughing', 'angry', 'sad', 'scared', 'suspicious', 'confused', 'curious',
+  'proud', 'shy', 'unimpressed', 'sleepy']);
+
 /** Runtime-validated identity document schema. */
 export const identityDocumentSchema = z
   .object({
@@ -83,6 +105,8 @@ export const identityDocumentSchema = z
     avatarOverride: z.string().url().nullable().optional().transform(value => {
       return value === undefined ? undefined : parseAvatarOverride(value);
     }),
+    avatarSkin: characterAppearanceSchema.nullable().optional(),
+    avatarExpression: avatarExpressionSchema.optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

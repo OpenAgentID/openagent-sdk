@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",
@@ -69,6 +69,16 @@
       "types": "./sdks/typescript/dist/oats.d.ts",
       "import": "./sdks/typescript/dist/oats.js",
       "require": "./sdks/typescript/dist/oats.cjs"
+    },
+    "./characters": {
+      "types": "./sdks/typescript/dist/characters.d.ts",
+      "import": "./sdks/typescript/dist/characters.js",
+      "require": "./sdks/typescript/dist/characters.cjs"
+    },
+    "./character-api": {
+      "types": "./sdks/typescript/dist/character-api.d.ts",
+      "import": "./sdks/typescript/dist/character-api.js",
+      "require": "./sdks/typescript/dist/character-api.cjs"
     }
   },
   "files": [

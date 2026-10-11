@@ -5,13 +5,19 @@ alongside Henry, Weave, Flocks and Fleets. Life sells hosted services around
 this core. Human owners authenticate with LifeID; Blinds brokers agent
 credentials and Genesis KMS stores customer secrets.
 
-The **0.2.0 release candidate** adds a signing [OIDC provider](bridges/oidc/typescript/),
+The **0.2.0 release** adds a signing [OIDC provider](bridges/oidc/typescript/),
 [identity verification API/SDK/CLI](docs/identity-verification.md),
 [OAS Glyph avatars](docs/glyph.md) and [verified OATS scoring](docs/oats.md).
 See the [inventory](docs/inventory-2026-10-11.md) for the published 0.1.x baseline.
 The [0.2.0 shipment list](docs/release-0.2.0.md) defines the two package artifacts
 and migration requirements before publication.
-These source changes do not establish a deployed hosted issuer or publish a package.
+Both `@openagentid/sdk@0.2.0` and `@openagentid/oidc@0.2.0` are published.
+Hosted issuer/LifeID integration remains a separate rollout.
+
+The following **SDK 0.2.1** adds the [open character API](docs/characters.md):
+Autos is the default agent skin, SpaceX provides eight geometric shapes, and
+both share sixteen live-eye expressions with blinking and gaze. A skin chooses
+the body/face; the avatar expression chooses its eye state. Identity stays stable.
 
 **Agent auth in 3 lines.** One SDK for identity, credentials, and verification — built on [OAS](https://github.com/OpenAgentID/oas) (W3C DID identity), [Arsenal](https://github.com/OpenAgentID/arsenal) (scoped capability tokens), and [AEGIS](https://github.com/OpenAgentID/aegis) (verification and policy).
 

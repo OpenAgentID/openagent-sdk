@@ -9,8 +9,10 @@ palette color; they do not generate expected values with the TypeScript code.
 `@openagentid/sdk/glyph` exports `oasGlyph(did, {size, background})`,
 `glyphCodeword(did)`, `agentAvatar(did, profile)` and `glyphEndpoint(request)`.
 Generation is deterministic, local and browser compatible. Agents use their
-identity-derived glyph by default. Set `IdentityDocument.avatarOverride` to an
-HTTPS image URL to select another avatar; clear it to restore the glyph. Profile
+identity-derived glyph when `avatarSkin:null` is explicitly selected. Since SDK
+0.2.1, agents default to the [Autos character skin](characters.md); non-agent
+principals still default to Glyph. Set `IdentityDocument.avatarOverride` to an
+HTTPS image URL to select another avatar; clear it to restore the selected skin. Profile
 writes must go through the service's existing authenticated owner/agent policy.
 The rendering endpoint does not fetch override URLs or authorize profile writes.
 

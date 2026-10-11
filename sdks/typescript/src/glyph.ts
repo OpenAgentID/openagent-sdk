@@ -2,6 +2,7 @@
 import { blake3 } from '@noble/hashes/blake3';
 import { base58 } from '@scure/base';
 import { didSchema } from './config.js';
+import { renderCharacterSvg, parseCharacterAppearance, type AvatarExpression, type CharacterAppearance, type LiveEyeState } from './characters.js';
 
 export interface GlyphOptions {
   /** Square pixel dimensions, 32–2048. Geometry is independent of size. */
@@ -11,8 +12,19 @@ export interface GlyphOptions {
 }
 
 export interface AgentAvatar {
-  /** Optional user/agent-selected HTTPS image. Clearing it restores the glyph. */
+  /** Optional user/agent-selected HTTPS image. Clearing it restores the skin. */
   avatarOverride?: string | null;
+  /** Body/face skin. Absent defaults to Autos; null explicitly selects OAS Glyph. */
+  avatarSkin?: CharacterAppearance | null;
+  /** Preferred eye expression, shared across all skins. Defaults to neutral. */
+  avatarExpression?: AvatarExpression;
+}
+
+export interface AvatarOptions extends GlyphOptions {
+  /** Runtime expression overrides the profile's preferred expression. */
+  expression?: AvatarExpression;
+  animated?: boolean;
+  state?: LiveEyeState;
 }
 
 const encoder = new TextEncoder();
@@ -174,10 +186,20 @@ export function parseAvatarOverride(value: unknown): string | null {
 }
 
 /** Return an external override or a self-contained deterministic SVG data URL. */
-export function agentAvatar(did: string, profile: AgentAvatar = {}, options?: GlyphOptions): string {
+export function agentAvatar(did: string, profile: AgentAvatar = {}, options?: AvatarOptions): string {
   didSchema.parse(did);
   const override = parseAvatarOverride(profile.avatarOverride);
-  return override ?? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(oasGlyph(did, options));
+  if (override) return override;
+  const agentDid = /^did:(?:oas:[^:]+:|l1fe:)agent(?::instance)?:/.test(did);
+  const appearance = profile.avatarSkin === undefined || profile.avatarSkin === null
+    ? undefined : parseCharacterAppearance(profile.avatarSkin);
+  const expression = options?.expression === undefined ? profile.avatarExpression : options.expression;
+  const svg = agentDid && profile.avatarSkin !== null
+    ? renderCharacterSvg(did, { ...appearance, size: options?.size,
+      expression,
+      animated: options?.animated, state: options?.state })
+    : oasGlyph(did, options);
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
 /** GET /v1/glyph/svg/:did. This endpoint always renders identity-derived pixels;

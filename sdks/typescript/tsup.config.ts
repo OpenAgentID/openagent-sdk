@@ -14,6 +14,8 @@ export default defineConfig([{
     'src/identity-verification.ts',
     'src/verification-api.ts',
     'src/oats.ts',
+    'src/characters.ts',
+    'src/character-api.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
