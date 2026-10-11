@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0 — live expression state, 2026-10-11 (unreleased)
+
+- Add portable status snapshots and incremental updates for all eighteen
+  expressions. Reasoning selects thoughtful; blocked/error selects concerned.
+  Explicit expression overrides remain available across Autos and SpaceX.
+- Add a clock-driven animator and mounted browser SVG player. Interrupted
+  transitions preserve eye position and velocity, while identity-seeded blinking
+  and gaze keep their timeline. Respect system reduced motion and cleanly stop
+  animation and listeners on disposal or hidden documents.
+- Keep the DOM player in explicit browser subpaths so Node imports do not gain
+  a DOM type requirement. Publish a self-contained browser module, a public status catalog and mirrored
+  OpenAPI contract; update the hosted demo to exercise state updates in place.
+  Preserve default Autos, optional SpaceX, existing DID/body/color derivation,
+  profile overrides and all authentication/authorization behavior.
+- Add state, interpolation, invalid-input and real browser/HTTP qualification
+  coverage. Only @openagentid/sdk changes to 0.3.0; OIDC stays at 0.2.0.
+
 ## 0.2.2 — IAM avatar compatibility, 2026-10-11
 
 - Render established IAM `did:oas:agent-instance:<canonical ULID>` identifiers

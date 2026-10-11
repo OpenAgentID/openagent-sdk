@@ -13,7 +13,7 @@ import {
 const did = 'did:oas:openagent:agent:character-vector';
 const colors = ['#757575', '#1687ff', '#ff6a00', '#161616', '#00c875', '#96663c', '#7656d6', '#e84770'];
 const expressions = ['neutral', 'attentive', 'surprised', 'excited', 'happy', 'laughing', 'angry', 'sad',
-  'scared', 'suspicious', 'confused', 'curious', 'proud', 'shy', 'unimpressed', 'sleepy'] as const;
+  'scared', 'suspicious', 'confused', 'curious', 'proud', 'shy', 'unimpressed', 'sleepy', 'thoughtful', 'concerned'] as const;
 
 function attributes(element: string): Record<string, string> {
   return Object.fromEntries([...element.matchAll(/([\w-]+)="([^"]*)"/g)].map((match) => [match[1]!, match[2]!]));
@@ -130,7 +130,7 @@ describe('OpenAgent character profile v1', () => {
     expect(heightAnimations[0]).toEqual(heightAnimations[1]);
     expect(yAnimations[0]).toEqual(yAnimations[1]);
     expect(heightAnimations[0]).toMatchObject({ values: '72;72;2;72;72',
-      keyTimes: '0;0.78;0.8;0.82;1', begin: '0s', repeatCount: 'indefinite' });
+      keyTimes: '0;0.78;0.8;0.84;1', begin: '0s', repeatCount: 'indefinite' });
     expect(yAnimations[0]).toMatchObject({ values: '228;228;263;228;228' });
     expect(heightAnimations[0]!.dur).toBe(yAnimations[0]!.dur);
     const heights = heightAnimations[0]!.values!.split(';').map(Number);
@@ -182,7 +182,7 @@ describe('OpenAgent character profile v1', () => {
     }
   });
 
-  it.each(['autos', 'spacex'] as const)('shares all 16 expressions across %s without changing body, color or shape', (skin) => {
+  it.each(['autos', 'spacex'] as const)('shares all 18 expressions across %s without changing body, color or shape', (skin) => {
     const base = generateCharacter(did, { skin, animated: false });
     const body = base.svg.match(/<(?:rect|path|circle|ellipse)\b[^>]*data-character-body="true"[^>]*\/>/)![0];
     const signatures = new Set<string>();
@@ -202,7 +202,7 @@ describe('OpenAgent character profile v1', () => {
       }
       signatures.add(JSON.stringify(eyes));
     }
-    expect(signatures.size).toBe(16);
+    expect(signatures.size).toBe(18);
   });
 
   it('animates asymmetric expressions with synchronized blink timing and fixed bar centers', () => {
@@ -216,7 +216,7 @@ describe('OpenAgent character profile v1', () => {
         const ys = animation(block[2]!, 'y');
         expect(heights).toHaveLength(1);
         expect(ys).toHaveLength(1);
-        expect(heights[0]).toMatchObject({ keyTimes: '0;0.78;0.8;0.82;1', begin: '0s', repeatCount: 'indefinite' });
+        expect(heights[0]).toMatchObject({ keyTimes: '0;0.78;0.8;0.84;1', begin: '0s', repeatCount: 'indefinite' });
         const center = Number(eye.y) + Number(eye.height) / 2;
         const values = heights[0]!.values!.split(';').map(Number);
         const positions = ys[0]!.values!.split(';').map(Number);

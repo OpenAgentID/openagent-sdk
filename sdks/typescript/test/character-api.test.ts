@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { characterApiOpenApi, createCharacterApiHandler } from '../src/character-api.js';
-import { generateCharacter, getCharacterExpressions, getCharacterSkins } from '../src/characters.js';
+import { generateCharacter, getCharacterExpressions, getCharacterSkins, getCharacterStatuses } from '../src/characters.js';
 
 // Public conformance identifier, not a secret or an assertion of control.
 const did = 'did:oas:openagent:agent:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
@@ -39,6 +39,73 @@ describe('public stateless character API', () => {
     expect(characterApiOpenApi.security).toEqual([]);
     expect(characterApiOpenApi.components.schemas.CharacterGenerateRequestV1.additionalProperties).toBe(false);
     expect(characterApiOpenApi.components.schemas.LiveEyeStateV1.additionalProperties).toBe(false);
+  });
+
+  it('serves the real status mapping catalog with documented expression and state enums', async () => {
+    const response = await handler(new Request(`${base}/statuses`));
+    expect(response.status).toBe(200);
+    expectCors(response, 'GET, HEAD, OPTIONS');
+    const statuses = getCharacterStatuses();
+    expect(await response.json()).toEqual(statuses);
+    expect(Object.fromEntries(statuses.map(entry => [entry.status, entry.expression]))).toEqual({
+      ...Object.fromEntries(getCharacterExpressions().map(expression => [expression, expression])),
+      idle: 'neutral', listening: 'attentive', reasoning: 'thoughtful', working: 'attentive',
+      speaking: 'happy', success: 'happy', blocked: 'concerned', error: 'concerned',
+    });
+    expect(characterApiOpenApi.components.schemas.AvatarStatus.enum).toEqual(statuses.map(entry => entry.status));
+    expect(characterApiOpenApi.components.schemas.AvatarExpression.enum).toEqual(getCharacterExpressions());
+    expect(characterApiOpenApi.components.schemas.AvatarExpression.enum).toContain('thoughtful');
+    expect(characterApiOpenApi.components.schemas.AvatarExpression.enum).toContain('concerned');
+  });
+
+  it.each(['autos', 'spacex'] as const)('maps every status in %s GET, SVG and POST without changing identity, shape or color', async skin => {
+    const neutral = generateCharacter(did, { skin, animated: false });
+    for (const { status, expression } of getCharacterStatuses()) {
+      const options = { skin, animated: false, state: { status } };
+      const query = `?skin=${skin}&status=${status}&animated=false`;
+      const descriptor = await handler(new Request(path() + query));
+      expect(descriptor.status).toBe(200);
+      expectCors(descriptor);
+      const actual = await descriptor.json();
+      expect(actual).toEqual(generateCharacter(did, options));
+      expect(actual).toMatchObject({ did, expression, shape: neutral.shape, color: neutral.color });
+      expect(actual.svg).toContain(`data-character-expression="${expression}"`);
+      const image = await handler(new Request(path(did, true) + query));
+      expect(image.status).toBe(200);
+      expect(await image.text()).toBe(actual.svg);
+      const generated = await handler(post({ did, ...options }));
+      expect(generated.status).toBe(200);
+      expect(generated.headers.get('cache-control')).toBe('no-store');
+      expect(generated.headers.get('etag')).toBeNull();
+      expect(await generated.json()).toEqual(actual);
+    }
+  });
+
+  it.each(['autos', 'spacex'] as const)('applies state expression, status and outer expression precedence for %s', async skin => {
+    const cases = [
+      { expression: 'sad' as const, state: { status: 'success' as const, expression: 'concerned' as const }, resolved: 'concerned' },
+      { expression: 'happy' as const, state: { status: 'reasoning' as const }, resolved: 'thoughtful' },
+      { expression: 'curious' as const, state: { expression: 'neutral' as const }, resolved: 'neutral' },
+      { expression: 'thoughtful' as const, state: {}, resolved: 'thoughtful' },
+      { state: {}, resolved: 'neutral' },
+    ];
+    for (const { resolved, ...options } of cases) {
+      const response = await handler(post({ did, skin, animated: false, ...options }));
+      expect(response.status).toBe(200);
+      const descriptor = await response.json();
+      expect(descriptor.expression).toBe(resolved);
+      expect(descriptor).toEqual(generateCharacter(did, { skin, animated: false, ...options }));
+    }
+    // GET expression remains the outer preference; state.status takes precedence.
+    const query = `?skin=${skin}&status=blocked&expression=happy&animated=false&blink=0.5&gazeX=0.25&gazeY=-0.5`;
+    const response = await handler(new Request(path() + query));
+    expect(response.status).toBe(200);
+    const descriptor = await response.json();
+    expect(descriptor.expression).toBe('concerned');
+    expect(descriptor).toEqual(generateCharacter(did, { skin, expression: 'happy', animated: false,
+      state: { status: 'blocked', blink: 0.5, gaze: { x: 0.25, y: -0.5 } } }));
+    const image = await handler(new Request(path(did, true) + query));
+    expect(await image.text()).toBe(descriptor.svg);
   });
 
   it.each(['autos', 'spacex'] as const)('returns matching %s JSON, SVG and POST generation with live state', async skin => {
@@ -91,6 +158,9 @@ describe('public stateless character API', () => {
     '?skin=autos&skin=spacex', '?skin=autos&%73kin=autos', '?blink=0&blink=0',
     '?shape=unknown', '?skin=autos&shape=circle', '?skin=spacex&shape=standard',
     '?expression=unknown', '?expression=Happy', '?expression=neutral&expression=happy', '?style=pill',
+    '?status=unknown', '?status=Idle', '?status=', '?status=reasoning%0A',
+    '?status=idle&status=working', '?status=idle&%73tatus=idle', '?state.expression=happy',
+    '?status=unknown&expression=happy', '?status=success&expression=unknown',
   ])('rejects invalid or ambiguous query inputs before rendering or 304: %s', async query => {
     const response = await handler(new Request(path(did, true) + query, { headers: { 'if-none-match': '*' } }));
     expect(response.status).toBe(400);
@@ -130,6 +200,15 @@ describe('public stateless character API', () => {
     { did, shape: null }, { did, shape: 'unknown' }, { did, skin: 'autos', shape: 'circle' },
     { did, skin: 'spacex', shape: 'standard' }, { did, expression: null },
     { did, expression: 'unknown' }, { did, expression: 'Happy' }, { did, style: 'pill' },
+    { did, status: 'working' }, { did, state: { status: null } }, { did, state: { status: true } },
+    { did, state: { status: [] } }, { did, state: { status: {} } }, { did, state: { status: '' } },
+    { did, state: { status: 'Working' } }, { did, state: { status: 'working\n' } },
+    { did, state: { expression: null } }, { did, state: { expression: true } },
+    { did, state: { expression: [] } }, { did, state: { expression: 'working' } },
+    { did, state: { expression: 'unknown' } }, { did, state: { expression: 'Thoughtful' } },
+    { did, expression: 'unknown', state: { status: 'success' } },
+    { did, state: { expression: 'happy', status: 'unknown' } },
+    { did, state: { expression: 'concerned', status: 'idle', unknown: 0 } },
   ])('rejects invalid JSON schema input: %j', async body => {
     const response = await handler(post(body));
     expect(response.status).toBe(400);
@@ -236,7 +315,7 @@ describe('public stateless character API', () => {
     expect(cancelled).toBe(true);
   });
 
-  it.each([`${base}/skins`, `${base}/openapi.json`, path(), path(did, true)])
+  it.each([`${base}/skins`, `${base}/statuses`, `${base}/openapi.json`, path(), path(did, true), path() + '?status=reasoning', path(did, true) + '?status=blocked'])
   ('keeps exact byte validators, HEAD headers and conditional CORS for %s', async url => {
     const get = await handler(new Request(url));
     const body = await get.text();
@@ -265,6 +344,7 @@ describe('public stateless character API', () => {
     const urls = [path(), path() + '?skin=spacex', path() + '?blink=0.5',
       path() + '?gazeX=1&gazeY=0', path() + '?size=128', path() + '?animated=false',
       path() + '?shape=wide&expression=happy', path(did, true)];
+    urls.push(path() + '?status=reasoning', path() + '?status=blocked');
     const tags = [];
     for (const url of urls) tags.push((await handler(new Request(url))).headers.get('etag'));
     expect(new Set(tags).size).toBe(urls.length);
@@ -277,7 +357,7 @@ describe('public stateless character API', () => {
     expect(postResponse.headers.get('etag')).toBeNull();
   });
 
-  it.each([`${base}/skins`, `${base}/openapi.json`, path() + '?size=128', path(did, true) + '?skin=spacex', `${base}/generate`])
+  it.each([`${base}/skins`, `${base}/statuses`, `${base}/openapi.json`, path() + '?size=128', path(did, true) + '?skin=spacex', path() + '?status=working', `${base}/generate`])
   ('supports credential-free CORS preflight for %s', async url => {
     const response = await handler(new Request(url, { method: 'OPTIONS', headers: {
       origin: 'https://client.example.org', 'access-control-request-method': url.endsWith('/generate') ? 'POST' : 'GET',
@@ -294,6 +374,7 @@ describe('public stateless character API', () => {
       [path(), 'POST', 405, 'GET, HEAD, OPTIONS'],
       [`${base}/generate`, 'GET', 405, 'POST, OPTIONS'],
       [`${base}/skins`, 'DELETE', 405, 'GET, HEAD, OPTIONS'],
+      [`${base}/statuses`, 'POST', 405, 'GET, HEAD, OPTIONS'],
       [`${base}/generate`, 'HEAD', 405, 'POST, OPTIONS'],
       ['https://characters.example.org/other', 'GET', 404, null],
       [`${base}/svg/a/b`, 'GET', 404, null],
@@ -305,13 +386,15 @@ describe('public stateless character API', () => {
       expectCors(response);
       if (method === 'HEAD') expect(await response.text()).toBe('');
     }
-    for (const url of [`${base}/skins?size=128`, `${base}/openapi.json?x=1`]) {
+    for (const url of [`${base}/skins?size=128`, `${base}/statuses?status=idle`, `${base}/openapi.json?x=1`]) {
       expect((await handler(new Request(url))).status).toBe(400);
     }
     expect((await handler(new Request(`${base}/generate?skin=autos`, {
       method: 'POST', headers: jsonHeaders, body: JSON.stringify({ did }),
     }))).status).toBe(400);
     expect((await handler(new Request(path() + '?size=no', { method: 'OPTIONS' }))).status).toBe(400);
+    expect((await handler(new Request(path() + '?status=unknown', { method: 'OPTIONS' }))).status).toBe(400);
+    expect((await handler(new Request(`${base}/statuses?status=idle`, { method: 'OPTIONS' }))).status).toBe(400);
   });
 
   it('supports an explicit mount path and reports it in the schema', async () => {
@@ -319,6 +402,8 @@ describe('public stateless character API', () => {
     const image = await mounted(new Request(`https://characters.example.org/api/characters/svg/${encodeURIComponent(did)}`));
     expect(image.status).toBe(200);
     expect(await image.text()).toBe(generateCharacter(did).svg);
+    const statuses = await mounted(new Request('https://characters.example.org/api/characters/statuses'));
+    expect(await statuses.json()).toEqual(getCharacterStatuses());
     const schema = await mounted(new Request('https://characters.example.org/api/characters/openapi.json'));
     expect(await schema.json()).toEqual({ ...characterApiOpenApi, servers: [{ url: '/api/characters' }] });
     expect((await mounted(new Request(path()))).status).toBe(404);

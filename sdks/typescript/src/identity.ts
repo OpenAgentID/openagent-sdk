@@ -91,7 +91,7 @@ export const characterAppearanceSchema = z.object({
 
 export const avatarExpressionSchema = z.enum(['neutral', 'attentive', 'surprised', 'excited',
   'happy', 'laughing', 'angry', 'sad', 'scared', 'suspicious', 'confused', 'curious',
-  'proud', 'shy', 'unimpressed', 'sleepy']);
+  'proud', 'shy', 'unimpressed', 'sleepy', 'thoughtful', 'concerned']);
 
 /** Runtime-validated identity document schema. */
 export const identityDocumentSchema = z

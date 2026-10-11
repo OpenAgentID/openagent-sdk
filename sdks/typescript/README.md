@@ -29,6 +29,29 @@ using this flow. Unconfigured production subsystems fail closed. New identities
 default to the `openagent` namespace; signed legacy `did:l1fe` identities remain
 readable without changing their identifiers.
 
+## Version 0.3.0 (unreleased)
+
+Use the same live expression state with Autos (default) or SpaceX:
+
+```ts
+import { mountCharacter } from '@openagentid/sdk/character-player';
+
+const avatar = mountCharacter(document.querySelector('#agent-avatar')!, agent.did);
+avatar.update({ status: 'reasoning' }); // thoughtful, with a smooth eye transition
+avatar.update({ status: 'happy' });     // expression IDs work as statuses too
+avatar.update({ status: 'blocked' });   // concerned
+avatar.setAppearance({ skin: 'spacex' }); // same expression and ongoing timeline
+// On component unmount:
+avatar.dispose();
+```
+
+Updates come from your harness/client's existing authorized state channel. They
+change presentation only. `createCharacterAnimator` from
+`@openagentid/sdk/character-animation` provides the same sampled geometry without
+a DOM; `@openagentid/sdk/browser` is a self-contained browser ESM bundle. The player
+respects system reduced motion by default. See the
+[full state and HTTP contract](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/characters.md).
+
 ## Version 0.2.2
 
 Autos remains the default animated agent skin; SpaceX is optional. Both share

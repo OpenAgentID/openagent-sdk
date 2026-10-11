@@ -23,6 +23,13 @@ the body/face; the avatar expression chooses its eye state. Identity stays stabl
 agent-instance ULIDs and exports `isAgentAvatarDid` for consumer display
 selection. The assigned DID stays unchanged; authentication admission does too.
 
+The next **SDK 0.3.0** release adds [live expression state](docs/characters.md):
+update an agent's status to smoothly change its eyes in place. Reasoning selects
+thoughtful; blocked or error selects concerned. Autos and SpaceX share all
+eighteen expressions, ongoing blinks and gaze, and system reduced-motion support.
+The clock-driven animator works without a DOM; the browser player mounts inline
+SVG once and accepts updates from the host's authorized state channel.
+
 **Agent auth in 3 lines.** One SDK for identity, credentials, and verification — built on [OAS](https://github.com/OpenAgentID/oas) (W3C DID identity), [Arsenal](https://github.com/OpenAgentID/arsenal) (scoped capability tokens), and [AEGIS](https://github.com/OpenAgentID/aegis) (verification and policy).
 
 Every language implementation is gated by the same conformance suite — the canonical ACT verification vectors in [`conformance/`](conformance/) — so a token that verifies in one language verifies in all of them.

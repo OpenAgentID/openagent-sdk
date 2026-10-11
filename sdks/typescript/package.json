@@ -1,7 +1,7 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.2.2",
-  "description": "OpenAgent SDK: open agent identity, OATS and animated Autos/SpaceX avatar skins.",
+  "version": "0.3.0",
+  "description": "OpenAgent identity, OATS and state-driven animated Autos/SpaceX avatars.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
@@ -79,6 +79,25 @@
       "types": "./dist/character-api.d.ts",
       "import": "./dist/character-api.js",
       "require": "./dist/character-api.cjs"
+    },
+    "./character-state": {
+      "types": "./dist/character-state.d.ts",
+      "import": "./dist/character-state.js",
+      "require": "./dist/character-state.cjs"
+    },
+    "./character-animation": {
+      "types": "./dist/character-animation.d.ts",
+      "import": "./dist/character-animation.js",
+      "require": "./dist/character-animation.cjs"
+    },
+    "./character-player": {
+      "types": "./dist/character-player.d.ts",
+      "import": "./dist/character-player.js",
+      "require": "./dist/character-player.cjs"
+    },
+    "./browser": {
+      "types": "./dist/browser/character-player.d.ts",
+      "import": "./dist/browser/character-player.js"
     }
   },
   "files": [
@@ -96,7 +115,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsup --config tsup.browser.config.ts",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

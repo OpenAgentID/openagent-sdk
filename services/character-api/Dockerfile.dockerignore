@@ -5,6 +5,7 @@
 !sdks/typescript/package-lock.json
 !sdks/typescript/tsconfig.json
 !sdks/typescript/tsup.config.ts
+!sdks/typescript/tsup.browser.config.ts
 !sdks/typescript/LICENSE-APACHE
 !sdks/typescript/LICENSE-MIT
 !sdks/typescript/src/
