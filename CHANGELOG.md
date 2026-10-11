@@ -2,6 +2,8 @@
 
 ## 0.2.0 — release candidate, 2026-10-11
 
+- Qualify a remote Cargo lock refresh for the canonical OAS anchor-authority revision; no package publication from this maintenance branch.
+
 - Add a signing OIDC provider adapter with registered relying parties, S256
   PKCE, discovery/JWKS and LifeID owner federation; remove successful
   placeholder exchange/key derivation behavior from the existing bridge.

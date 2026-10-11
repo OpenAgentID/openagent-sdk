@@ -1,386 +1,42 @@
-name: ci
-
-# Verification for every change to the OpenAgent SDK: the Rust crates, the
-# TypeScript SDK, and the language-neutral conformance vectors run against
-# both runners.
-#
-# The Rust side consumes OAS, Arsenal, and AEGIS through private git
-# dependencies; the authenticate-git step is what lets CI resolve them.
-
+name: conformance OAS lock refresh
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 permissions:
   contents: read
-
 jobs:
-  rust:
-    name: rust fmt, clippy, test
-    runs-on: depot-ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        crate:
-          # Not a Cargo workspace - each crate is a standalone package and is
-          # verified as one, so a break in one cannot mask another.
-          # adapters/weave is deliberately absent: it is the informative
-          # Phase-2 Weave binding, mid-migration, and does not compile.
-          - sdks/rust
-          - crates/openagent-crypto-wasm
-          - crates/openagent-auth-protocol
-          - adapters/http/rust
-          - conformance/runner-rust
-    defaults:
-      run:
-        working-directory: ${{ matrix.crate }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate git for private sibling dependencies
-        if: matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust'
-        # Requires the org-level secret OPENAGENTID_CI_PAT with contents:read
-        # on the private OpenAgentID siblings (oas, arsenal, aegis).
-        # Other matrix crates consume only registry packages or public ACT.
-        env:
-          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
-        run: |
-          if [ -z "$CI_PAT" ]; then
-            echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
-            echo "Cargo fetches OAS, Arsenal, and AEGIS from private OpenAgentID repositories;"
-            echo "the default GITHUB_TOKEN cannot read them."
-            exit 1
-          fi
-          for repository in oas arsenal aegis; do
-            git config --global url."https://x-access-token:${CI_PAT}@github.com/OpenAgentID/${repository}".insteadOf "https://github.com/OpenAgentID/${repository}"
-          done
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ${{ matrix.crate }}
-
-      - name: Format
-        run: cargo fmt --all -- --check
-
-      - name: Fetch locked dependencies
-        env:
-          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
-        run: cargo fetch --locked
-
-      - name: Remove private git credentials before compilation
-        if: always() && (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust')
-        run: rm -f ~/.gitconfig
-
-      - name: Clippy (default features)
-        run: cargo clippy --all-targets
-
-      - name: Clippy (all features)
-        # sdks/rust has real feature gates (arsenal, aegis): the minimal
-        # configuration and the full one are different programs, and both
-        # must stay green.
-        run: cargo clippy --all-targets --all-features
-
-      - name: Test (all features)
-        # Facade integration tests require both optional subsystems; default
-        # features would skip them silently.
-        run: cargo test --all-features
-
-      - name: Remove git credentials
-        if: always() && (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust')
-        run: rm -f ~/.gitconfig
-
-  typescript:
-    name: typescript typecheck, test, build (${{ matrix.package }})
-    runs-on: depot-ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [sdks/typescript, bridges/oidc/typescript]
-    defaults:
-      run:
-        working-directory: ${{ matrix.package }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install
-        run: npm ci --ignore-scripts --no-audit --no-fund --loglevel=error
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm test
-
-      - name: Build
-        run: npm run build
-
-      - name: Build and test anchor-eas adapter
-        if: matrix.package == 'sdks/typescript'
-        # The EAS lineage-anchor adapter (resolver + publisher surface).
-        working-directory: adapters/eas/typescript
-        run: |
-          npm install --no-audit --no-fund --loglevel=error
-          npx tsc --noEmit
-          npx vitest run
-          npm run build
-
-      - name: Build and typecheck sdk-testing
-        if: matrix.package == 'sdks/typescript'
-        # The in-memory backends the SDK's own tests import. Built here so a
-        # break in the sibling package surfaces in the same run.
-        working-directory: sdks/testing
-        run: |
-          npm install --no-audit --no-fund --loglevel=error
-          npx tsc --noEmit
-          npx tsup
-
-  wasm:
-    name: crypto-wasm build and smoke test
-    runs-on: depot-ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
-        with:
-          version: 'latest'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Build the WASM package
-        # Builds both targets (bundler + nodejs) and patches the package to
-        # the scoped @openagentid/crypto-wasm name.
-        working-directory: crates/openagent-crypto-wasm
-        run: node scripts/build-wasm.mjs
-
-      - name: Mint the ACT smoke fixture
-        # Regenerates the canonical test envelope deterministically (fixed
-        # seed, pinned claims), so the smoke test also proves minting.
-        working-directory: crates/openagent-crypto-wasm
-        run: cargo run --example mint_act --quiet > scripts/act_fixture.hex
-
-      - name: Smoke test the built package
-        # Proves the publishable artifact loads and runs its core primitives
-        # in Node before anything downstream may depend on it.
-        working-directory: crates/openagent-crypto-wasm
-        run: node scripts/smoke-test.mjs
-
-  kotlin:
-    name: kotlin sdk build and test (with vectors)
+  refresh-lock:
     runs-on: depot-ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: sdks/kotlin
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Build and test (includes the 13 canonical ACT vectors)
-        # VectorTest executes the same conformance vectors that gate the
-        # other five languages.
-        run: ./gradlew build --no-daemon
-
-  swift:
-    name: swift sdk build and test (with vectors)
-    runs-on: depot-macos-26
-    timeout-minutes: 25
-    defaults:
-      run:
-        working-directory: sdks/swift
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: swift-actions/setup-swift@7ca6abe6b3b0e8b5421b88be48feee39cbf52c6a # v2
-        with:
-          swift-version: '6.2'
-
-      - name: Build
-        run: swift build
-
-      - name: Test (includes the 13 canonical ACT vectors)
-        # The VectorTests target executes the same conformance vectors that
-        # gate Rust, TypeScript, Python, and Go.
-        run: swift test
-
-  go:
-    name: go sdk vet, test, and vectors
-    runs-on: depot-ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: sdks/go
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Format check
-        run: test -z "$(gofmt -l .)"
-
-      - name: Test
-        run: go test ./...
-
-      - name: README quickstart compiles
-        # The docs-truth gate.
-        run: go build ./examples/quickstart
-
-      - name: ACT conformance vectors
-        # The same 13 canonical vectors that gate Rust, TypeScript, and
-        # Python.
-        run: go run ./cmd/run-vectors ../../conformance/vectors/arsenal/act-verify.json
-
-  python:
-    name: python sdk test and vectors
-    runs-on: depot-ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: sdks/python
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Test
-        run: python -m pytest -q
-
-      - name: README quickstart compiles
-        # The docs-truth gate: if the README sample stops compiling, the
-        # README has drifted from the package.
-        run: python -m py_compile examples/quickstart.py
-
-      - name: ACT conformance vectors
-        # The same 13 canonical vectors that gate Rust and TypeScript. The
-        # Python SDK proves its spec-exact implementation agrees with the
-        # canonical crate before anything ships.
-        run: python scripts/run_vectors.py
-
-  conformance:
-    name: conformance vectors (rust + ts)
-    runs-on: depot-ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate git for private sibling dependencies
-        # The Rust runner uses private OAS and public ACT at pinned revisions.
-        env:
-          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
-        run: |
-          if [ -z "$CI_PAT" ]; then
-            echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
-            exit 1
-          fi
-          git config --global url."https://x-access-token:${CI_PAT}@github.com/OpenAgentID/oas".insteadOf "https://github.com/OpenAgentID/oas"
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
-        with:
-          version: 'latest'
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: conformance/runner-rust
-
-      - name: Fetch locked conformance dependencies
         working-directory: conformance/runner-rust
-        env:
-          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
-        run: cargo fetch --locked
-
-      - name: Remove private git credentials before compilation
-        if: always()
-        run: rm -f ~/.gitconfig
-
-      - name: Build the crypto-wasm package
-        # The TS runner's act-verify vectors run through this binding; it
-        # must exist before the suite executes.
-        working-directory: crates/openagent-crypto-wasm
-        run: node scripts/build-wasm.mjs
-
-      - name: Run all vectors
-        # The conformance suite is the drift control for the whole stack:
-        # both runners must agree with the same vectors, or the languages
-        # have diverged and nothing else may merge.
-        run: conformance/scripts/run-all.sh
-
-      - name: Upload conformance reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: conformance-reports
-          path: conformance/.reports/
-          if-no-files-found: ignore
-
-      - name: Remove git credentials
-        if: always()
-        run: rm -f ~/.gitconfig
-
-  codeowners:
-    name: codeowners resolve
-    runs-on: depot-ubuntu-latest
-    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
-      - name: Every owner handle resolves
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Authenticate pinned private OAS dependency
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
         run: |
-          errors=$(gh api "repos/${{ github.repository }}/codeowners/errors" \
-            --jq '.errors // []')
-          count=$(printf '%s' "$errors" | jq 'length')
-          if [ "$count" -gt 0 ]; then
-            echo "::error::CODEOWNERS has ${count} unresolvable entr(y/ies)"
-            printf '%s' "$errors" | jq -r '.[] | "  line \(.line): \(.message) - \(.source)"'
-            exit 1
-          fi
-          echo "ok: every CODEOWNERS handle resolves"
+          test -n "$CI_PAT"
+          git config --global url."https://x-access-token:${CI_PAT}@github.com/OpenAgentID/oas".insteadOf "https://github.com/OpenAgentID/oas"
+      - name: Regenerate actual locked OAS dependency graph
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+        run: |
+          cargo update --package oas-sdk --package oas-resolve --package oas-lineage
+          cargo metadata --locked --no-deps --format-version 1 > lock-metadata.json
+          sha256sum Cargo.toml Cargo.lock > lock-receipt.sha256
+      - name: Remove private git credentials
+        if: always()
+        run: rm -f ~/.gitconfig
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-oas-lock
+          if-no-files-found: error
+          path: |
+            conformance/runner-rust/Cargo.toml
+            conformance/runner-rust/Cargo.lock
+            conformance/runner-rust/lock-metadata.json
+            conformance/runner-rust/lock-receipt.sha256

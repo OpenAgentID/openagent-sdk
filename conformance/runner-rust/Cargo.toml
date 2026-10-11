@@ -26,10 +26,10 @@ agent-capability-token = { git = "https://github.com/OpenAgentID/act", branch = 
 
 # The anchor authority dispatcher and its trait - the anchor-resolve vectors
 # evaluate through the same AnchoredAuthoritySource production uses.
-# Match the SDK's recorded OAS 1.1.0 revision without an external sibling checkout.
-oas-sdk = { git = "https://github.com/OpenAgentID/oas", rev = "6eafeda70ee8249d132700d2646c8265cc3d602b", version = "1.1.0" }
-oas-resolve = { git = "https://github.com/OpenAgentID/oas", rev = "6eafeda70ee8249d132700d2646c8265cc3d602b", version = "1.1.0" }
-oas-lineage = { git = "https://github.com/OpenAgentID/oas", rev = "6eafeda70ee8249d132700d2646c8265cc3d602b", version = "1.1.0" }
+# Pin the canonical OAS anchor-authority API without an external sibling checkout.
+oas-sdk = { git = "https://github.com/OpenAgentID/oas", rev = "b923582981e756c8f4aef0668947934b8de125cb", version = "1.1.1" }
+oas-resolve = { git = "https://github.com/OpenAgentID/oas", rev = "b923582981e756c8f4aef0668947934b8de125cb", version = "1.1.1" }
+oas-lineage = { git = "https://github.com/OpenAgentID/oas", rev = "b923582981e756c8f4aef0668947934b8de125cb", version = "1.1.1" }
 async-trait = "0.1"
 tokio = { version = "1.36", features = ["rt-multi-thread"] }
 hkdf = "0.12"
