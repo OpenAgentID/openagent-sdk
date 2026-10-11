@@ -87,7 +87,7 @@ async function listen(server: Server) {
   return `http://127.0.0.1:${address.port}`;
 }
 
-async function fixture() {
+async function fixture(kind: 'agent' | 'agent:instance' = 'agent') {
   let provider: AgentOidcProvider;
   let callbackQuery: URLSearchParams | undefined;
   const rpOrigin = await listen(createServer((req, res) => {
@@ -117,7 +117,7 @@ async function fixture() {
     })().catch(() => { res.statusCode = 403; res.end(JSON.stringify({ error: 'access_denied' })); });
   }));
   const publicJwk = await exportJWK(ed.publicKey);
-  const did = `did:oas:openagent:agent:${publicJwk.x}`;
+  const did = `did:oas:openagent:${kind}:${publicJwk.x}`;
   const rootDid = `did:oas:openagent:hmr:${createHash('sha256').update(ownerJwk.n!).digest('hex')}`;
   const owner: AgentOwner = { issuer, subject: randomBytes(16).toString('hex'), organizationId: randomBytes(16).toString('hex') };
   const consumed = new Set<string>();
@@ -204,8 +204,8 @@ function redeem(f: Awaited<ReturnType<typeof fixture>>, code: string, verifier: 
 }
 
 describe('agent OIDC provider over HTTP', () => {
-  it('serves discovery/public JWKS and completes an ordinary RP code/PKCE/UserInfo flow', async () => {
-    const f = await fixture();
+  it.each(['agent', 'agent:instance'] as const)('serves discovery/public JWKS and completes an ordinary RP code/PKCE/UserInfo flow for %s', async (kind) => {
+    const f = await fixture(kind);
     const discovery = await (await fetch(`${f.issuer}/.well-known/openid-configuration`)).json();
     expect(discovery.issuer).toBe(f.issuer);
     expect(discovery.code_challenge_methods_supported).toEqual(['S256']);

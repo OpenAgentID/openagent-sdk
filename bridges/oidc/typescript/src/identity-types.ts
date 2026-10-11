@@ -25,7 +25,7 @@ export interface VerifyAgentContext {
 /** Never rewrite a legacy identifier before signature or owner verification. */
 export function assertAgentIdentity(identity: VerifiedAgentIdentity, did?: string): void {
   if (!identity || typeof identity.did !== 'string'
-    || !/^did:(?:oas:[a-z0-9_-]+|l1fe):agent:[A-Za-z0-9._%-]+$/.test(identity.did)
+    || !/^did:(?:oas:[a-z0-9_-]+|l1fe):agent(?::instance)?:[A-Za-z0-9._-]+$/.test(identity.did)
     || (did !== undefined && identity.did !== did)
     || !identity.owner || typeof identity.owner.issuer !== 'string' || !identity.owner.issuer
     || typeof identity.owner.subject !== 'string' || !identity.owner.subject

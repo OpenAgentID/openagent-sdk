@@ -1,5 +1,10 @@
 # Changelog
 
+### 0.2.0 qualification correction
+
+- Use the patched Vitest 4.1.11 development runner and coverage tool.
+- Accept the existing `agent:instance` DID kind and verify its full RP flow.
+
 ## 0.2.0 — 2026-10-11
 
 - Add a maintained OIDC provider adapter with registered clients, real private signing JWKs, discovery/public JWKS, authorization code, mandatory PKCE S256, signed ID tokens and UserInfo.

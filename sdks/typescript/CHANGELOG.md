@@ -4,6 +4,7 @@
 
 - Resolve npm's executable symlink when detecting the CLI entry point, so the
   installed `oaid` command executes and propagates successful/refused exits.
+- Use the patched Vitest 4.1.11 development runner and coverage tool.
 
 ## 0.2.0 — release candidate, 2026-10-11
 
