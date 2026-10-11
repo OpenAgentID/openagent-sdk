@@ -1,6 +1,7 @@
 import {
   IdentityVerificationError,
   IdentityVerifier,
+  assertVerifiedIdentity,
   type AgentIdentityProof,
   type VerifiedAgentIdentity,
 } from './identity-verification.js';
@@ -117,11 +118,12 @@ function correlateProof(proof: AgentIdentityProof, nonce: string): {
   proof: AgentIdentityProof;
   did: string;
   expiresAt: number;
+  lineage: readonly string[];
 } {
   try {
     if (!proof || typeof proof !== 'object' || Array.isArray(proof) ||
         typeof proof.token !== 'string' || !proof.token || proof.token.length > 32_768 ||
-        !Array.isArray(proof.delegations) || proof.delegations.length < 1 || proof.delegations.length > 16 ||
+        !Array.isArray(proof.delegations) || proof.delegations.length > 16 ||
         proof.delegations.some(token => typeof token !== 'string' || !token || token.length > 32_768)) {
       throw new Error('Invalid proof envelope');
     }
@@ -132,7 +134,21 @@ function correlateProof(proof: AgentIdentityProof, nonce: string): {
         typeof claims.exp !== 'number' || !Number.isSafeInteger(claims.exp) || claims.exp <= Math.floor(Date.now() / 1000)) {
       throw new Error('Invalid proof correlation claims');
     }
-    return { proof: copy, did: claims.sub, expiresAt: claims.exp };
+    const lineage: string[] = [];
+    for (const token of copy.delegations) {
+      const delegation = decodeJwt(token);
+      if (!validDid(delegation.iss) || !validDid(delegation.sub) ||
+          (lineage.length > 0 && lineage.at(-1) !== delegation.iss)) {
+        throw new Error('Invalid proof lineage correlation');
+      }
+      if (lineage.length === 0) lineage.push(delegation.iss);
+      lineage.push(delegation.sub);
+    }
+    if (lineage.length === 0) lineage.push(claims.sub);
+    if (lineage.at(-1) !== claims.sub || new Set(lineage).size !== lineage.length) {
+      throw new Error('Proof lineage does not match its agent');
+    }
+    return { proof: copy, did: claims.sub, expiresAt: claims.exp, lineage };
   } catch {
     throw new IdentityVerificationError('invalid_proof', 'Submitted identity proof does not match the issued challenge');
   }
@@ -179,7 +195,9 @@ export async function verifyIdentityRemote(
     const body = await readJson(response, 65_536);
     const identity = body && typeof body === 'object' && 'identity' in body
       ? (body as { identity: unknown }).identity : undefined;
-    if (!validIdentity(identity) || identity.did !== correlation.did || identity.expiresAt > correlation.expiresAt) {
+    if (!validIdentity(identity) || identity.did !== correlation.did || identity.expiresAt > correlation.expiresAt ||
+        identity.lineage.length !== correlation.lineage.length ||
+        identity.lineage.some((did, index) => did !== correlation.lineage[index])) {
       throw new IdentityVerificationError('authority_unavailable', 'Remote identity authority returned an invalid identity');
     }
     return identity;
@@ -193,25 +211,10 @@ export async function verifyIdentityRemote(
 }
 
 function validIdentity(value: unknown): value is VerifiedAgentIdentity {
-  if (!value || typeof value !== 'object') return false;
-  const identity = value as Record<string, unknown>;
-  const owner = identity.owner;
-  if (!owner || typeof owner !== 'object') return false;
-  const ownerFields = owner as Record<string, unknown>;
   try {
-    if (typeof ownerFields.issuer !== 'string') return false;
-    const issuer = new URL(ownerFields.issuer);
-    if (issuer.protocol !== 'https:' || issuer.username || issuer.password || issuer.search || issuer.hash) return false;
+    assertVerifiedIdentity(value);
+    return true;
   } catch {
     return false;
   }
-  return agentDid(identity.did) &&
-    typeof identity.expiresAt === 'number' && Number.isSafeInteger(identity.expiresAt) &&
-    identity.expiresAt > Math.floor(Date.now() / 1000) &&
-    Array.isArray(identity.lineage) && identity.lineage.length >= 2 && identity.lineage.length <= 17 &&
-    identity.lineage.every(validDid) &&
-    new Set(identity.lineage).size === identity.lineage.length && identity.lineage.at(-1) === identity.did &&
-    typeof ownerFields.subject === 'string' && !!ownerFields.subject && ownerFields.subject.length <= 512 &&
-    (ownerFields.organizationId === undefined ||
-      (typeof ownerFields.organizationId === 'string' && !!ownerFields.organizationId && ownerFields.organizationId.length <= 512));
 }

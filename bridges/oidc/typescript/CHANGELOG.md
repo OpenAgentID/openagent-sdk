@@ -1,5 +1,12 @@
 # Changelog
 
+### 0.2.0 self-rooted identity support — 2026-10-11
+
+- Add explicit server opt-in for authoritative self-rooted agent authentication, preserving LifeID authentication for owned identities.
+- Publish the root discriminator, self authorization ID/revision and `owner: null` in signed ID tokens and UserInfo; preserve compatibility with historical owned callback results.
+- Validate bounded, distinct lineage DIDs and bind every OIDC grant to the original root mode/DID, policy authorization/revision or LifeID owner. Current policy withdrawal, revocation and binding changes deny existing grants.
+- Add real-key HTTP issuer/RP flows for self roots, delegated descendants and legacy DIDs, plus current-policy and malformed-root boundary tests. Self login issues no application permissions or tenant membership.
+
 ### 0.2.0 qualification correction
 
 - Use the patched Vitest 4.1.11 development runner and coverage tool.

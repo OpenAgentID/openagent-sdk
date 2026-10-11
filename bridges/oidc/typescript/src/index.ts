@@ -101,4 +101,5 @@ export const VERSION = '0.2.0';
 
 export { AgentOidcProvider, createAgentOidcProvider, type AgentOidcProviderOptions, type AgentInteraction } from './provider.js';
 export { LifeIdFederation, ownerFromLifeIdClaims, type LifeIdFederationOptions } from './federation.js';
-export { type AgentOwner, type AgentIdentityProof, type VerifiedAgentIdentity, type VerifyAgentContext } from './identity-types.js';
+export { type AgentOwner, type AgentIdentityProof, type AgentIdentityRoot, type LifeIdAgentRoot,
+  type SelfAgentRoot, type VerifiedAgentIdentity, type VerifyAgentContext } from './identity-types.js';

@@ -1,5 +1,15 @@
 # Changelog
 
+### 0.2.0 self-rooted agent identities — 2026-10-11
+
+- Support explicitly authorized self-rooted agents and their signed descendants
+  with nullable owner and an explicit root policy binding. Preserve real key
+  purposes/signatures, current root/grant revocation, bounded lifetimes and
+  atomic challenge/replay checks. No human owner is fabricated.
+- Recheck self-root policy in verification HTTP/CLI, OATS and OIDC; bind OIDC
+  grants to the exact root mode and authorization ID/revision. Retain owned and
+  legacy-DID flows and document full service access under normal authorization.
+
 ## 0.2.0 — release candidate, 2026-10-11
 
 - Add a signing OIDC provider adapter with registered relying parties, S256

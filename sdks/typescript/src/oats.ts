@@ -5,7 +5,7 @@
  * signature, owner, or revocation state. No unverified scoring API is exported.
  */
 import { base58 } from '@scure/base';
-import { IdentityVerifier, type IdentityVerifierConfig, type VerifiedAgentIdentity } from './identity-verification.js';
+import { IdentityVerifier, assertVerifiedIdentity as assertIdentityRoot, type IdentityVerifierConfig, type VerifiedAgentIdentity } from './identity-verification.js';
 import type { JWK } from 'jose';
 import { didSchema } from './config.js';
 
@@ -54,7 +54,7 @@ export interface VerifiedOatsEvidence {
 
 /**
  * Resolve keys from an authoritative source, verify the entire credential, and
- * verify current owner chains/revocation for issuer and subject. Never derive
+ * verify current identity roots, signed lineage and revocation for issuer and subject. Never derive
  * trusted keys or owner bindings from the submitted credential itself.
  */
 export type OatsEvidenceVerifier = (
@@ -235,17 +235,10 @@ function parseEvidence(value: unknown, entityDid: string, now: number): ParsedEv
 }
 
 function assertVerifiedIdentity(identity: VerifiedAgentIdentity, did: string, now: number): void {
-  if (!identity || identity.did !== did || !Array.isArray(identity.lineage) || identity.lineage.length < 2 || identity.lineage.length > 17
-    || identity.lineage[identity.lineage.length - 1] !== did || new Set(identity.lineage).size !== identity.lineage.length) {
-    fail('verification-failed', 'verified identity DID or owner path does not match evidence');
-  }
-  for (const ancestor of identity.lineage) requireDid(ancestor, 'verified lineage DID');
-  if (!identity.owner || typeof identity.owner.issuer !== 'string' || !identity.owner.issuer.startsWith('https://')
-    || typeof identity.owner.subject !== 'string' || identity.owner.subject.trim().length === 0) {
-    fail('verification-failed', 'verified identity must chain to an authenticated owner');
-  }
-  if (!Number.isFinite(identity.expiresAt) || identity.expiresAt * 1000 <= now) {
-    fail('verification-failed', 'verified owner chain is expired');
+  try {
+    assertIdentityRoot(identity, did, Math.floor(now / 1000));
+  } catch {
+    fail('verification-failed', 'verified identity or current trust root does not match evidence');
   }
 }
 

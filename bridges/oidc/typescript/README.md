@@ -39,6 +39,7 @@ const oidc = await createAgentOidcProvider({
     jwksUri: 'https://auth.life.one/.well-known/jwks.json',
   },
   requireLifeId: true,
+  allowSelfRooted: false,
 });
 ```
 
@@ -94,16 +95,22 @@ The mandatory server `verifyAgent` callback must cryptographically verify key
 possession, every signed owner delegation, authoritative owner identity,
 revocation and atomic proof replay prevention. Its structural contract matches
 `@openagentid/sdk`'s `IdentityVerifier`: it accepts `{ token, delegations }` and
-`{ audience, nonce }`, and returns `{ did, owner, lineage, expiresAt }` or throws.
-`owner` is `{ issuer, subject, organizationId? }`; lineage is root-first and ends
-at the agent DID. New identities use `did:oas`; existing `did:l1fe` identifiers
+`{ audience, nonce }`, and returns `{ did, owner, root, lineage, expiresAt }` or throws.
+Owned identities have `owner: { issuer, subject, organizationId? }` and
+`root: { kind: 'lifeid', did: ownerRootDid }`. Historical owned callback results
+may omit `root`; the provider derives the explicit LifeID root from the validated
+first lineage DID. Owned lineages start at an HMR/MHR/AO/ENR person or organization
+root and contain at least two DIDs. Every lineage is root-first, has at most 17
+distinct valid DIDs of at most 512 characters, and ends at the authenticated
+agent DID. New identities use `did:oas`; existing `did:l1fe` identifiers
 remain literal when verifying signatures. A decoded JWT subject is never itself
 proof of agent identity.
 
 `resolveIdentity` must retrieve the current signed chain through authoritative
-sources and recheck owner authority and every revocation. It is invoked during
-login, code redemption, and UserInfo. Each grant persists its original verified
-owner and expiry; ownership changes or missing/expired bindings invalidate it.
+sources and recheck current root authority and every revocation. It is invoked
+during login, code redemption, and UserInfo. Each grant persists its original
+verified root, owner and expiry. Root mode/DID, self authorization ID/revision,
+or LifeID owner changes and missing/expired bindings invalidate the grant.
 Access-token and ID-token lifetimes cannot outlive that verified identity.
 Providers cannot substitute a stale cached successful possession result for
 this status check.
@@ -113,7 +120,7 @@ JWKS and validates its exact issuer, federation audience, expiry and issued-at.
 The verified subject and organization must exactly match the agent's proven
 owner. `organization_id`, `org_id` and legacy `oid` are supported; conflicting
 aliases are refused. Agent assertions and DID-shaped human subjects are
-refused. `requireLifeId` enforces owner authentication for each new interaction;
+refused. `requireLifeId` enforces owner authentication for each owned interaction;
 it does not change or deploy LifeID/WorkOS configuration. Hosted Life services
 must preserve Blinds credential brokering, Genesis KMS customer-secret custody
 and their existing tenant authorization boundaries.
@@ -122,6 +129,59 @@ Only the identity scopes `openid` and `profile` are granted. This adapter does
 not issue inference, billing or other application capabilities from OIDC login.
 Register the provider issuer/client in each RP or LifeID federation policy; no
 library can authenticate to an RP that has not trusted its issuer.
+
+## Explicit self-rooted identities
+
+Self-rooted OIDC authentication is disabled by default. A deployment must set
+`allowSelfRooted: true` and configure its identity verifier's authoritative
+`authorizeSelfRoot(did, { audience })` policy. The server must approve a current,
+bounded grant for the exact agent root and audience. Caller-provided unsigned
+root fields, a valid possession signature alone, and the OIDC opt-in flag cannot
+create that approval. `resolveIdentity` must recheck this policy and revocation
+at every identity lookup; policy withdrawal or an unavailable authority denies
+the login, code redemption or UserInfo request.
+
+The verified self identity has `owner: null` and this required root:
+
+```ts
+{
+  kind: 'self',
+  did: selfRootDid,
+  authorizationId: currentServerAuthorizationId,
+  revision: currentServerPolicyRevision,
+}
+```
+
+Its lineage starts at that agent root, with one DID for the root itself or a
+signed delegation chain ending at a descendant agent. All signatures, method
+purposes, challenge/replay checks and authoritative revocations still apply.
+The SDK verifier caps the identity lifetime by the current self-root grant and
+every signed credential. The OIDC provider additionally caps tokens by the
+identity's remaining lifetime and keeps the original grant binding.
+
+After enabling this mode in the provider configuration, complete a self-rooted
+interaction using the exact issued challenge and explicit consent:
+
+```ts
+await oidc.completeInteraction(req, res, {
+  proof: { token: agentPossessionJwt, delegations: signedAgentDelegations },
+  consent: true,
+});
+```
+
+For the self root, `signedAgentDelegations` is empty. Descendants supply their
+signed root-first agent chain. Self interactions omit `lifeIdToken`; the provider
+rejects attempts to attach a human owner assertion. `requireLifeId` continues to
+protect owned interactions on the same provider without fabricating a human
+owner for self identities.
+
+Signed ID tokens and UserInfo publish `owner: null` and the explicit self `root`,
+including `authorizationId` and `revision`, so RPs can apply their own identity
+policy. Owned tokens likewise publish the explicit LifeID root and their owner.
+These claims grant no application permission, organization membership, billing
+account or tenant. RPs must explicitly decide whether they accept self-rooted
+identities; a policy revision, authorization, root or mode change invalidates
+existing OIDC grants.
 
 ## Migrate the legacy bridge from 0.1.x
 
@@ -139,7 +199,9 @@ const bridge = new OidcBridge({ issuer: humanIssuer, audience: humanClientId }, 
 `deriveAgentFromClaims(namespace, claims, name, derive)` also requires an
 explicit real derivation callback. It validates matching Ed25519 public/private
 key material and requires owner lineage; the host's custody implementation owns
-signed lineage verification. A real broker mint hook must authorize requested
+signed lineage verification. This legacy human-to-agent derivation flow remains
+owned; self-rooted authentication uses the verified provider interaction above.
+A real broker mint hook must authorize requested
 scopes and return `{ actB64, scopes, expiresIn }`. ACT requests return that signed
 ACT; JWT requests additionally require an explicit signing key and audience and
 are correctly labeled as JWTs. Human JWT validation now requires a configured
@@ -153,7 +215,11 @@ issuer and RP servers, fetches JWKS, redeems authorization codes and verifies ID
 token signatures. It covers PKCE rejection, code replay, wrong agent audience,
 wrong human owner/audience, forged and expired human tokens, owner change,
 revocation before redemption and after token issuance, and unsafe deployment
-configuration. Run typechecking, tests, and both package formats in the approved
+configuration. Self-rooted cases use real RSA-signed current policy records,
+Ed25519 possession/delegation signatures and Ed25519 OIDC issuer signing keys;
+they cover root/descendant and legacy flows, default denial, policy withdrawal,
+revocation and root/mode/authorization/revision changes before redemption and
+UserInfo. Run typechecking, tests, and both package formats in the approved
 remote build environment before release.
 
 ## License

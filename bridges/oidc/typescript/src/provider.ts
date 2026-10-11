@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AdapterConstructor, AdapterPayload, ClientMetadata, Configuration, JWK, KoaContextWithOIDC, Provider } from 'oidc-provider';
 import { LifeIdFederation, type LifeIdFederationOptions } from './federation.js';
 import {
-  assertAgentIdentity, sameOwner, type AgentIdentityProof, type VerifiedAgentIdentity, type VerifyAgentContext,
+  assertAgentIdentity, identityRoot, sameIdentityBinding, type AgentIdentityProof, type VerifiedAgentIdentity, type VerifyAgentContext,
 } from './identity-types.js';
 
 export interface AgentOidcProviderOptions {
@@ -19,10 +19,13 @@ export interface AgentOidcProviderOptions {
   readonly trustProxy?: boolean;
   readonly tokenTtlSeconds?: number;
   readonly verifyAgent: (proof: AgentIdentityProof, context: VerifyAgentContext) => Promise<VerifiedAgentIdentity>;
-  /** Rechecks signed owner chain and every revocation through authoritative server sources. */
+  /** Rechecks the signed chain, current root authorization and every revocation through authoritative server sources. */
   readonly resolveIdentity: (did: string) => Promise<VerifiedAgentIdentity>;
   readonly lifeId?: LifeIdFederationOptions;
+  /** Requires LifeID owner authentication for owned identities. */
   readonly requireLifeId?: boolean;
+  /** Explicit server opt-in; the verifier must still independently authorize every self root. */
+  readonly allowSelfRooted?: boolean;
 }
 
 export interface AgentInteraction {
@@ -102,13 +105,13 @@ export class AgentOidcProvider {
     const bindings = new options.adapter('AgentGrantIdentity');
     const currentIdentity = async (did: string, grantId?: string) => {
       const identity = await options.resolveIdentity(did);
-      assertAgentIdentity(identity, did);
+      assertAgentIdentity(identity, did, options.allowSelfRooted === true);
       if (grantId) {
         const binding = await bindings.find(grantId);
         const original = (binding as { identity?: VerifiedAgentIdentity } | undefined)?.identity;
-        if (!original) throw new Error('Agent grant has no verified owner binding');
-        assertAgentIdentity(original, did);
-        if (!sameOwner(original.owner, identity.owner)) throw new Error('Agent ownership changed');
+        if (!original) throw new Error('Agent grant has no verified root binding');
+        assertAgentIdentity(original, did, options.allowSelfRooted === true);
+        if (!sameIdentityBinding(original, identity)) throw new Error('Agent root authorization or ownership changed');
         return { ...identity, expiresAt: Math.min(identity.expiresAt, original.expiresAt) };
       }
       return identity;
@@ -131,7 +134,7 @@ export class AgentOidcProvider {
       responseTypes: ['code'],
       pkce: { required: () => true },
       scopes: ['openid', 'profile'],
-      claims: { openid: ['sub', 'kind', 'did', 'owner', 'lineage'], profile: ['name', 'picture'] },
+      claims: { openid: ['sub', 'kind', 'did', 'owner', 'root', 'lineage'], profile: ['name', 'picture'] },
       routes: { authorization: '/authorize', token: '/token', userinfo: '/userinfo', jwks: '/jwks' },
       ttl: { AccessToken: ttl, IdToken: ttl, AuthorizationCode: 60, Interaction: 300, Session: 3600, Grant: 3600 },
       interactions: { url: (_ctx, interaction) => `/interaction/${interaction.uid}` },
@@ -143,7 +146,8 @@ export class AgentOidcProvider {
             accountId: identity.did, identityExpiresAt: identity.expiresAt,
             async claims() {
               const fresh = await currentIdentity(did, token?.grantId);
-              return { sub: fresh.did, did: fresh.did, kind: 'agent', owner: fresh.owner, lineage: fresh.lineage };
+              return { sub: fresh.did, did: fresh.did, kind: 'agent', owner: fresh.owner,
+                root: identityRoot(fresh), lineage: fresh.lineage };
             },
           };
         } catch { return undefined; }
@@ -190,14 +194,18 @@ export class AgentOidcProvider {
     const identity = await this.options.verifyAgent(input.proof, {
       audience: this.options.issuer, nonce: details.uid,
     });
-    assertAgentIdentity(identity);
+    assertAgentIdentity(identity, undefined, this.options.allowSelfRooted === true);
     const current = await this.options.resolveIdentity(identity.did);
-    assertAgentIdentity(current, identity.did);
-    if (!sameOwner(identity.owner, current.owner)) throw new Error('Agent owner changed during login');
-    if (this.options.requireLifeId && !input.lifeIdToken) throw new Error('LifeID owner authentication is required');
-    if (input.lifeIdToken) {
-      if (!this.federation) throw new Error('LifeID federation is not configured');
-      await this.federation.verifyHumanToken(input.lifeIdToken, identity.owner);
+    assertAgentIdentity(current, identity.did, this.options.allowSelfRooted === true);
+    if (!sameIdentityBinding(identity, current)) throw new Error('Agent root authorization or owner changed during login');
+    if (identity.owner === null) {
+      if (input.lifeIdToken !== undefined) throw new Error('Self-rooted authentication does not accept a LifeID owner assertion');
+    } else {
+      if (this.options.requireLifeId && !input.lifeIdToken) throw new Error('LifeID owner authentication is required');
+      if (input.lifeIdToken) {
+        if (!this.federation) throw new Error('LifeID federation is not configured');
+        await this.federation.verifyHumanToken(input.lifeIdToken, identity.owner);
+      }
     }
     const clientId = String(details.params.client_id);
     if (!this.options.clients.some((client) => client.client_id === clientId)) throw new Error('Unregistered OIDC client');
@@ -206,10 +214,10 @@ export class AgentOidcProvider {
       throw new Error('Unsupported agent identity scope');
     }
     const expiresAt = Math.min(identity.expiresAt, current.expiresAt);
-    assertAgentIdentity({ ...identity, expiresAt });
+    assertAgentIdentity({ ...identity, expiresAt }, undefined, this.options.allowSelfRooted === true);
     const grant = new this.provider.Grant({ accountId: identity.did, clientId });
     grant.addOIDCScope(scopes.join(' '));
-    grant.addOIDCClaims(['kind', 'did', 'owner', 'lineage']);
+    grant.addOIDCClaims(['kind', 'did', 'owner', 'root', 'lineage']);
     const grantId = await grant.save();
     await this.bindings.upsert(grantId, {
       identity: { ...identity, expiresAt }, grantId,
