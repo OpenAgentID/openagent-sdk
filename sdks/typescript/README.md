@@ -1,6 +1,9 @@
 # @openagentid/sdk
 
-**Agent auth in 3 lines.** Clerk for autonomous agents.
+Open agent identity for the [Open Software](https://open.software) family.
+The core is free and open; Life operates hosted services around it. Humans
+authenticate with LifeID, every agent chains to a person or organization owner,
+Blinds brokers credentials, and Genesis KMS holds customer secrets.
 
 One `import` wraps [OAS](https://openagent.id) identity, [Arsenal](https://github.com/OpenAgentID/arsenal) scoped credentials, and [AEGIS](https://github.com/OpenAgentID/aegis) verification into a single developer-facing surface. Works in Node 20+, Bun, Deno, the browser, and Cloudflare Workers.
 
@@ -8,7 +11,7 @@ One `import` wraps [OAS](https://openagent.id) identity, [Arsenal](https://githu
 import { OpenAgent } from '@openagentid/sdk';
 
 const agent = await OpenAgent.createAgent({
-  parent: 'did:oas:l1fe:hmr:alice',
+  parent: 'did:oas:openagent:hmr:alice',
   name: 'my-bot',
   scopes: ['openai:chat:completions', 'github:repo:read'],
 });
@@ -20,7 +23,30 @@ const res   = await creds.fetch('https://api.openai.com/v1/chat/completions', {
 });
 ```
 
-That's it. You now have an OAS identity whose privileged authority must resolve through Sigil-backed lineage, scoped Arsenal credentials that route through a secure proxy, and a drop-in `fetch` that injects the right auth header — all without a single plaintext API key touching your process.
+Configure the real identity authority, key custody and credential broker before
+using this flow. Unconfigured production subsystems fail closed. New identities
+default to the `openagent` namespace; signed legacy `did:l1fe` identities remain
+readable without changing their identifiers.
+
+## Version 0.2.0
+
+- [Identity verification](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/identity-verification.md): `IdentityVerifier`, a fetch-compatible HTTP handler and remote client verify possession signatures, signed owner chains, current revocation and replay prevention.
+- [OAS Glyph](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/glyph.md): `oasGlyph(did)`, `agentAvatar(did, profile)` and `glyphEndpoint(request)` supply deterministic SVG avatars and an optional HTTPS `avatarOverride`.
+- [OATS](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/oats.md): `VerifiedOatsScorer` verifies evidence before scoring; `createOatsEvidenceVerifier` implements the existing OAS Ed25519/JCS attestation profile with authoritative identity and revocation sources.
+- [OIDC](https://github.com/OpenAgentID/openagent-sdk/tree/main/bridges/oidc/typescript): the separate `@openagentid/oidc` package supplies discovery, JWKS, signed authorization-code/PKCE login and LifeID owner federation.
+
+The Node CLI ships in this package:
+
+```sh
+oaid verify --endpoint https://identity.example.com/v1/identity/verify --proof proof.json --nonce issued-challenge
+oaid glyph did:oas:openagent:agent:example --output avatar.svg
+oaid oidc doctor --issuer https://identity.example.com
+```
+
+Verification endpoints require a server-issued challenge and configured real
+authorities. The doctor checks protocol configuration and public keys; it does
+not establish that an agent completed a login. The source release does not
+configure or deploy LifeID, Blinds or Genesis for a consumer.
 
 ## Install
 
@@ -116,8 +142,10 @@ const runtime = new OpenAgentRuntime({
 | Browsers           | Supported    |
 | Cloudflare Workers | Supported    |
 
-The SDK has no Node-only dependencies. Native `fetch` is the only required
-runtime primitive.
+Library entry points remain independent of Node APIs. New signature verification
+requires WebCrypto (including Ed25519 for OAS attestations), and HTTP helpers use
+native `fetch`, `Request` and `Response`. The `oaid` CLI requires Node.js 20+;
+the separate OIDC provider requires Node.js 20.19+.
 
 ## Errors
 

@@ -461,9 +461,10 @@ pub fn act_verify(
         })
         .collect();
 
-    let mut verifier = agent_capability_token::Verifier::new(keys, expected_issuer, expected_audience)
-        .map_err(js_err)?
-        .with_leeway_seconds(leeway_seconds);
+    let mut verifier =
+        agent_capability_token::Verifier::new(keys, expected_issuer, expected_audience)
+            .map_err(js_err)?
+            .with_leeway_seconds(leeway_seconds);
 
     if now_unix_seconds != 0 {
         verifier = verifier.with_clock(now_unix_seconds);

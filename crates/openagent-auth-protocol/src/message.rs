@@ -131,43 +131,49 @@ pub struct IdentityVerified {
 mod tests {
     use super::*;
 
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
     #[test]
-    fn challenge_serializes_with_type_literal() {
+    fn challenge_serializes_with_type_literal() -> TestResult {
         let challenge = IdentityChallenge::new(
             "a".repeat(64),
             "2026-03-21T12:00:00Z".to_string(),
             "https://api.example.com".to_string(),
             None,
         );
-        let json = serde_json::to_string(&challenge).expect("serialize");
+        let json = serde_json::to_string(&challenge)?;
         assert!(json.contains(r#""type":"openagent-challenge-v1""#));
         // realm omitted entirely when absent, never null.
         assert!(!json.contains("realm"));
+        Ok(())
     }
 
     #[test]
-    fn challenge_includes_realm_only_when_present() {
+    fn challenge_includes_realm_only_when_present() -> TestResult {
         let challenge = IdentityChallenge::new(
             "a".repeat(64),
             "2026-03-21T12:00:00Z".to_string(),
             "https://api.example.com".to_string(),
             Some("admin".to_string()),
         );
-        let json = serde_json::to_string(&challenge).expect("serialize");
+        let json = serde_json::to_string(&challenge)?;
         assert!(json.contains(r#""realm":"admin""#));
+        Ok(())
     }
 
     #[test]
-    fn key_type_uses_spec_spelling() {
-        let json = serde_json::to_string(&KeyType::Ed25519).expect("serialize");
+    fn key_type_uses_spec_spelling() -> TestResult {
+        let json = serde_json::to_string(&KeyType::Ed25519)?;
         assert_eq!(json, r#""ed25519""#);
-        let json = serde_json::to_string(&KeyType::Secp256k1).expect("serialize");
+        let json = serde_json::to_string(&KeyType::Secp256k1)?;
         assert_eq!(json, r#""secp256k1""#);
+        Ok(())
     }
 
     #[test]
-    fn trust_tier_uses_spec_spelling() {
-        let json = serde_json::to_string(&TrustTier::Sovereign).expect("serialize");
+    fn trust_tier_uses_spec_spelling() -> TestResult {
+        let json = serde_json::to_string(&TrustTier::Sovereign)?;
         assert_eq!(json, r#""sovereign""#);
+        Ok(())
     }
 }

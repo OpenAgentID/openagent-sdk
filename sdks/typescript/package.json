@@ -1,7 +1,7 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.1.1",
-  "description": "OpenAgent SDK — Clerk for autonomous agents. One import for identity, credentials, and verification.",
+  "version": "0.2.0",
+  "description": "OpenAgent SDK: open agent identity, verified ownership, OATS and OAS Glyph avatars.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
@@ -49,6 +49,26 @@
       "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js",
       "require": "./dist/errors.cjs"
+    },
+    "./glyph": {
+      "types": "./dist/glyph.d.ts",
+      "import": "./dist/glyph.js",
+      "require": "./dist/glyph.cjs"
+    },
+    "./identity-verification": {
+      "types": "./dist/identity-verification.d.ts",
+      "import": "./dist/identity-verification.js",
+      "require": "./dist/identity-verification.cjs"
+    },
+    "./verification-api": {
+      "types": "./dist/verification-api.d.ts",
+      "import": "./dist/verification-api.js",
+      "require": "./dist/verification-api.cjs"
+    },
+    "./oats": {
+      "types": "./dist/oats.d.ts",
+      "import": "./dist/oats.js",
+      "require": "./dist/oats.cjs"
     }
   },
   "files": [
@@ -76,13 +96,16 @@
     "clean": "rm -rf dist coverage"
   },
   "dependencies": {
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "jose": "^5.10.0",
+    "@noble/hashes": "^1.8.0",
+    "@scure/base": "^1.2.6"
   },
   "peerDependencies": {
     "@openagentid/aegis-sdk": "^0.1.0",
     "@openagentid/arsenal-sdk": "^0.1.0",
     "@openagentid/crypto-wasm": "^0.1.0",
-    "@openagentid/oas-sdk": "^0.1.0"
+    "@openagentid/oas-sdk": "^1.0.2"
   },
   "peerDependenciesMeta": {
     "@openagentid/aegis-sdk": {
@@ -100,10 +123,10 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.11"
   },
   "keywords": [
     "openagent",
@@ -117,5 +140,8 @@
     "credentials",
     "autonomous",
     "ai"
-  ]
+  ],
+  "bin": {
+    "oaid": "./dist/cli.js"
+  }
 }

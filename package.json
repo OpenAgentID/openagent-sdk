@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",
@@ -49,37 +49,72 @@
       "types": "./sdks/typescript/dist/errors.d.ts",
       "import": "./sdks/typescript/dist/errors.js",
       "require": "./sdks/typescript/dist/errors.cjs"
+    },
+    "./glyph": {
+      "types": "./sdks/typescript/dist/glyph.d.ts",
+      "import": "./sdks/typescript/dist/glyph.js",
+      "require": "./sdks/typescript/dist/glyph.cjs"
+    },
+    "./identity-verification": {
+      "types": "./sdks/typescript/dist/identity-verification.d.ts",
+      "import": "./sdks/typescript/dist/identity-verification.js",
+      "require": "./sdks/typescript/dist/identity-verification.cjs"
+    },
+    "./verification-api": {
+      "types": "./sdks/typescript/dist/verification-api.d.ts",
+      "import": "./sdks/typescript/dist/verification-api.js",
+      "require": "./sdks/typescript/dist/verification-api.cjs"
+    },
+    "./oats": {
+      "types": "./sdks/typescript/dist/oats.d.ts",
+      "import": "./sdks/typescript/dist/oats.js",
+      "require": "./sdks/typescript/dist/oats.cjs"
     }
   },
   "files": [
     "sdks/typescript/dist",
     "sdks/typescript/README.md",
     "sdks/typescript/CHANGELOG.md",
-    "sdks/typescript/LICENSE"
+    "sdks/typescript/LICENSE-APACHE",
+    "sdks/typescript/LICENSE-MIT"
   ],
   "sideEffects": false,
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm --prefix sdks/typescript install --no-package-lock && npm --prefix sdks/typescript run build",
+    "build": "npm --prefix sdks/typescript ci --ignore-scripts --no-audit --no-fund && npm --prefix sdks/typescript run build",
     "prepack": "npm run build",
     "prepare": "npm run build"
   },
   "dependencies": {
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "jose": "^5.10.0",
+    "@noble/hashes": "^1.8.0",
+    "@scure/base": "^1.2.6"
+  },
+  "bin": {
+    "oaid": "./sdks/typescript/dist/cli.js"
   },
   "peerDependencies": {
     "@openagentid/aegis-sdk": "^0.1.0",
     "@openagentid/arsenal-sdk": "^0.1.0",
-    "@openagentid/oas-sdk": "^0.1.0",
+    "@openagentid/oas-sdk": "^1.0.2",
     "@openagentid/crypto-wasm": "^0.1.0"
   },
   "peerDependenciesMeta": {
-    "@openagentid/aegis-sdk": { "optional": true },
-    "@openagentid/arsenal-sdk": { "optional": true },
-    "@openagentid/oas-sdk": { "optional": true },
-    "@openagentid/crypto-wasm": { "optional": true }
+    "@openagentid/aegis-sdk": {
+      "optional": true
+    },
+    "@openagentid/arsenal-sdk": {
+      "optional": true
+    },
+    "@openagentid/oas-sdk": {
+      "optional": true
+    },
+    "@openagentid/crypto-wasm": {
+      "optional": true
+    }
   },
   "keywords": [
     "openagent",

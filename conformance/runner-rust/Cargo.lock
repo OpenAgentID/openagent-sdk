@@ -872,12 +872,14 @@ dependencies = [
 
 [[package]]
 name = "oas-attestation"
-version = "1.1.0"
+version = "1.1.1"
+source = "git+https://github.com/OpenAgentID/oas?rev=b923582981e756c8f4aef0668947934b8de125cb#b923582981e756c8f4aef0668947934b8de125cb"
 dependencies = [
  "chrono",
  "oas-crypto",
  "oas-did",
  "oas-document",
+ "oas-lineage",
  "rand",
  "serde",
  "serde_jcs",
@@ -888,7 +890,8 @@ dependencies = [
 
 [[package]]
 name = "oas-crypto"
-version = "1.1.0"
+version = "1.1.1"
+source = "git+https://github.com/OpenAgentID/oas?rev=b923582981e756c8f4aef0668947934b8de125cb#b923582981e756c8f4aef0668947934b8de125cb"
 dependencies = [
  "base64 0.22.1",
  "blake3",
@@ -907,7 +910,8 @@ dependencies = [
 
 [[package]]
 name = "oas-did"
-version = "1.1.0"
+version = "1.1.1"
+source = "git+https://github.com/OpenAgentID/oas?rev=b923582981e756c8f4aef0668947934b8de125cb#b923582981e756c8f4aef0668947934b8de125cb"
 dependencies = [
  "serde",
  "serde_json",
@@ -916,7 +920,8 @@ dependencies = [
 
 [[package]]
 name = "oas-document"
-version = "1.1.0"
+version = "1.1.1"
+source = "git+https://github.com/OpenAgentID/oas?rev=b923582981e756c8f4aef0668947934b8de125cb#b923582981e756c8f4aef0668947934b8de125cb"
 dependencies = [
  "chrono",
  "oas-crypto",
@@ -929,7 +934,8 @@ dependencies = [
 
 [[package]]
 name = "oas-lineage"
-version = "1.1.0"
+version = "1.1.1"
+source = "git+https://github.com/OpenAgentID/oas?rev=b923582981e756c8f4aef0668947934b8de125cb#b923582981e756c8f4aef0668947934b8de125cb"
 dependencies = [
  "oas-crypto",
  "oas-did",
@@ -942,7 +948,8 @@ dependencies = [
 
 [[package]]
 name = "oas-resolve"
-version = "1.1.0"
+version = "1.1.1"
+source = "git+https://github.com/OpenAgentID/oas?rev=b923582981e756c8f4aef0668947934b8de125cb#b923582981e756c8f4aef0668947934b8de125cb"
 dependencies = [
  "async-trait",
  "blake3",
@@ -959,7 +966,8 @@ dependencies = [
 
 [[package]]
 name = "oas-sdk"
-version = "1.1.0"
+version = "1.1.1"
+source = "git+https://github.com/OpenAgentID/oas?rev=b923582981e756c8f4aef0668947934b8de125cb#b923582981e756c8f4aef0668947934b8de125cb"
 dependencies = [
  "chrono",
  "oas-attestation",

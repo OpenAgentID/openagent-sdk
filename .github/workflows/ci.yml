@@ -23,7 +23,7 @@ permissions:
 jobs:
   rust:
     name: rust fmt, clippy, test
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -45,8 +45,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Authenticate git for private sibling dependencies
+        if: matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust'
         # Requires the org-level secret OPENAGENTID_CI_PAT with contents:read
-        # on the OpenAgentID sibling repositories (oas, arsenal, aegis, act).
+        # on the private OpenAgentID siblings (oas, arsenal, aegis).
+        # Other matrix crates consume only registry packages or public ACT.
         env:
           CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
         run: |
@@ -56,7 +58,9 @@ jobs:
             echo "the default GITHUB_TOKEN cannot read them."
             exit 1
           fi
-          git config --global url."https://x-access-token:${CI_PAT}@github.com/".insteadOf "https://github.com/"
+          for repository in oas arsenal aegis; do
+            git config --global url."https://x-access-token:${CI_PAT}@github.com/OpenAgentID/${repository}".insteadOf "https://github.com/OpenAgentID/${repository}"
+          done
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -68,6 +72,15 @@ jobs:
 
       - name: Format
         run: cargo fmt --all -- --check
+
+      - name: Fetch locked dependencies
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+        run: cargo fetch --locked
+
+      - name: Remove private git credentials before compilation
+        if: always() && (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust')
+        run: rm -f ~/.gitconfig
 
       - name: Clippy (default features)
         run: cargo clippy --all-targets
@@ -84,29 +97,29 @@ jobs:
         run: cargo test --all-features
 
       - name: Remove git credentials
-        if: always()
+        if: always() && (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust')
         run: rm -f ~/.gitconfig
 
   typescript:
-    name: typescript sdk typecheck, test, build
-    runs-on: ubuntu-latest
+    name: typescript typecheck, test, build (${{ matrix.package }})
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [sdks/typescript, bridges/oidc/typescript]
     defaults:
       run:
-        working-directory: sdks/typescript
+        working-directory: ${{ matrix.package }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install
-        # sdks/typescript deliberately carries no lockfile (the root package
-        # builds it with --no-package-lock), so `npm ci` cannot run here. The
-        # lockfile policy for published packages is decided in the release
-        # phase; until then this is an install, not a frozen restore.
-        run: npm install --no-audit --no-fund --loglevel=error
+        run: npm ci --ignore-scripts --no-audit --no-fund --loglevel=error
 
       - name: Typecheck
         run: npm run typecheck
@@ -118,6 +131,7 @@ jobs:
         run: npm run build
 
       - name: Build and test anchor-eas adapter
+        if: matrix.package == 'sdks/typescript'
         # The EAS lineage-anchor adapter (resolver + publisher surface).
         working-directory: adapters/eas/typescript
         run: |
@@ -127,6 +141,7 @@ jobs:
           npm run build
 
       - name: Build and typecheck sdk-testing
+        if: matrix.package == 'sdks/typescript'
         # The in-memory backends the SDK's own tests import. Built here so a
         # break in the sibling package surfaces in the same run.
         working-directory: sdks/testing
@@ -137,22 +152,10 @@ jobs:
 
   wasm:
     name: crypto-wasm build and smoke test
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-
-      - name: Authenticate git for private sibling dependencies
-        # The crate depends on agent-capability-token from the private
-        # OpenAgentID/act repository.
-        env:
-          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
-        run: |
-          if [ -z "$CI_PAT" ]; then
-            echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
-            exit 1
-          fi
-          git config --global url."https://x-access-token:${CI_PAT}@github.com/".insteadOf "https://github.com/"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -185,13 +188,9 @@ jobs:
         working-directory: crates/openagent-crypto-wasm
         run: node scripts/smoke-test.mjs
 
-      - name: Remove git credentials
-        if: always()
-        run: rm -f ~/.gitconfig
-
   kotlin:
     name: kotlin sdk build and test (with vectors)
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 20
     defaults:
       run:
@@ -211,7 +210,7 @@ jobs:
 
   swift:
     name: swift sdk build and test (with vectors)
-    runs-on: macos-latest
+    runs-on: depot-macos-26
     timeout-minutes: 25
     defaults:
       run:
@@ -219,7 +218,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: swiftlang/swift-setup-action@v2
+      - uses: swift-actions/setup-swift@7ca6abe6b3b0e8b5421b88be48feee39cbf52c6a # v2
         with:
           swift-version: '6.2'
 
@@ -233,7 +232,7 @@ jobs:
 
   go:
     name: go sdk vet, test, and vectors
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
@@ -265,7 +264,7 @@ jobs:
 
   python:
     name: python sdk test and vectors
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
@@ -298,13 +297,13 @@ jobs:
 
   conformance:
     name: conformance vectors (rust + ts)
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
       - name: Authenticate git for private sibling dependencies
-        # The Rust conformance runner links the same wrapped crates as the SDK.
+        # The Rust runner uses private OAS and public ACT at pinned revisions.
         env:
           CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
         run: |
@@ -312,7 +311,7 @@ jobs:
             echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
             exit 1
           fi
-          git config --global url."https://x-access-token:${CI_PAT}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${CI_PAT}@github.com/OpenAgentID/oas".insteadOf "https://github.com/OpenAgentID/oas"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -330,6 +329,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: conformance/runner-rust
+
+      - name: Fetch locked conformance dependencies
+        working-directory: conformance/runner-rust
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+        run: cargo fetch --locked
+
+      - name: Remove private git credentials before compilation
+        if: always()
+        run: rm -f ~/.gitconfig
 
       - name: Build the crypto-wasm package
         # The TS runner's act-verify vectors run through this binding; it
@@ -350,6 +359,7 @@ jobs:
           name: conformance-reports
           path: conformance/.reports/
           if-no-files-found: ignore
+          include-hidden-files: true
 
       - name: Remove git credentials
         if: always()
@@ -357,7 +367,7 @@ jobs:
 
   codeowners:
     name: codeowners resolve
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

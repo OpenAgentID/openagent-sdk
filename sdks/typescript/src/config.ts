@@ -15,9 +15,16 @@ import { z } from 'zod';
  * here — strict validation belongs in the OAS SDK itself.
  */
 export const DID_REGEX =
-  /^did:oas:[a-z0-9][a-z0-9-]{0,63}:(hmr|mhr|enr|agent|tool|skill|workflow|model|dataset|service|agent:instance):[A-Za-z0-9._-]+$/;
+  /^did:oas:[a-z0-9][a-z0-9-]{0,63}:(hmr|mhr|ao|enr|agent|tool|skill|workflow|model|dataset|service|agent:instance):[A-Za-z0-9._-]+$/;
 
-export const didSchema = z.string().regex(DID_REGEX, 'Invalid did:oas identifier');
+/** Read existing legacy identities without rewriting their signed identifiers. */
+export const LEGACY_DID_REGEX =
+  /^did:l1fe:(hmr|mhr|ao|enr|agent|tool|skill|workflow|model|dataset|service|agent:instance):[A-Za-z0-9._-]+$/;
+
+export const didSchema = z.string().max(512).refine(
+  value => DID_REGEX.test(value) || LEGACY_DID_REGEX.test(value),
+  'Invalid OAS or legacy DID identifier',
+);
 
 /** A parsed OAS scope string such as `openai:chat:completions`. */
 export const scopeSchema = z
@@ -49,7 +56,7 @@ export const createAgentInputSchema = z
       .regex(/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$/, 'Invalid agent name'),
     /** Requested capability scopes. Must be non-empty. */
     scopes: z.array(scopeSchema).min(1, 'At least one scope is required'),
-    /** Optional namespace override (defaults to `l1fe`). */
+    /** Optional namespace override (defaults to `openagent`). */
     namespace: z.string().optional(),
     /** Optional skills the agent is allowed to invoke. */
     skills: z.array(z.string().min(1)).optional(),
@@ -96,7 +103,7 @@ export interface OpenAgentClients {
  * local development and test environments.
  */
 export interface OpenAgentConfig {
-  /** Override the default namespace (`l1fe`). */
+  /** Override the default namespace (`openagent`). */
   namespace?: string;
   /**
    * Transport endpoints. If omitted, the SDK assumes it is running in-process
@@ -138,7 +145,7 @@ export interface ResolvedOpenAgentConfig {
   clients: OpenAgentClients;
 }
 
-export const DEFAULT_NAMESPACE = 'l1fe';
+export const DEFAULT_NAMESPACE = 'openagent';
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 /** Merge user config with defaults. Pure function — does not mutate input. */

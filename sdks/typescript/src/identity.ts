@@ -14,6 +14,7 @@
 import { z } from 'zod';
 import { didSchema, scopeSchema, type CreateAgentInput } from './config.js';
 import { IdentityError, ErrorCode, wrapError } from './errors.js';
+import { parseAvatarOverride } from './glyph.js';
 
 /** Fully qualified `did:oas` identifier. */
 export type Did = string;
@@ -32,6 +33,8 @@ export interface IdentityDocument {
   scopes: readonly string[];
   /** ISO-8601 creation timestamp. */
   createdAt: string;
+  /** User/agent-selected HTTPS avatar. Null or absent uses the OAS Glyph. */
+  avatarOverride?: string | null;
   /** Opaque metadata. */
   metadata?: Record<string, unknown>;
 }
@@ -77,6 +80,9 @@ export const identityDocumentSchema = z
     kind: z.string().min(1),
     scopes: z.array(scopeSchema).readonly(),
     createdAt: z.string().datetime({ offset: true }),
+    avatarOverride: z.string().url().nullable().optional().transform(value => {
+      return value === undefined ? undefined : parseAvatarOverride(value);
+    }),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

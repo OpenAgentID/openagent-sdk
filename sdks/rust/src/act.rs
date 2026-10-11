@@ -107,9 +107,10 @@ impl<'a> ActVerifierBuilder<'a> {
             ));
         }
 
-        let mut verifier = agent_capability_token::Verifier::new(self.trusted_keys, issuer, audience)
-            .map_err(|e| OpenAgentError::config(format!("act verifier: {e}")))?
-            .with_leeway_seconds(self.leeway_seconds);
+        let mut verifier =
+            agent_capability_token::Verifier::new(self.trusted_keys, issuer, audience)
+                .map_err(|e| OpenAgentError::config(format!("act verifier: {e}")))?
+                .with_leeway_seconds(self.leeway_seconds);
 
         if let Some(now) = self.now_unix_seconds {
             verifier = verifier.with_clock(now);
@@ -211,13 +212,19 @@ pub mod axum_support {
             let token = header
                 .and_then(|h| {
                     let (scheme, rest) = h.split_once(' ')?;
-                    if scheme.eq_ignore_ascii_case("bearer") || scheme.eq_ignore_ascii_case("openagent") {
+                    if scheme.eq_ignore_ascii_case("bearer")
+                        || scheme.eq_ignore_ascii_case("openagent")
+                    {
                         Some(rest.trim().to_owned())
                     } else {
                         None
                     }
                 })
-                .and_then(|t| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(t).ok());
+                .and_then(|t| {
+                    base64::engine::general_purpose::URL_SAFE_NO_PAD
+                        .decode(t)
+                        .ok()
+                });
 
             let Some(token) = token else {
                 return Err(unauthorized("missing or malformed capability token"));

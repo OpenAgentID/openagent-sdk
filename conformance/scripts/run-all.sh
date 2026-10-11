@@ -26,11 +26,11 @@ TS_LOG="$REPORTS/ts.log"
 SUMMARY="$REPORTS/SUMMARY.md"
 
 echo "==> Building Rust runner"
-(cd "$RUST_BIN_DIR" && cargo build --release --quiet)
+(cd "$RUST_BIN_DIR" && cargo build --release --locked --quiet)
 
 # Resolve the binary through cargo metadata rather than assuming ./target:
 # environments that set CARGO_TARGET_DIR place it elsewhere.
-RUST_BIN="$(cd "$RUST_BIN_DIR" && cargo metadata --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release/conformance-runner")')"
+RUST_BIN="$(cd "$RUST_BIN_DIR" && cargo metadata --locked --no-deps --format-version 1 | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"] + "/release/conformance-runner")')"
 
 echo "==> Installing TS runner deps"
 if [ ! -d "$TS_DIR/node_modules" ]; then
@@ -111,6 +111,14 @@ cat "$SUMMARY"
 
 if [ "$RUST_EXIT" -ne 0 ] || [ "$TS_EXIT" -ne 0 ]; then
   echo
+  if [ "$RUST_EXIT" -ne 0 ]; then
+    echo "==> Rust runner output (exit $RUST_EXIT)"
+    cat "$RUST_LOG"
+  fi
+  if [ "$TS_EXIT" -ne 0 ]; then
+    echo "==> TypeScript runner output (exit $TS_EXIT)"
+    cat "$TS_LOG"
+  fi
   echo "One or both runners reported failures. See $REPORTS/*.log for details."
   exit 1
 fi

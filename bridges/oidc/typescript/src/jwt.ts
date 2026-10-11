@@ -4,6 +4,7 @@
  * Uses `jose` for runtime-agnostic JWT operations.
  */
 
+import { randomBytes } from 'node:crypto';
 import * as jose from 'jose';
 import type { ProviderConfig } from './config.js';
 import { OidcBridgeError } from './errors.js';
@@ -77,12 +78,15 @@ export async function validateJwt(
   jwk: jose.JWK,
   provider: ProviderConfig,
 ): Promise<ValidatedClaims> {
+  if (!provider.audience) throw OidcBridgeError.config('A trusted human JWT audience is required');
   const key = await jose.importJWK(jwk);
 
   const { payload } = await jose.jwtVerify(token, key, {
     issuer: provider.issuer,
     audience: provider.audience,
-    clockTolerance: 60,
+    algorithms: ['RS256', 'EdDSA'],
+    requiredClaims: ['iss', 'sub', 'aud', 'exp', 'iat'],
+    clockTolerance: 0,
   }).catch((err) => {
     throw OidcBridgeError.jwtValidation(
       `JWT validation failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -91,6 +95,9 @@ export async function validateJwt(
 
   const subject = typeof payload.sub === 'string' ? payload.sub : '';
   const issuer = typeof payload.iss === 'string' ? payload.iss : '';
+  if (!subject || subject.startsWith('did:') || (payload.kind !== undefined && payload.kind !== 'human')) {
+    throw OidcBridgeError.jwtValidation('A validated human owner assertion is required');
+  }
 
   // Extract HMR value from configured claim.
   let hmrValue: string;
@@ -177,15 +184,5 @@ export async function signActJwt(
 
 /** Generate a unique JWT ID. */
 function generateJti(): string {
-  const bytes = new Uint8Array(16);
-  if (typeof globalThis.crypto?.getRandomValues === 'function') {
-    globalThis.crypto.getRandomValues(bytes);
-  } else {
-    // Fallback for environments without crypto.getRandomValues.
-    const now = Date.now();
-    for (let i = 0; i < bytes.length; i++) {
-      bytes[i] = (now >> (i % 8) * 8) & 0xff;
-    }
-  }
-  return jose.base64url.encode(bytes);
+  return randomBytes(16).toString('base64url');
 }
