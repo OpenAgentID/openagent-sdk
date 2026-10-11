@@ -21,7 +21,7 @@ const AUDIENCE = 'urn:openagentid:oats';
 const NOW = Date.parse('2026-10-11T12:00:00Z');
 const UNIX_NOW = NOW / 1000;
 
-async function fixture() {
+async function fixture(selfRooted = false) {
   // Every proof uses a newly generated keypair, including the owner OIDC token.
   const root = await generateKeyPair('EdDSA');
   const issuer = await generateKeyPair('EdDSA', { extractable: true });
@@ -35,6 +35,7 @@ async function fixture() {
   const revokedDids = new Set<string>();
   const revokedCredentials = new Set<string>();
   let ownerActive = true;
+  let selfRootActive = true;
   let checks = 0;
   const ownerToken = await new SignJWT({}).setProtectedHeader({ alg: 'EdDSA' })
     .setIssuer('https://auth.life.one').setSubject('signed-test-owner').setAudience(AUDIENCE)
@@ -43,7 +44,7 @@ async function fixture() {
     resolveDid: async (did) => {
       const publicKeyJwk = keys.get(did);
       return publicKeyJwk ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk,
-        purposes: did === ROOT ? ['capabilityDelegation'] as const : ['assertionMethod'] as const }] } : null;
+        purposes: did === ROOT ? ['capabilityDelegation'] as const : selfRooted ? ['authentication', 'assertionMethod'] as const : ['assertionMethod'] as const }] } : null;
     },
     authorizeOwner: async (did) => {
       if (did !== ROOT || !ownerActive) return null;
@@ -52,6 +53,11 @@ async function fixture() {
       });
       return { issuer: payload.iss!, subject: payload.sub! };
     },
+    ...(selfRooted ? { authorizeSelfRoot: async (did: string, context: { audience: string }) => {
+      if (!selfRootActive || ![ISSUER, SUBJECT].includes(did) || context.audience !== AUDIENCE) return null;
+      return { did, audience: context.audience, authorizationId: `${did}:self-authority`, revision: '1',
+        issuedAt: UNIX_NOW - 60, notBefore: UNIX_NOW - 60, expiresAt: UNIX_NOW + 3600, checkedAt: UNIX_NOW };
+    } } : {}),
     checkRevocation: async ({ did, credentialId }) => ({
       revoked: revokedDids.has(did) || (credentialId !== undefined && revokedCredentials.has(credentialId)),
       checkedAt: UNIX_NOW,
@@ -66,8 +72,8 @@ async function fixture() {
       .setIssuer(ROOT).setSubject(child).setAudience(AUDIENCE).setJti(id)
       .setIssuedAt(UNIX_NOW - 60).setNotBefore(UNIX_NOW - 60).setExpirationTime(UNIX_NOW + 3600).sign(root.privateKey);
   }
-  const issuerChain = [await delegation(ISSUER, 'issuer-delegation')];
-  const subjectChain = [await delegation(SUBJECT, 'subject-delegation')];
+  const issuerChain = selfRooted ? [] : [await delegation(ISSUER, 'issuer-delegation')];
+  const subjectChain = selfRooted ? [] : [await delegation(SUBJECT, 'subject-delegation')];
   const resolveDelegations = async (did: string, audience: string): Promise<readonly string[]> => {
     if (audience !== AUDIENCE) throw new Error('Wrong owner-chain audience');
     if (did === ISSUER) return issuerChain;
@@ -113,7 +119,7 @@ async function fixture() {
   return { scorer, credential, verifyEvidence, revokedDids, revokedCredentials,
     identityConfig: { ...identityConfig, resolveDelegations }, publicIssuerJwk: keys.get(ISSUER)!,
     privateIssuerJwk: await exportJWK(issuer.privateKey),
-    deactivateOwner: () => { ownerActive = false; }, checks: () => checks };
+    deactivateOwner: () => { ownerActive = false; }, deactivateSelfRoot: () => { selfRootActive = false; }, checks: () => checks };
 }
 
 /** Independently sign explicitly ordered JCS bytes using Node's Ed25519. */
@@ -139,8 +145,8 @@ function signedOasCredential(privateJwk: Awaited<ReturnType<typeof exportJWK>>, 
 }
 
 describe('concrete OAS evidence verification', () => {
-  async function setup() {
-    const f = await fixture();
+  async function setup(selfRooted = false) {
+    const f = await fixture(selfRooted);
     const config = {
       audience: AUDIENCE,
       identity: f.identityConfig,
@@ -157,6 +163,30 @@ describe('concrete OAS evidence verification', () => {
     const score = await scorer.score(SUBJECT, [credential]);
     expect(score.components.SecurityAudit.rawScore).toBe(0.85);
     expect(score.composite).toBeCloseTo(0.255, 12);
+  });
+
+  it('scores an actual OAS signature with independent self-rooted issuer and subject authorities', async () => {
+    const { scorer, credential, f } = await setup(true);
+    const identity = await new IdentityVerifier(f.identityConfig).resolve(SUBJECT, { audience: AUDIENCE });
+    expect(identity.owner).toBeNull();
+    expect(identity.root).toMatchObject({ kind: 'self', did: SUBJECT, revision: '1' });
+    expect(identity.lineage).toEqual([SUBJECT]);
+    const score = await scorer.score(SUBJECT, [credential]);
+    expect(score.components.SecurityAudit.rawScore).toBe(0.85);
+    expect(score.composite).toBeCloseTo(0.255, 12);
+  });
+
+  it('rechecks self-root policy withdrawal and root/authorization revocation before scoring', async () => {
+    const { scorer, credential, f } = await setup(true);
+    await scorer.score(SUBJECT, [credential]);
+    f.revokedDids.add(SUBJECT);
+    await expect(scorer.score(SUBJECT, [credential])).rejects.toMatchObject({ code: 'openagent/oats/verification-failed' });
+    f.revokedDids.clear();
+    f.revokedCredentials.add(`${SUBJECT}:self-authority`);
+    await expect(scorer.score(SUBJECT, [credential])).rejects.toMatchObject({ code: 'openagent/oats/verification-failed' });
+    f.revokedCredentials.clear();
+    f.deactivateSelfRoot();
+    await expect(scorer.score(SUBJECT, [credential])).rejects.toMatchObject({ code: 'openagent/oats/verification-failed' });
   });
 
   it('refuses a signed-body alteration or actual invalid signature', async () => {

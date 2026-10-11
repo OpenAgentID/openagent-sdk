@@ -1,28 +1,30 @@
 # Verify an agent identity
 
-`IdentityVerifier` verifies a signed agent possession proof, its signed owner
-delegation chain, the approved real person or organization at the root, and
-current authoritative revocation status for every link. It fails closed when
-any authority is missing, unavailable or stale. A DID, decoded JWT, owner name,
-HTTP 200, or request-supplied key alone is never an authenticated identity.
+`IdentityVerifier` verifies a signed agent possession proof, its current trust
+root, every signed delegation and authoritative revocation status. A root may
+be a LifeID person/organization or an explicitly authorized self-rooted agent.
+Missing, unavailable or stale authorities fail closed. A decoded JWT or a
+request-supplied public key never establishes an authenticated identity.
 
-The result is `VerifiedAgentIdentity`:
+`VerifiedAgentIdentity` returns `did`, `lineage`, `expiresAt` and one of:
 
 ```ts
-{
-  did: string;
-  owner: { issuer: string; subject: string; organizationId?: string };
-  lineage: readonly string[]; // root owner DID first, agent DID last
-  expiresAt: number;          // Unix seconds
-}
+// LifeID-owned identity
+{ owner: { issuer, subject, organizationId? }, root: { kind: 'lifeid', did: rootDid } }
+// Self-rooted identity, including signed descendants of this root
+{ owner: null, root: { kind: 'self', did: rootDid, authorizationId, revision } }
 ```
 
-This authenticates identity. It grants no application permission, tenant access,
-payment authority or credential. Consumers must authorize the operation against
-the returned owner/org and their own service policies. LifeID/WorkOS authenticates
-humans; Blinds brokers agent credentials; Genesis KMS protects customer secrets.
-The open SDK does not substitute an in-memory owner directory or revocation list
-for those authorities.
+`lineage` starts at the root and ends at the authenticated agent. A direct
+self-root has one entry and no delegations; its descendants carry each signed
+parent-to-child delegation. Existing owned result objects without a `root`
+field remain readable. An ownerless result requires the explicit `self` root.
+
+Self-rooted status imposes no reduced access tier or human-owner requirement.
+Services apply their normal operation, tenant and credential authorization to
+both modes; identity verification does not manufacture application permissions,
+tenants or payment authority. LifeID/WorkOS authenticates humans, Blinds brokers
+credentials and Genesis KMS protects customer secrets.
 
 ## Configure the authorities
 
@@ -36,7 +38,8 @@ discovery of trust roots and no development bypass.
 | `authorizeOwner(rootDid)` | Check the current binding from this owner root to an active real person or organization in LifeID/WorkOS. Return its trusted `{issuer, subject, organizationId?}` or `null`. Do not merely echo claims supplied by the agent. WorkOS membership/organization authority belongs in this adapter, not in the browser or proof payload. |
 | `checkRevocation({did, issuerDid?, credentialId?})` | Check both the DID and the particular credential when supplied. Return `{revoked: boolean, checkedAt: number}` only from an authoritative source. Check parent/root status as well as the leaf; missing status is an error. Default maximum age is 60 seconds. |
 | `replay.consume({issuer, tokenId, audience, nonce, expiresAt})` | Atomically validate/consume the service-issued, unexpired challenge bound to the correct audience/session and claim the unique issuer/token ID until its expiry. Return `true` once, `false` for invalid/reused challenges or credentials. Use shared durable storage across replicas. Separate read/write operations are insufficient. |
-| `resolveDelegations(did, audience)` | Optional for initial proof verification, required by `resolve()`. Return the current signed owner-to-agent chain from an authoritative lineage source. This allows current owner/revocation checks at OIDC code redemption and UserInfo without replaying possession. |
+| `resolveDelegations(did, audience)` | Optional for initial proof verification, required by `resolve()`. Return the current signed root-to-agent chain, or `[]` for an authorized direct self-root. The verifier rechecks current root authority and revocation without replaying possession. |
+| `authorizeSelfRoot(did, {audience})` | Optional server policy adapter. Return `null` to deny, or a current authoritative `SelfRootAuthorization` bound to this exact DID and audience. Its fields are `did`, `audience`, `authorizationId`, `revision`, `issuedAt`, `notBefore`, `expiresAt`, and `checkedAt`; times are Unix seconds. The policy grant must be active and fresh, with stable nonempty authorization ID/revision. The self-root DID must resolve to an importable public signing key authorized for `authentication`. Its authorization ID is checked for revocation. Never derive approval from a request's root claims. |
 
 The resolver adapter must restrict outbound origins and honor its own trusted
 registry contract. A request supplies identifiers and signed evidence, never
@@ -47,15 +50,21 @@ lifetime, 16 delegation links and zero clock tolerance. Limits and a trusted
 `now(): number` clock are configurable. Clock tolerance may be at most 60 seconds;
 delegation depth may only be reduced from the 16-link maximum. Owner roots must
 have OAS kind `hmr`, `mhr`, `ao`, or the readable `enr` organization alias; an
-agent root remains invalid even if an overly broad owner callback approves it.
+agent root requires the separate self-root authority; an overly broad owner
+callback cannot approve it. Failed person/org approval never falls back to
+self-root approval.
 Expired credentials still fail. Credentials require integer Unix times and cannot
-amplify the parent lifetime. Expiry is the shortest signed lifetime in the result.
+amplify the parent lifetime. Expiry is the shortest credential/root-authority lifetime in the result. A
+self-root grant bounds possession and descendant lifetimes, and freshness uses
+the same configured maximum age as revocation. Grant withdrawal or a new
+revision must invalidate OIDC grants already bound to the previous root policy.
 
 ## Proof transport
 
 `verify(proof, {audience, nonce})` accepts
 `{token: string, delegations: readonly string[]}`. `delegations` is ordered from
-the approved owner root to the leaf agent. Each link is a compact signed JWT with:
+the approved trust root to the leaf agent; a direct self-root uses an empty
+array. Each link is a compact signed JWT with:
 
 | Field | Delegation | Possession |
 | --- | --- | --- |
@@ -87,7 +96,7 @@ remain exact throughout signature verification, lineage and results; no rewritin
 or aliasing creates a second principal. New agent identities use `did:oas`.
 
 `verifyLineage(did, delegations, {audience})` checks current cryptographic lineage,
-owner authority and revocation, but **does not prove the subject's possession**.
+root authority and revocation, but **does not prove the subject's possession**.
 Use it after independently verifying a signed OATS attestation/VC or other evidence.
 `resolve(did, {audience})` uses the configured authoritative signed-lineage source
 for the same current checks. Neither method consumes an old possession nonce.
@@ -102,7 +111,7 @@ session/tenant binding and expiry. It must not simply echo the
 `X-OpenAgent-Nonce` request header. `replay.consume` completes the atomic claim.
 
 Requests use `Content-Type: application/json` and contain only `{proof}`. Audience,
-owner authority, keys, policy and revocation configuration come from the server.
+root authority, keys, policy and revocation configuration come from the server.
 Default request size is 128 KiB. Responses use `Cache-Control: no-store`:
 
 | Status | Meaning |

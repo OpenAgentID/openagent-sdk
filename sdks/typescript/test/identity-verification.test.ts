@@ -3,8 +3,10 @@ import { decodeJwt, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 
 import { describe, expect, it } from 'vitest';
 import {
   IdentityVerifier,
+  assertVerifiedIdentity,
   type IdentityVerifierConfig,
   type RevocationCheck,
+  type SelfRootAuthorization,
 } from '../src/identity-verification.js';
 
 const now = 1_790_000_000;
@@ -64,11 +66,40 @@ async function fixture(algorithm: 'EdDSA' | 'RS256' = 'EdDSA', legacy = false,
   return { root, parent, leaf, config, revoked, checks, sign, entries, proof: { token, delegations } };
 }
 
+async function selfFixture(algorithm: 'EdDSA' | 'RS256' = 'EdDSA', legacy = false) {
+  const f = await fixture(algorithm, legacy, 'agent');
+  const authorizations = new Map<string, SelfRootAuthorization>([[f.root, {
+    did: f.root, audience, authorizationId: randomUUID(), revision: randomUUID(),
+    issuedAt: now - 20, notBefore: now - 20, expiresAt: now + 300, checkedAt: now,
+  }]]);
+  const resolve = f.config.resolveDid;
+  f.config.resolveDid = async (did) => {
+    const document = await resolve(did);
+    return document && did === f.root ? { ...document, verificationMethods:
+      document.verificationMethods.map((method) => ({ ...method,
+        purposes: ['authentication', 'capabilityDelegation'] as const })) } : document;
+  };
+  f.config.authorizeOwner = async () => { throw new Error('Self-root may not manufacture a human owner'); };
+  f.config.authorizeSelfRoot = async (did, options) => {
+    expect(options).toEqual({ audience });
+    return authorizations.get(did) ?? null;
+  };
+  f.config.resolveDelegations = async (did, aud) => {
+    if (aud !== audience) throw new Error('Wrong audience');
+    if (did === f.root) return [];
+    if (did === f.leaf) return f.proof.delegations;
+    throw new Error('Unknown agent');
+  };
+  const direct = { token: await f.sign(f.root, f.root, 'oaid-proof+jwt'), delegations: [] };
+  return { ...f, authorizations, direct };
+}
+
 describe('IdentityVerifier real signed identity proofs', () => {
   it.each(['EdDSA', 'RS256'] as const)('verifies %s possession, full lineage and approved owner', async (algorithm) => {
     const f = await fixture(algorithm);
     const result = await new IdentityVerifier(f.config).verify(f.proof, { audience, nonce });
-    expect(result).toEqual({ did: f.leaf, owner, lineage: [f.root, f.parent, f.leaf], expiresAt: now + 100 });
+    expect(result).toEqual({ did: f.leaf, owner, root: { kind: 'lifeid', did: f.root },
+      lineage: [f.root, f.parent, f.leaf], expiresAt: now + 100 });
     expect(new Set(f.checks.map((check) => check.did))).toEqual(new Set([f.root, f.parent, f.leaf]));
     expect(f.checks.filter((check) => check.credentialId)).toHaveLength(3);
   });
@@ -267,5 +298,194 @@ describe('IdentityVerifier real signed identity proofs', () => {
     delete f.config.resolveDelegations;
     await expect(new IdentityVerifier(f.config).resolve(f.leaf, { audience }))
       .rejects.toMatchObject({ code: 'authority_unavailable' });
+  });
+});
+
+describe('authoritatively registered self-root identities', () => {
+  it.each(['EdDSA', 'RS256'] as const)('verifies %s direct possession with a current grant and no human owner', async (algorithm) => {
+    const f = await selfFixture(algorithm);
+    const grant = f.authorizations.get(f.root)!;
+    const identity = await new IdentityVerifier(f.config).verify(f.direct, { audience, nonce });
+    expect(identity).toEqual({ did: f.root, owner: null, root: { kind: 'self', did: f.root,
+      authorizationId: grant.authorizationId, revision: grant.revision }, lineage: [f.root], expiresAt: now + 100 });
+    expect(f.checks).toContainEqual({ did: f.root });
+    expect(f.checks).toContainEqual({ did: f.root, credentialId: grant.authorizationId });
+    expect(f.checks).toContainEqual({ did: f.root, issuerDid: f.root, credentialId: decodeJwt(f.direct.token).jti });
+  });
+
+  it('preserves exact legacy self-root and descendant DIDs with real signed delegations', async () => {
+    const f = await selfFixture('EdDSA', true);
+    const identity = await new IdentityVerifier(f.config).verify(f.proof, { audience, nonce });
+    expect(identity.did).toBe(f.leaf);
+    expect(identity.owner).toBeNull();
+    expect(identity.root).toMatchObject({ kind: 'self', did: f.root });
+    expect(identity.lineage).toEqual([f.root, f.parent, f.leaf]);
+  });
+
+  it('denies empty-chain possession by default and ignores caller-declared self-root metadata', async () => {
+    const f = await selfFixture();
+    delete f.config.authorizeSelfRoot;
+    const callerClaim = { ...f.direct, owner: null, root: { kind: 'self', did: f.root,
+      authorizationId: randomUUID(), revision: randomUUID() } };
+    await expect(new IdentityVerifier(f.config).verify(callerClaim, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'untrusted_owner' });
+  });
+
+  it('never falls back from denied LifeID ownership to an overbroad self-root authority', async () => {
+    const f = await fixture();
+    f.config.authorizeOwner = async () => null;
+    f.config.authorizeSelfRoot = async () => { throw new Error('Human roots cannot use self authority'); };
+    await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'untrusted_owner' });
+  });
+
+  it.each([
+    ['another DID', { did: 'did:oas:openagent:agent:other' }, 'untrusted_owner'],
+    ['another audience', { audience: 'https://other.example' }, 'untrusted_owner'],
+    ['blank authorization', { authorizationId: ' ' }, 'untrusted_owner'],
+    ['oversized authorization', { authorizationId: 'a'.repeat(513) }, 'untrusted_owner'],
+    ['blank revision', { revision: '' }, 'untrusted_owner'],
+    ['oversized revision', { revision: 'r'.repeat(513) }, 'untrusted_owner'],
+    ['future issuance', { issuedAt: now + 1, notBefore: now + 1 }, 'untrusted_owner'],
+    ['inactive registration', { notBefore: now + 1 }, 'untrusted_owner'],
+    ['expired registration', { expiresAt: now }, 'untrusted_owner'],
+    ['fractional expiry', { expiresAt: now + 0.5 }, 'untrusted_owner'],
+    ['inverted lifetime', { issuedAt: now - 10, notBefore: now - 20 }, 'untrusted_owner'],
+    ['check before registration', { checkedAt: now - 21 }, 'untrusted_owner'],
+    ['stale authority', { issuedAt: now - 120, notBefore: now - 120, checkedAt: now - 61 }, 'authority_unavailable'],
+    ['future authority check', { checkedAt: now + 1 }, 'authority_unavailable'],
+  ] as const)('rejects a genuine signed proof with %s grant state', async (_label, changes, code) => {
+    const f = await selfFixture();
+    f.authorizations.set(f.root, { ...f.authorizations.get(f.root)!, ...changes });
+    await expect(new IdentityVerifier(f.config).verify(f.direct, { audience, nonce })).rejects.toMatchObject({ code });
+  });
+
+  it('denies withdrawn or unavailable authoritative registrations', async () => {
+    const f = await selfFixture();
+    f.authorizations.delete(f.root);
+    await expect(new IdentityVerifier(f.config).verify(f.direct, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'untrusted_owner' });
+    f.config.authorizeSelfRoot = async () => { throw new Error('Authority offline'); };
+    await expect(new IdentityVerifier(f.config).verify(f.direct, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'authority_unavailable' });
+  });
+
+  it.each(['root', 'authorization', 'proof', 'delegation', 'parent', 'leaf'] as const)
+    ('rejects current %s revocation in a self-root hierarchy', async (kind) => {
+      const f = await selfFixture();
+      const revoked = kind === 'authorization' ? f.authorizations.get(f.root)!.authorizationId :
+        kind === 'proof' ? decodeJwt(f.direct.token).jti! :
+        kind === 'delegation' ? decodeJwt(f.proof.delegations[0]!).jti! : f[kind];
+      f.revoked.add(revoked);
+      const proof = ['delegation', 'parent', 'leaf'].includes(kind) ? f.proof : f.direct;
+      await expect(new IdentityVerifier(f.config).verify(proof, { audience, nonce }))
+        .rejects.toMatchObject({ code: 'revoked' });
+    });
+
+  it('requires an authoritative importable authentication key even without a possession token', async () => {
+    const f = await selfFixture();
+    const resolve = f.config.resolveDid;
+    for (const condition of ['missing', 'other-did', 'assertion-only', 'malformed-key', 'private-key', 'duplicate-kid']) {
+      f.config.resolveDid = async (did) => {
+        const document = await resolve(did);
+        if (!document || did !== f.root) return document;
+        if (condition === 'missing') return null;
+        if (condition === 'other-did') return { ...document, did: f.leaf };
+        const method = document.verificationMethods[0]!;
+        if (condition === 'assertion-only') return { ...document,
+          verificationMethods: [{ ...method, purposes: ['assertionMethod'] }] };
+        if (condition === 'malformed-key') return { ...document,
+          verificationMethods: [{ ...method, publicKeyJwk: { kty: 'OKP', crv: 'Ed25519', x: 'bad' } }] };
+        if (condition === 'private-key') return { ...document,
+          verificationMethods: [{ ...method, publicKeyJwk: { ...method.publicKeyJwk, d: 'private' } }] };
+        return { ...document, verificationMethods: [method, method] };
+      };
+      await expect(new IdentityVerifier(f.config).verifyLineage(f.root, [], { audience }))
+        .rejects.toMatchObject({ code: 'invalid_proof' });
+    }
+  });
+
+  it('preserves separately verified assertion evidence for an owned lineage', async () => {
+    const f = await fixture();
+    const resolve = f.config.resolveDid;
+    f.config.resolveDid = async (did) => {
+      const document = await resolve(did);
+      return document && did === f.leaf ? { ...document, verificationMethods:
+        document.verificationMethods.map((method) => ({ ...method, purposes: ['assertionMethod'] as const })) } : document;
+    };
+    expect((await new IdentityVerifier(f.config).verifyLineage(f.leaf, f.proof.delegations, { audience })).owner)
+      .toEqual(owner);
+    await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'invalid_proof' });
+  });
+
+  it('requires capabilityDelegation authorization for a self-root signed descendant', async () => {
+    const f = await selfFixture();
+    const resolve = f.config.resolveDid;
+    f.config.resolveDid = async (did) => {
+      const document = await resolve(did);
+      return document && did === f.root ? { ...document, verificationMethods:
+        document.verificationMethods.map((method) => ({ ...method, purposes: ['authentication'] as const })) } : document;
+    };
+    await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'invalid_proof' });
+  });
+
+  it('bounds proof and descendant lifetimes to the authoritative registration', async () => {
+    const f = await selfFixture();
+    const grant = f.authorizations.get(f.root)!;
+    f.authorizations.set(f.root, { ...grant, expiresAt: now + 60 });
+    await expect(new IdentityVerifier(f.config).verify(f.direct, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'invalid_proof' });
+    f.authorizations.set(f.root, { ...grant, expiresAt: now + 150 });
+    await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'invalid_proof' });
+    f.authorizations.set(f.root, grant);
+    const predating = await f.sign(f.root, f.root, 'oaid-proof+jwt', { iat: now - 21, nbf: now - 21 });
+    await expect(new IdentityVerifier(f.config).verify({ token: predating, delegations: [] }, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'invalid_proof' });
+  });
+
+  it('retains atomic nonce and JTI replay refusal under concurrent self-root possession', async () => {
+    const f = await selfFixture();
+    const verifier = new IdentityVerifier(f.config);
+    const results = await Promise.allSettled([
+      verifier.verify(f.direct, { audience, nonce }), verifier.verify(f.direct, { audience, nonce }),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const failure = results.find((result) => result.status === 'rejected');
+    expect(failure).toMatchObject({ status: 'rejected', reason: { code: 'replayed' } });
+    const freshToken = await f.sign(f.root, f.root, 'oaid-proof+jwt');
+    await expect(verifier.verify({ token: freshToken, delegations: [] }, { audience, nonce }))
+      .rejects.toMatchObject({ code: 'replayed' });
+  });
+
+  it('rechecks current zero-chain authority and binds policy revision without possession replay', async () => {
+    const f = await selfFixture();
+    const verifier = new IdentityVerifier(f.config);
+    await verifier.verify(f.direct, { audience, nonce });
+    expect((await verifier.resolve(f.root, { audience })).lineage).toEqual([f.root]);
+    f.authorizations.set(f.root, { ...f.authorizations.get(f.root)!, revision: randomUUID() });
+    expect((await verifier.resolve(f.root, { audience })).root).toMatchObject({
+      kind: 'self', revision: f.authorizations.get(f.root)!.revision,
+    });
+    f.authorizations.delete(f.root);
+    await expect(verifier.resolve(f.root, { audience })).rejects.toMatchObject({ code: 'untrusted_owner' });
+  });
+
+  it('exports strict verdict validation while preserving historical owned results', async () => {
+    const f = await selfFixture();
+    const self = await new IdentityVerifier(f.config).verifyLineage(f.root, [], { audience });
+    expect(() => assertVerifiedIdentity(self, f.root, now)).not.toThrow();
+    for (const changed of [
+      { ...self, root: undefined }, { ...self, owner }, { ...self, root: { ...self.root, kind: 'lifeid' } },
+      { ...self, root: { ...self.root, did: f.leaf } }, { ...self, root: { ...self.root, authorizationId: '' } },
+      { ...self, root: { ...self.root, revision: ' ' } }, { ...self, expiresAt: now },
+    ]) expect(() => assertVerifiedIdentity(changed, f.root, now)).toThrow();
+    const owned = await fixture();
+    const identity = await new IdentityVerifier(owned.config).verifyLineage(owned.leaf, owned.proof.delegations, { audience });
+    const { root: _root, ...historical } = identity;
+    expect(() => assertVerifiedIdentity(historical, owned.leaf, now)).not.toThrow();
+    expect(() => assertVerifiedIdentity({ ...identity, owner: null }, owned.leaf, now)).toThrow();
   });
 });

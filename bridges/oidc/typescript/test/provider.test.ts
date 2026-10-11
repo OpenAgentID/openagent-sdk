@@ -166,7 +166,17 @@ async function fixture(kind: 'agent' | 'agent:instance' = 'agent') {
   };
 }
 
-async function authorize(f: Awaited<ReturnType<typeof fixture>>, settings: { proofAudience?: string; humanSubject?: string; humanAudience?: string } = {}) {
+interface AuthorizationFixture {
+  issuer: string;
+  rpOrigin: string;
+  proof: (nonce: string, audience?: string) => Promise<AgentIdentityProof>;
+  humanToken?: (subject?: string, audience?: string) => Promise<string>;
+  callbackQuery: () => URLSearchParams | undefined;
+}
+
+async function authorize(f: AuthorizationFixture, settings: {
+  proofAudience?: string; humanSubject?: string; humanAudience?: string; lifeIdToken?: string; omitLifeId?: boolean;
+} = {}) {
   const browser = new Browser();
   const verifier = randomBytes(32).toString('base64url');
   const nonce = randomBytes(16).toString('hex'), state = randomBytes(16).toString('hex');
@@ -178,10 +188,12 @@ async function authorize(f: Awaited<ReturnType<typeof fixture>>, settings: { pro
   expect(start.status).toBe(303);
   const interactionUrl = new URL(start.headers.get('location')!, f.issuer).href;
   const interaction = await (await browser.fetch(interactionUrl)).json();
+  const lifeIdToken = settings.lifeIdToken ?? (f.humanToken && !settings.omitLifeId
+    ? await f.humanToken(settings.humanSubject, settings.humanAudience) : undefined);
   const completion = await browser.fetch(interactionUrl, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ proof: await f.proof(interaction.nonce, settings.proofAudience), consent: true,
-      lifeIdToken: await f.humanToken(settings.humanSubject, settings.humanAudience) }),
+      ...(lifeIdToken !== undefined ? { lifeIdToken } : {}) }),
   });
   if (completion.status !== 303) return { completion, browser, verifier, nonce, state, code: undefined };
   const resumed = await browser.fetch(new URL(completion.headers.get('location')!, f.issuer).href);
@@ -195,12 +207,145 @@ async function authorize(f: Awaited<ReturnType<typeof fixture>>, settings: { pro
   return { completion, browser, verifier, nonce, state, code };
 }
 
-function redeem(f: Awaited<ReturnType<typeof fixture>>, code: string, verifier: string) {
+function redeem(f: Pick<AuthorizationFixture, 'issuer' | 'rpOrigin'>, code: string, verifier: string) {
   return fetch(`${f.issuer}/token`, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'authorization_code', client_id: 'registered-rp',
       redirect_uri: `${f.rpOrigin}/callback`, code, code_verifier: verifier }),
   });
+}
+
+/** The server's authoritative policy record and every possession/delegation use real signing keys. */
+async function selfFixture(settings: { descendant?: boolean; legacy?: boolean; allowSelfRooted?: boolean } = {}) {
+  let provider: AgentOidcProvider;
+  let callbackQuery: URLSearchParams | undefined;
+  const rpOrigin = await listen(createServer((req, res) => {
+    callbackQuery = new URL(req.url!, 'http://127.0.0.1').searchParams;
+    res.end('OIDC callback received');
+  }));
+  const ownerJwk = { ...await exportJWK(rsa.publicKey), kid: 'policy-rsa', alg: 'RS256', use: 'sig' };
+  const issuer = await listen(createServer((req, res) => {
+    void (async () => {
+      if (req.url === '/owner/jwks') {
+        res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ keys: [ownerJwk] })); return;
+      }
+      if (req.url?.startsWith('/interaction/')) {
+        if (req.method === 'GET') {
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(await provider.interaction(req, res))); return;
+        }
+        let body = '';
+        for await (const chunk of req) {
+          body += chunk;
+          if (body.length > 128 * 1024) throw new Error('Interaction request too large');
+        }
+        await provider.completeInteraction(req, res, JSON.parse(body)); return;
+      }
+      provider.callback()(req, res);
+    })().catch(() => { res.statusCode = 403; res.end(JSON.stringify({ error: 'access_denied' })); });
+  }));
+  let rootKeys = await generateKeyPair('EdDSA');
+  const leafKeys = settings.descendant ? await generateKeyPair('EdDSA') : rootKeys;
+  const prefix = settings.legacy ? 'did:l1fe' : 'did:oas:openagent';
+  let rootDid = `${prefix}:agent:${(await exportJWK(rootKeys.publicKey)).x}`;
+  const did = settings.descendant
+    ? `${prefix}:agent:instance:${(await exportJWK(leafKeys.publicKey)).x}` : rootDid;
+  const ownedRootDid = `did:oas:openagent:hmr:${createHash('sha256').update(ownerJwk.n!).digest('hex')}`;
+  const owner: AgentOwner = { issuer, subject: randomBytes(16).toString('hex') };
+  let authorizationId = randomBytes(16).toString('hex');
+  let revision = randomBytes(16).toString('hex');
+  let authorized = true, revoked = false, owned = false, changeDuringLogin = false;
+  const consumed = new Set<string>();
+  const policyRecord = () => new SignJWT({ rootDid, authorizationId, revision })
+    .setProtectedHeader({ alg: 'RS256', kid: 'policy-rsa' }).setIssuer(issuer).setSubject(rootDid)
+    .setAudience(issuer).setIssuedAt().setExpirationTime('5m').sign(rsa.privateKey);
+  let policyToken = await policyRecord();
+  const signDelegation = () => new SignJWT({})
+    .setProtectedHeader({ alg: 'EdDSA', kid: `${rootDid}#signing`, typ: 'oaid-delegation+jwt' })
+    .setIssuer(rootDid).setSubject(did).setAudience(issuer).setJti(randomBytes(16).toString('hex'))
+    .setIssuedAt().setNotBefore('0s').setExpirationTime('5m').sign(rootKeys.privateKey);
+  let delegation = settings.descendant ? await signDelegation() : undefined;
+  const ownedDelegation = await new SignJWT({ owner })
+    .setProtectedHeader({ alg: 'RS256', kid: 'policy-rsa', typ: 'oaid-delegation+jwt' })
+    .setIssuer(ownedRootDid).setSubject(did).setAudience(issuer).setIssuedAt().setExpirationTime('5m').sign(rsa.privateKey);
+  const resolveIdentity = async (requestedDid: string): Promise<VerifiedAgentIdentity> => {
+    if (requestedDid !== did || revoked) throw new Error('Unknown or revoked agent/root');
+    if (owned) {
+      const { payload } = await jwtVerify(ownedDelegation, rsa.publicKey, {
+        issuer: ownedRootDid, subject: did, audience: issuer, algorithms: ['RS256'],
+      });
+      if (JSON.stringify(payload.owner) !== JSON.stringify(owner)) throw new Error('Unapproved owner');
+      return { did, owner, root: { kind: 'lifeid', did: ownedRootDid }, lineage: [ownedRootDid, did], expiresAt: payload.exp! };
+    }
+    if (!authorized) throw new Error('Current self-root policy was withdrawn');
+    const { payload: policy } = await jwtVerify(policyToken, rsa.publicKey, {
+      issuer, subject: rootDid, audience: issuer, algorithms: ['RS256'], requiredClaims: ['exp', 'iat'],
+    });
+    if (policy.rootDid !== rootDid || policy.authorizationId !== authorizationId || policy.revision !== revision) {
+      throw new Error('Current policy record does not authorize this root');
+    }
+    let expiresAt = policy.exp!;
+    if (delegation) {
+      const { payload } = await jwtVerify(delegation, rootKeys.publicKey, {
+        issuer: rootDid, subject: did, audience: issuer, algorithms: ['EdDSA'],
+      });
+      expiresAt = Math.min(expiresAt, payload.exp!);
+    } else if (did !== rootDid) throw new Error('Self-root descendant has no signed delegation');
+    return { did, owner: null, root: { kind: 'self', did: rootDid, authorizationId, revision },
+      lineage: delegation ? [rootDid, did] : [rootDid], expiresAt };
+  };
+  const options: AgentOidcProviderOptions = {
+    issuer, mode: 'test', persistent: false, adapter: testStorage(),
+    clients: [{ client_id: 'registered-rp', redirect_uris: [`${rpOrigin}/callback`],
+      token_endpoint_auth_method: 'none', id_token_signed_response_alg: 'EdDSA' }],
+    cookieKeys: [randomBytes(32).toString('base64url')],
+    jwks: { keys: [{ ...await exportJWK(ed.privateKey), kid: 'self-provider-ed25519', alg: 'EdDSA', use: 'sig' }] },
+    lifeId: { issuer, audience: 'owner-federation', jwksUri: `${issuer}/owner/jwks`, test: true }, requireLifeId: true,
+    ...(settings.allowSelfRooted === false ? {} : { allowSelfRooted: true }), resolveIdentity,
+    async verifyAgent(proof, context) {
+      const expectedDelegations = owned ? [ownedDelegation] : delegation ? [delegation] : [];
+      if (proof.delegations.length !== expectedDelegations.length
+        || proof.delegations.some((value, index) => value !== expectedDelegations[index])) throw new Error('Unapproved signed chain');
+      const { payload } = await jwtVerify(proof.token, leafKeys.publicKey, {
+        issuer: did, subject: did, audience: context.audience, algorithms: ['EdDSA'], requiredClaims: ['exp', 'jti'],
+      });
+      if (payload.nonce !== context.nonce || consumed.has(payload.jti!)) throw new Error('Wrong or replayed proof');
+      const identity = await resolveIdentity(did);
+      consumed.add(payload.jti!);
+      if (changeDuringLogin) {
+        revision = randomBytes(16).toString('hex'); policyToken = await policyRecord();
+      }
+      return { ...identity, expiresAt: Math.min(identity.expiresAt, payload.exp!) };
+    },
+  };
+  provider = await createAgentOidcProvider(options);
+  return {
+    issuer, rpOrigin, options, did, provider, callbackQuery: () => callbackQuery,
+    identity: () => resolveIdentity(did),
+    proof: async (nonce: string, audience = issuer): Promise<AgentIdentityProof> => ({
+      token: await new SignJWT({ nonce }).setProtectedHeader({ alg: 'EdDSA', kid: `${did}#signing`, typ: 'oaid-proof+jwt' })
+        .setIssuer(did).setSubject(did).setAudience(audience).setJti(randomBytes(16).toString('hex'))
+        .setIssuedAt().setExpirationTime('5m').sign(leafKeys.privateKey),
+      delegations: owned ? [ownedDelegation] : delegation ? [delegation] : [],
+    }),
+    ownerAssertion: () => new SignJWT({ kind: 'human' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'policy-rsa' }).setIssuer(issuer).setSubject(owner.subject)
+      .setAudience('owner-federation').setIssuedAt().setExpirationTime('5m').sign(rsa.privateKey),
+    async mutate(change: 'revoke' | 'withdraw' | 'revision' | 'authorization' | 'root' | 'mode') {
+      if (change === 'revoke') revoked = true;
+      if (change === 'withdraw') authorized = false;
+      if (change === 'mode') owned = true;
+      if (change === 'revision') revision = randomBytes(16).toString('hex');
+      if (change === 'authorization') authorizationId = randomBytes(16).toString('hex');
+      if (change === 'root') {
+        rootKeys = await generateKeyPair('EdDSA');
+        rootDid = `${prefix}:agent:${(await exportJWK(rootKeys.publicKey)).x}`;
+        delegation = await signDelegation();
+      }
+      policyToken = await policyRecord();
+    },
+    changeDuringLogin: () => { changeDuringLogin = true; },
+  };
 }
 
 describe('agent OIDC provider over HTTP', () => {
@@ -268,4 +413,76 @@ describe('agent OIDC provider over HTTP', () => {
     await expect(createAgentOidcProvider({ ...f.options, cookieKeys: [] })).rejects.toThrow('cookie');
     await expect(createAgentOidcProvider({ ...f.options, jwks: { keys: [await exportJWK(rsa.publicKey)] } })).rejects.toThrow('Private');
   });
+
+  it('keeps LifeID mandatory for owned agents even when self-rooted agents are allowed', async () => {
+    const f = await selfFixture(); await f.mutate('mode');
+    expect((await authorize(f)).completion.status).toBe(403);
+    const flow = await authorize({ ...f, humanToken: f.ownerAssertion });
+    expect(flow.completion.status).toBe(303);
+    const response = await redeem(f, flow.code!, flow.verifier);
+    expect(response.status).toBe(200);
+    const info = await fetch(`${f.issuer}/userinfo`, { headers: { authorization: `Bearer ${(await response.json()).access_token}` } });
+    const identity = await info.json();
+    expect(identity.owner).not.toBeNull(); expect(identity.root.kind).toBe('lifeid');
+  });
+});
+
+describe('explicit self-rooted agent OIDC authentication', () => {
+  it.each([
+    { descendant: false, legacy: false }, { descendant: true, legacy: false }, { descendant: false, legacy: true },
+  ])('completes real-key PKCE/token/UserInfo without a human assertion for %j', async (settings) => {
+    const f = await selfFixture(settings), flow = await authorize(f);
+    expect(flow.completion.status).toBe(303);
+    const expected = await f.identity();
+    const jwks = await (await fetch(`${f.issuer}/jwks`)).json();
+    const response = await redeem(f, flow.code!, flow.verifier);
+    expect(response.status).toBe(200);
+    const tokens = await response.json();
+    const { payload } = await jwtVerify(tokens.id_token, createLocalJWKSet(jwks), {
+      issuer: f.issuer, audience: 'registered-rp', algorithms: ['EdDSA'],
+    });
+    expect(payload.sub).toBe(f.did); expect(payload.nonce).toBe(flow.nonce);
+    expect(payload.owner).toBeNull(); expect(payload.root).toEqual(expected.root);
+    expect(payload.lineage).toEqual(expected.lineage); expect(payload.exp).toBeLessThanOrEqual(expected.expiresAt);
+    const info = await fetch(`${f.issuer}/userinfo`, { headers: { authorization: `Bearer ${tokens.access_token}` } });
+    expect(info.status).toBe(200);
+    const claims = await info.json();
+    expect(claims.owner).toBeNull(); expect(claims.root).toEqual(expected.root); expect(claims.lineage).toEqual(expected.lineage);
+  });
+
+  it('denies self roots when the server option is absent', async () => {
+    const f = await selfFixture({ allowSelfRooted: false });
+    expect(f.options.allowSelfRooted).toBeUndefined();
+    const flow = await authorize(f);
+    expect(flow.completion.status).toBe(403); expect(flow.code).toBeUndefined();
+  });
+
+  it('does not substitute a genuine human assertion for a self-rooted identity', async () => {
+    const f = await selfFixture();
+    expect((await authorize(f, { lifeIdToken: await f.ownerAssertion() })).completion.status).toBe(403);
+  });
+
+  it('denies a policy revision change between possession verification and login resolution', async () => {
+    const f = await selfFixture(); f.changeDuringLogin();
+    expect((await authorize(f)).completion.status).toBe(403);
+  });
+
+  it.each(['revoke', 'withdraw', 'revision', 'authorization', 'root', 'mode'] as const)(
+    'invalidates a code when current self-root authority changes: %s', async (change) => {
+      const f = await selfFixture({ descendant: true }), flow = await authorize(f);
+      await f.mutate(change);
+      const response = await redeem(f, flow.code!, flow.verifier);
+      expect(response.status).toBe(400); expect((await response.json()).error).toBe('invalid_grant');
+    });
+
+  it.each(['revoke', 'withdraw', 'revision', 'authorization', 'root', 'mode'] as const)(
+    'invalidates UserInfo when current self-root authority changes: %s', async (change) => {
+      const f = await selfFixture({ descendant: true }), flow = await authorize(f);
+      const response = await redeem(f, flow.code!, flow.verifier);
+      expect(response.status).toBe(200);
+      const { access_token: accessToken } = await response.json();
+      await f.mutate(change);
+      const info = await fetch(`${f.issuer}/userinfo`, { headers: { authorization: `Bearer ${accessToken}` } });
+      expect(info.status).toBe(401);
+    });
 });

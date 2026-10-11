@@ -29,8 +29,8 @@ time. It must:
    its ID, issuer, subject, evidence type, score, issuance/expiry dates and any
    signed extensions. Pin allowed algorithms and proof purposes. Refuse a
    missing, malformed or invalid signature.
-3. Verify the current issuer and subject owner chains, including every signed
-   delegation and every ancestor's revocation state. The root must bind to a
+3. Verify the current issuer and subject trust roots, including every signed
+   delegation and every ancestor's revocation state. An owned root must bind to a
    real authenticated person or organization. `IdentityVerifier.verifyLineage`
    provides this check; declared lineage arrays alone do not.
 4. Check the attestation ID against the authoritative credential revocation
@@ -41,7 +41,9 @@ time. It must:
 
 The adapter is a trusted integration boundary. Returning these flags without
 performing the checks violates this contract. They are not proof by
-themselves. The scorer checks the returned bindings, owner records, paths and
+themselves. Self-rooted issuer/subject identities require an explicit current
+authority grant and `owner: null`; an empty path or caller-declared self root
+is insufficient. The scorer checks returned bindings, root/owner records, paths and
 current chain expiry; it never interprets a signature flag from the credential
 as a verification result.
 
@@ -81,7 +83,7 @@ keys are refused. Native WebCrypto performs Ed25519 verification and is
 required for this adapter. Invalid Unicode, non-finite numbers and malformed
 JSON are rejected before JCS serialization.
 
-The adapter loads both agent-principal owner chains from the configured
+The adapter loads both agent-principal trust roots and signed chains from the configured
 authority using `IdentityVerifier.resolve`. Submitted lineage extensions do
 not provide authority. It then checks the attestation ID's current revocation
 state; stale, unknown or unavailable authority refuses the whole batch. The
@@ -186,7 +188,7 @@ finite `[0, 1]` minimums.
 The batch is a snapshot, not an append-only evidence store. Recompute from the
 complete selected evidence set when evidence changes. Duplicate detection is
 batch-local; durable deduplication belongs to the application's evidence
-store. Reverify current owner and revocation state each time the score is used
+store. Reverify current root authority and revocation state each time the score is used
 for a policy decision. A cached score is not evidence of current identity
 authority.
 
@@ -202,3 +204,8 @@ WebCrypto. They cover reference weights,
 confidence, average/decay behavior, exact binding, altered signatures,
 credential/ancestor revocation, missing ownership, malformed scores/dates,
 duplicates and complete-batch refusal.
+
+Self-rooted evidence uses the same trusted-issuer allowlist, real Ed25519/JCS
+signature, exact credential binding and revocation checks as owned evidence.
+The SDK imposes no score discount for self-root status. Tests cover genuine
+self-rooted OAS signatures, root/grant revocation and policy withdrawal.

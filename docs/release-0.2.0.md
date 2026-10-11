@@ -20,8 +20,10 @@ of the exact built tarballs before publication.
 
 - New identities use `did:oas` and default namespace `openagent`. Legacy
   `did:l1fe` remains literal during parsing and signature verification.
-- Every successful identity verdict proves key possession, an authorized
-  person/org root, signed delegations, current revocation and expiry. Proof
+- Every successful possession-proof verdict proves key possession, an authorized
+  LifeID person/org or approved self-rooted agent root, signed delegations,
+  current revocation and expiry. Self roots expose an explicit discriminator,
+  policy authorization ID/revision and `owner: null`; no human is invented. Proof
   verification additionally consumes its server-issued challenge atomically.
   Resolvers must explicitly supply each key's authorized DID relationships:
   `authentication` for proofs and `capabilityDelegation` for delegations.
@@ -29,14 +31,18 @@ of the exact built tarballs before publication.
   image URL; clearing it restores the identity-derived avatar. The v1 profile
   matches independent upstream Rust vectors. The documented v2 avatar profile
   supports opaque legacy identifiers and does not claim key-payload decoding.
-- OATS verifies signed evidence, issuer authority, subject/issuer owner chains
+- OATS verifies signed evidence, issuer authority, subject/issuer current trust roots and signed lineage
   and revocation before applying the existing five-component scoring contract.
   It supplies the concrete OAS Ed25519Signature2020/JCS verifier and an explicit
   verified adapter boundary for other supported evidence profiles.
 - The OIDC provider requires protected real signing keys, rotating cookie
   keys, durable shared storage, registered clients and authoritative verification
-  callbacks. ID tokens and UserInfo expose agent DID, kind, owner and lineage.
-  Code/PKCE, consent, owner changes, expiry, replay and revocation are enforced.
+  callbacks. ID tokens and UserInfo expose agent DID, kind, root, owner and lineage.
+  Code/PKCE, consent, owner/root policy changes, expiry, replay and revocation are enforced.
+- Self-rooted agents support full service access under normal service/tenant
+  authorization. Enable their authoritative policy adapter and OIDC
+  `allowSelfRooted`; there is no reduced access tier or human-owner requirement.
+  Code redemption/UserInfo bind the exact self-root grant ID and revision.
 - LifeID federation accepts a signed human token only for the exact proven
   owner and organization. WorkOS registration and hosted deployment remain
   consumer/operator configuration; this release does not modify either.

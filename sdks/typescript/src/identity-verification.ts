@@ -14,19 +14,44 @@ export interface VerifiedOwner {
   readonly organizationId?: string;
 }
 
-/** Current identity trust. This grants no application scopes or tenant access. */
-export interface VerifiedAgentIdentity {
+interface CommonAgentIdentity {
   readonly did: string;
-  readonly owner: VerifiedOwner;
-  /** Root owner DID first; authenticated agent DID last. */
+  /** Authorized root DID first; authenticated agent DID last. */
   readonly lineage: readonly string[];
-  /** Unix seconds; the shortest remaining signed credential lifetime. */
+  /** Unix seconds; the shortest remaining credential/authorization lifetime. */
   readonly expiresAt: number;
+}
+
+/** Current identity trust. This grants no application scopes or tenant access. */
+export type VerifiedAgentIdentity = CommonAgentIdentity & (
+  | { readonly owner: VerifiedOwner; readonly root?: { readonly kind: 'lifeid'; readonly did: string } }
+  | { readonly owner: null; readonly root: {
+      readonly kind: 'self'; readonly did: string;
+      readonly authorizationId: string; readonly revision: string;
+    } }
+);
+
+/** Current, server-authorized self-root registration; never supplied by the proof. */
+export interface SelfRootAuthorization {
+  readonly did: string;
+  readonly audience: string;
+  readonly authorizationId: string;
+  readonly revision: string;
+  readonly issuedAt: number;
+  readonly notBefore: number;
+  readonly expiresAt: number;
+  readonly checkedAt: number;
+}
+
+interface VerifiedLineage {
+  readonly identity: VerifiedAgentIdentity;
+  readonly issuedAt: number;
+  readonly notBefore: number;
 }
 
 export interface AgentIdentityProof {
   readonly token: string;
-  /** Signed delegation JWTs ordered root owner to leaf agent. */
+  /** Signed root-to-leaf JWTs; empty only for an authoritatively approved self-root. */
   readonly delegations: readonly string[];
 }
 
@@ -67,6 +92,8 @@ export interface IdentityVerifierConfig {
   resolveDid(did: string): Promise<ResolvedIdentityDocument | null>;
   /** Confirm a real LifeID person/org and its current binding to this root DID. */
   authorizeOwner(rootDid: string): Promise<VerifiedOwner | null>;
+  /** Explicit opt-in authority for self-root agents; absence denies them. */
+  authorizeSelfRoot?(rootDid: string, options: { audience: string }): Promise<SelfRootAuthorization | null>;
   /** Query authoritative DID and (when supplied) credential revocation state. */
   checkRevocation(check: RevocationCheck): Promise<{ revoked: boolean; checkedAt: number }>;
   replay: {
@@ -142,7 +169,57 @@ function ownerRecord(value: unknown): value is VerifiedOwner {
   }
 }
 
-/** Signed possession, delegation, real owner authority and live revocation checks. */
+function agentIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 512 &&
+    (DID_REGEX.test(value) || LEGACY_DID_REGEX.test(value)) &&
+    /:(?:agent|agent:instance):[A-Za-z0-9._-]+$/.test(value);
+}
+
+function ownerIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 512 &&
+    (DID_REGEX.test(value) || LEGACY_DID_REGEX.test(value)) &&
+    /:(?:hmr|mhr|ao|enr):[A-Za-z0-9._-]+$/.test(value);
+}
+
+function authorizationIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 512 && value.trim().length > 0;
+}
+
+/** Validate an authority verdict's root binding; this does not verify a signature. */
+export function assertVerifiedIdentity(value: unknown, expectedDid?: string,
+  now = Math.floor(Date.now() / 1000)): asserts value is VerifiedAgentIdentity {
+  if (!unixTime(now)) throw new TypeError('Identity validation clock must return Unix seconds');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) invalid('Verified agent identity is required');
+  const identity = value as Record<string, unknown>;
+  if (!agentIdentifier(identity.did) || (expectedDid !== undefined && identity.did !== expectedDid) ||
+      !unixTime(identity.expiresAt) || identity.expiresAt <= now || !Array.isArray(identity.lineage) ||
+      identity.lineage.length < 1 || identity.lineage.length > 17 ||
+      identity.lineage.some((did: unknown) => typeof did !== 'string' || did.length > 512 ||
+        (!DID_REGEX.test(did) && !LEGACY_DID_REGEX.test(did))) ||
+      new Set(identity.lineage).size !== identity.lineage.length || identity.lineage.at(-1) !== identity.did) {
+    invalid('Verified identity DID, lineage or lifetime is invalid');
+  }
+  const root = identity.root;
+  if (identity.owner === null) {
+    if (!root || typeof root !== 'object' || Array.isArray(root)) invalid('Self-root authorization binding is required');
+    const self = root as Record<string, unknown>;
+    if (self.kind !== 'self' || !agentIdentifier(self.did) || self.did !== identity.lineage[0] ||
+        !authorizationIdentifier(self.authorizationId) || !authorizationIdentifier(self.revision)) {
+      invalid('Self-root authorization binding is invalid');
+    }
+  } else {
+    if (!ownerRecord(identity.owner) || identity.lineage.length < 2 || !ownerIdentifier(identity.lineage[0])) {
+      invalid('Verified identity must have an authenticated LifeID owner');
+    }
+    if (root !== undefined && (!root || typeof root !== 'object' || Array.isArray(root) ||
+        (root as Record<string, unknown>).kind !== 'lifeid' ||
+        (root as Record<string, unknown>).did !== identity.lineage[0])) {
+      invalid('LifeID root binding is invalid');
+    }
+  }
+}
+
+/** Signed possession, authorized roots, delegation and live revocation checks. */
 export class IdentityVerifier {
   private readonly maxProofAge: number;
   private readonly maxDelegationAge: number;
@@ -154,7 +231,8 @@ export class IdentityVerifier {
     if (!config || typeof config.resolveDid !== 'function' ||
         typeof config.authorizeOwner !== 'function' ||
         typeof config.checkRevocation !== 'function' ||
-        typeof config.replay?.consume !== 'function') {
+        typeof config.replay?.consume !== 'function' ||
+        (config.authorizeSelfRoot !== undefined && typeof config.authorizeSelfRoot !== 'function')) {
       throw new TypeError('Identity verification requires resolver, owner, revocation and replay authorities');
     }
     this.maxProofAge = config.maxProofAgeSeconds ?? 300;
@@ -173,7 +251,7 @@ export class IdentityVerifier {
 
   async verify(proof: AgentIdentityProof, options: VerifyIdentityOptions): Promise<VerifiedAgentIdentity> {
     if (!proof || typeof proof !== 'object') invalid('Identity proof is required');
-    if (!Array.isArray(proof.delegations) || proof.delegations.length < 1 || proof.delegations.length > this.maxDepth) {
+    if (!Array.isArray(proof.delegations) || proof.delegations.length > this.maxDepth) {
       invalid('A bounded signed delegation chain is required');
     }
     const token = proof.token;
@@ -188,10 +266,10 @@ export class IdentityVerifier {
     const payload = await this.signed(token, unsigned.sub, unsigned.sub,
       audience, 'oaid-proof+jwt', this.maxProofAge, now);
     if (payload.nonce !== nonce || payload.kind !== 'agent') invalid('Agent kind or issued nonce mismatch');
-    const identity = await this.lineage(unsigned.sub, delegations, audience, now);
-    const leafGrant = this.decode(delegations.at(-1));
-    if (payload.exp! > identity.expiresAt || payload.iat! < leafGrant.iat! || payload.nbf! < leafGrant.nbf!) {
-      invalid('Possession proof exceeds its delegation lifetime');
+    const verified = await this.lineage(unsigned.sub, delegations, audience, now);
+    const identity = verified.identity;
+    if (payload.exp! > identity.expiresAt || payload.iat! < verified.issuedAt || payload.nbf! < verified.notBefore) {
+      invalid('Possession proof exceeds its root/delegation lifetime');
     }
     await this.revocation({ did: identity.did, issuerDid: identity.did, credentialId: payload.jti! }, now);
     const consumed = await this.authority(() => this.config.replay.consume({
@@ -209,10 +287,10 @@ export class IdentityVerifier {
   /** Verify lineage only. The caller must separately verify possession/evidence signature. */
   async verifyLineage(did: string, delegations: readonly string[], options: { audience: string }): Promise<VerifiedAgentIdentity> {
     boundedString(options?.audience, 'audience', 2048);
-    if (!Array.isArray(delegations) || delegations.length < 1 || delegations.length > this.maxDepth) {
+    if (!Array.isArray(delegations) || delegations.length > this.maxDepth) {
       invalid('A bounded signed delegation chain is required');
     }
-    return this.lineage(did, [...delegations], options.audience, this.now());
+    return (await this.lineage(did, [...delegations], options.audience, this.now())).identity;
   }
 
   /** Recheck current trust at code redemption/UserInfo without replaying possession. */
@@ -223,7 +301,7 @@ export class IdentityVerifier {
     if (!resolver) throw new IdentityVerificationError('authority_unavailable', 'Authoritative lineage resolver is required');
     const chain = await this.authority(() => resolver(did, options.audience));
     if (!Array.isArray(chain)) invalid('Signed delegation chain is required');
-    return this.lineage(did, [...chain], options.audience, this.now());
+    return (await this.lineage(did, [...chain], options.audience, this.now())).identity;
   }
 
   private now(): number {
@@ -241,29 +319,38 @@ export class IdentityVerifier {
     }
   }
 
-  private async lineage(did: string, delegations: readonly string[], audience: string, now: number): Promise<VerifiedAgentIdentity> {
+  private async lineage(did: string, delegations: readonly string[], audience: string, now: number): Promise<VerifiedLineage> {
     identifier(did, 'agent');
-    if (!/:(?:agent|agent:instance):[A-Za-z0-9._-]+$/.test(did)) invalid('Subject is not an agent DID');
-    if (!Array.isArray(delegations) || delegations.length < 1 || delegations.length > this.maxDepth) {
+    if (!agentIdentifier(did)) invalid('Subject is not an agent DID');
+    if (!Array.isArray(delegations) || delegations.length > this.maxDepth) {
       invalid('A bounded signed owner delegation chain is required');
     }
-    const first = this.decode(delegations[0]);
-    identifier(first.iss, 'owner');
-    if (!/:(?:hmr|mhr|ao|enr):[A-Za-z0-9._-]+$/.test(first.iss)) {
-      throw new IdentityVerificationError('untrusted_owner', 'Delegation root must be a human or organization owner DID');
-    }
-    const owner = await this.authority(() => this.config.authorizeOwner(first.iss!));
-    if (!ownerRecord(owner)) throw new IdentityVerificationError('untrusted_owner', 'Root is not an approved real person or organization owner');
-    // Copy trusted authority output so later external mutation cannot change its binding.
-    const approvedOwner: VerifiedOwner = {
-      issuer: owner.issuer,
-      subject: owner.subject,
-      ...(owner.organizationId === undefined ? {} : { organizationId: owner.organizationId }),
-    };
-    let parent = first.iss;
+    const rootDid = delegations.length ? this.decode(delegations[0]).iss : did;
+    identifier(rootDid, 'root');
+    let parent = rootDid;
     let parentExpiry = Number.MAX_SAFE_INTEGER;
     let parentIssuedAt = 0;
     let parentNotBefore = 0;
+    let binding: Pick<VerifiedAgentIdentity, 'owner' | 'root'>;
+    if (ownerIdentifier(rootDid)) {
+      const owner = await this.authority(() => this.config.authorizeOwner(rootDid));
+      if (!ownerRecord(owner)) throw new IdentityVerificationError('untrusted_owner', 'Root is not an approved real person or organization owner');
+      binding = { owner: { issuer: owner.issuer, subject: owner.subject,
+        ...(owner.organizationId === undefined ? {} : { organizationId: owner.organizationId }) },
+        root: { kind: 'lifeid', did: rootDid } };
+    } else if (agentIdentifier(rootDid)) {
+      const authorization = await this.selfRoot(rootDid, audience, now);
+      // An authority registration cannot turn an unknown/unusable DID into an identity.
+      await this.selfRootDocument(rootDid);
+      binding = { owner: null, root: { kind: 'self', did: rootDid,
+        authorizationId: authorization.authorizationId, revision: authorization.revision } };
+      parentExpiry = authorization.expiresAt;
+      parentIssuedAt = authorization.issuedAt;
+      parentNotBefore = authorization.notBefore;
+      await this.revocation({ did: rootDid, credentialId: authorization.authorizationId }, now);
+    } else {
+      throw new IdentityVerificationError('untrusted_owner', 'Root is not an approved owner or self-root agent');
+    }
     const lineage = [parent];
     const credentialIds = new Set<string>();
     await this.revocation({ did: parent }, now);
@@ -289,8 +376,30 @@ export class IdentityVerifier {
     if (parent !== did) invalid('Signed delegation chain does not end at the agent');
     // Resolving the leaf is necessary even when no possession token is verified here.
     await this.document(did);
-    if (parentExpiry <= this.now()) invalid('Delegation expired during verification');
-    return { did, owner: approvedOwner, lineage, expiresAt: parentExpiry };
+    if (parentExpiry <= this.now()) invalid('Root or delegation expired during verification');
+    const identity = { did, ...binding, lineage, expiresAt: parentExpiry };
+    assertVerifiedIdentity(identity, did, this.now());
+    return { identity, issuedAt: parentIssuedAt, notBefore: parentNotBefore };
+  }
+
+  private async selfRoot(did: string, audience: string, now: number): Promise<SelfRootAuthorization> {
+    const authorize = this.config.authorizeSelfRoot;
+    if (!authorize) throw new IdentityVerificationError('untrusted_owner', 'Self-root authority is not configured');
+    const grant = await this.authority(() => authorize(did, { audience }));
+    const observedNow = Math.max(now, this.now());
+    if (!grant || grant.did !== did || grant.audience !== audience ||
+        !authorizationIdentifier(grant.authorizationId) || !authorizationIdentifier(grant.revision) ||
+        !unixTime(grant.issuedAt) || !unixTime(grant.notBefore) || !unixTime(grant.expiresAt) ||
+        !unixTime(grant.checkedAt) || grant.issuedAt > grant.notBefore || grant.notBefore >= grant.expiresAt ||
+        grant.issuedAt > observedNow + this.tolerance || grant.notBefore > observedNow + this.tolerance ||
+        grant.expiresAt <= observedNow || grant.checkedAt < grant.issuedAt) {
+      throw new IdentityVerificationError('untrusted_owner', 'Self-root authorization is missing, mismatched or inactive');
+    }
+    if (grant.checkedAt > observedNow + this.tolerance || observedNow - grant.checkedAt > this.maxRevocationAge) {
+      throw new IdentityVerificationError('authority_unavailable', 'Current self-root authorization is unavailable');
+    }
+    return { did, audience, authorizationId: grant.authorizationId, revision: grant.revision,
+      issuedAt: grant.issuedAt, notBefore: grant.notBefore, expiresAt: grant.expiresAt, checkedAt: grant.checkedAt };
   }
 
   private async document(did: string): Promise<ResolvedIdentityDocument> {
@@ -300,6 +409,45 @@ export class IdentityVerifier {
       invalid('Authoritative DID document is missing or mismatched');
     }
     return document;
+  }
+
+  private async selfRootDocument(did: string): Promise<void> {
+    const document = await this.document(did);
+    const methods = document.verificationMethods.filter((method) =>
+      Array.isArray(method.purposes) && method.purposes.includes('authentication'));
+    if (methods.length === 0) invalid('Self-root DID has no authorized authentication key');
+    for (const method of methods) {
+      if (typeof method.id !== 'string' || !method.id.startsWith(`${did}#`) ||
+          method.id.length <= did.length + 1 ||
+          document.verificationMethods.filter((other) => other.id === method.id).length !== 1) {
+        invalid('Self-root authentication key is not uniquely bound to its DID');
+      }
+      const algorithm = method.publicKeyJwk?.kty === 'OKP' ? 'EdDSA' : 'RS256';
+      await this.signingKey(method, 'authentication', algorithm);
+    }
+  }
+
+  private async signingKey(method: ResolvedIdentityDocument['verificationMethods'][number],
+    purpose: 'authentication' | 'capabilityDelegation', algorithm: 'EdDSA' | 'RS256') {
+    if (!Array.isArray(method.purposes) || method.purposes.length > 5 ||
+        !method.purposes.every((value) => ['authentication', 'capabilityDelegation', 'assertionMethod', 'capabilityInvocation', 'keyAgreement'].includes(value)) ||
+        !method.purposes.includes(purpose)) {
+      invalid('Signing key is not authorized for this identity verification purpose');
+    }
+    const jwk = method.publicKeyJwk;
+    if (!jwk || typeof jwk !== 'object' || Array.isArray(jwk) ||
+        ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth', 'k'].some((key) => key in jwk) ||
+        (jwk.alg !== undefined && jwk.alg !== algorithm) || (jwk.use !== undefined && jwk.use !== 'sig') ||
+        (jwk.key_ops !== undefined && (!Array.isArray(jwk.key_ops) || !jwk.key_ops.includes('verify'))) ||
+        (algorithm === 'EdDSA' && (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519')) ||
+        (algorithm === 'RS256' && jwk.kty !== 'RSA')) {
+      invalid('Invalid authoritative signing key');
+    }
+    try {
+      return await importJWK(jwk, algorithm);
+    } catch {
+      return invalid('Authoritative signing key cannot be imported');
+    }
   }
 
   private async signed(token: string, issuer: string, subject: string, audience: string,
@@ -317,20 +465,7 @@ export class IdentityVerifier {
       if (methods.length !== 1) invalid('Signing key is not uniquely bound to the authoritative DID');
       const method = methods[0]!;
       const purpose = typ === 'oaid-proof+jwt' ? 'authentication' : 'capabilityDelegation';
-      if (!Array.isArray(method.purposes) || method.purposes.length > 5 ||
-          !method.purposes.every((value) => ['authentication', 'capabilityDelegation', 'assertionMethod', 'capabilityInvocation', 'keyAgreement'].includes(value)) ||
-          !method.purposes.includes(purpose)) {
-        invalid('Signing key is not authorized for this identity verification purpose');
-      }
-      const jwk = method.publicKeyJwk;
-      if (!jwk || typeof jwk !== 'object' || ['d', 'p', 'q', 'dp', 'dq', 'qi', 'k'].some((key) => key in jwk) ||
-          (jwk.alg !== undefined && jwk.alg !== header.alg) || (jwk.use !== undefined && jwk.use !== 'sig') ||
-          (jwk.key_ops !== undefined && !jwk.key_ops.includes('verify')) ||
-          (header.alg === 'EdDSA' && (jwk.kty !== 'OKP' || jwk.crv !== 'Ed25519')) ||
-          (header.alg === 'RS256' && jwk.kty !== 'RSA')) {
-        invalid('Invalid authoritative signing key');
-      }
-      const key = await importJWK(jwk, header.alg);
+      const key = await this.signingKey(method, purpose, header.alg);
       const { payload } = await jwtVerify(token, key, {
         algorithms: [header.alg], issuer, subject, audience, typ,
         currentDate: new Date(now * 1000), clockTolerance: this.tolerance,

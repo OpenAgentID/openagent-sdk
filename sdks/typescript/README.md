@@ -2,8 +2,9 @@
 
 Open agent identity for the [Open Software](https://open.software) family.
 The core is free and open; Life operates hosted services around it. Humans
-authenticate with LifeID, every agent chains to a person or organization owner,
-Blinds brokers credentials, and Genesis KMS holds customer secrets.
+authenticate with LifeID; agents may have a person/organization owner or be
+explicitly authorized self roots. Blinds brokers credentials, and Genesis KMS
+holds customer secrets. Approved self roots have no reduced access tier.
 
 One `import` wraps [OAS](https://openagent.id) identity, [Arsenal](https://github.com/OpenAgentID/arsenal) scoped credentials, and [AEGIS](https://github.com/OpenAgentID/aegis) verification into a single developer-facing surface. Works in Node 20+, Bun, Deno, the browser, and Cloudflare Workers.
 
@@ -30,7 +31,7 @@ readable without changing their identifiers.
 
 ## Version 0.2.0
 
-- [Identity verification](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/identity-verification.md): `IdentityVerifier`, a fetch-compatible HTTP handler and remote client verify possession signatures, signed owner chains, current revocation and replay prevention.
+- [Identity verification](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/identity-verification.md): `IdentityVerifier`, a fetch-compatible HTTP handler and remote client verify possession signatures, signed lineage to owned or self-rooted authorities, current revocation and replay prevention.
 - [OAS Glyph](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/glyph.md): `oasGlyph(did)`, `agentAvatar(did, profile)` and `glyphEndpoint(request)` supply deterministic SVG avatars and an optional HTTPS `avatarOverride`.
 - [OATS](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/oats.md): `VerifiedOatsScorer` verifies evidence before scoring; `createOatsEvidenceVerifier` implements the existing OAS Ed25519/JCS attestation profile with authoritative identity and revocation sources.
 - [OIDC](https://github.com/OpenAgentID/openagent-sdk/tree/main/bridges/oidc/typescript): the separate `@openagentid/oidc` package supplies discovery, JWKS, signed authorization-code/PKCE login and LifeID owner federation.

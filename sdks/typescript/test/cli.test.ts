@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { exportJWK, generateKeyPair, jwtVerify, SignJWT, type JWK } from 'jose';
 import { afterEach, describe, expect, it } from 'vitest';
 import { oidcDoctor, runCli, type CliIO } from '../src/cli.js';
-import { IdentityVerifier } from '../src/identity-verification.js';
+import { IdentityVerifier, type SelfRootAuthorization } from '../src/identity-verification.js';
 import { createIdentityVerificationHandler } from '../src/verification-api.js';
 import { oasGlyph } from '../src/glyph.js';
 
@@ -87,20 +87,28 @@ async function provider() {
   return { issuer, discovery, publicKey, privateKey, fetcher, keys: (next: JWK[]) => { keys = next; }, status: (next: number) => { status = next; } };
 }
 
-async function identityService() {
+async function identityService(mode: 'owned' | 'self' = 'owned') {
   const origin = 'https://identity.test';
   const audience = `${origin}/verify`;
   const now = Math.floor(Date.now() / 1000);
   const nonce = randomBytes(32).toString('base64url');
-  const root = `did:oas:openagent:hmr:owner-${randomUUID()}`;
   const leaf = `did:oas:openagent:agent:worker-${randomUUID()}`;
-  const rootPair = await generateKeyPair('EdDSA');
+  const root = mode === 'self' ? leaf : `did:oas:openagent:hmr:owner-${randomUUID()}`;
   const leafPair = await generateKeyPair('EdDSA');
-  const lifeId = await generateKeyPair('EdDSA');
+  const rootPair = mode === 'self' ? leafPair : await generateKeyPair('EdDSA');
+  const lifeId = mode === 'owned' ? await generateKeyPair('EdDSA') : null;
   const jwks = new Map([[root, await exportJWK(rootPair.publicKey)], [leaf, await exportJWK(leafPair.publicKey)]]);
-  const ownerToken = await new SignJWT({}).setProtectedHeader({ alg: 'EdDSA' })
+  const ownerToken = lifeId ? await new SignJWT({}).setProtectedHeader({ alg: 'EdDSA' })
     .setIssuer('https://auth.life.one').setSubject(`signed-test-owner-${randomUUID()}`).setAudience(audience)
-    .setIssuedAt(now - 10).setExpirationTime(now + 3600).sign(lifeId.privateKey);
+    .setIssuedAt(now - 10).setExpirationTime(now + 3600).sign(lifeId.privateKey) : null;
+  // This grant exists in the configured authority before proof submission.
+  // The submitted token cannot authorize its own root or invent an owner.
+  const selfAuthorization: SelfRootAuthorization = Object.freeze({
+    did: leaf, audience, authorizationId: `self-root-${randomUUID()}`, revision: randomUUID(),
+    issuedAt: now - 10, notBefore: now - 10, expiresAt: now + 45, checkedAt: now,
+  });
+  const selfAuthorizations = new Map<string, SelfRootAuthorization>();
+  if (mode === 'self') selfAuthorizations.set(leaf, selfAuthorization);
   const revoked = new Set<string>();
   const consumed = new Set<string>();
   let challengeIssued = true;
@@ -110,15 +118,20 @@ async function identityService() {
     resolveDid: async did => {
       const publicKeyJwk = jwks.get(did);
       return publicKeyJwk ? { did, verificationMethods: [{ id: `${did}#signing`, publicKeyJwk,
-        purposes: did === root ? ['capabilityDelegation'] as const : ['authentication'] as const }] } : null;
+        purposes: mode === 'owned' && did === root ? ['capabilityDelegation'] as const : ['authentication'] as const }] } : null;
     },
     authorizeOwner: async did => {
-      if (did !== root || !ownerActive) return null;
+      if (mode === 'self') throw new Error('Self-root verification must not invent a LifeID owner');
+      if (did !== root || !ownerActive || !ownerToken || !lifeId) return null;
       const { payload } = await jwtVerify(ownerToken, lifeId.publicKey, {
         issuer: 'https://auth.life.one', audience, algorithms: ['EdDSA'], currentDate: new Date(now * 1000),
       });
       return { issuer: payload.iss!, subject: payload.sub! };
     },
+    ...(mode === 'self' ? { authorizeSelfRoot: async (did: string, options: { audience: string }) => {
+      const grant = selfAuthorizations.get(did);
+      return grant?.audience === options.audience ? grant : null;
+    } } : {}),
     checkRevocation: async check => ({ revoked: revoked.has(check.did) || revoked.has(check.credentialId ?? ''), checkedAt: now }),
     replay: { consume: async claim => {
       const id = `${claim.issuer}:${claim.tokenId}`;
@@ -128,12 +141,14 @@ async function identityService() {
       return true;
     } },
   });
-  const delegation = await new SignJWT({}).setProtectedHeader({ alg: 'EdDSA', typ: 'oaid-delegation+jwt', kid: `${root}#signing` })
+  const delegation = mode === 'owned' ? await new SignJWT({}).setProtectedHeader({ alg: 'EdDSA', typ: 'oaid-delegation+jwt', kid: `${root}#signing` })
     .setIssuer(root).setSubject(leaf).setAudience(audience).setJti(randomUUID())
-    .setIssuedAt(now - 10).setNotBefore(now - 10).setExpirationTime(now + 300).sign(rootPair.privateKey);
+    .setIssuedAt(now - 10).setNotBefore(now - 10).setExpirationTime(now + 300).sign(rootPair.privateKey) : undefined;
+  const delegations = delegation === undefined ? [] : [delegation];
+  const proofExpiresAt = mode === 'self' ? selfAuthorization.expiresAt - 5 : now + 60;
   const token = await new SignJWT({ nonce, kind: 'agent' }).setProtectedHeader({ alg: 'EdDSA', typ: 'oaid-proof+jwt', kid: `${leaf}#signing` })
     .setIssuer(leaf).setSubject(leaf).setAudience(audience).setJti(randomUUID())
-    .setIssuedAt(now - 10).setNotBefore(now - 10).setExpirationTime(now + 60).sign(leafPair.privateKey);
+    .setIssuedAt(now - 10).setNotBefore(now - 10).setExpirationTime(proofExpiresAt).sign(leafPair.privateKey);
   const handler = createIdentityVerificationHandler(verifier, { audience, resolveNonce: async request => {
     // The record exists before the request; its audience and single-use state
     // are authoritative. Merely receiving a nonce header is insufficient.
@@ -142,8 +157,13 @@ async function identityService() {
   } });
   const fetcher = await transport(origin, handler);
   const proofPath = join(await directory(), 'proof.json');
-  await writeFile(proofPath, JSON.stringify({ token, delegations: [delegation] }), { flag: 'wx' });
-  return { origin, audience, nonce, root, leaf, token, delegation, proofPath, fetcher, revoked,
+  await writeFile(proofPath, JSON.stringify({ token, delegations }), { flag: 'wx' });
+  return { origin, audience, nonce, root, leaf, token, delegation, proofPath, proofExpiresAt, fetcher, revoked,
+    selfAuthorization,
+    withdrawSelfAuthorization: () => { selfAuthorizations.delete(leaf); },
+    changeSelfAuthorization: (changes: Partial<SelfRootAuthorization>) => {
+      selfAuthorizations.set(leaf, Object.freeze({ ...selfAuthorization, ...changes }));
+    },
     deactivateOwner: () => { ownerActive = false; } };
 }
 
@@ -233,6 +253,41 @@ describe('OAID CLI', () => {
     expect(second.stdout).toEqual([]);
     expect(second.stderr.join('')).not.toContain(f.token);
   });
+
+  it('verifies an explicitly authorized self-root over HTTP without a LifeID owner and rejects replay', async () => {
+    const f = await identityService('self');
+    const output = capture(f.fetcher);
+    const args = ['verify', '--endpoint', f.audience, '--proof', f.proofPath, '--nonce', f.nonce];
+    expect(await runCli(args, output.io)).toBe(0);
+    expect(JSON.parse(output.stdout.join(''))).toEqual({
+      did: f.leaf, owner: null, lineage: [f.leaf], expiresAt: f.proofExpiresAt,
+      root: { kind: 'self', did: f.leaf,
+        authorizationId: f.selfAuthorization.authorizationId, revision: f.selfAuthorization.revision },
+    });
+    expect(output.stderr).toEqual([]);
+    const second = capture(f.fetcher);
+    expect(await runCli(args, second.io)).toBe(1);
+    expect(second.stdout).toEqual([]);
+    expect(second.stderr.join('')).not.toContain(f.token);
+  });
+
+  it.each(['withdrawn-authority', 'stale-authority', 'root-revoked', 'authorization-revoked', 'forged-signature'] as const)
+    ('refuses a self-root with %s over HTTP without leaking the proof', async failure => {
+      const f = await identityService('self');
+      if (failure === 'withdrawn-authority') f.withdrawSelfAuthorization();
+      if (failure === 'stale-authority') f.changeSelfAuthorization({ checkedAt: f.selfAuthorization.checkedAt - 61 });
+      if (failure === 'root-revoked') f.revoked.add(f.leaf);
+      if (failure === 'authorization-revoked') f.revoked.add(f.selfAuthorization.authorizationId);
+      if (failure === 'forged-signature') {
+        const parts = f.token.split('.');
+        parts[2] = `${parts[2]![0] === 'A' ? 'B' : 'A'}${parts[2]!.slice(1)}`;
+        await writeFile(f.proofPath, JSON.stringify({ token: parts.join('.'), delegations: [] }));
+      }
+      const output = capture(f.fetcher);
+      expect(await runCli(['verify', '--endpoint', f.audience, '--proof', f.proofPath, '--nonce', f.nonce], output.io)).toBe(1);
+      expect(output.stdout).toEqual([]);
+      expect(output.stderr.join('')).not.toContain(f.token);
+    });
 
   it.each(['revoked', 'owner', 'forged-signature', 'unissued-challenge'] as const)('refuses %s without printing a success identity or proof bytes', async failure => {
     const f = await identityService();
