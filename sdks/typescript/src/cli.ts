@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { importJWK, type JWK } from 'jose';
 import { verifyIdentityRemote } from './verification-api.js';
@@ -119,7 +119,12 @@ export async function runCli(args: readonly string[], io: CliIO): Promise<number
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+function isCliEntry(): boolean {
+  try { return !!process.argv[1] && fileURLToPath(import.meta.url) === realpathSync(process.argv[1]); }
+  catch { return false; }
+}
+
+if (isCliEntry()) {
   runCli(process.argv.slice(2), { stdout: text => process.stdout.write(text), stderr: text => process.stderr.write(text) })
     .then(code => { process.exitCode = code; });
 }

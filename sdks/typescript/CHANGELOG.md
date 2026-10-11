@@ -1,5 +1,10 @@
 # Changelog
 
+### 0.2.0 artifact correction
+
+- Resolve npm's executable symlink when detecting the CLI entry point, so the
+  installed `oaid` command executes and propagates successful/refused exits.
+
 ## 0.2.0 — release candidate, 2026-10-11
 
 - Verify real agent signatures, ordered owner delegations, authoritative owner

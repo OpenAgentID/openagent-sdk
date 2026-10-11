@@ -17,6 +17,8 @@
 - Add independent upstream Rust Glyph conformance vectors and locked SDK/OIDC
   CI on Depot; retain the existing language and cryptographic conformance gates.
   Keep direct Git installs consistent with the SDK dependencies and CLI.
+  Run the installed CLI through npm's symlink and require command output and
+  refusal exit codes during artifact qualification.
   Repair Swift setup, remove unnecessary private-auth gates and pin conformance
   OAS dependencies to the existing canonical SDK Git revision.
 - Consolidate the useful legacy claim/discovery/CLI behavior into this
