@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
-import { generateCharacter, getCharacterExpressions, getCharacterSkins, isAgentAvatarDid, type CharacterOptions } from './characters.js';
+import { generateCharacter, getCharacterExpressions, getCharacterSkins, getCharacterStatuses, isAgentAvatarDid, type CharacterOptions } from './characters.js';
 
 export interface CharacterApiHandlerOptions {
   /** The complete mount path, without a trailing slash. Default: /v1/characters. */
@@ -11,7 +11,7 @@ const DEFAULT_BASE_PATH = '/v1/characters';
 const MAX_BODY_BYTES = 16_384;
 const MAX_URL_LENGTH = 8192;
 const encoder = new TextEncoder();
-const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'shape', 'expression', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
+const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'shape', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
 const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'shape', 'expression', 'size', 'animated', 'state']);
 const numericQuery = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
@@ -73,8 +73,10 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
   }
   if ('state' in value) {
     if (!object(value.state)) invalid();
-    onlyKeys(value.state, new Set(['blink', 'gaze']));
-    const state: { blink?: number; gaze?: { x: number; y: number } } = {};
+    onlyKeys(value.state, new Set(['blink', 'gaze', 'expression', 'status']));
+    const state: { -readonly [Key in keyof NonNullable<CharacterOptions['state']>]: NonNullable<CharacterOptions['state']>[Key] } = {};
+    if ('expression' in value.state) state.expression = member(value.state.expression, getCharacterExpressions());
+    if ('status' in value.state) state.status = member(value.state.status, getCharacterStatuses().map(entry => entry.status));
     if ('blink' in value.state) state.blink = boundedNumber(value.state.blink, 0, 1);
     if ('gaze' in value.state) {
       if (!object(value.state.gaze)) invalid();
@@ -117,6 +119,7 @@ function queryOptions(query: URLSearchParams): CharacterOptions {
     return Number(value);
   };
   const state: Record<string, unknown> = {};
+  if ('status' in values) state.status = values.status;
   if ('blink' in values) state.blink = number('blink');
   if (('gazeX' in values) !== ('gazeY' in values)) invalid();
   if ('gazeX' in values) state.gaze = { x: number('gazeX'), y: number('gazeY') };
@@ -223,17 +226,18 @@ export function createCharacterApiHandler(
       const path = url.pathname.slice(basePath.length + 1);
       const generate = path === 'generate';
       const catalog = path === 'skins';
+      const statuses = path === 'statuses';
       const schema = path === 'openapi.json';
       const svg = path.startsWith('svg/');
       const rawDid = svg ? path.slice(4) : path;
-      if (!generate && !catalog && !schema && (rawDid.includes('/') || !rawDid)) {
+      if (!generate && !catalog && !statuses && !schema && (rawDid.includes('/') || !rawDid)) {
         return errorResponse(request, 404, 'not_found', methods);
       }
       // Reserved routes are handled before the DID route. Every request is
       // still schema-checked before rendering or issuing cache validators.
       methods = generate ? 'POST, OPTIONS' : 'GET, HEAD, OPTIONS';
       if (request.method === 'OPTIONS') {
-        if (generate || catalog || schema) {
+        if (generate || catalog || statuses || schema) {
           if (url.search) invalid();
         } else {
           agentDid(decodeURIComponent(rawDid));
@@ -246,11 +250,11 @@ export function createCharacterApiHandler(
       if (generate ? request.method !== 'POST' : request.method !== 'GET' && request.method !== 'HEAD') {
         return errorResponse(request, 405, 'method_not_allowed', methods);
       }
-      if (generate || catalog || schema) {
+      if (generate || catalog || statuses || schema) {
         if (url.search) invalid();
       }
-      if (catalog || schema) {
-        const body = catalog ? JSON.stringify(getCharacterSkins()) : openapi;
+      if (catalog || statuses || schema) {
+        const body = catalog ? JSON.stringify(getCharacterSkins()) : statuses ? JSON.stringify(getCharacterStatuses()) : openapi;
         return representation(request, body, 'application/json; charset=utf-8', methods, true);
       }
       if (generate) {
@@ -281,8 +285,8 @@ export const characterApiOpenApi = {
   "openapi": "3.1.0",
   "info": {
     "title": "OpenAgentID Character API",
-    "version": "1.0.0",
-    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill skin; SpaceX offers eight silhouette shapes. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits."
+    "version": "1.1.0",
+    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill skin; SpaceX offers eight silhouette shapes. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority."
   },
   "servers": [
     {
@@ -535,6 +539,253 @@ export const characterApiOpenApi = {
         }
       }
     },
+    "/statuses": {
+      "get": {
+        "summary": "List runtime status-to-expression mappings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CharacterStatusV1"
+                  },
+                  "minItems": 26,
+                  "maxItems": 26,
+                  "description": "Immutable SDK mapping catalog serialized as JSON, including all expressions and runtime aliases."
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      },
+      "head": {
+        "summary": "Headers for runtime status-to-expression mappings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "description": "Same status, headers and Content-Length as GET, no response body.",
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "405": {
+            "description": "Not allowed, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "summary": "Public CORS preflight",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No body; schema-valid requests can be made cross-origin without credentials.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Access-Control-Allow-Methods": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "schema": {
+                  "type": "string",
+                  "const": "Content-Type, If-None-Match"
+                }
+              },
+              "Access-Control-Max-Age": {
+                "schema": {
+                  "type": "integer",
+                  "const": 86400
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      }
+    },
     "/svg/{did}": {
       "get": {
         "summary": "Render a character SVG",
@@ -574,6 +825,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/expression"
+          },
+          {
+            "$ref": "#/components/parameters/status"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -687,6 +941,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/expression"
+          },
+          {
+            "$ref": "#/components/parameters/status"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -838,6 +1095,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/expression"
+          },
+          {
+            "$ref": "#/components/parameters/status"
           }
         ],
         "responses": {
@@ -927,6 +1187,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/expression"
+          },
+          {
+            "$ref": "#/components/parameters/status"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1034,6 +1297,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/expression"
+          },
+          {
+            "$ref": "#/components/parameters/status"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1179,6 +1445,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/expression"
+          },
+          {
+            "$ref": "#/components/parameters/status"
           }
         ],
         "responses": {
@@ -1709,8 +1978,17 @@ export const characterApiOpenApi = {
           },
           "gaze": {
             "$ref": "#/components/schemas/GazeV1"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AvatarStatus",
+            "description": "Runtime status alias or literal expression. Overrides the outer preferred expression."
+          },
+          "expression": {
+            "$ref": "#/components/schemas/AvatarExpression",
+            "description": "Explicit runtime expression; overrides state.status mapping and outer preferred expression. Null is not accepted by this stateless API."
           }
-        }
+        },
+        "description": "Optional stateless snapshot. Resolution: state.expression > state.status mapping > outer expression > neutral. Unknown fields and null values are refused."
       },
       "CharacterOptionsV1": {
         "type": "object",
@@ -1784,10 +2062,12 @@ export const characterApiOpenApi = {
               "proud",
               "shy",
               "unimpressed",
-              "sleepy"
+              "sleepy",
+              "thoughtful",
+              "concerned"
             ],
             "default": "neutral",
-            "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+            "description": "Outer preferred expression fallback. Explicit state.expression wins, then state.status mapping, then this preference, then neutral."
           }
         },
         "allOf": [
@@ -1910,10 +2190,12 @@ export const characterApiOpenApi = {
               "proud",
               "shy",
               "unimpressed",
-              "sleepy"
+              "sleepy",
+              "thoughtful",
+              "concerned"
             ],
             "default": "neutral",
-            "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+            "description": "Outer preferred expression fallback. Explicit state.expression wins, then state.status mapping, then this preference, then neutral."
           }
         },
         "allOf": [
@@ -2024,8 +2306,15 @@ export const characterApiOpenApi = {
               },
               "gaze": {
                 "$ref": "#/components/schemas/GazeV1"
+              },
+              "status": {
+                "$ref": "#/components/schemas/AvatarStatus"
+              },
+              "expression": {
+                "$ref": "#/components/schemas/AvatarExpression"
               }
-            }
+            },
+            "description": "Normalized blink/gaze, retaining status/expression only when explicitly supplied in input state. Descriptor.expression is the resolved expression; old snapshots without state status/expression preserve their prior shape."
           },
           "color": {
             "type": "string",
@@ -2070,10 +2359,12 @@ export const characterApiOpenApi = {
               "proud",
               "shy",
               "unimpressed",
-              "sleepy"
+              "sleepy",
+              "thoughtful",
+              "concerned"
             ],
             "default": "neutral",
-            "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
+            "description": "Resolved expression: state.expression > state.status mapping > outer preferred expression > neutral. Body shape/color remain unchanged."
           }
         },
         "allOf": [
@@ -2198,13 +2489,15 @@ export const characterApiOpenApi = {
                 "proud",
                 "shy",
                 "unimpressed",
-                "sleepy"
+                "sleepy",
+                "thoughtful",
+                "concerned"
               ],
               "default": "neutral",
               "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
             },
-            "minItems": 16,
-            "maxItems": 16,
+            "minItems": 18,
+            "maxItems": 18,
             "uniqueItems": true
           }
         }
@@ -2225,6 +2518,78 @@ export const characterApiOpenApi = {
               "method_not_allowed",
               "not_found"
             ]
+          }
+        }
+      },
+      "AvatarExpression": {
+        "type": "string",
+        "enum": [
+          "neutral",
+          "attentive",
+          "surprised",
+          "excited",
+          "happy",
+          "laughing",
+          "angry",
+          "sad",
+          "scared",
+          "suspicious",
+          "confused",
+          "curious",
+          "proud",
+          "shy",
+          "unimpressed",
+          "sleepy",
+          "thoughtful",
+          "concerned"
+        ],
+        "description": "Shared eye expression across both skins; does not change identity-derived shape or color."
+      },
+      "AvatarStatus": {
+        "type": "string",
+        "enum": [
+          "neutral",
+          "attentive",
+          "surprised",
+          "excited",
+          "happy",
+          "laughing",
+          "angry",
+          "sad",
+          "scared",
+          "suspicious",
+          "confused",
+          "curious",
+          "proud",
+          "shy",
+          "unimpressed",
+          "sleepy",
+          "thoughtful",
+          "concerned",
+          "idle",
+          "listening",
+          "reasoning",
+          "working",
+          "speaking",
+          "success",
+          "blocked",
+          "error"
+        ],
+        "description": "Expressions map to themselves. Aliases: idle→neutral, listening→attentive, reasoning→thoughtful, working→attentive, speaking/success→happy, blocked/error→concerned. Presentation only; not evidence of actual agent activity."
+      },
+      "CharacterStatusV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "expression"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AvatarStatus"
+          },
+          "expression": {
+            "$ref": "#/components/schemas/AvatarExpression"
           }
         }
       }
@@ -2375,11 +2740,22 @@ export const characterApiOpenApi = {
             "proud",
             "shy",
             "unimpressed",
-            "sleepy"
+            "sleepy",
+            "thoughtful",
+            "concerned"
           ],
           "default": "neutral",
           "description": "Shared eye expression across all skins. Body shape and color remain unchanged. Explicit blink shrinks expression eye bars and gaze translates both together."
-        }
+        },
+        "description": "Outer preferred expression fallback. A status query is state.status and overrides this preference. Explicit runtime expression overrides can be supplied in POST state.expression."
+      },
+      "status": {
+        "name": "status",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/AvatarStatus"
+        },
+        "description": "Parsed as state.status. Overrides expression query preference with its mapped expression. Duplicate/unknown status values are refused before rendering or cache validation."
       }
     },
     "headers": {

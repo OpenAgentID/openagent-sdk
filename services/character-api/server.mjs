@@ -17,6 +17,7 @@ const assets = new Map([
   ['/', ['demo.html', 'text/html; charset=utf-8']],
   ['/demo.js', ['demo.js', 'text/javascript; charset=utf-8']],
   ['/demo.css', ['demo.css', 'text/css; charset=utf-8']],
+  ['/character-player.js', ['../../sdks/typescript/dist/browser/character-player.js', 'text/javascript; charset=utf-8']],
 ].map(([path, [file, contentType]]) => {
   const body = readFileSync(new URL(file, import.meta.url));
   return [path, { body, contentType, etag: `"${createHash('sha256').update(body).digest('hex')}"` }];

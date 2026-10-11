@@ -3,7 +3,7 @@ WORKDIR /app/sdks/typescript
 COPY sdks/typescript/package.json sdks/typescript/package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY sdks/typescript/src ./src
-COPY sdks/typescript/tsconfig.json sdks/typescript/tsup.config.ts ./
+COPY sdks/typescript/tsconfig.json sdks/typescript/tsup.config.ts sdks/typescript/tsup.browser.config.ts ./
 COPY sdks/typescript/LICENSE-APACHE sdks/typescript/LICENSE-MIT ./
 RUN npm run build && npm prune --omit=dev --ignore-scripts --no-audit --no-fund
 

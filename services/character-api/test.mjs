@@ -38,9 +38,12 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
   assert.equal(page.headers.get('x-content-type-options'), 'nosniff');
   const html = await page.text();
-  assert.match(html, /id="preview"/);
+  assert.match(html, /<div id="preview" role="img"/);
+  assert.match(html, /<script type="module" src="\/demo.js"><\/script>/);
+  assert.match(html, /Local demo fixture/);
+  assert.match(html, /State changes stay in this page/);
   assert.match(html, /value="did:oas:openagent:agent:preview"/);
-  for (const id of ['skin', 'shape', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated']) {
+  for (const id of ['skin', 'shape', 'activity', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated', 'replay', 'timeline', 'code-example']) {
     assert.ok(html.includes(`id="${id}"`));
   }
   assert.ok(!/https?:\/\//.test(html));
@@ -48,7 +51,12 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.equal(script.status, 200);
   assert.match(script.headers.get('content-type'), /javascript/);
   const javascript = await script.text();
-  assert.ok(javascript.includes("fetch('/v1/characters/skins'"));
+  assert.ok(javascript.includes("from '/character-player.js'"));
+  assert.ok(javascript.includes('mountCharacter(preview, did'));
+  assert.ok(javascript.includes('player.update('));
+  assert.ok(javascript.includes('player.setAppearance('));
+  assert.ok(javascript.includes("animated.checked ? 'system' : true"));
+  assert.ok(!javascript.includes('fetch('));
   assert.ok(javascript.includes('prefers-reduced-motion'));
   assert.ok(javascript.includes('expression.value'));
   assert.ok(!/https?:\/\//.test(javascript));
@@ -62,6 +70,29 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.deepEqual(contract.security, []);
   assert.ok(contract.paths['/skins']);
   assert.ok(contract.paths['/generate'].post);
+});
+
+test('serves the exact built self-contained browser player with the existing CSP and fixed asset routing', async () => {
+  const path = '/character-player.js';
+  const source = readFileSync(new URL('../../sdks/typescript/dist/browser/character-player.js', import.meta.url));
+  const response = await fetch(endpoint(path));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'text/javascript; charset=utf-8');
+  assert.equal(response.headers.get('content-security-policy'),
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), source);
+  for (const name of ['mountCharacter', 'getCharacterExpressions', 'getCharacterStatuses', 'getCharacterSkins']) {
+    assert.ok(source.toString('utf8').includes(name));
+  }
+  for (const method of ['POST', 'OPTIONS']) {
+    const refused = await fetch(endpoint(path), { method });
+    assert.equal(refused.status, 405);
+    assert.equal(refused.headers.get('allow'), 'GET, HEAD');
+  }
+  for (const guessed of ['/sdks/typescript/dist/browser/character-player.js', '/character-player.js?code=untrusted']) {
+    assert.equal((await fetch(endpoint(guessed))).status, 404);
+  }
 });
 
 test('completes HTTP catalog, descriptor, SVG and POST generation using the real built SDK', async () => {
@@ -156,7 +187,7 @@ test('publishes the unchanged SDK Glyph SVG, HEAD, validators and refusal behavi
 });
 
 test('preserves GET/HEAD bytes, validators, conditional requests and CORS across the HTTP adapter', async () => {
-  for (const path of ['/', '/demo.js', '/v1/characters/skins', didPath, svgPath]) {
+  for (const path of ['/', '/demo.js', '/demo.css', '/character-player.js', '/v1/characters/skins', didPath, svgPath]) {
     const get = await fetch(endpoint(path));
     const bytes = Buffer.from(await get.arrayBuffer());
     const etag = `"${createHash('sha256').update(bytes).digest('hex')}"`;

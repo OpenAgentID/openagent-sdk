@@ -5,28 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OpenAgentID Characters</title>
   <link rel="stylesheet" href="/demo.css">
-  <script src="/demo.js" defer></script>
+  <script type="module" src="/demo.js"></script>
 </head>
 <body>
   <main>
     <header>
       <p class="brand">OpenAgentID <span>Characters</span></p>
       <h1>Give your agent a face.</h1>
-      <p class="intro">Choose a skin, then bring it to life with an expression. The same identity always starts with the same character.</p>
+      <p class="intro">Give it a thought, a task, or something to say. Its eyes move smoothly between expressions while it keeps blinking and looking around.</p>
+      <p class="fixture-note"><strong>Local demo fixture.</strong> Activity is simulated with a demonstration DID. State changes stay in this page.</p>
     </header>
     <section class="studio" aria-label="Character preview">
       <div class="preview-panel">
-        <div class="canvas"><img id="preview" src="/v1/characters/svg/did%3Aoas%3Aopenagent%3Aagent%3Apreview" alt="Your generated agent character" width="512" height="512"></div>
+        <div class="canvas"><div id="preview" role="img" aria-label="Demonstration character fixture"></div></div>
         <p id="status" role="status" aria-live="polite">Loading characters…</p>
         <div class="links"><a id="svg-link" href="/v1/characters/svg/did%3Aoas%3Aopenagent%3Aagent%3Apreview" download="oaid-character.svg">Download SVG</a><a id="json-link" href="/v1/characters/did%3Aoas%3Aopenagent%3Aagent%3Apreview">Character JSON</a></div>
+        <section class="activity-panel" aria-labelledby="activity-title">
+          <h2 id="activity-title">Try an activity</h2>
+          <p class="hint">Switch at any moment, including during a transition.</p>
+          <div id="activity-buttons" class="activity-buttons">
+            <button type="button" data-status="listening">Listen</button><button type="button" data-status="reasoning">Think</button>
+            <button type="button" data-status="working">Work</button><button type="button" data-status="speaking">Speak</button>
+            <button type="button" data-status="success">Succeed</button><button type="button" data-status="blocked">Blocked</button>
+            <button type="button" data-status="error">Error</button><button type="button" data-status="idle">Idle</button>
+          </div>
+          <ol id="timeline" class="timeline" aria-label="Simulated activity sequence">
+            <li data-step="listening">Listen</li><li data-step="reasoning">Think</li><li data-step="working">Work</li><li data-step="speaking">Speak</li><li data-step="success">Succeed</li><li data-step="idle">Idle</li>
+          </ol>
+          <button type="button" id="replay" disabled>Replay activity</button>
+          <p id="replay-note" class="hint">Replay the sequence or choose a single activity.</p>
+        </section>
       </div>
       <form id="controls" autocomplete="off">
-        <label class="field">Agent DID<input id="did" name="did" maxlength="512" value="did:oas:openagent:agent:preview" spellcheck="false" required></label>
+        <label class="field">Character DID<input id="did" name="did" maxlength="512" value="did:oas:openagent:agent:preview" spellcheck="false" required></label>
         <div class="pair">
           <label class="field">Skin<select id="skin" name="skin"><option value="autos">Autos</option><option value="spacex">SpaceX</option></select></label>
           <label class="field">Shape<select id="shape" name="shape"><option value="">From identity</option></select></label>
         </div>
-        <label class="field">Expression<select id="expression" name="expression"><option value="neutral">Neutral</option></select></label>
+        <label class="field">Activity state<select id="activity" name="status"><option value="idle">Idle</option></select></label>
+        <label class="field">Expression override<select id="expression" name="expression"><option value="">From activity state</option></select></label>
         <label class="slider">Blink <output id="blink-value" for="blink">0</output><input id="blink" name="blink" type="range" min="0" max="1" step="0.02" value="0"></label>
         <label class="slider">Look left / right <output id="gaze-x-value" for="gaze-x">0</output><input id="gaze-x" name="gazeX" type="range" min="-1" max="1" step="0.05" value="0"></label>
         <label class="slider">Look up / down <output id="gaze-y-value" for="gaze-y">0</output><input id="gaze-y" name="gazeY" type="range" min="-1" max="1" step="0.05" value="0"></label>
@@ -34,11 +51,16 @@
           <label class="toggle"><input id="animated" name="animated" type="checkbox" checked> Live animation</label>
           <label class="field small">Size<select id="size" name="size"><option>128</option><option>256</option><option selected>512</option><option>1024</option><option>2048</option></select></label>
         </div>
-        <p id="motion-note" class="hint">Turn animation off to hold a pose.</p>
+        <p id="motion-note" class="hint">Live motion follows your system preference.</p>
         <button type="button" id="reset">Reset pose</button>
       </form>
     </section>
-    <details><summary>Character details</summary><pre id="descriptor"></pre></details>
+    <section class="code-panel" aria-labelledby="code-title">
+      <h2 id="code-title">A state update is all it takes.</h2>
+      <p class="hint">Mount once, then update the same inline SVG. These calls run locally.</p>
+      <pre><code id="code-example"></code></pre>
+    </section>
+    <details><summary>Local player state</summary><pre id="descriptor"></pre></details>
     <footer>OpenAgentID · Open Software <a href="/v1/characters/openapi.json">Open API</a></footer>
   </main>
 </body>

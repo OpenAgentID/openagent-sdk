@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",
@@ -79,6 +79,25 @@
       "types": "./sdks/typescript/dist/character-api.d.ts",
       "import": "./sdks/typescript/dist/character-api.js",
       "require": "./sdks/typescript/dist/character-api.cjs"
+    },
+    "./character-state": {
+      "types": "./sdks/typescript/dist/character-state.d.ts",
+      "import": "./sdks/typescript/dist/character-state.js",
+      "require": "./sdks/typescript/dist/character-state.cjs"
+    },
+    "./character-animation": {
+      "types": "./sdks/typescript/dist/character-animation.d.ts",
+      "import": "./sdks/typescript/dist/character-animation.js",
+      "require": "./sdks/typescript/dist/character-animation.cjs"
+    },
+    "./character-player": {
+      "types": "./sdks/typescript/dist/character-player.d.ts",
+      "import": "./sdks/typescript/dist/character-player.js",
+      "require": "./sdks/typescript/dist/character-player.cjs"
+    },
+    "./browser": {
+      "types": "./sdks/typescript/dist/browser/character-player.d.ts",
+      "import": "./sdks/typescript/dist/browser/character-player.js"
     }
   },
   "files": [
