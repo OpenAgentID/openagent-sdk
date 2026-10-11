@@ -29,6 +29,9 @@
   propagate test errors without weakening the auth-protocol Clippy policy.
   Format the Rust SDK/conformance runner and regenerate the locked OAS graph
   remotely without dropping any anchor conformance coverage.
+  Keep all nine upstream Glyph fixtures in their dedicated SDK parity suite,
+  separate from the generic 222-vector schema; publish failing runner logs
+  and hidden conformance reports in CI while enforcing the Cargo lockfile.
 - Consolidate the useful legacy claim/discovery/CLI behavior into this
   canonical repository and document the free Open Software core versus Life's
   hosted integration boundaries. Production authorities, hosted acceptance,

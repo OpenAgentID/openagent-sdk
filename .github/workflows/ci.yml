@@ -359,6 +359,7 @@ jobs:
           name: conformance-reports
           path: conformance/.reports/
           if-no-files-found: ignore
+          include-hidden-files: true
 
       - name: Remove git credentials
         if: always()

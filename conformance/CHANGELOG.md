@@ -5,6 +5,16 @@ All notable changes to the OpenAgent SDK conformance suite are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-10-11
+
+### Fixed
+
+- Move the nine unchanged upstream Glyph reference cases to `fixtures/glyph`
+  and retain every case in the SDK parity tests. Their payload/codeword/grid
+  schema differs from the shared runners' 222 generic vectors.
+- Print failed runner logs, upload hidden conformance reports and use locked
+  Cargo resolution so CI failures preserve actionable evidence.
+
 ## [Unreleased] - 2026-07-31
 
 ### Added

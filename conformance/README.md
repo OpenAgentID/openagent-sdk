@@ -15,6 +15,8 @@ conformance/
 │   ├── arsenal/           # ACT encoding, scope parsing, policy evaluation
 │   ├── aegis/             # Verify pipeline, delegation, wallet derivation
 │   └── openagent/         # Agent creation, skill policy
+├── fixtures/              # Reference fixtures with their own schemas
+│   └── glyph/             # Nine upstream Rust Glyph cases checked by SDK tests
 ├── runner-rust/           # Rust runner (cargo binary)
 ├── runner-ts/              # TypeScript runner (Node 20 ES modules)
 ├── scripts/
@@ -47,6 +49,13 @@ Every vector file is a JSON document with this top-level shape:
 Each vector has a `name`, optional `description`/`tags`, an `input` object whose
 `operation` field selects the handler, and an `expected_output` object that the runner
 diffs against the observed output.
+
+The Glyph reference fixture uses the upstream payload/codeword/grid/palette schema.
+It lives in `fixtures/glyph/avatar-v1.json`, outside the generic vector corpus,
+and all nine cases run in `sdks/typescript/test/glyph.test.ts` during SDK CI.
+Those tests compare each codeword byte, grid cell and palette color with the
+independently generated Rust reference. The shared runners retain their 222
+cases; the nine Glyph cases are additional SDK coverage.
 
 ## Running
 

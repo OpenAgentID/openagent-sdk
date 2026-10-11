@@ -1,7 +1,7 @@
 # OAS Glyph avatars
 
 Compatibility is checked against nine independent vectors in
-`conformance/vectors/glyph/avatar-v1.json`, generated from unmodified upstream
+`conformance/fixtures/glyph/avatar-v1.json`, generated from unmodified upstream
 Rust modules at `f0090dd344d31e4b2724338968655fbdec3837e9` on Depot build
 `cb6ggwps9b`. The tests compare every codeword byte, cell shape and displayed
 palette color; they do not generate expected values with the TypeScript code.
