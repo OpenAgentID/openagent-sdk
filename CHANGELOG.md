@@ -22,11 +22,13 @@
   Run the installed CLI through npm's symlink and require command output and
   refusal exit codes during artifact qualification.
   Repair Swift setup, remove unnecessary private-auth gates and pin conformance
-  OAS dependencies to the existing canonical SDK Git revision.
+  OAS dependencies to the canonical anchor-authority API Git revision.
   Use the patched Vitest 4.1.11 test runner for both npm release packages.
   Verify OIDC code/UserInfo flows for persistent agents and agent instances.
   Align the WASM verifier expression with the Rust 1.99 CI formatter and
   propagate test errors without weakening the auth-protocol Clippy policy.
+  Format the Rust SDK/conformance runner and regenerate the locked OAS graph
+  remotely without dropping any anchor conformance coverage.
 - Consolidate the useful legacy claim/discovery/CLI behavior into this
   canonical repository and document the free Open Software core versus Life's
   hosted integration boundaries. Production authorities, hosted acceptance,

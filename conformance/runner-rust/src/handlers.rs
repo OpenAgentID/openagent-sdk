@@ -558,7 +558,9 @@ mod oas {
     fn anchor_policy(v: &Vector) -> Result<(), String> {
         use oas_resolve::{AnchorError, AnchorRecord, AnchorStatus, LineageAnchor, OrgLineageRoot};
         use oas_sdk::anchor_policy::{AnchorPolicy, AnchoredAuthoritySource};
-        use oas_sdk::lineage::{AuthorityPathKind, LineageAuthorityRequest, LineageAuthoritySource};
+        use oas_sdk::lineage::{
+            AuthorityPathKind, LineageAuthorityRequest, LineageAuthoritySource,
+        };
 
         struct Scripted {
             revoked: bool,
@@ -626,7 +628,10 @@ mod oas {
 
         let mut scripted: Vec<(String, Scripted)> = Vec::new();
         for (scheme, spec) in backend_obj {
-            let revoked = spec.get("revoked").and_then(|b| b.as_bool()).unwrap_or(false);
+            let revoked = spec
+                .get("revoked")
+                .and_then(|b| b.as_bool())
+                .unwrap_or(false);
             let finalized = spec
                 .get("finalized_block")
                 .and_then(|n| n.as_u64())
@@ -651,7 +656,9 @@ mod oas {
                     anchored_at_block: a
                         .get("anchored_at_block")
                         .and_then(|n| n.as_u64())
-                        .ok_or_else(|| format!("backend {scheme}: anchor missing anchored_at_block"))?,
+                        .ok_or_else(|| {
+                            format!("backend {scheme}: anchor missing anchored_at_block")
+                        })?,
                     metadata_commitment: a
                         .get("metadata_commitment")
                         .and_then(|s| s.as_str())
@@ -659,7 +666,15 @@ mod oas {
                         .to_string(),
                 }),
             };
-            scripted.push((scheme.clone(), Scripted { revoked, anchor, finalized, transport_error }));
+            scripted.push((
+                scheme.clone(),
+                Scripted {
+                    revoked,
+                    anchor,
+                    finalized,
+                    transport_error,
+                },
+            ));
         }
 
         let mut backends: oas_sdk::anchor_policy::AnchorBackends = std::collections::HashMap::new();
@@ -696,7 +711,9 @@ mod oas {
 
         match (result, verdict) {
             (Ok(record), "accept") => {
-                if let Some(expected_source) = v.expected_output.get("source").and_then(|s| s.as_str()) {
+                if let Some(expected_source) =
+                    v.expected_output.get("source").and_then(|s| s.as_str())
+                {
                     if record.source != expected_source {
                         return Err(format!(
                             "source mismatch: got {} expected {expected_source}",
@@ -1104,7 +1121,10 @@ mod arsenal {
         let envelope = input_hex(v, "envelope_hex")?;
         let trusted_key = input_hex(v, "trusted_key_hex")?;
         if trusted_key.len() != 32 {
-            return Err(format!("trusted_key_hex must be 32 bytes, got {}", trusted_key.len()));
+            return Err(format!(
+                "trusted_key_hex must be 32 bytes, got {}",
+                trusted_key.len()
+            ));
         }
         let mut key = [0u8; 32];
         key.copy_from_slice(&trusted_key);
@@ -1154,7 +1174,10 @@ mod arsenal {
             .and_then(|s| s.as_str())
             .ok_or("expected verdict")?;
 
-        match (agent_capability_token::verify(&envelope, &verifier), verdict) {
+        match (
+            agent_capability_token::verify(&envelope, &verifier),
+            verdict,
+        ) {
             (Ok(claims), "accept") => {
                 for field in ["sub", "jti", "tenant_id"] {
                     if let Some(expected) = v.expected_output.get(field).and_then(|s| s.as_str()) {
@@ -1165,7 +1188,9 @@ mod arsenal {
                             _ => unreachable!(),
                         };
                         if actual != expected {
-                            return Err(format!("{field} mismatch: got {actual} expected {expected}"));
+                            return Err(format!(
+                                "{field} mismatch: got {actual} expected {expected}"
+                            ));
                         }
                     }
                 }
