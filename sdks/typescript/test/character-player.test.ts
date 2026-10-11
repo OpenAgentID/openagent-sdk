@@ -36,6 +36,9 @@ describe('continuous character animator used by the browser player', () => {
     const middle = animator.sample(140);
     expect(middle.eyes[0]!.width).toBeGreaterThan(initial.eyes[0]!.width);
     expect(middle.eyes[0]!.width).toBeLessThan(40);
+    const movingSettled = animator.sample(5000);
+    expect(movingSettled.eyes[0]!.width).toBeCloseTo(40, 8);
+    expect(movingSettled.eyes[0]!.height).toBeCloseTo(56 - 54 * movingSettled.blink, 8);
     // Ambient blinking is layered on manual blink; freeze it before checking
     // the exact settled pose instead of mistaking a blink for a morph.
     animator.setReducedMotion(true, 5000);
