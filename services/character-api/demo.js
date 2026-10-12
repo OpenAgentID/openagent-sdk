@@ -1,4 +1,4 @@
-import { mountCharacter, getCharacterExpressions, getCharacterStatuses, getCharacterSkins } from '/character-player.js';
+import { mountCharacter, getCharacterExpressions, getCharacterStatuses, getCharacterSkins, getCharacterAccessories } from '/character-player.js';
 
 const element = id => document.getElementById(id);
 const skin = element('skin');
@@ -16,6 +16,7 @@ const sequence = [
   ['speaking', 1100], ['success', 1000], ['idle', 0],
 ];
 const catalog = getCharacterSkins();
+const selectedAccessories = () => Array.from(element('accessories').querySelectorAll('input:checked'), input => input.value);
 let player;
 let mountedDid;
 let mountTimer;
@@ -76,7 +77,8 @@ function codeExample() {
     'const avatar = document.createElement(\'div\');',
     'document.body.append(avatar);',
     `const player = mountCharacter(avatar, ${JSON.stringify(mountedDid ?? element('did').value)}, {`,
-    `  skin: ${JSON.stringify(skin.value)}, view: ${JSON.stringify(view.value)},${shape.value ? ` shape: ${JSON.stringify(shape.value)},` : ''} reducedMotion: 'system'`,
+    `  skin: ${JSON.stringify(skin.value)}, view: ${JSON.stringify(view.value)},${shape.value ? ` shape: ${JSON.stringify(shape.value)},` : ''}`,
+    `  accessories: ${JSON.stringify(selectedAccessories())}, reducedMotion: 'system'`,
     '});',
     '',
     `player.update({ status: ${JSON.stringify(activity.value)} });`,
@@ -98,11 +100,12 @@ function refresh() {
     animated: String(animated.checked && !motion.matches),
     blink: String(state.blink), gazeX: String(state.gaze.x), gazeY: String(state.gaze.y) });
   if (shape.value) query.set('shape', shape.value);
+  if (selectedAccessories().length) query.set('accessories', selectedAccessories().join(','));
   const identity = encodeURIComponent(mountedDid);
   element('svg-link').href = `/v1/characters/svg/${identity}?${query}`;
   element('json-link').href = `/v1/characters/${identity}?${query}`;
   element('descriptor').textContent = JSON.stringify({ did: mountedDid,
-    appearance: { skin: skin.value, view: view.value, shape: shape.value || 'from identity', size: Number(element('size').value) },
+    appearance: { skin: skin.value, view: view.value, shape: shape.value || 'from identity', accessories: selectedAccessories(), size: Number(element('size').value) },
     state, reducedMotion: !animated.checked || motion.matches, activity: 'local demo fixture' }, null, 2);
   preview.setAttribute('aria-label', `${label(state.expression)} ${label(skin.value)} demonstration character fixture`);
   element('status').classList.remove('error');
@@ -134,7 +137,7 @@ function remount() {
   element('descriptor').textContent = '';
   try {
     const did = element('did').value;
-    player = mountCharacter(preview, did, { skin: skin.value, view: view.value,
+    player = mountCharacter(preview, did, { skin: skin.value, view: view.value, accessories: selectedAccessories(),
       ...(shape.value ? { shape: shape.value } : {}), size: Number(element('size').value),
       animated: true, state: pose(), reducedMotion: animated.checked ? 'system' : true, transitionMs: 420 });
     mountedDid = did;
@@ -188,6 +191,10 @@ view.addEventListener('change', () => {
   if (!player) return;
   try { player.setAppearance({ view: view.value }); refresh(); } catch (error) { showError(error); }
 });
+element('accessories').addEventListener('change', () => {
+  if (!player) return;
+  try { player.setAppearance({ accessories: selectedAccessories() }); refresh(); } catch (error) { showError(error); }
+});
 shape.addEventListener('change', () => {
   if (!player) return;
   try { player.setAppearance({ shape: shape.value || null }); refresh(); } catch (error) { showError(error); }
@@ -224,6 +231,12 @@ window.addEventListener('pageshow', event => { if (event.persisted) remount(); }
 
 skin.replaceChildren(...catalog.map(entry => new Option(entry.label, entry.id)));
 skin.value = 'autos';
+for (const accessory of getCharacterAccessories()) {
+  const label = document.createElement('label'); label.className = 'toggle';
+  const input = document.createElement('input'); input.type = 'checkbox'; input.value = accessory.id;
+  label.append(input, document.createTextNode(accessory.label));
+  element('accessories').append(label);
+}
 expression.replaceChildren(new Option('From activity state', ''),
   ...getCharacterExpressions().map(id => new Option(label(id), id)));
 const activities = document.createElement('optgroup'); activities.label = 'Activity';

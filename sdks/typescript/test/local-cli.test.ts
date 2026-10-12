@@ -2,6 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runCli } from '../src/cli.js';
+import { generateCharacter, getCharacterSkins } from '../src/characters.js';
+import { getCharacterAccessories } from '../src/character-accessories.js';
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -104,6 +106,54 @@ describe('public local CLI integration', () => {
     expect((await command(['avatar', did, '--status', 'made-up'])).code).toBe(1);
   });
 
+  it('lists independent accessories and renders either or both on every family without remote access', async () => {
+    const catalog = await command(['avatar', 'accessories']);
+    expect(catalog.code, catalog.err).toBe(0);
+    expect(JSON.parse(catalog.out)).toEqual(getCharacterAccessories());
+    expect(JSON.parse(catalog.out).map((entry: { id: string }) => entry.id)).toEqual(['glasses', 'headphones']);
+    const did = 'did:oas:openagent:agent:cli-accessories';
+    for (const skin of getCharacterSkins()) {
+      for (const view of ['avatar', 'full'] as const) {
+        for (const selection of ['', 'glasses', 'headphones', 'headphones,glasses']) {
+          const result = await command(['avatar', did, '--skin', skin.id, '--shape', skin.shapes[0]!,
+            '--view', view, '--accessories', selection, '--status', 'reasoning', '--expression', 'concerned']);
+          expect(result.code, result.err).toBe(0);
+          const accessories = selection === '' ? [] : selection === 'headphones,glasses'
+            ? ['glasses', 'headphones'] as const : selection === 'glasses' ? ['glasses'] as const : ['headphones'] as const;
+          expect(result.out).toBe(generateCharacter(did, { skin: skin.id, shape: skin.shapes[0]!, view,
+            accessories, state: { status: 'reasoning', expression: 'concerned' } }).svg + '\n');
+          expect((result.out.match(/data-character-eye="(?:left|right)"/g) ?? [])).toHaveLength(2);
+        }
+      }
+    }
+    const plain = await command(['avatar', did]);
+    expect((await command(['avatar', did, '--accessories', ''])).out).toBe(plain.out);
+    expect((await command(['avatar', did, '--accessories', 'glasses,headphones'])).out)
+      .toBe((await command(['avatar', did, '--accessories', 'headphones,glasses'])).out);
+  });
+
+  it('refuses malformed, duplicate and unknown accessory flags before writing output', async () => {
+    const did = 'did:oas:openagent:agent:cli-accessory-refusal';
+    for (const selection of ['unknown', 'Glasses', ' glasses', 'glasses ', 'glasses\n',
+      'glasses,glasses', 'headphones,headphones', 'glasses,headphones,glasses', 'glasses,', ',headphones',
+      ',', 'glasses,,headphones', 'null', '[]']) {
+      const result = await command(['avatar', did, '--accessories', selection]);
+      expect(result.code).toBe(1);
+      expect(result.out).toBe('');
+    }
+    for (const args of [['avatar', did, '--accessories'],
+      ['avatar', did, '--accessories', 'glasses', '--accessories', 'headphones'],
+      ['avatar', 'accessories', '--skin', 'autos'], ['avatar', 'accessories', 'extra']]) {
+      expect((await command(args)).code).toBe(1);
+    }
+    const root = await directory();
+    const output = join(root, 'kept-accessory.svg');
+    await writeFile(output, 'preserve this exact file');
+    const refused = await command(['avatar', did, '--accessories', 'glasses,headphones', '--output', output]);
+    expect(refused.code).toBe(1);
+    expect(await readFile(output, 'utf8')).toBe('preserve this exact file');
+  });
+
   it('discovers every family and renders a selected holiday kind in either framing', async () => {
     const catalog = await command(['avatar', 'skins']);
     expect(catalog.code, catalog.err).toBe(0);
@@ -136,7 +186,9 @@ describe('public local CLI integration', () => {
       ['doctor', '--unknown', 'value'], ['agent', 'unknown'], ['--version', 'extra'],
     ]) expect((await command(args)).code).toBe(1);
     const version = await command(['--version']);
-    expect(version.out).toBe('0.5.0\n');
+    expect(version.out).toBe('0.6.0\n');
     expect((await command(['--help'])).out).toContain('oaid agent trust');
+    expect((await command(['--help'])).out).toContain('oaid avatar accessories');
+    expect((await command(['--help'])).out).toContain('--accessories glasses,headphones');
   });
 });

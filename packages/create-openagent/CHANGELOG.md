@@ -1,5 +1,10 @@
 # Changelog — create-openagent
 
+## [0.4.0] - 2026-10-12
+
+- Pin SDK 0.6.0 and add combinable glasses/headphones controls that preserve the
+  real receiver status, selected character family and animated eye nodes.
+
 
 ## [0.3.0] - 2026-10-12
 

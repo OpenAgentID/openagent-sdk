@@ -54,18 +54,18 @@ try {
   source = run('source-commit', ['git', 'rev-parse', 'HEAD'], root).trim();
   assert.match(source, /^[0-9a-f]{40}$/);
   if (process.env.OAID_SOURCE_SHA) assert.equal(source, process.env.OAID_SOURCE_SHA);
-  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.5.0', 'pack-sdk'),
-    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.3.0', 'pack-generator')];
+  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.6.0', 'pack-sdk'),
+    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.4.0', 'pack-generator')];
   const tooling = join(fixture, 'tools');
   await mkdir(tooling);
   await writeFile(join(tooling, 'package.json'), JSON.stringify({ name: 'public-generator-consumer', private: true }));
   run('install-generator-archive', ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund', packages[1].file], tooling);
   const generator = join(tooling, 'node_modules/.bin/create-openagent');
-  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.3.0');
+  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.4.0');
   run('generate-noninteractive-application', [generator, 'my-agent-app', '--yes'], fixture);
   const application = join(fixture, 'my-agent-app');
   const manifest = JSON.parse(await readFile(join(application, 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.5.0' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.6.0' });
   // Before publication the exact review artifact substitutes for the declared
   // registry release. No source or transitive dependency is replaced.
   run('install-sdk-archive-in-application', ['npm', 'install', '--ignore-scripts', '--save-exact', '--no-audit', '--no-fund', packages[0].file], application);
@@ -81,7 +81,7 @@ try {
   checks.push({ name: 'public-registry-dependency-closure', passed: true });
   run('generated-real-http-restart-replay-revocation-tests', ['npm', 'test'], application);
   const cli = join(application, 'node_modules/.bin/oaid');
-  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.5.0');
+  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.6.0');
   assert(run('installed-sdk-cli-help', [cli, '--help'], application).includes('oaid agent trust'));
 
   const hello = join(fixture, 'hello-agent');
@@ -115,6 +115,7 @@ try {
       assert.equal(await page.locator('#avatar svg').getAttribute('data-character-view'), 'avatar');
       assert.notEqual(await page.locator('#avatar svg').getAttribute('viewBox'), '0 0 512 512');
       assert.equal(await page.locator('[data-character-eye]').count(), 2);
+      assert.equal(await page.locator('[data-character-accessory]').count(), 0);
       await page.evaluate(() => { window.oaidOriginalSvg = document.querySelector('#avatar svg');
         window.oaidOriginalEyes = [...document.querySelectorAll('[data-character-eye]')]; });
     });
@@ -134,6 +135,14 @@ try {
       assert.equal((await (await fetch(app.url + '/state')).json()).completedRequests, before.completedRequests + 1);
     });
     await page.selectOption('#skin', 'spacex');
+    await browserCheck(label + '-independent-accessories-preserve-real-status', async () => {
+      await page.getByLabel('Glasses', { exact: true }).check();
+      await page.getByLabel('Headphones', { exact: true }).check();
+      assert.equal(await page.locator('#avatar [data-character-accessory]').count(), 2);
+      assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
+      assert(await page.evaluate(() => [...document.querySelectorAll('#avatar [data-character-eye]')]
+        .every((eye, index) => eye === window.oaidOriginalEyes[index])));
+    });
     await browserCheck(label + '-spacex-preserves-live-state', async () => {
       assert.equal(await page.locator('#avatar svg').getAttribute('data-character-skin'), 'spacex');
       assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
@@ -149,6 +158,7 @@ try {
           assert.equal(await page.locator('#avatar svg').getAttribute('data-character-shape'), shape);
           assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
           assert.equal(await page.locator('#avatar svg').getAttribute('data-character-expression'), 'happy');
+          assert.equal(await page.locator('#avatar [data-character-accessory]').count(), 2);
           assert(await page.evaluate(() => document.querySelector('#avatar svg') === window.oaidOriginalSvg &&
             [...document.querySelectorAll('#avatar [data-character-eye]')].every((eye, index) => eye === window.oaidOriginalEyes[index])));
         }
@@ -183,6 +193,13 @@ try {
       assert.equal(samples[0], samples[1]);
     });
     await page.screenshot({ path: join(out, label + '-verified-starter.png'), fullPage: true });
+    await browserCheck(label + '-remove-accessories-without-resetting-state', async () => {
+      await page.getByLabel('Glasses', { exact: true }).uncheck();
+      await page.getByLabel('Headphones', { exact: true }).uncheck();
+      assert.equal(await page.locator('#avatar [data-character-accessory]').count(), 0);
+      assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
+      assert(await page.evaluate(() => document.querySelector('#avatar svg') === window.oaidOriginalSvg));
+    });
     if (label === 'desktop') {
       await browserCheck('all-62-kinds-face-mask-expression-extremes-and-distinct-mount-paints', async () => {
         const result = await page.evaluate(async () => {
@@ -202,10 +219,24 @@ try {
               const images = document.createElement('div'); images.style.cssText = 'display:flex;align-items:center'; card.append(images);
               const full = document.createElement('div'); const face = document.createElement('div'); images.append(full, face);
               face.style.cssText = 'border-radius:50%;overflow:hidden;width:88px;height:88px;flex-shrink:0';
-              players.push(mountCharacter(full, 'did:oas:openagent:agent:family-qualification', { skin: family.id, shape, view: 'full', size: 104, reducedMotion: true }));
-              const player = mountCharacter(face, 'did:oas:openagent:agent:family-qualification', { skin: family.id, shape, size: 88, reducedMotion: true });
+              const accessories = ['glasses', 'headphones'];
+              players.push(mountCharacter(full, 'did:oas:openagent:agent:family-qualification', { skin: family.id, shape, accessories, view: 'full', size: 104, reducedMotion: true }));
+              const player = mountCharacter(face, 'did:oas:openagent:agent:family-qualification', { skin: family.id, shape, accessories, size: 88, reducedMotion: true });
               players.push(player);
               const svg = face.querySelector('svg'), originalEyes = [...face.querySelectorAll('[data-character-eye]')];
+              // Sample the actual painted outline, including stroke, against the circular avatar mask.
+              const mask = svg.getBoundingClientRect(), mx = mask.x + mask.width / 2, my = mask.y + mask.height / 2;
+              for (const geometry of face.querySelectorAll('[data-character-accessories] path, [data-character-accessories] rect, [data-character-accessories] circle, [data-character-accessories] ellipse')) {
+                const transform = geometry.getScreenCTM();
+                const stroke = Number.parseFloat(getComputedStyle(geometry).strokeWidth) / 2 * Math.hypot(transform.a, transform.b);
+                const length = geometry.getTotalLength();
+                for (let sample = 0; sample <= 128; sample++) {
+                  const point = geometry.getPointAtLength(length * sample / 128).matrixTransform(transform);
+                  if (Math.hypot(point.x - mx, point.y - my) + stroke > mask.width / 2 - .25) {
+                    failures.push('accessory-crop:' + family.id + '/' + shape); break;
+                  }
+                }
+              }
               for (const expression of getCharacterExpressions()) for (const x of [-1, 1]) for (const y of [-1, 1]) {
                 player.update({ expression, gaze: { x, y }, blink: 0 });
                 const box = svg.getBoundingClientRect(), cx = box.x + box.width / 2, cy = box.y + box.height / 2;
@@ -220,10 +251,19 @@ try {
               player.setAppearance({ view: 'full' });
               if (svg.getAttribute('viewBox') !== '0 0 512 512') failures.push('full-view:' + family.id + '/' + shape);
               player.setAppearance({ view: 'avatar' });
+              for (const accessories of [[], ['glasses'], ['headphones'], ['glasses', 'headphones']]) {
+                player.setAppearance({ accessories });
+                if (face.querySelectorAll('[data-character-accessory]').length !== accessories.length) failures.push('accessory-selection:' + family.id + '/' + shape);
+              }
+              for (const accessories of [null, 'glasses', ['unknown'], ['glasses', 'glasses']]) {
+                const before = svg.outerHTML;
+                try { player.setAppearance({ accessories }); failures.push('invalid-accessory-accepted'); } catch { /* expected refusal */ }
+                if (svg.outerHTML !== before) failures.push('invalid-accessory-mutated-player');
+              }
               if (originalEyes.some((eye, i) => eye !== face.querySelectorAll('[data-character-eye]')[i]) || player.getState().status !== 'reasoning') failures.push('state-replaced:' + family.id + '/' + shape);
               const footer = document.createElement('div'); footer.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px'; card.append(footer);
               const mini = document.createElement('div'); mini.style.cssText = 'width:32px;height:32px;border-radius:50%;overflow:hidden'; footer.append(mini);
-              players.push(mountCharacter(mini, 'did:oas:openagent:agent:family-qualification', { skin: family.id, shape, size: 32, reducedMotion: true }));
+              players.push(mountCharacter(mini, 'did:oas:openagent:agent:family-qualification', { skin: family.id, shape, accessories, size: 32, reducedMotion: true }));
               const caption = document.createElement('span'); caption.textContent = shape; footer.append(caption);
             }
           }

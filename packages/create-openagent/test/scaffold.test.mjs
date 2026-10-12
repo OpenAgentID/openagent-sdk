@@ -21,7 +21,7 @@ test('scaffold writes the public-only runnable starter and complete real-HTTP te
   const files = generateStarterTemplate('app');
   for (const file of files) assert.equal(await readFile(join(root, 'app', file.path), 'utf8'), file.content);
   const manifest = JSON.parse(await readFile(join(root, 'app', 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.5.0' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.6.0' });
   assert.equal(manifest.engines.node, '>=20');
   assert.equal(manifest.scripts.dev, 'node src/server.mjs');
   assert.equal(manifest.scripts.agent, 'node src/agent.mjs');

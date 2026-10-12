@@ -1,6 +1,7 @@
 /** A mounted inline-SVG character; importing this module does not require a DOM. */
 import { generateCharacter, getCharacterSkins, type CharacterView, type CharacterOptions, type CharacterSkin, type CharacterShape, type CharacterDescriptor } from './characters.js';
 import { characterBody, characterFraming } from './character-body.js';
+import { characterAccessories, type CharacterAccessory } from './character-accessories.js';
 import { createCharacterAnimator, type CharacterFrame } from './character-animation.js';
 import type { CharacterArtNode } from './character-art-types.js';
 import type { CharacterStateUpdate, CharacterRuntimeState } from './character-state.js';
@@ -17,6 +18,8 @@ export interface CharacterAppearanceUpdate {
   readonly shape?: CharacterShape | null;
   readonly size?: number;
   readonly view?: CharacterView;
+  /** [] removes every accessory; omission preserves the current selection. */
+  readonly accessories?: readonly CharacterAccessory[];
 }
 export interface CharacterPlayer {
   update(state: CharacterStateUpdate): CharacterRuntimeState;
@@ -45,6 +48,7 @@ export function mountCharacter(element: Element, did: string, options: Character
   const now = () => win.performance.now();
   let appearance: CharacterOptions = { ...initialOptions };
   let descriptor = generateCharacter(did, appearance);
+  appearance = { ...appearance, accessories: descriptor.accessories };
   const animator = createCharacterAnimator(did, { ...initialOptions, transitionMs, reducedMotion: reduced(), now });
   let disposed = false;
   let request: number | undefined;
@@ -65,7 +69,8 @@ export function mountCharacter(element: Element, did: string, options: Character
   const gaze = node('g', { fill: '#ffffff', 'data-character-eyes': 'live-v1' });
   const eyes = ['left', 'right'].map(side => node('rect', { 'data-character-eye': side }));
   gaze.append(...eyes);
-  face.append(gaze);
+  let accessories = artNode(characterAccessories(descriptor.accessories));
+  face.append(accessories, gaze);
   let body: SVGElement;
   function setDescriptor(next: CharacterDescriptor): void {
     const geometry = characterBody(next.skin, next.shape, next.color, instance);
@@ -73,6 +78,9 @@ export function mountCharacter(element: Element, did: string, options: Character
     const framing = characterFraming(next.skin, next.shape, next.view);
     svg.setAttribute('viewBox', framing.viewBox);
     face.setAttribute('transform', framing.faceTransform);
+    const nextAccessories = artNode(characterAccessories(next.accessories));
+    accessories.replaceWith(nextAccessories);
+    accessories = nextAccessories;
     if (body) body.replaceWith(nextBody);
     else svg.append(nextBody);
     body = nextBody;
@@ -133,7 +141,7 @@ export function mountCharacter(element: Element, did: string, options: Character
     setAppearance(input: CharacterAppearanceUpdate) {
       active();
       if (!input || typeof input !== 'object' || Array.isArray(input) ||
-          Object.keys(input).some(key => !['skin', 'shape', 'size', 'view'].includes(key))) throw new TypeError('Invalid character appearance update');
+          Object.keys(input).some(key => !['skin', 'shape', 'accessories', 'size', 'view'].includes(key))) throw new TypeError('Invalid character appearance update');
       const next = { ...appearance };
       if (input.skin !== undefined) {
         if (input.skin !== descriptor.skin) delete next.shape;
@@ -143,8 +151,9 @@ export function mountCharacter(element: Element, did: string, options: Character
       else if (input.shape !== undefined) next.shape = input.shape;
       if (input.view !== undefined) next.view = input.view;
       if (input.size !== undefined) next.size = input.size;
+      if (input.accessories !== undefined) next.accessories = input.accessories;
       const candidate = generateCharacter(did, { ...next, state: animator.getState() });
-      appearance = next;
+      appearance = { ...next, accessories: candidate.accessories };
       setDescriptor(candidate);
       paint(animator.sample());
     },

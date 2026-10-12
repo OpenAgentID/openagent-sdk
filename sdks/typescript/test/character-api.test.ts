@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { characterApiOpenApi, createCharacterApiHandler } from '../src/character-api.js';
 import { generateCharacter, getCharacterExpressions, getCharacterSkins, getCharacterStatuses } from '../src/characters.js';
+import { getCharacterAccessories, type CharacterAccessory } from '../src/character-accessories.js';
 
 // Public conformance identifier, not a secret or an assertion of control.
 const did = 'did:oas:openagent:agent:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
@@ -49,9 +50,108 @@ describe('public stateless character API', () => {
       new URL('../../../docs/character-api.openapi.json', import.meta.url), 'utf8',
     )));
     expect(characterApiOpenApi.openapi).toBe('3.1.0');
+    expect(characterApiOpenApi.info.version).toBe('0.6.0');
     expect(characterApiOpenApi.security).toEqual([]);
     expect(characterApiOpenApi.components.schemas.CharacterGenerateRequestV1.additionalProperties).toBe(false);
     expect(characterApiOpenApi.components.schemas.LiveEyeStateV1.additionalProperties).toBe(false);
+  });
+
+  it('serves the independent accessory catalog with a closed schema and credential-free catalog semantics', async () => {
+    const response = await handler(new Request(`${base}/accessories`));
+    expect(response.status).toBe(200);
+    expectCors(response, 'GET, HEAD, OPTIONS');
+    const catalog = await response.json();
+    expect(catalog).toEqual(getCharacterAccessories());
+    expect(catalog.map((entry: { id: string }) => entry.id)).toEqual(['glasses', 'headphones']);
+    for (const entry of catalog) {
+      expect(Object.keys(entry).sort()).toEqual(['description', 'id', 'label']);
+      expect(entry.label.length).toBeGreaterThan(0);
+      expect(entry.description.length).toBeGreaterThan(0);
+      expect(entry).not.toHaveProperty('owner');
+      expect(entry).not.toHaveProperty('verified');
+    }
+    const schemas = characterApiOpenApi.components.schemas;
+    expect(schemas.CharacterAccessory.enum).toEqual(['glasses', 'headphones']);
+    expect(schemas.CharacterAccessoriesV1).toMatchObject({
+      type: 'array', items: { $ref: '#/components/schemas/CharacterAccessory' },
+      maxItems: 2, uniqueItems: true, default: [],
+    });
+    expect(schemas.CharacterAccessoryDescriptionV1.additionalProperties).toBe(false);
+    expect(schemas.CharacterAccessoryDescriptionV1.required).toEqual(['id', 'label', 'description']);
+    for (const schema of [schemas.CharacterAppearanceV1, schemas.CharacterOptionsV1,
+      schemas.CharacterGenerateRequestV1, schemas.CharacterDescriptorV1]) {
+      expect(schema.properties.accessories).toEqual({ $ref: '#/components/schemas/CharacterAccessoriesV1' });
+    }
+    expect(schemas.CharacterDescriptorV1.required).toContain('accessories');
+    expect(schemas.LiveEyeStateV1.properties).not.toHaveProperty('accessories');
+    expect(characterApiOpenApi.components.parameters.accessories).toMatchObject({
+      name: 'accessories', in: 'query', style: 'form', explode: false, allowEmptyValue: true,
+      schema: { $ref: '#/components/schemas/CharacterAccessoriesV1' },
+    });
+    const catalogSchema = characterApiOpenApi.paths['/accessories'].get.responses['200']
+      .content['application/json'].schema;
+    expect(catalogSchema.items).toEqual({ $ref: '#/components/schemas/CharacterAccessoryDescriptionV1' });
+    for (const route of ['/{did}', '/svg/{did}'] as const) {
+      for (const method of ['get', 'head', 'options'] as const) {
+        expect(characterApiOpenApi.paths[route][method].parameters).toContainEqual({ $ref: '#/components/parameters/accessories' });
+      }
+    }
+  });
+
+  it('combines either accessory on every family kind in avatar/full JSON, SVG and POST without changing identity or eye state', async () => {
+    const selections: readonly (readonly CharacterAccessory[])[] = [[], ['glasses'], ['headphones'], ['headphones', 'glasses']];
+    for (const skin of getCharacterSkins()) {
+      for (const shape of skin.shapes) {
+        const common = { skin: skin.id, shape, animated: false,
+          state: { status: 'reasoning' as const, blink: 0.5, gaze: { x: -1, y: 1 } } };
+        const plain = generateCharacter(did, common);
+        for (const view of ['avatar', 'full'] as const) {
+          for (const accessories of selections) {
+            const expected = generateCharacter(did, { ...common, view, accessories });
+            expect(expected).toMatchObject({ did, shape: plain.shape, color: plain.color,
+              expression: 'thoughtful', state: plain.state });
+            const canonical = accessories.length === 2 ? ['glasses', 'headphones'] : [...accessories];
+            expect(expected.accessories).toEqual(canonical);
+            expect((expected.svg.match(/data-character-eye="(?:left|right)"/g) ?? [])).toHaveLength(2);
+            expect((expected.svg.match(/data-character-accessory="/g) ?? [])).toHaveLength(accessories.length);
+            for (const id of canonical) expect(expected.svg).toContain(`data-character-accessory="${id}"`);
+            const query = `?skin=${skin.id}&shape=${shape}&view=${view}&accessories=${accessories.join(',')}&animated=false&status=reasoning&blink=0.5&gazeX=-1&gazeY=1`;
+            const response = await handler(new Request(path() + query));
+            expect(response.status).toBe(200);
+            expect(await response.json()).toEqual(expected);
+            const image = await handler(new Request(path(did, true) + query));
+            expect(image.status).toBe(200);
+            expect(await image.text()).toBe(expected.svg);
+            const generated = await handler(post({ did, ...common, view, accessories }));
+            expect(generated.status).toBe(200);
+            expect(generated.headers.get('cache-control')).toBe('no-store');
+            expect(await generated.json()).toEqual(expected);
+          }
+        }
+      }
+    }
+  }, 20_000);
+
+  it('normalizes input order for identical descriptors and byte validators, with empty selection equal to omitted defaults', async () => {
+    const pair = [];
+    for (const query of ['?accessories=glasses,headphones', '?accessories=headphones,glasses']) {
+      const response = await handler(new Request(path() + query));
+      expect(response.status).toBe(200);
+      pair.push({ body: await response.text(), tag: response.headers.get('etag') });
+    }
+    expect(pair[1]).toEqual(pair[0]);
+    const cached = await handler(new Request(path() + '?accessories=headphones,glasses', {
+      headers: { 'if-none-match': pair[0]!.tag! },
+    }));
+    expect(cached.status).toBe(304);
+    expectCors(cached);
+    const implicit = await handler(new Request(path()));
+    const explicit = await handler(new Request(path() + '?accessories='));
+    expect(explicit.headers.get('etag')).toBe(implicit.headers.get('etag'));
+    expect(await explicit.text()).toBe(await implicit.text());
+    expect(generateCharacter(did).accessories).toEqual([]);
+    expect(generateCharacter(did).svg).toBe(generateCharacter(did, { accessories: [] }).svg);
+    expect(pair[0]!.tag).not.toBe(implicit.headers.get('etag'));
   });
 
   it('publishes exactly 17 families and 62 family kinds with closed, cross-family OpenAPI schemas', () => {
@@ -295,6 +395,13 @@ describe('public stateless character API', () => {
     '?view=unknown', '?view=', '?view=Avatar', '?view=avatar%0A', '?view=avatar&view=full',
     '?view=avatar&%76iew=avatar', '?view=avatar&view=avatar', '?skin=pumpkin', '?kind=pumpkin',
     '?skin=halloween&shape=tree', '?skin=christmas&shape=ghost', '?skin=thanksgiving&shape=gift',
+    '?accessories=unknown', '?accessories=Glasses', '?accessories=glasses%20', '?accessories=%20glasses',
+    '?accessories=glasses,glasses', '?accessories=headphones,headphones',
+    '?accessories=glasses,headphones,glasses', '?accessories=glasses,', '?accessories=,headphones',
+    '?accessories=,', '?accessories=glasses,,headphones', '?accessories=null', '?accessories=%5B%5D',
+    '?accessories=glasses&accessories=headphones', '?accessories=&accessories=',
+    '?accessories=glasses&%61ccessories=glasses', '?accessories=glasses%0A',
+    '?state.accessories=glasses', '?accessory=glasses',
     '?status=unknown', '?status=Idle', '?status=', '?status=reasoning%0A',
     '?status=idle&status=working', '?status=idle&%73tatus=idle', '?state.expression=happy',
     '?status=unknown&expression=happy', '?status=success&expression=unknown',
@@ -351,6 +458,13 @@ describe('public stateless character API', () => {
     { did, skin: 'pumpkin' }, { did, kind: 'pumpkin' },
     { did, skin: 'halloween', shape: 'tree' }, { did, skin: 'christmas', shape: 'ghost' },
     { did, skin: 'thanksgiving', shape: 'gift' },
+    { did, accessories: null }, { did, accessories: 'glasses' }, { did, accessories: true },
+    { did, accessories: 0 }, { did, accessories: {} }, { did, accessories: ['unknown'] },
+    { did, accessories: ['Glasses'] }, { did, accessories: ['glasses '] },
+    { did, accessories: ['glasses\n'] }, { did, accessories: [''] }, { did, accessories: [null] },
+    { did, accessories: [{ id: 'glasses' }] }, { did, accessories: ['glasses', 'glasses'] },
+    { did, accessories: ['headphones', 'headphones'] }, { did, accessories: ['glasses', 'headphones', 'glasses'] },
+    { did, state: { accessories: ['glasses'] } }, { did, accessory: 'glasses' },
   ])('rejects invalid JSON schema input: %j', async body => {
     const response = await handler(post(body));
     expect(response.status).toBe(400);
@@ -457,7 +571,7 @@ describe('public stateless character API', () => {
     expect(cancelled).toBe(true);
   });
 
-  it.each([`${base}/skins`, `${base}/statuses`, `${base}/openapi.json`, path(), path(did, true), path() + '?status=reasoning', path(did, true) + '?status=blocked'])
+  it.each([`${base}/skins`, `${base}/accessories`, `${base}/statuses`, `${base}/openapi.json`, path(), path(did, true), path() + '?status=reasoning', path(did, true) + '?status=blocked', path(did, true) + '?accessories=glasses,headphones'])
   ('keeps exact byte validators, HEAD headers and conditional CORS for %s', async url => {
     const get = await handler(new Request(url));
     const body = await get.text();
@@ -486,7 +600,8 @@ describe('public stateless character API', () => {
     const urls = [path(), path() + '?skin=spacex', path() + '?blink=0.5',
       path() + '?gazeX=1&gazeY=0', path() + '?size=128', path() + '?animated=false',
       path() + '?shape=wide&expression=happy', path(did, true)];
-    urls.push(path() + '?status=reasoning', path() + '?status=blocked', path() + '?view=full');
+    urls.push(path() + '?status=reasoning', path() + '?status=blocked', path() + '?view=full',
+      path() + '?accessories=glasses', path() + '?accessories=headphones');
     const tags = [];
     for (const url of urls) tags.push((await handler(new Request(url))).headers.get('etag'));
     expect(new Set(tags).size).toBe(urls.length);
@@ -499,7 +614,7 @@ describe('public stateless character API', () => {
     expect(postResponse.headers.get('etag')).toBeNull();
   });
 
-  it.each([`${base}/skins`, `${base}/statuses`, `${base}/openapi.json`, path() + '?size=128', path(did, true) + '?skin=spacex', path() + '?status=working', `${base}/generate`])
+  it.each([`${base}/skins`, `${base}/accessories`, `${base}/statuses`, `${base}/openapi.json`, path() + '?size=128', path(did, true) + '?skin=spacex', path() + '?status=working', path(did, true) + '?accessories=glasses', `${base}/generate`])
   ('supports credential-free CORS preflight for %s', async url => {
     const response = await handler(new Request(url, { method: 'OPTIONS', headers: {
       origin: 'https://client.example.org', 'access-control-request-method': url.endsWith('/generate') ? 'POST' : 'GET',
@@ -516,6 +631,7 @@ describe('public stateless character API', () => {
       [path(), 'POST', 405, 'GET, HEAD, OPTIONS'],
       [`${base}/generate`, 'GET', 405, 'POST, OPTIONS'],
       [`${base}/skins`, 'DELETE', 405, 'GET, HEAD, OPTIONS'],
+      [`${base}/accessories`, 'POST', 405, 'GET, HEAD, OPTIONS'],
       [`${base}/statuses`, 'POST', 405, 'GET, HEAD, OPTIONS'],
       [`${base}/generate`, 'HEAD', 405, 'POST, OPTIONS'],
       ['https://characters.example.org/other', 'GET', 404, null],
@@ -528,7 +644,7 @@ describe('public stateless character API', () => {
       expectCors(response);
       if (method === 'HEAD') expect(await response.text()).toBe('');
     }
-    for (const url of [`${base}/skins?size=128`, `${base}/statuses?status=idle`, `${base}/openapi.json?x=1`]) {
+    for (const url of [`${base}/skins?size=128`, `${base}/accessories?accessories=glasses`, `${base}/statuses?status=idle`, `${base}/openapi.json?x=1`]) {
       expect((await handler(new Request(url))).status).toBe(400);
     }
     expect((await handler(new Request(`${base}/generate?skin=autos`, {
@@ -537,6 +653,7 @@ describe('public stateless character API', () => {
     expect((await handler(new Request(path() + '?size=no', { method: 'OPTIONS' }))).status).toBe(400);
     expect((await handler(new Request(path() + '?status=unknown', { method: 'OPTIONS' }))).status).toBe(400);
     expect((await handler(new Request(`${base}/statuses?status=idle`, { method: 'OPTIONS' }))).status).toBe(400);
+    expect((await handler(new Request(`${base}/accessories?skin=autos`, { method: 'OPTIONS' }))).status).toBe(400);
   });
 
   it('supports an explicit mount path and reports it in the schema', async () => {
@@ -546,6 +663,8 @@ describe('public stateless character API', () => {
     expect(await image.text()).toBe(generateCharacter(did).svg);
     const statuses = await mounted(new Request('https://characters.example.org/api/characters/statuses'));
     expect(await statuses.json()).toEqual(getCharacterStatuses());
+    const accessories = await mounted(new Request('https://characters.example.org/api/characters/accessories'));
+    expect(await accessories.json()).toEqual(getCharacterAccessories());
     const schema = await mounted(new Request('https://characters.example.org/api/characters/openapi.json'));
     expect(await schema.json()).toEqual({ ...characterApiOpenApi, servers: [{ url: '/api/characters' }] });
     expect((await mounted(new Request(path()))).status).toBe(404);
