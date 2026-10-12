@@ -105,3 +105,7 @@ outages and actual Express requests with the SDK's root/revocation validation.
 ## License
 
 Apache-2.0 OR MIT. [Source](https://github.com/OpenAgentID/openagent-sdk).
+
+Direct `authenticateRequest(request, store, resolveIdentityKey)` calls require the
+same authoritative resolver as middleware. The resolver runs on every request;
+missing configuration, revocation, key rotation or an outage denies admission.

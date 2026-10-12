@@ -310,12 +310,15 @@ export interface AuthResult {
   error?: string;
 }
 
-/** Authenticate an incoming request by checking the session token. */
+/** Authenticate a session and recheck its current identity authority on every request. */
 export async function authenticateRequest(
   request: Request,
   store: SessionStore,
-  resolveIdentityKey?: ResolveIdentityKeyFn,
+  resolveIdentityKey: ResolveIdentityKeyFn,
 ): Promise<AuthResult> {
+  if (typeof resolveIdentityKey !== 'function') {
+    return { authenticated: false, error: 'identity authority is required' };
+  }
   const header = request.headers.get('authorization');
   const token = header ? extractOpenAgentToken(header) : undefined;
   const sessionToken = token ?? request.headers.get(HEADER_OPENAGENT_SESSION) ?? undefined;
@@ -338,12 +341,15 @@ export async function authenticateRequest(
     return { authenticated: false, error: 'session expired' };
   }
 
-  if (resolveIdentityKey) {
-    const current = session.keyType && await resolveIdentityKey(session.initiatorDid, session.keyType).catch(() => null);
-    if (!current || current !== session.publicKeyBase64Url) {
-      await store.remove(sessionToken);
-      return { authenticated: false, error: 'identity revoked, rotated or unavailable' };
-    }
+  let current: string | null = null;
+  try {
+    current = session.keyType ? await resolveIdentityKey(session.initiatorDid, session.keyType) : null;
+  } catch {
+    // Both rejected promises and synchronous authority failures deny admission.
+  }
+  if (!current || current !== session.publicKeyBase64Url) {
+    await store.remove(sessionToken);
+    return { authenticated: false, error: 'identity revoked, rotated or unavailable' };
   }
   if (Math.floor(Date.now() / 1000) >= session.expiresAt) {
     await store.remove(sessionToken);

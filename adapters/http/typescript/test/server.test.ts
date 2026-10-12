@@ -26,6 +26,34 @@ describe('real HTTP identity authentication', () => {
     expect(await store.get(verified.session_token)).toBeUndefined();
   });
 
+  it('rejects a direct JavaScript call with no authority, even for a real signed session', async () => {
+    const challenge = await handleChallenge(config, store);
+    const verified = await handleProve(config, store, await identity.proof(challenge), verifyNodeSignature);
+    const request = new Request(config.origin, {
+      headers: { authorization: buildOpenAgentHeader(verified.session_token) },
+    });
+    // @ts-expect-error A JavaScript caller can omit the required authority.
+    expect(await authenticateRequest(request, store)).toEqual({ authenticated: false, error: 'identity authority is required' });
+    expect((await authenticateRequest(request, store, identity.resolve)).authenticated).toBe(true);
+  });
+
+  it.each(['revoked', 'rotated', 'offline', 'synchronous-failure'])('rejects direct session authentication when authority is %s', async failure => {
+    const challenge = await handleChallenge(config, store);
+    const verified = await handleProve(config, store, await identity.proof(challenge), verifyNodeSignature);
+    const request = new Request(config.origin, {
+      headers: { authorization: buildOpenAgentHeader(verified.session_token) },
+    });
+    const rotated = makeIdentity();
+    const resolve = failure === 'synchronous-failure'
+      ? () => { throw new Error('authority unavailable'); }
+      : async () => {
+        if (failure === 'offline') throw new Error('authority unavailable');
+        return failure === 'rotated' ? rotated.publicKeyBase64Url : null;
+      };
+    expect(await authenticateRequest(request, store, resolve)).toMatchObject({ authenticated: false });
+    expect(await store.get(verified.session_token)).toBeUndefined();
+  });
+
   it.each(['ed25519', 'secp256k1'] as const)('verifies actual %s signatures', async keyType => {
     const agent = makeIdentity(keyType);
     const cfg = createServerConfig(config.origin, { resolveIdentityKey: agent.resolve });
@@ -93,7 +121,7 @@ describe('real HTTP identity authentication', () => {
       { authorization: buildOpenAgentHeader(verified.session_token), 'x-openagent-session': 'other' },
       { authorization: buildOpenAgentHeader(verified.session_token), 'x-openagent-did': 'did:oas:example:agent:other' },
     ]) {
-      expect((await authenticateRequest(new Request(config.origin, { headers }), store)).authenticated).toBe(false);
+      expect((await authenticateRequest(new Request(config.origin, { headers }), store, identity.resolve)).authenticated).toBe(false);
     }
   });
 
