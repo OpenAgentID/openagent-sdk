@@ -151,8 +151,9 @@ Validation refuses other entity kinds, malformed ULIDs and normalization. Determ
 body/color selection uses BLAKE3 over the exact UTF-8 string
 `oaid-character-v1\0${skin}\0${did}`; the DID is never rewritten. Shape overrides
 must belong to their skin. Expression, finish, eye placement, accessories, size, gaze and blink do not
-affect the identity-derived body/color seed. Full illustrations use a 512 by 512 viewBox;
-avatar viewBoxes frame each kind's face without changing its geometry.
+affect the identity-derived body/color seed. Full illustrations start with a 512 by 512
+viewBox and expand when raised eyes or exterior accessories need space. Avatar
+viewBoxes frame each kind's face and selected wearables without changing their geometry.
 
 ## Profiles and Orbit
 
@@ -259,7 +260,9 @@ suppresses ambient blink/gaze.
 `getState()` and `update()` expose immutable **target state**. A sampled frame's
 `status`/`expression` identify that target, while its geometry can still be
 settling. `frame.eyes` contains the already blink-adjusted rectangle geometry
-and rotation centers in the512×512 viewBox; do not apply blink a second time.
+and rotation centers in the shared 512×512 eye coordinate space; the renderer
+transforms that space into the selected character framing. Do not apply blink a
+second time.
 Apply the sampled normalized gaze as a shared translation of
 `20 * frame.gaze.x`, `14 * frame.gaze.y` to both eyes, preserving their
 relative centers and the stationary body. Sampled blink/gaze include ambient

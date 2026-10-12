@@ -15,6 +15,8 @@
   and hosted/Orbit acceptance remain separate delivery evidence.
 
 - Qualification correction: reserve interrupted eye-center motion and additional circular-mask stroke clearance for tall headwear; fixed-frame centering is covered through full blinks.
+- Clarify expanded full-character framing and distinguish animator eye coordinates
+  from the final SVG viewBox.
 
 ## 0.6.0 — independent character accessories, 2026-10-12
 
