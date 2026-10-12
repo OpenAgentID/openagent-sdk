@@ -23,8 +23,8 @@ describe('display-only IAM agent instance compatibility', () => {
   // Independent hash-pinned Python blake3 1.0.11 derivation on Depot p4l87sht4v.
   // Neither the SDK renderer nor noble was used to calculate these vectors.
   it.each([
-    { skin: 'autos' as const, digest: '181ac27a900e94a534e66438dab89cd91c02a16b0711f4e2ffa51f597e2285d8', shape: 'standard', color: '#ff6a00' },
-    { skin: 'spacex' as const, digest: 'f9ac98e7ea92088f416ec26d94d32c1285c523d392094c28f7b7004d56230748', shape: 'pebble', color: '#00c875' },
+    { skin: 'autos' as const, digest: '181ac27a900e94a534e66438dab89cd91c02a16b0711f4e2ffa51f597e2285d8', shape: 'standard', color: '#f07825' },
+    { skin: 'spacex' as const, digest: 'f9ac98e7ea92088f416ec26d94d32c1285c523d392094c28f7b7004d56230748', shape: 'pebble', color: '#18a260' },
   ])('matches the independent literal IAM $skin vector', ({ skin, digest, shape, color }) => {
     const character = generateCharacter(did, { skin });
     expect(character).toMatchObject({ did, skin, shape, color });

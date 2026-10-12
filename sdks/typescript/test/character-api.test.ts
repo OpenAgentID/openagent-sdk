@@ -50,7 +50,7 @@ describe('public stateless character API', () => {
       new URL('../../../docs/character-api.openapi.json', import.meta.url), 'utf8',
     )));
     expect(characterApiOpenApi.openapi).toBe('3.1.0');
-    expect(characterApiOpenApi.info.version).toBe('0.7.1');
+    expect(characterApiOpenApi.info.version).toBe('0.7.2');
     expect(characterApiOpenApi.security).toEqual([]);
     expect(characterApiOpenApi.components.schemas.CharacterGenerateRequestV1.additionalProperties).toBe(false);
     expect(characterApiOpenApi.components.schemas.LiveEyeStateV1.additionalProperties).toBe(false);
@@ -322,9 +322,9 @@ describe('public stateless character API', () => {
 
   it('reports the selected seasonal kind body tone rather than one family-wide color', async () => {
     for (const [skin, colors] of Object.entries({
-      halloween: { pumpkin: '#8E3F25', ghost: '#315D78', bat: '#403551', 'witch-hat': '#51436A', 'candy-corn': '#A84B27' },
-      thanksgiving: { turkey: '#8B593D', acorn: '#AC7843', squash: '#A77735', pie: '#AD5E36', corn: '#A97128' },
-      christmas: { light: '#AC3049', tree: '#326A55', snowman: '#305E76', ornament: '#544D85', gift: '#346A5B' },
+      halloween: { pumpkin: '#E57324', ghost: '#398ADA', bat: '#7650BC', 'witch-hat': '#8051C7', 'candy-corn': '#EC7725' },
+      thanksgiving: { turkey: '#B87842', acorn: '#D89942', squash: '#D8A02B', pie: '#E38A38', corn: '#C9900E' },
+      christmas: { light: '#E94555', tree: '#1AA05E', snowman: '#3487C9', ornament: '#7852D4', gift: '#199C77' },
     })) {
       for (const [shape, color] of Object.entries(colors)) {
         const response = await handler(new Request(path() + `?skin=${skin}&shape=${shape}&animated=false`));

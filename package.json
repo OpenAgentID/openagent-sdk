@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",

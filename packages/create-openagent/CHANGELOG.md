@@ -1,5 +1,10 @@
 # Changelog — create-openagent
 
+## [0.5.2] - 2026-10-12
+
+- Pin SDK 0.7.2 for brighter family palettes and pigment-preserving plush material;
+  retain the real signed-request, receiver and live expression controls.
+
 ## [0.5.1] - 2026-10-12
 
 - Pin SDK 0.7.1 for refined glasses and cushioned headphones; retain the existing
