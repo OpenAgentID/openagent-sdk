@@ -1,46 +1,52 @@
 # create-openagent
 
-Scaffold an OpenAgent project in seconds.
+A working OpenAgentID application from public packages. Real Ed25519 identity,
+explicit receiver trust, authenticated HTTP requests and animated avatars run
+locally without a Life account or a hosted identity service.
 
-## Usage
+Version 0.2.0 is a release candidate until publication is confirmed.
 
-```bash
-npx create-openagent my-agent-app
+```sh
+npx create-openagent@0.2.0 my-agent-app --yes
+cd my-agent-app
+npm install
+npm run dev
 ```
 
-## Templates
+In a second terminal, run `npm run agent`. It signs an actual server-issued
+challenge; the receiver verifies the signature and current trust and consumes
+the challenge exactly once. The viewer uses Autos by default, supports SpaceX,
+and updates from actual verified requests. It uses the same SDK player you can
+mount in your own UI.
 
-| Template | Description |
-|----------|-------------|
-| `agent` | Standalone agent with identity and tools |
-| `mcp-server` | MCP server with OpenAgent auth middleware |
-| `web-dashboard` | Next.js dashboard for agent management |
-| `full-stack` | All three combined |
+Node 20+ is required. Private keys and receiver state stay in the generated
+application's ignored local data directory. Preserve this directory across
+restarts; never commit or serve it. Only public identity documents are exchanged
+between the separate signer and receiver workspaces.
 
-## Options
+## Commands
 
-```
---template <type>    agent | mcp-server | web-dashboard | full-stack
---adapter <type>     http | websocket | grpc
---bridge <type>      oidc | scim | none
---deploy <target>    cloudflare | vercel | aws | docker | local
---bioagentic         Include Bioagentic entity classification
---fabrics            Include Fabrics routing
-```
+- `create-openagent my-app --yes`: generate the complete default starter without prompts.
+- `create-openagent my-app --template starter`: select the same starter explicitly.
+- `create-openagent --help`: show supported options.
+- `create-openagent --version`: report the scaffolder version.
 
-## Non-Interactive Mode
+Existing directories are never overwritten. Invalid, duplicate and unsupported
+options are refused rather than silently producing a partially wired project.
+The generated project includes its own instructions and real integration tests.
 
-```bash
-npx create-openagent my-app --template agent --deploy docker --adapter http --bridge none
-```
+## Migrating from 0.1.x
 
-## Learn More
+The 0.1.x agent, MCP, dashboard and full-stack generators emitted old SDK ranges
+and incomplete subsystem setup. Version 0.2 supports the verified `starter`
+path. Old template, adapter, bridge and deployment selectors are rejected with
+an actionable message. Existing generated applications are not modified. Their
+source templates remain in the repository for future migration.
 
-- [OpenAgent Docs](https://openagent.id/docs)
-- [OAS Specification](https://openagent.id/spec)
+The SDK's OIDC, verification, middleware, credential and character APIs remain
+available independently. See the [public quickstart](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/getting-started/quickstart-typescript.md)
+for adding identity to an existing application instead of generating a new one.
 
 ## License
 
-Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
-
-Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
+Apache-2.0 OR MIT, same as OpenAgentID.

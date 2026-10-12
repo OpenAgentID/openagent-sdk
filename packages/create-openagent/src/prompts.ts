@@ -1,14 +1,11 @@
-/**
- * Interactive prompts for project scaffolding.
- */
-
 import * as p from '@clack/prompts';
 
-export type TemplateType = 'agent' | 'mcp-server' | 'web-dashboard' | 'full-stack';
+// Retained types let the historical template sources remain readable. Only
+// starter is admitted by the 0.2 scaffolder; those sources are not generated.
+export type TemplateType = 'starter' | 'agent' | 'mcp-server' | 'web-dashboard' | 'full-stack';
 export type AuthAdapter = 'http' | 'websocket' | 'grpc';
 export type EnterpriseBridge = 'oidc' | 'scim' | 'none';
 export type DeployTarget = 'cloudflare' | 'vercel' | 'aws' | 'docker' | 'local';
-
 export interface ProjectOptions {
   projectName: string;
   template: TemplateType;
@@ -18,132 +15,70 @@ export interface ProjectOptions {
   bioagentic: boolean;
   fabrics: boolean;
 }
+export interface CreateArguments {
+  readonly kind: 'create';
+  readonly projectName?: string;
+  readonly yes: boolean;
+  readonly template: 'starter';
+}
+export type ParsedArguments = CreateArguments | { readonly kind: 'help' | 'version' };
 
-/** Parse CLI flags to pre-fill options. */
-function parseFlagValue(args: readonly string[], flag: string): string | undefined {
-  const idx = args.indexOf(flag);
-  if (idx >= 0 && idx + 1 < args.length) {
-    return args[idx + 1];
+export function validateProjectName(value: unknown): string {
+  if (typeof value !== 'string' || /\s/.test(value) || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(value) ||
+      /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9]|node_modules)$/i.test(value)) {
+    throw new Error('Use a project name of 1–64 lowercase letters, numbers, dashes or underscores; no paths or reserved names.');
   }
-  return undefined;
+  return value;
 }
 
-function hasFlag(args: readonly string[], flag: string): boolean {
-  return args.includes(flag);
+/** Reject ambiguous input before prompting or touching the filesystem. */
+export function parseArguments(args: readonly string[]): ParsedArguments {
+  let projectName: string | undefined;
+  let yes = false;
+  let special: 'help' | 'version' | undefined;
+  const seen = new Set<string>();
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]!;
+    if (typeof arg !== 'string' || arg.length === 0) throw new Error('Empty arguments are not supported.');
+    const flag = arg === '-y' ? '--yes' : arg === '-h' ? '--help' : arg === '-v' ? '--version' : arg;
+    if (['--yes', '--help', '--version', '--template'].includes(flag)) {
+      if (seen.has(flag)) throw new Error('Duplicate option: ' + flag);
+      seen.add(flag);
+      if (flag === '--yes') yes = true;
+      else if (flag === '--help' || flag === '--version') {
+        if (special) throw new Error('Use --help or --version on its own.');
+        special = flag === '--help' ? 'help' : 'version';
+      } else {
+        const value = args[++index];
+        if (value !== 'starter') throw new Error('Only --template starter is supported in 0.2. Historical templates need migration to the current SDK.');
+      }
+    } else if (arg.startsWith('-')) {
+      throw new Error('Unsupported option: ' + arg + '. Use the local starter: create-openagent app --yes. Adapter, bridge, deploy and historical template options are not supported in 0.2.');
+    } else {
+      if (projectName !== undefined) throw new Error('Provide exactly one project name.');
+      projectName = validateProjectName(arg);
+    }
+  }
+  if (special) {
+    if (args.length !== 1) throw new Error('Use --help or --version on its own.');
+    return Object.freeze({ kind: special });
+  }
+  if (yes && projectName === undefined) throw new Error('With --yes, provide a project name: create-openagent app --yes.');
+  return Object.freeze({ kind: 'create', projectName, yes, template: 'starter' });
 }
 
-export async function collectOptions(
-  projectNameArg: string | undefined,
-  args: readonly string[],
-): Promise<ProjectOptions> {
-  // Resolve project name
-  const projectName =
-    projectNameArg ??
-    ((await p.text({
+export async function collectOptions(input: CreateArguments, interactive = Boolean(process.stdin.isTTY)): Promise<ProjectOptions> {
+  let name = input.projectName;
+  if (name === undefined) {
+    if (input.yes || !interactive) throw new Error('Provide a project name: create-openagent app --yes.');
+    const answer = await p.text({
       message: 'Project name:',
       placeholder: 'my-agent-app',
-      validate: (value) => {
-        if (!value.trim()) return 'Project name is required.';
-        if (!/^[a-z0-9][a-z0-9._-]*$/i.test(value)) {
-          return 'Invalid project name (use alphanumeric, dashes, dots, underscores).';
-        }
-        return undefined;
-      },
-    })) as string);
-
-  if (p.isCancel(projectName)) throw new Error('Cancelled');
-
-  // Template type
-  const templateFlag = parseFlagValue(args, '--template') as TemplateType | undefined;
-  const template =
-    templateFlag ??
-    ((await p.select({
-      message: 'What type of agent app?',
-      options: [
-        { value: 'agent', label: 'Agent', hint: 'Standalone agent with identity and tools' },
-        { value: 'mcp-server', label: 'MCP Server', hint: 'Model Context Protocol server with auth' },
-        { value: 'web-dashboard', label: 'Web Dashboard', hint: 'Next.js dashboard for agent management' },
-        { value: 'full-stack', label: 'Full Stack', hint: 'Agent + MCP + Dashboard combined' },
-      ],
-    })) as TemplateType);
-
-  if (p.isCancel(template)) throw new Error('Cancelled');
-
-  // Auth adapters
-  const adapterFlag = parseFlagValue(args, '--adapter');
-  const adapters = adapterFlag
-    ? ([adapterFlag] as AuthAdapter[])
-    : ((await p.multiselect({
-        message: 'Authentication adapters?',
-        options: [
-          { value: 'http', label: 'HTTP', hint: 'Bearer token / challenge-response' },
-          { value: 'websocket', label: 'WebSocket', hint: 'Persistent connection auth' },
-          { value: 'grpc', label: 'gRPC', hint: 'Protobuf-based auth' },
-        ],
-        initialValues: ['http'],
-        required: true,
-      })) as AuthAdapter[]);
-
-  if (p.isCancel(adapters)) throw new Error('Cancelled');
-
-  // Enterprise bridge
-  const bridgeFlag = parseFlagValue(args, '--bridge') as EnterpriseBridge | undefined;
-  const bridge =
-    bridgeFlag ??
-    ((await p.select({
-      message: 'Enterprise bridge?',
-      options: [
-        { value: 'none', label: 'None', hint: 'Skip enterprise integration' },
-        { value: 'oidc', label: 'OIDC', hint: 'OpenID Connect bridge for human SSO' },
-        { value: 'scim', label: 'SCIM', hint: 'User provisioning bridge' },
-      ],
-    })) as EnterpriseBridge);
-
-  if (p.isCancel(bridge)) throw new Error('Cancelled');
-
-  // Deploy target
-  const deployFlag = parseFlagValue(args, '--deploy') as DeployTarget | undefined;
-  const deploy =
-    deployFlag ??
-    ((await p.select({
-      message: 'Deploy target?',
-      options: [
-        { value: 'local', label: 'Local', hint: 'Run locally with Node.js' },
-        { value: 'cloudflare', label: 'Cloudflare Workers', hint: 'Edge-first deployment' },
-        { value: 'vercel', label: 'Vercel Edge', hint: 'Next.js-optimized deployment' },
-        { value: 'aws', label: 'AWS Lambda', hint: 'Serverless with API Gateway' },
-        { value: 'docker', label: 'Docker', hint: 'Container deployment' },
-      ],
-    })) as DeployTarget);
-
-  if (p.isCancel(deploy)) throw new Error('Cancelled');
-
-  // Optional features
-  const bioagentic = hasFlag(args, '--bioagentic')
-    ? true
-    : ((await p.confirm({
-        message: 'Include Bioagentic entity classification?',
-        initialValue: false,
-      })) as boolean);
-
-  if (p.isCancel(bioagentic)) throw new Error('Cancelled');
-
-  const fabrics = hasFlag(args, '--fabrics')
-    ? true
-    : ((await p.confirm({
-        message: 'Include Fabrics routing?',
-        initialValue: false,
-      })) as boolean);
-
-  if (p.isCancel(fabrics)) throw new Error('Cancelled');
-
-  return {
-    projectName: typeof projectName === 'string' ? projectName : 'my-agent-app',
-    template: template as TemplateType,
-    adapters: adapters as readonly AuthAdapter[],
-    bridge: bridge as EnterpriseBridge,
-    deploy: deploy as DeployTarget,
-    bioagentic: bioagentic as boolean,
-    fabrics: fabrics as boolean,
-  };
+      validate(value) { try { validateProjectName(value); return undefined; } catch (error) { return (error as Error).message; } },
+    });
+    if (p.isCancel(answer)) throw new Error('Cancelled.');
+    name = validateProjectName(answer);
+  }
+  return { projectName: validateProjectName(name), template: 'starter', adapters: [], bridge: 'none',
+    deploy: 'local', bioagentic: false, fabrics: false };
 }

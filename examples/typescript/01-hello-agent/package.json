@@ -4,13 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "bun run src/index.ts"
+    "start": "node src/index.mjs"
   },
   "dependencies": {
-    "@openagentid/sdk": "workspace:*"
+    "@openagentid/sdk": "0.4.0"
   },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.4.0"
+  "engines": {
+    "node": ">=20"
   }
 }

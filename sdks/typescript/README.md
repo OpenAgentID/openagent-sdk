@@ -6,30 +6,40 @@ authenticate with LifeID; agents may have a person/organization owner or be
 explicitly authorized self roots. Blinds brokers credentials, and Genesis KMS
 holds customer secrets. Approved self roots have no reduced access tier.
 
-One `import` wraps [OAS](https://openagent.id) identity, [Arsenal](https://github.com/OpenAgentID/arsenal) scoped credentials, and [AEGIS](https://github.com/OpenAgentID/aegis) verification into a single developer-facing surface. Works in Node 20+, Bun, Deno, the browser, and Cloudflare Workers.
+## Local identity, no hosted service required
+
+SDK 0.4.0 is a release candidate. Use the Node-only local module to keep identity
+keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
-import { OpenAgent } from '@openagentid/sdk';
+import { OpenAgentWorkspace } from '@openagentid/sdk/local';
 
-const agent = await OpenAgent.createAgent({
-  parent: 'did:oas:openagent:hmr:alice',
-  name: 'my-bot',
-  scopes: ['openai:chat:completions', 'github:repo:read'],
+const app = await OpenAgentWorkspace.initialize('./.openagentid', {
+  audience: 'https://my-app.example/agents',
 });
-
-const creds = await agent.credentialsFor('openai');
-const res   = await creds.fetch('https://api.openai.com/v1/chat/completions', {
-  method: 'POST',
-  body: JSON.stringify({ model: 'gpt-4', messages }),
-});
+const agent = await app.createAgent('Research assistant');
+const challenge = await app.issueChallenge(agent.did);
+const proof = await app.prove(agent.did, challenge);
+const verified = await app.verify(proof, { nonce: challenge.nonce });
 ```
 
-Configure the real identity authority, key custody and credential broker before
-using this flow. Unconfigured production subsystems fail closed. New identities
-default to the `openagent` namespace; signed legacy `did:l1fe` identities remain
-readable without changing their identifiers.
+This example deliberately creates and trusts an identity in one application.
+For separate parties, export the public identity and explicitly import it into
+the receiver with `trustIdentity`; never automatically trust a submitted proof's
+key. Use `open` after the first run; initialization refuses to overwrite state.
+The [complete quickstart](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/getting-started/quickstart-typescript.md)
+shows separate signer/receiver workspaces and the generated application.
 
-## Version 0.3.0 (unreleased)
+The local module needs Node 20+ and private persistent storage on one host.
+Keep its directory out of Git. No Life account, remote authority, private SDK or
+telemetry is required. Existing `IdentityVerifier` callbacks support applications
+that bring distributed storage or different trust authorities.
+
+The `OpenAgent` facade still wraps separately configured OAS identity, Arsenal
+credentials and AEGIS verification clients. It fails closed if a required client
+is missing. Its endpoint options do not create those clients automatically.
+
+## Version 0.3.0
 
 Use the same live expression state with Autos (default) or SpaceX:
 
@@ -156,18 +166,15 @@ import { OpenAgentRuntime } from '@openagentid/sdk';
 
 const runtime = new OpenAgentRuntime({
   namespace: 'mytenant',
-  endpoints: {
-    oasResolver: 'https://did.mytenant.example',
-    arsenalBroker: 'https://arsenal.mytenant.example',
-    aegisVerifier: 'https://aegis.mytenant.example',
-  },
+  clients: { identity: yourIdentityClient, credentials: yourBrokerClient,
+    verification: yourVerificationClient },
 });
 ```
 
 ## Agent avatars and the open character API
 
 Autos is the default body/face skin for agents. SpaceX provides geometric
-shapes. Both use the same sixteen expressions and two live pill eyes. Change
+shapes. Both use the same eighteen expressions and two live pill eyes. Change
 skin independently of expression, blink or gaze; neither changes the DID.
 
 ```ts

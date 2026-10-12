@@ -29,3 +29,7 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.*.example
+.openagentid/
+**/.openagentid/
+.public-tooling-artifacts/
+.public-onboarding-*/

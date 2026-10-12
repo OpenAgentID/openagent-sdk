@@ -20,38 +20,17 @@ examples/
     └── 04-skills-governance/
 ```
 
-## Running an example
+## Start here
 
-Every TypeScript example expects `bun` (works with `node 20+` too):
+The updated [Hello Agent](typescript/01-hello-agent/) uses Node 20+ and the public
+SDK 0.4 local authority with actual signing keys and replay refusal. For a full
+HTTP application and animated UI, use the [generated starter](../docs/getting-started/quickstart-typescript.md).
 
-```bash
-cd examples/typescript/01-hello-agent
-bun install
-bun run start
-```
-
-Every Rust example uses plain `cargo`:
-
-```bash
-cd examples/rust/01-hello-agent
-cargo run
-```
-
-## Prerequisites
-
-Examples assume you have an Arsenal broker reachable at `OPENAGENT_BROKER_URL` and a parent DID you're authorized to act on behalf of. For local development, the SDK ships with a `FakeBroker` mode (`OPENAGENT_BROKER_URL=fake://in-memory`) that mints valid tokens in-process without any external service. Examples default to this mode so they run out of the box; production deployments should point at a real broker.
-
-## Environment variables
-
-- `OPENAGENT_BROKER_URL` — Arsenal broker URL. Defaults to `fake://in-memory`.
-- `OPENAGENT_AEGIS_URL` — AEGIS verifier URL. Defaults to `fake://in-memory`.
-- `OPENAGENT_NAMESPACE` — DID namespace. Defaults to `example`.
-- `OPENAGENT_PARENT_DID` — Parent DID for `createAgent` calls. Defaults to a per-example local HMR.
-- `OPENAGENT_LOG` — Log level (`error`, `warn`, `info`, `debug`). Defaults to `info`.
-
-## Relationship to the SDKs
-
-Examples reference `@openagentid/sdk` (TS) and `openagent-sdk` (Rust) as workspace dependencies. If you're running outside the workspace, change the reference to a published version or a path dependency. Feel free to copy and adapt.
+Other examples predate the current public onboarding path. They require their
+specific subsystem integrations and are not qualified by the new starter tests.
+Do not use historical `fake://in-memory` configuration as a production authority;
+the SDK has no implicit fake-broker fallback. The public local identity path
+needs no OAS/Arsenal/AEGIS private source checkout or Life-hosted service.
 
 ## License
 

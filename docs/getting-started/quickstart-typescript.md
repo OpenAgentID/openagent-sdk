@@ -1,78 +1,117 @@
-# Quickstart — TypeScript
+# Quickstart — TypeScript and JavaScript
 
-This is the three-line demo. Given a parent identity and some scopes, you can mint an agent, authenticate a request that arrived with its token, and fetch a credentialed HTTP call — all without ever touching a provider API key.
+The SDK 0.4 developer path runs on Node 20+ without a Life account, API key,
+hosted resolver or private package. Keys and trust stay on your infrastructure.
+Version 0.4.0 is a release candidate until its release receipt confirms publication.
 
-## The three lines
+## Start a working application
+
+```sh
+npx create-openagent@0.2.0 my-agent-app --yes
+cd my-agent-app
+npm install
+npm run dev
+```
+
+The starter starts a local HTTP application with an animated agent. In another
+terminal, run `npm run agent` to authenticate an actual request. Autos is the
+default skin; SpaceX uses the same expression state and live eyes.
+The starter keeps the signer and receiving application's trust store separate.
+The application explicitly imports the signer's public identity during initial
+setup. Restarting preserves the identity, consumed challenges and revocations.
+
+No command registers an account, uploads a private key or contacts a Life
+service. npm downloads public packages during installation; the identity flow
+runs locally. The starter is bound to loopback. To deploy an application, choose
+your HTTPS transport and storage/authorization policy deliberately.
+
+## Add identity to an existing Node application
+
+```sh
+npm install @openagentid/sdk@0.4.0
+```
+
+This complete first-run example uses two separate persistent workspaces. Run it
+in a new directory; initialization refuses to overwrite existing state.
 
 ```ts
-import { OpenAgent } from '@openagentid/sdk';
+import { OpenAgentWorkspace } from '@openagentid/sdk/local';
 
-const agent = await OpenAgent.createAgent({ parent: 'did:oas:acme:hmr:alice', name: 'research-bot', scopes: ['openai:chat:invoke'] });
-const ctx   = await OpenAgent.authenticate(request);
-const creds = await agent.credentialsFor('openai');
+const audience = 'https://my-app.example/agent-requests';
+const signer = await OpenAgentWorkspace.initialize('./agent-keys', { audience });
+const receiver = await OpenAgentWorkspace.initialize('./app-trust', { audience });
+const agent = await signer.createAgent('Research assistant');
+
+// Explicitly authorize this public identity in this application.
+// Do this through your operator/onboarding policy, never automatically from
+// a possession proof submitted by an unknown caller.
+await receiver.trustIdentity(await signer.exportIdentity(agent.did));
+
+// Receiver issues a fresh, short-lived challenge for this agent.
+const challenge = await receiver.issueChallenge(agent.did);
+const proof = await signer.prove(agent.did, challenge);
+const identity = await receiver.verify(proof, { nonce: challenge.nonce });
+console.log(identity.did); // verified signature, current local trust, no replay
 ```
 
-Three lines, three responsibilities. `createAgent` mints a new DID under the parent's lineage and issues an Arsenal capability token. `authenticate` takes an inbound HTTP request and returns a verified context — who the caller is, what lineage they come from, which scopes they hold, and whether any AEGIS policies should apply. `credentialsFor` returns a fetch-shaped object that transparently attaches the right credential when you call `.fetch()` or `.post()` — but the underlying API key never enters your process.
+On subsequent runs, use `OpenAgentWorkspace.open('./agent-keys')` and
+`OpenAgentWorkspace.open('./app-trust')`. Reusing the proof is refused, including
+after restart. `await receiver.revoke(agent.did)` immediately removes trust at
+this receiver; an existing key file is not deleted and another application's
+independent trust policy is not changed.
 
-## A complete server
+Transport the public document, challenge and proof through your own application.
+The signed proof binds the exact audience and issued nonce. It authenticates
+identity; your application still decides permissions and tenant access. Never
+accept a request's proposed public key as its own trust authority.
 
-Here's a real Node HTTP server that gates a `/chat` endpoint by agent identity:
+The file-backed workspace is for one host with a private persistent filesystem.
+Do not put it on ephemeral serverless storage, synchronize it between hosts, or
+commit it. Distributed applications can supply their own resolver, root trust,
+revocation and atomic replay storage to the existing `IdentityVerifier`.
+
+## Put a live avatar in your UI
 
 ```ts
-import { createServer } from 'node:http';
-import { OpenAgent } from '@openagentid/sdk';
+import { mountCharacter } from '@openagentid/sdk/character-player';
 
-const server = createServer(async (req, res) => {
-  try {
-    const ctx = await OpenAgent.authenticate(req);
-
-    if (!ctx.scopes.includes('openai:chat:invoke')) {
-      res.writeHead(403, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ error: 'missing scope openai:chat:invoke' }));
-      return;
-    }
-
-    // Load the agent on behalf of the caller.
-    const agent = await OpenAgent.loadAgent(ctx.did);
-    const openai = await agent.credentialsFor('openai');
-
-    const body = await new Response(req).text();
-    const upstream = await openai.post('https://api.openai.com/v1/chat/completions', {
-      headers: { 'content-type': 'application/json' },
-      body,
-    });
-
-    res.writeHead(upstream.status, { 'content-type': 'application/json' });
-    res.end(await upstream.text());
-  } catch (err: unknown) {
-    res.writeHead(401, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: (err as Error).message }));
-  }
-});
-
-server.listen(3000, () => console.log('listening on :3000'));
+const avatar = mountCharacter(document.querySelector('#avatar')!, agentDid);
+avatar.update({ status: 'reasoning' }); // thoughtful
+avatar.update({ status: 'working' });   // attentive
+avatar.update({ status: 'success' });   // happy
+avatar.setAppearance({ skin: 'spacex' });
+// Dispose when the component unmounts.
+avatar.dispose();
 ```
 
-Run it:
+Feed `update` from the application's authorized activity channel. It changes the
+presentation, not identity, permissions or the agent's saved profile. The player
+preserves its animation timeline and honors reduced motion.
 
-```bash
-bun run server.ts
+## Inspect and integrate from the terminal
+
+```sh
+npx oaid --help
+npx oaid init --directory .openagentid --audience https://my-app.example/agents
+npx oaid agent create --directory .openagentid --name researcher
+npx oaid doctor --directory .openagentid
 ```
 
-On a request, `OpenAgent.authenticate` looks for one of: `Authorization: OpenAgent <token>`, `Authorization: Bearer <token>`, `X-OpenAgent-Token`, or an `oa_token` query parameter. If the verifier accepts the token, you get back an `AuthContext` object. If none does, it throws `OpenAgentError` with a `code` you can switch on.
+Use `agent export`/`agent trust` to exchange public identity documents,
+`challenge`/`prove`/`verify --local` for authenticated requests, and `agent revoke`
+to withdraw this receiver's trust. Commands return JSON for automation and nonzero
+exit codes on refusal. Run `npx oaid --help` for exact options. `doctor` validates
+workspace storage and reports metadata; it does not claim a remote login worked.
 
-`agent.credentialsFor('openai')` is the interesting line. You never told OpenAgent what your OpenAI API key is — because you didn't need to. The Arsenal broker in your deployment holds the key. When your code calls `openai.post(url, opts)`, the SDK talks to the broker, the broker attaches the Authorization header, the broker proxies upstream, and the broker returns the response. Your agent process never sees the key and never has to rotate it.
+The existing remote `verify --endpoint`, `oidc doctor`, `glyph` and new `avatar`
+commands remain available. See [identity verification](../identity-verification.md)
+and [characters](../characters.md) for the protocol and presentation APIs.
 
-## What happens on the wire
+## Optional integrations
 
-The first time you call `createAgent`, OpenAgent does the following:
-
-1. Verifies that the parent DID exists and the local process is authorized to act on its behalf (usually because you're holding the parent's signing key or a delegated ACT).
-2. Mints a new Ed25519 keypair and derives a DID of the form `did:oas:<namespace>:agent:<fingerprint>`.
-3. Writes a lineage proof binding the new agent to its parent, signed by the parent key.
-4. Requests an Arsenal ACT from the broker, scoped to `openai:chat:invoke` and bound to the new DID.
-5. Returns the `Agent` object, which holds the DID, the ACT, and a handle to the broker.
-
-Every `credentialsFor` call you make later is scoped by the ACT — if the scope doesn't include `openai:chat:invoke`, the broker will refuse to proxy the request and the SDK will throw `ScopeDenied`.
-
-Continue with the [core concepts](core-concepts.md) to understand what "lineage" and "scopes" mean, or jump to [creating an agent](../guides/creating-an-agent.md) for the full-featured guide.
+`@openagentid/oidc` can bridge verified agents into an OIDC relying party.
+The `OpenAgent` facade supports separately configured identity, credential and
+verification clients. Calling `OpenAgent.createAgent` with no identity client
+fails closed; endpoint strings alone do not construct those clients. LifeID,
+Blinds and Genesis are optional integration choices, not prerequisites for the
+local identity and avatar path above.

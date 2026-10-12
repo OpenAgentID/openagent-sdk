@@ -21,6 +21,49 @@ permissions:
   contents: read
 
 jobs:
+  public-onboarding:
+    name: public developer quickstart (Node ${{ matrix.node }})
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Build public SDK with no private repository credentials
+        working-directory: sdks/typescript
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Build and test project generator
+        working-directory: packages/create-openagent
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+      - name: Install browser test dependencies
+        working-directory: tools/public-onboarding
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node node_modules/playwright-core/cli.js install --with-deps chromium
+      - name: Verify packed public packages, real HTTP and live browser
+        run: node tools/public-onboarding/verify.mjs
+      - name: Preserve release archives and verification receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-onboarding-node-${{ matrix.node }}
+          path: .public-tooling-artifacts/
+          include-hidden-files: true
+          if-no-files-found: error
+
   rust:
     name: rust fmt, clippy, test
     runs-on: depot-ubuntu-latest
