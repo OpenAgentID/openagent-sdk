@@ -27,6 +27,8 @@ h2 { margin: 0 0 8px; font-size: 18px; letter-spacing: -.02em; }
 .code-panel { margin-top: 28px; }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; font-size: 14px; font-weight: 600; min-width: 0; }
 input:not([type=range]):not([type=checkbox]), select { min-width: 0; width: 100%; border: 1px solid #ced8ce; border-radius: 9px; background: #fff; color: inherit; padding: 11px 12px; font: inherit; font-weight: 400; }
+select { appearance: none; padding-right: 38px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: right 17px center, right 12px center; background-size: 5px 5px; background-repeat: no-repeat; }
+@media (forced-colors: active) { select { appearance: auto; background-image: none; } }
 #did { font-family: ui-monospace, monospace; font-size: 12px; }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .slider { display: grid; grid-template-columns: 1fr auto; gap: 9px; margin: 14px 0 20px; font-size: 14px; font-weight: 600; }
@@ -49,7 +51,7 @@ footer { display: flex; justify-content: space-between; padding-top: 30px; font-
   :root { color: #e5eee5; background: #111713; }
   .preview-panel, form { background: #1c251f; border-color: #344238; }
   .canvas { background: repeating-conic-gradient(#202b24 0% 25%, #263129 0% 50%) 0 0 / 28px 28px; }
-  input:not([type=range]):not([type=checkbox]), select, button { background: #232f27; border-color: #435447; }
+  input:not([type=range]):not([type=checkbox]), select, button { background-color: #232f27; border-color: #435447; }
   .intro, .fixture-note, .hint, summary, footer, output, .brand span, #status { color: #b2c1b5; }
   .fixture-note strong { color: #9ed9b2; }
   .activity-panel, .timeline li { border-color: #344238; }

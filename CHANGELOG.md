@@ -2,6 +2,8 @@
 
 ## 0.5.0 — character families and face avatars, 2026-10-12
 
+- Inset every hosted-demo and generated-starter selector arrow by 12px, reserve
+  space for its label, and retain native selectors in forced-color mode.
 - Add twelve original crafted families and Halloween, Thanksgiving and Christmas,
   each with multiple distinct character kinds: 17 families and 62 kinds total.
   Autos remains the default; every family uses the shared live-v1 eye expressions.

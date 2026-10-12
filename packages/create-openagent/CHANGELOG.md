@@ -3,6 +3,8 @@
 
 ## [0.3.0] - 2026-10-12
 
+- Give every starter selector an inset arrow and room for its label, with a
+  native-control fallback for forced colors.
 - Pin SDK 0.5.0 and populate family/kind choices from its catalog, including all
   holiday families. Keep Autos default, face framing, real verified-request state
   and stable animated eye nodes across appearance changes.
