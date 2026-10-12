@@ -16,7 +16,9 @@ The exported `scopeSchema` in `sdks/typescript/src/config.ts` validates:
 It accepts **2–5** nonempty colon-separated segments. The first starts with a
 lowercase letter/digit and permits lowercase letters/digits, underscores and
 hyphens. Later segments additionally permit `*` in their strings. Uppercase,
-whitespace, empty segments, a wildcard first segment and leading `!` are refused.
+spaces, tabs, whitespace inside segments, empty segments, a wildcard first
+segment and leading `!` are refused. JavaScript’s `$` anchor can accept a final
+line terminator; enforce canonical input at your application boundary.
 This is lexical input validation, not wildcard expansion or a scope grant.
 
 `CreateAgentInput.scopes` is a nonempty array of these strings. The facade

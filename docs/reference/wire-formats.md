@@ -9,7 +9,7 @@ SDK 0.7.2 and separate OIDC 0.2.0 integration.
 | --- | --- | --- |
 | Identity possession/delegation | Compact signed JWTs inside `{token, delegations}` | Exact authoritative DID keys/purposes, current root/revocation, issued nonce and atomic replay |
 | Canonical ACT | Binary CBOR capability envelope and signed claims bytes | Canonical ACT verifier with trusted issuer/key/audience/time/required-scope policy |
-| OIDC | Provider authorization code, signed ID tokens, opaque access tokens and UserInfo and UserInfo | Registered issuer/client keys, PKCE, nonce, current identity binding and provider storage |
+| OIDC | Provider authorization code, signed ID tokens, opaque access tokens and UserInfo | Registered issuer/client keys, PKCE, nonce, current identity binding and provider storage |
 | OATS OAS attestation | Signed VC JSON using the supported Ed25519/JCS proof profile | Trusted issuer assertion keys, both current identities and credential revocation |
 | Audit receipts | Component-specific record and hash-chain serializer | Host-selected durable custody and trusted checkpoints |
 
