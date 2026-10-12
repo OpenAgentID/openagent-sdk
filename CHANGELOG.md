@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1 — refined character accessories, 2026-10-12
+
+- Lighten glasses rims and temples, add subtle hinges, and give headphones a
+  slimmer band with layered soft cushions and restrained highlights.
+- Preserve fixed lens dimensions, eye-following frames, head-side connections,
+  external headphone fit and stable face crops across every family and eye mode.
+- Pin create-openagent 0.5.1 to SDK 0.7.1. Appearance, identity, animation and
+  authentication contracts are unchanged; OIDC remains 0.2.0.
+
 ## 0.7.0 — shared character material and head-fitted accessories, 2026-10-12
 
 - Default all 17 families and 62 kinds to soft plush material; keep flat vector

@@ -8,7 +8,7 @@ identity service. Your application controls keys, trust and access.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.5.0 my-agent-app --yes
+npx create-openagent@0.5.1 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -19,14 +19,14 @@ verifies a real signed request; its status updates the agent's live eyes. Autos
 is the default skin with a soft plush finish and on-face eyes. SpaceX, original
 crafted families and holiday characters are selectable; every family also offers
 flat material, raised eyes and glasses/headphones. Keys and trust survive restarts.
-The starter uses SDK 0.7.0 and public npm dependencies only.
+The starter uses SDK 0.7.1 and public npm dependencies only.
 
-For an existing application, install `@openagentid/sdk@0.7.0` and follow the
+For an existing application, install `@openagentid/sdk@0.7.1` and follow the
 [TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
 The included `oaid` CLI creates identities, exchanges public trust documents,
 issues challenges, signs and verifies proofs, revokes local trust and renders
 avatars. No command requires a Life service. See the
-[0.7.0 release contents](docs/release-0.7.0.md).
+[0.7.1 release contents](docs/release-0.7.1.md).
 
 Life sells optional hosted services around this core. Inside the Life ecosystem,
 LifeID authenticates humans, Blinds brokers credentials and Genesis KMS stores
@@ -136,4 +136,4 @@ its live eyes. See the [accessory release guide](docs/release-0.6.0.md) for prof
 All 17 character families default to `finish: 'plush'` and `eyePlacement: 'face'`.
 Select `finish: 'flat'` or `eyePlacement: 'raised'` when rendering, saving an
 appearance or calling `player.setAppearance`. Accessories and the live eye
-state persist across those changes. See the [0.7.0 release guide](docs/release-0.7.0.md).
+state persist across those changes. See the [0.7.1 release guide](docs/release-0.7.1.md).

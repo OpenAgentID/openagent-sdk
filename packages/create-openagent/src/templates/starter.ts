@@ -9,7 +9,7 @@ export function generateStarterTemplate(projectName: string): TemplateFile[] {
       type: 'module', engines: { node: '>=20' }, scripts: {
         dev: 'node src/server.mjs', agent: 'node src/agent.mjs', identity: 'node src/identity.mjs',
         test: 'node --test test/*.test.mjs',
-      }, dependencies: { '@openagentid/sdk': '0.7.0' } }, null, 2) + '\n' },
+      }, dependencies: { '@openagentid/sdk': '0.7.1' } }, null, 2) + '\n' },
     { path: '.gitignore', content: 'node_modules/\n.openagent/\ncoverage/\n.env\n' },
     { path: 'src/workspaces.mjs', content: workspaces },
     { path: 'src/server.mjs', content: server },

@@ -109,7 +109,7 @@ describe('independent character accessories', () => {
     const frames = descendants(glasses).filter(node => node.tag === 'rect');
     expect(frames).toHaveLength(4); // Two hollow lenses, each with a contrasting keyline.
     expect(frames.every(node => node.attributes.fill === 'none')).toBe(true);
-    expect(new Set(frames.map(node => node.attributes.stroke))).toEqual(new Set(['#BBC4D1', '#243247']));
+    expect(new Set(frames.map(node => node.attributes.stroke))).toEqual(new Set(['#BAC5CF', '#273647']));
     expect(descendants(glasses).every(node => node.attributes.fill === undefined || node.attributes.fill === 'none')).toBe(true);
   });
 

@@ -7,7 +7,7 @@
     "start": "node src/index.mjs"
   },
   "dependencies": {
-    "@openagentid/sdk": "0.7.0"
+    "@openagentid/sdk": "0.7.1"
   },
   "engines": {
     "node": ">=20"

@@ -8,7 +8,7 @@ roots have no reduced access tier; each application controls its permissions.
 
 ## Local identity, no hosted service required
 
-Use the Node-only local module in SDK 0.7.0 to keep identity
+Use the Node-only local module in SDK 0.7.1 to keep identity
 keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
@@ -39,7 +39,7 @@ The `OpenAgent` facade still wraps separately configured OAS identity, Arsenal
 credentials and AEGIS verification clients. It fails closed if a required client
 is missing. Its endpoint options do not create those clients automatically.
 
-## Version 0.7.0
+## Version 0.7.1
 
 Every character family defaults to a soft plush finish and on-face eyes. Pass
 `finish: 'flat'` for flat vector material or `eyePlacement: 'raised'` for the same
@@ -61,7 +61,7 @@ player.dispose();
 
 Glasses retain fixed lens dimensions while following gaze, with temples reaching
 the head sides. Headphones fit outside the head; the face crop reserves room for
-them. See the [0.7.0 release contents](../../docs/release-0.7.0.md).
+them. See the [0.7.1 release contents](../../docs/release-0.7.1.md).
 
 ## Version 0.3.0
 

@@ -221,7 +221,7 @@ describe('public local CLI integration', () => {
       ['doctor', '--unknown', 'value'], ['agent', 'unknown'], ['--version', 'extra'],
     ]) expect((await command(args)).code).toBe(1);
     const version = await command(['--version']);
-    expect(version.out).toBe('0.7.0\n');
+    expect(version.out).toBe('0.7.1\n');
     expect((await command(['--help'])).out).toContain('oaid agent trust');
     expect((await command(['--help'])).out).toContain('oaid avatar accessories');
     expect((await command(['--help'])).out).toContain('--accessories glasses,headphones');

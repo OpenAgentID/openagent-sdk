@@ -10,7 +10,7 @@ import { getCharacterAccessories, parseCharacterAccessories } from './character-
 import { OpenAgentWorkspace, type LocalAgentDocument } from './local-workspace.js';
 import type { AgentIdentityProof } from './identity-verification.js';
 
-const usage = `OpenAgentID 0.7.0 — identity on infrastructure you control
+const usage = `OpenAgentID 0.7.1 — identity on infrastructure you control
 
 oaid init [--directory PATH] [--audience AUDIENCE] [--namespace NAME]
 oaid agent create --name NAME [--directory PATH]
@@ -144,7 +144,7 @@ export async function oidcDoctor(issuer: string, fetcher: typeof fetch = globalT
 export async function runCli(args: readonly string[], io: CliIO): Promise<number> {
   try {
     if (!args.length || args[0] === '--help' || args[0] === 'help') { io.stdout(usage); return 0; }
-    if (args[0] === '--version' && args.length === 1) { io.stdout('0.7.0\n'); return 0; }
+    if (args[0] === '--version' && args.length === 1) { io.stdout('0.7.1\n'); return 0; }
     if (args[0] === 'init') {
       const flags = options(args.slice(1), ['--directory', '--audience', '--namespace']);
       const created = await OpenAgentWorkspace.initialize(flags['--directory'] ?? '.openagentid', {
