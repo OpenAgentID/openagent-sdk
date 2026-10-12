@@ -10,6 +10,19 @@ const base = 'https://characters.example.org/v1/characters';
 const handler = createCharacterApiHandler();
 const jsonHeaders = { 'content-type': 'application/json' };
 const path = (identity = did, svg = false): string => `${base}/${svg ? 'svg/' : ''}${encodeURIComponent(identity)}`;
+const familyKinds = {
+  autos: ['standard', 'slender', 'wide'],
+  spacex: ['circle', 'pebble', 'squircle', 'capsule', 'triangle', 'hexagon', 'cloud', 'droplet'],
+  fold: ['standard', 'kite', 'fan'], sprig: ['standard', 'bud', 'leaf'],
+  ripple: ['standard', 'drop', 'wave'], halo: ['standard', 'comet', 'satellite'],
+  purl: ['standard', 'mitt', 'hood'], prism: ['standard', 'crystal', 'obelisk'],
+  coil: ['standard', 'spring', 'bellows'], kiln: ['standard', 'vase', 'teapot'],
+  wisp: ['standard', 'flame', 'curl'], relay: ['standard', 'radio', 'beacon'],
+  cairn: ['standard', 'tower', 'arch'], tuft: ['standard', 'pom', 'bear'],
+  halloween: ['pumpkin', 'ghost', 'bat', 'witch-hat', 'candy-corn'],
+  thanksgiving: ['turkey', 'acorn', 'squash', 'pie', 'corn'],
+  christmas: ['light', 'tree', 'snowman', 'ornament', 'gift'],
+} as const;
 
 function post(body: unknown, headers: HeadersInit = jsonHeaders): Request {
   return new Request(`${base}/generate`, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -39,6 +52,127 @@ describe('public stateless character API', () => {
     expect(characterApiOpenApi.security).toEqual([]);
     expect(characterApiOpenApi.components.schemas.CharacterGenerateRequestV1.additionalProperties).toBe(false);
     expect(characterApiOpenApi.components.schemas.LiveEyeStateV1.additionalProperties).toBe(false);
+  });
+
+  it('publishes exactly 17 families and 62 family kinds with closed, cross-family OpenAPI schemas', () => {
+    const catalog = getCharacterSkins();
+    const families = Object.keys(familyKinds);
+    const kinds = [...new Set(Object.values(familyKinds).flat())];
+    expect(catalog.map(entry => entry.id)).toEqual(families);
+    expect(catalog).toHaveLength(17);
+    expect(catalog.reduce((total, entry) => total + entry.shapes.length, 0)).toBe(62);
+    expect(Object.fromEntries(catalog.map(entry => [entry.id, entry.shapes]))).toEqual(familyKinds);
+    for (const entry of catalog) {
+      expect(entry.version).toBe(1);
+      expect(entry.eyeStyles).toEqual(['live-v1']);
+      expect(entry.expressions).toEqual(getCharacterExpressions());
+      expect(Object.isFrozen(entry)).toBe(true);
+      expect(Object.isFrozen(entry.shapes)).toBe(true);
+    }
+    const schemas = characterApiOpenApi.components.schemas;
+    for (const schema of [schemas.CharacterAppearanceV1, schemas.CharacterOptionsV1,
+      schemas.CharacterGenerateRequestV1, schemas.CharacterDescriptorV1]) {
+      expect(schema.additionalProperties).toBe(false);
+      expect(schema.properties.skin.enum).toEqual(families);
+      expect(schema.properties.shape.enum).toEqual(kinds);
+      expect(schema.allOf).toHaveLength(17);
+      expect(Object.fromEntries(schema.allOf.map(rule => [
+        rule.if.properties.skin.const, rule.then.properties.shape.enum,
+      ]))).toEqual(familyKinds);
+    }
+    expect(schemas.CharacterAppearanceV1.required).toEqual(['skin']);
+    expect(schemas.CharacterAppearanceV1.properties).not.toHaveProperty('view');
+    for (const schema of [schemas.CharacterOptionsV1, schemas.CharacterGenerateRequestV1,
+      schemas.CharacterDescriptorV1]) {
+      expect(schema.properties.view.enum).toEqual(['avatar', 'full']);
+      expect(schema.properties.view.default).toBe('avatar');
+    }
+    expect(schemas.CharacterDescriptorV1.required).toContain('view');
+    expect(schemas.CharacterSkinV1.additionalProperties).toBe(false);
+    expect(schemas.CharacterSkinV1.properties.id.enum).toEqual(families);
+    expect(schemas.CharacterSkinV1.properties.shapes.items.enum).toEqual(kinds);
+    expect(schemas.CharacterSkinV1.allOf).toHaveLength(17);
+    for (const rule of schemas.CharacterSkinV1.allOf) {
+      const expected = familyKinds[rule.if.properties.id.const];
+      expect(rule.then.properties.shapes.items.enum).toEqual(expected);
+      expect(rule.then.properties.shapes.minItems).toBe(expected.length);
+      expect(rule.then.properties.shapes.maxItems).toBe(expected.length);
+    }
+    expect(characterApiOpenApi.components.parameters.skin.schema.enum).toEqual(families);
+    expect(characterApiOpenApi.components.parameters.shape.schema.enum).toEqual(kinds);
+    expect(characterApiOpenApi.components.parameters.view.schema).toMatchObject({
+      enum: ['avatar', 'full'], default: 'avatar',
+    });
+  });
+
+  it('returns identical avatar/full JSON, SVG and POST geometry for every family kind', async () => {
+    for (const skin of getCharacterSkins()) {
+      for (const shape of skin.shapes) {
+        const common = { skin: skin.id, shape, animated: false, expression: 'concerned' as const,
+          state: { blink: 0.5, gaze: { x: -1, y: 1 } } };
+        const cropped = generateCharacter(did, { ...common, view: 'avatar' });
+        const full = generateCharacter(did, { ...common, view: 'full' });
+        expect(cropped).toMatchObject({ did, skin: skin.id, shape, view: 'avatar' });
+        expect(full).toMatchObject({ did, skin: skin.id, shape, view: 'full', color: cropped.color,
+          expression: cropped.expression, state: cropped.state });
+        expect(full.svg).toContain('viewBox="0 0 512 512"');
+        expect(cropped.svg).not.toContain('viewBox="0 0 512 512"');
+        // Framing changes only the square crop and its presentation attribute.
+        const geometry = (svg: string): string => svg.replace(/viewBox="[^"]*"/, '')
+          .replace(/data-character-view="[^"]*"/, '');
+        expect(geometry(cropped.svg)).toBe(geometry(full.svg));
+        for (const view of ['avatar', 'full'] as const) {
+          const expected = view === 'avatar' ? cropped : full;
+          const query = `?skin=${skin.id}&shape=${shape}&view=${view}&animated=false&expression=concerned&blink=0.5&gazeX=-1&gazeY=1`;
+          const response = await handler(new Request(path() + query));
+          expect(response.status).toBe(200);
+          expect(await response.json()).toEqual(expected);
+          const image = await handler(new Request(path(did, true) + query));
+          expect(image.status).toBe(200);
+          expect(await image.text()).toBe(expected.svg);
+          const generated = await handler(post({ did, ...common, view }));
+          expect(generated.status).toBe(200);
+          expect(await generated.json()).toEqual(expected);
+        }
+        const implicit = await handler(new Request(path() + `?skin=${skin.id}&shape=${shape}&animated=false`));
+        expect(await implicit.json()).toEqual(generateCharacter(did, { skin: skin.id, shape, animated: false, view: 'avatar' }));
+      }
+    }
+  });
+
+  it('rejects a known kind from another family in both views and both request transports', async () => {
+    const catalog = getCharacterSkins();
+    for (const skin of catalog) {
+      const shape = catalog.flatMap(entry => entry.shapes).find(kind => !skin.shapes.includes(kind))!;
+      for (const view of ['avatar', 'full'] as const) {
+        const query = `?skin=${skin.id}&shape=${shape}&view=${view}`;
+        for (const svg of [false, true]) {
+          const response = await handler(new Request(path(did, svg) + query, { headers: { 'if-none-match': '*' } }));
+          expect(response.status).toBe(400);
+          expect(response.headers.get('etag')).toBeNull();
+          expect(await response.json()).toEqual({ error: 'invalid_request' });
+        }
+        const generated = await handler(post({ did, skin: skin.id, shape, view }));
+        expect(generated.status).toBe(400);
+        expect(await generated.json()).toEqual({ error: 'invalid_request' });
+      }
+    }
+  });
+
+  it('reports the selected seasonal kind body tone rather than one family-wide color', async () => {
+    for (const [skin, colors] of Object.entries({
+      halloween: { pumpkin: '#8E3F25', ghost: '#315D78', bat: '#403551', 'witch-hat': '#51436A', 'candy-corn': '#A84B27' },
+      thanksgiving: { turkey: '#8B593D', acorn: '#AC7843', squash: '#A77735', pie: '#AD5E36', corn: '#A97128' },
+      christmas: { light: '#AC3049', tree: '#326A55', snowman: '#305E76', ornament: '#544D85', gift: '#346A5B' },
+    })) {
+      for (const [shape, color] of Object.entries(colors)) {
+        const response = await handler(new Request(path() + `?skin=${skin}&shape=${shape}&animated=false`));
+        expect(response.status).toBe(200);
+        const descriptor = await response.json();
+        expect(descriptor).toMatchObject({ skin, shape, color });
+        expect(descriptor.svg).toContain(color);
+      }
+    }
   });
 
   it('serves the real status mapping catalog with documented expression and state enums', async () => {
@@ -158,6 +292,9 @@ describe('public stateless character API', () => {
     '?skin=autos&skin=spacex', '?skin=autos&%73kin=autos', '?blink=0&blink=0',
     '?shape=unknown', '?skin=autos&shape=circle', '?skin=spacex&shape=standard',
     '?expression=unknown', '?expression=Happy', '?expression=neutral&expression=happy', '?style=pill',
+    '?view=unknown', '?view=', '?view=Avatar', '?view=avatar%0A', '?view=avatar&view=full',
+    '?view=avatar&%76iew=avatar', '?view=avatar&view=avatar', '?skin=pumpkin', '?kind=pumpkin',
+    '?skin=halloween&shape=tree', '?skin=christmas&shape=ghost', '?skin=thanksgiving&shape=gift',
     '?status=unknown', '?status=Idle', '?status=', '?status=reasoning%0A',
     '?status=idle&status=working', '?status=idle&%73tatus=idle', '?state.expression=happy',
     '?status=unknown&expression=happy', '?status=success&expression=unknown',
@@ -209,6 +346,11 @@ describe('public stateless character API', () => {
     { did, expression: 'unknown', state: { status: 'success' } },
     { did, state: { expression: 'happy', status: 'unknown' } },
     { did, state: { expression: 'concerned', status: 'idle', unknown: 0 } },
+    { did, view: null }, { did, view: 1 }, { did, view: [] }, { did, view: {} },
+    { did, view: 'Avatar' }, { did, view: 'avatar\n' }, { did, view: 'unknown' },
+    { did, skin: 'pumpkin' }, { did, kind: 'pumpkin' },
+    { did, skin: 'halloween', shape: 'tree' }, { did, skin: 'christmas', shape: 'ghost' },
+    { did, skin: 'thanksgiving', shape: 'gift' },
   ])('rejects invalid JSON schema input: %j', async body => {
     const response = await handler(post(body));
     expect(response.status).toBe(400);
@@ -344,7 +486,7 @@ describe('public stateless character API', () => {
     const urls = [path(), path() + '?skin=spacex', path() + '?blink=0.5',
       path() + '?gazeX=1&gazeY=0', path() + '?size=128', path() + '?animated=false',
       path() + '?shape=wide&expression=happy', path(did, true)];
-    urls.push(path() + '?status=reasoning', path() + '?status=blocked');
+    urls.push(path() + '?status=reasoning', path() + '?status=blocked', path() + '?view=full');
     const tags = [];
     for (const url of urls) tags.push((await handler(new Request(url))).headers.get('etag'));
     expect(new Set(tags).size).toBe(urls.length);

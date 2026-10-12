@@ -11,8 +11,8 @@ const DEFAULT_BASE_PATH = '/v1/characters';
 const MAX_BODY_BYTES = 16_384;
 const MAX_URL_LENGTH = 8192;
 const encoder = new TextEncoder();
-const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'shape', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
-const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'shape', 'expression', 'size', 'animated', 'state']);
+const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
+const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'expression', 'size', 'animated', 'state']);
 const numericQuery = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 class CharacterRequestError extends Error {
@@ -51,8 +51,7 @@ function member<T extends string>(value: unknown, allowed: readonly T[]): T {
 
 function characterOptions(value: Record<string, unknown>): CharacterOptions {
   onlyKeys(value, optionKeys);
-  const skin = value.skin === undefined ? 'autos' : value.skin;
-  if (skin !== 'autos' && skin !== 'spacex') invalid();
+  const skin = member(value.skin === undefined ? 'autos' : value.skin, getCharacterSkins().map(entry => entry.id));
   const result: { -readonly [Key in keyof CharacterOptions]: CharacterOptions[Key] } = { skin };
   if ('skinVersion' in value) {
     if (value.skinVersion !== 1) invalid();
@@ -65,6 +64,7 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
   if ('shape' in value) {
     result.shape = member(value.shape, getCharacterSkins().find(entry => entry.id === skin)!.shapes);
   }
+  if ('view' in value) result.view = member(value.view, ['avatar', 'full'] as const);
   if ('expression' in value) result.expression = member(value.expression, getCharacterExpressions());
   if ('size' in value) result.size = boundedNumber(value.size, 32, 2048, true);
   if ('animated' in value) {
@@ -98,7 +98,7 @@ function queryOptions(query: URLSearchParams): CharacterOptions {
     values[key] = value;
   }
   const input: Record<string, unknown> = {};
-  for (const key of ['skin', 'eyeStyle', 'shape', 'expression']) {
+  for (const key of ['skin', 'eyeStyle', 'shape', 'view', 'expression']) {
     if (key in values) input[key] = values[key];
   }
   if ('skinVersion' in values) {
@@ -285,8 +285,8 @@ export const characterApiOpenApi = {
   "openapi": "3.1.0",
   "info": {
     "title": "OpenAgentID Character API",
-    "version": "1.1.0",
-    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill skin; SpaceX offers eight silhouette shapes. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority."
+    "version": "1.2.0",
+    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 17 families and 62 distinct character kinds, including Halloween, Thanksgiving and Christmas. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority."
   },
   "servers": [
     {
@@ -828,6 +828,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/view"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -944,6 +947,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/view"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1098,6 +1104,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/view"
           }
         ],
         "responses": {
@@ -1190,6 +1199,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/view"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1300,6 +1312,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/view"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1448,6 +1463,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/status"
+          },
+          {
+            "$ref": "#/components/parameters/view"
           }
         ],
         "responses": {
@@ -1869,7 +1887,22 @@ export const characterApiOpenApi = {
             "type": "string",
             "enum": [
               "autos",
-              "spacex"
+              "spacex",
+              "fold",
+              "sprig",
+              "ripple",
+              "halo",
+              "purl",
+              "prism",
+              "coil",
+              "kiln",
+              "wisp",
+              "relay",
+              "cairn",
+              "tuft",
+              "halloween",
+              "thanksgiving",
+              "christmas"
             ],
             "default": "autos"
           },
@@ -1882,7 +1915,7 @@ export const characterApiOpenApi = {
             "type": "string",
             "const": "live-v1",
             "default": "live-v1",
-            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
           },
           "shape": {
             "type": "string",
@@ -1897,7 +1930,46 @@ export const characterApiOpenApi = {
               "triangle",
               "hexagon",
               "cloud",
-              "droplet"
+              "droplet",
+              "kite",
+              "fan",
+              "bud",
+              "leaf",
+              "drop",
+              "wave",
+              "comet",
+              "satellite",
+              "mitt",
+              "hood",
+              "crystal",
+              "obelisk",
+              "spring",
+              "bellows",
+              "vase",
+              "teapot",
+              "flame",
+              "curl",
+              "radio",
+              "beacon",
+              "tower",
+              "arch",
+              "pom",
+              "bear",
+              "pumpkin",
+              "ghost",
+              "bat",
+              "witch-hat",
+              "candy-corn",
+              "turkey",
+              "acorn",
+              "squash",
+              "pie",
+              "corn",
+              "light",
+              "tree",
+              "snowman",
+              "ornament",
+              "gift"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           }
@@ -1905,14 +1977,34 @@ export const characterApiOpenApi = {
         "allOf": [
           {
             "if": {
-              "required": [
-                "skin"
-              ],
+              "properties": {
+                "skin": {
+                  "const": "autos"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
               "properties": {
                 "skin": {
                   "const": "spacex"
                 }
-              }
+              },
+              "required": [
+                "skin"
+              ]
             },
             "then": {
               "properties": {
@@ -1929,14 +2021,354 @@ export const characterApiOpenApi = {
                   ]
                 }
               }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "fold"
+                }
+              },
+              "required": [
+                "skin"
+              ]
             },
-            "else": {
+            "then": {
               "properties": {
                 "shape": {
                   "enum": [
                     "standard",
-                    "slender",
-                    "wide"
+                    "kite",
+                    "fan"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "sprig"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "bud",
+                    "leaf"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "ripple"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "drop",
+                    "wave"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halo"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "comet",
+                    "satellite"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "purl"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "mitt",
+                    "hood"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "prism"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "crystal",
+                    "obelisk"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "coil"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "spring",
+                    "bellows"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "kiln"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "vase",
+                    "teapot"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "wisp"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "flame",
+                    "curl"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "relay"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "radio",
+                    "beacon"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "cairn"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "tower",
+                    "arch"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "tuft"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "pom",
+                    "bear"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halloween"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "pumpkin",
+                    "ghost",
+                    "bat",
+                    "witch-hat",
+                    "candy-corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "thanksgiving"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "turkey",
+                    "acorn",
+                    "squash",
+                    "pie",
+                    "corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "christmas"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "light",
+                    "tree",
+                    "snowman",
+                    "ornament",
+                    "gift"
                   ]
                 }
               }
@@ -1998,7 +2430,22 @@ export const characterApiOpenApi = {
             "type": "string",
             "enum": [
               "autos",
-              "spacex"
+              "spacex",
+              "fold",
+              "sprig",
+              "ripple",
+              "halo",
+              "purl",
+              "prism",
+              "coil",
+              "kiln",
+              "wisp",
+              "relay",
+              "cairn",
+              "tuft",
+              "halloween",
+              "thanksgiving",
+              "christmas"
             ],
             "default": "autos"
           },
@@ -2011,7 +2458,7 @@ export const characterApiOpenApi = {
             "type": "string",
             "const": "live-v1",
             "default": "live-v1",
-            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
           },
           "size": {
             "type": "integer",
@@ -2040,7 +2487,46 @@ export const characterApiOpenApi = {
               "triangle",
               "hexagon",
               "cloud",
-              "droplet"
+              "droplet",
+              "kite",
+              "fan",
+              "bud",
+              "leaf",
+              "drop",
+              "wave",
+              "comet",
+              "satellite",
+              "mitt",
+              "hood",
+              "crystal",
+              "obelisk",
+              "spring",
+              "bellows",
+              "vase",
+              "teapot",
+              "flame",
+              "curl",
+              "radio",
+              "beacon",
+              "tower",
+              "arch",
+              "pom",
+              "bear",
+              "pumpkin",
+              "ghost",
+              "bat",
+              "witch-hat",
+              "candy-corn",
+              "turkey",
+              "acorn",
+              "squash",
+              "pie",
+              "corn",
+              "light",
+              "tree",
+              "snowman",
+              "ornament",
+              "gift"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           },
@@ -2068,19 +2554,48 @@ export const characterApiOpenApi = {
             ],
             "default": "neutral",
             "description": "Outer preferred expression fallback. Explicit state.expression wins, then state.status mapping, then this preference, then neutral."
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "avatar",
+              "full"
+            ],
+            "default": "avatar",
+            "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
           }
         },
         "allOf": [
           {
             "if": {
-              "required": [
-                "skin"
-              ],
+              "properties": {
+                "skin": {
+                  "const": "autos"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
               "properties": {
                 "skin": {
                   "const": "spacex"
                 }
-              }
+              },
+              "required": [
+                "skin"
+              ]
             },
             "then": {
               "properties": {
@@ -2097,14 +2612,354 @@ export const characterApiOpenApi = {
                   ]
                 }
               }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "fold"
+                }
+              },
+              "required": [
+                "skin"
+              ]
             },
-            "else": {
+            "then": {
               "properties": {
                 "shape": {
                   "enum": [
                     "standard",
-                    "slender",
-                    "wide"
+                    "kite",
+                    "fan"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "sprig"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "bud",
+                    "leaf"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "ripple"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "drop",
+                    "wave"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halo"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "comet",
+                    "satellite"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "purl"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "mitt",
+                    "hood"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "prism"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "crystal",
+                    "obelisk"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "coil"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "spring",
+                    "bellows"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "kiln"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "vase",
+                    "teapot"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "wisp"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "flame",
+                    "curl"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "relay"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "radio",
+                    "beacon"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "cairn"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "tower",
+                    "arch"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "tuft"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "pom",
+                    "bear"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halloween"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "pumpkin",
+                    "ghost",
+                    "bat",
+                    "witch-hat",
+                    "candy-corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "thanksgiving"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "turkey",
+                    "acorn",
+                    "squash",
+                    "pie",
+                    "corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "christmas"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "light",
+                    "tree",
+                    "snowman",
+                    "ornament",
+                    "gift"
                   ]
                 }
               }
@@ -2126,7 +2981,22 @@ export const characterApiOpenApi = {
             "type": "string",
             "enum": [
               "autos",
-              "spacex"
+              "spacex",
+              "fold",
+              "sprig",
+              "ripple",
+              "halo",
+              "purl",
+              "prism",
+              "coil",
+              "kiln",
+              "wisp",
+              "relay",
+              "cairn",
+              "tuft",
+              "halloween",
+              "thanksgiving",
+              "christmas"
             ],
             "default": "autos"
           },
@@ -2139,7 +3009,7 @@ export const characterApiOpenApi = {
             "type": "string",
             "const": "live-v1",
             "default": "live-v1",
-            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
           },
           "size": {
             "type": "integer",
@@ -2168,7 +3038,46 @@ export const characterApiOpenApi = {
               "triangle",
               "hexagon",
               "cloud",
-              "droplet"
+              "droplet",
+              "kite",
+              "fan",
+              "bud",
+              "leaf",
+              "drop",
+              "wave",
+              "comet",
+              "satellite",
+              "mitt",
+              "hood",
+              "crystal",
+              "obelisk",
+              "spring",
+              "bellows",
+              "vase",
+              "teapot",
+              "flame",
+              "curl",
+              "radio",
+              "beacon",
+              "tower",
+              "arch",
+              "pom",
+              "bear",
+              "pumpkin",
+              "ghost",
+              "bat",
+              "witch-hat",
+              "candy-corn",
+              "turkey",
+              "acorn",
+              "squash",
+              "pie",
+              "corn",
+              "light",
+              "tree",
+              "snowman",
+              "ornament",
+              "gift"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           },
@@ -2196,19 +3105,48 @@ export const characterApiOpenApi = {
             ],
             "default": "neutral",
             "description": "Outer preferred expression fallback. Explicit state.expression wins, then state.status mapping, then this preference, then neutral."
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "avatar",
+              "full"
+            ],
+            "default": "avatar",
+            "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
           }
         },
         "allOf": [
           {
             "if": {
-              "required": [
-                "skin"
-              ],
+              "properties": {
+                "skin": {
+                  "const": "autos"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
               "properties": {
                 "skin": {
                   "const": "spacex"
                 }
-              }
+              },
+              "required": [
+                "skin"
+              ]
             },
             "then": {
               "properties": {
@@ -2225,14 +3163,354 @@ export const characterApiOpenApi = {
                   ]
                 }
               }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "fold"
+                }
+              },
+              "required": [
+                "skin"
+              ]
             },
-            "else": {
+            "then": {
               "properties": {
                 "shape": {
                   "enum": [
                     "standard",
-                    "slender",
-                    "wide"
+                    "kite",
+                    "fan"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "sprig"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "bud",
+                    "leaf"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "ripple"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "drop",
+                    "wave"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halo"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "comet",
+                    "satellite"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "purl"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "mitt",
+                    "hood"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "prism"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "crystal",
+                    "obelisk"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "coil"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "spring",
+                    "bellows"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "kiln"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "vase",
+                    "teapot"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "wisp"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "flame",
+                    "curl"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "relay"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "radio",
+                    "beacon"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "cairn"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "tower",
+                    "arch"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "tuft"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "pom",
+                    "bear"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halloween"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "pumpkin",
+                    "ghost",
+                    "bat",
+                    "witch-hat",
+                    "candy-corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "thanksgiving"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "turkey",
+                    "acorn",
+                    "squash",
+                    "pie",
+                    "corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "christmas"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "light",
+                    "tree",
+                    "snowman",
+                    "ornament",
+                    "gift"
                   ]
                 }
               }
@@ -2254,7 +3532,8 @@ export const characterApiOpenApi = {
           "animated",
           "state",
           "svg",
-          "expression"
+          "expression",
+          "view"
         ],
         "properties": {
           "did": {
@@ -2264,7 +3543,22 @@ export const characterApiOpenApi = {
             "type": "string",
             "enum": [
               "autos",
-              "spacex"
+              "spacex",
+              "fold",
+              "sprig",
+              "ripple",
+              "halo",
+              "purl",
+              "prism",
+              "coil",
+              "kiln",
+              "wisp",
+              "relay",
+              "cairn",
+              "tuft",
+              "halloween",
+              "thanksgiving",
+              "christmas"
             ],
             "default": "autos"
           },
@@ -2277,7 +3571,7 @@ export const characterApiOpenApi = {
             "type": "string",
             "const": "live-v1",
             "default": "live-v1",
-            "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
           },
           "size": {
             "type": "integer",
@@ -2337,7 +3631,46 @@ export const characterApiOpenApi = {
               "triangle",
               "hexagon",
               "cloud",
-              "droplet"
+              "droplet",
+              "kite",
+              "fan",
+              "bud",
+              "leaf",
+              "drop",
+              "wave",
+              "comet",
+              "satellite",
+              "mitt",
+              "hood",
+              "crystal",
+              "obelisk",
+              "spring",
+              "bellows",
+              "vase",
+              "teapot",
+              "flame",
+              "curl",
+              "radio",
+              "beacon",
+              "tower",
+              "arch",
+              "pom",
+              "bear",
+              "pumpkin",
+              "ghost",
+              "bat",
+              "witch-hat",
+              "candy-corn",
+              "turkey",
+              "acorn",
+              "squash",
+              "pie",
+              "corn",
+              "light",
+              "tree",
+              "snowman",
+              "ornament",
+              "gift"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           },
@@ -2365,19 +3698,48 @@ export const characterApiOpenApi = {
             ],
             "default": "neutral",
             "description": "Resolved expression: state.expression > state.status mapping > outer preferred expression > neutral. Body shape/color remain unchanged."
+          },
+          "view": {
+            "type": "string",
+            "enum": [
+              "avatar",
+              "full"
+            ],
+            "default": "avatar",
+            "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
           }
         },
         "allOf": [
           {
             "if": {
-              "required": [
-                "skin"
-              ],
+              "properties": {
+                "skin": {
+                  "const": "autos"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "slender",
+                    "wide"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
               "properties": {
                 "skin": {
                   "const": "spacex"
                 }
-              }
+              },
+              "required": [
+                "skin"
+              ]
             },
             "then": {
               "properties": {
@@ -2394,14 +3756,354 @@ export const characterApiOpenApi = {
                   ]
                 }
               }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "fold"
+                }
+              },
+              "required": [
+                "skin"
+              ]
             },
-            "else": {
+            "then": {
               "properties": {
                 "shape": {
                   "enum": [
                     "standard",
-                    "slender",
-                    "wide"
+                    "kite",
+                    "fan"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "sprig"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "bud",
+                    "leaf"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "ripple"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "drop",
+                    "wave"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halo"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "comet",
+                    "satellite"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "purl"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "mitt",
+                    "hood"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "prism"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "crystal",
+                    "obelisk"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "coil"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "spring",
+                    "bellows"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "kiln"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "vase",
+                    "teapot"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "wisp"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "flame",
+                    "curl"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "relay"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "radio",
+                    "beacon"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "cairn"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "tower",
+                    "arch"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "tuft"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "standard",
+                    "pom",
+                    "bear"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "halloween"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "pumpkin",
+                    "ghost",
+                    "bat",
+                    "witch-hat",
+                    "candy-corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "thanksgiving"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "turkey",
+                    "acorn",
+                    "squash",
+                    "pie",
+                    "corn"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "christmas"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "light",
+                    "tree",
+                    "snowman",
+                    "ornament",
+                    "gift"
                   ]
                 }
               }
@@ -2425,7 +4127,22 @@ export const characterApiOpenApi = {
             "type": "string",
             "enum": [
               "autos",
-              "spacex"
+              "spacex",
+              "fold",
+              "sprig",
+              "ripple",
+              "halo",
+              "purl",
+              "prism",
+              "coil",
+              "kiln",
+              "wisp",
+              "relay",
+              "cairn",
+              "tuft",
+              "halloween",
+              "thanksgiving",
+              "christmas"
             ],
             "default": "autos"
           },
@@ -2442,7 +4159,7 @@ export const characterApiOpenApi = {
               "type": "string",
               "const": "live-v1",
               "default": "live-v1",
-              "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+              "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
             },
             "minItems": 1,
             "uniqueItems": true
@@ -2462,7 +4179,46 @@ export const characterApiOpenApi = {
                 "triangle",
                 "hexagon",
                 "cloud",
-                "droplet"
+                "droplet",
+                "kite",
+                "fan",
+                "bud",
+                "leaf",
+                "drop",
+                "wave",
+                "comet",
+                "satellite",
+                "mitt",
+                "hood",
+                "crystal",
+                "obelisk",
+                "spring",
+                "bellows",
+                "vase",
+                "teapot",
+                "flame",
+                "curl",
+                "radio",
+                "beacon",
+                "tower",
+                "arch",
+                "pom",
+                "bear",
+                "pumpkin",
+                "ghost",
+                "bat",
+                "witch-hat",
+                "candy-corn",
+                "turkey",
+                "acorn",
+                "squash",
+                "pie",
+                "corn",
+                "light",
+                "tree",
+                "snowman",
+                "ornament",
+                "gift"
               ],
               "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
             },
@@ -2500,7 +4256,479 @@ export const characterApiOpenApi = {
             "maxItems": 18,
             "uniqueItems": true
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "autos"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "slender",
+                      "wide"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "spacex"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "circle",
+                      "pebble",
+                      "squircle",
+                      "capsule",
+                      "triangle",
+                      "hexagon",
+                      "cloud",
+                      "droplet"
+                    ]
+                  },
+                  "minItems": 8,
+                  "maxItems": 8
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "fold"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "kite",
+                      "fan"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "sprig"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "bud",
+                      "leaf"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "ripple"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "drop",
+                      "wave"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "halo"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "comet",
+                      "satellite"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "purl"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "mitt",
+                      "hood"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "prism"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "crystal",
+                      "obelisk"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "coil"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "spring",
+                      "bellows"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "kiln"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "vase",
+                      "teapot"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "wisp"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "flame",
+                      "curl"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "relay"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "radio",
+                      "beacon"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "cairn"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "tower",
+                      "arch"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "tuft"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "standard",
+                      "pom",
+                      "bear"
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "halloween"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "pumpkin",
+                      "ghost",
+                      "bat",
+                      "witch-hat",
+                      "candy-corn"
+                    ]
+                  },
+                  "minItems": 5,
+                  "maxItems": 5
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "thanksgiving"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "turkey",
+                      "acorn",
+                      "squash",
+                      "pie",
+                      "corn"
+                    ]
+                  },
+                  "minItems": 5,
+                  "maxItems": 5
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "christmas"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "light",
+                      "tree",
+                      "snowman",
+                      "ornament",
+                      "gift"
+                    ]
+                  },
+                  "minItems": 5,
+                  "maxItems": 5
+                }
+              }
+            }
+          }
+        ]
       },
       "CharacterApiError": {
         "type": "object",
@@ -2543,7 +4771,7 @@ export const characterApiOpenApi = {
           "thoughtful",
           "concerned"
         ],
-        "description": "Shared eye expression across both skins; does not change identity-derived shape or color."
+        "description": "Shared eye expression across all families; does not change identity-derived shape or color."
       },
       "AvatarStatus": {
         "type": "string",
@@ -2620,7 +4848,22 @@ export const characterApiOpenApi = {
           "type": "string",
           "enum": [
             "autos",
-            "spacex"
+            "spacex",
+            "fold",
+            "sprig",
+            "ripple",
+            "halo",
+            "purl",
+            "prism",
+            "coil",
+            "kiln",
+            "wisp",
+            "relay",
+            "cairn",
+            "tuft",
+            "halloween",
+            "thanksgiving",
+            "christmas"
           ],
           "default": "autos"
         }
@@ -2641,7 +4884,7 @@ export const characterApiOpenApi = {
           "type": "string",
           "const": "live-v1",
           "default": "live-v1",
-          "description": "Shared geometry across both skins. Future eye geometries receive new identifiers."
+          "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
         }
       },
       "size": {
@@ -2714,7 +4957,46 @@ export const characterApiOpenApi = {
             "triangle",
             "hexagon",
             "cloud",
-            "droplet"
+            "droplet",
+            "kite",
+            "fan",
+            "bud",
+            "leaf",
+            "drop",
+            "wave",
+            "comet",
+            "satellite",
+            "mitt",
+            "hood",
+            "crystal",
+            "obelisk",
+            "spring",
+            "bellows",
+            "vase",
+            "teapot",
+            "flame",
+            "curl",
+            "radio",
+            "beacon",
+            "tower",
+            "arch",
+            "pom",
+            "bear",
+            "pumpkin",
+            "ghost",
+            "bat",
+            "witch-hat",
+            "candy-corn",
+            "turkey",
+            "acorn",
+            "squash",
+            "pie",
+            "corn",
+            "light",
+            "tree",
+            "snowman",
+            "ornament",
+            "gift"
           ],
           "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
         }
@@ -2756,6 +5038,19 @@ export const characterApiOpenApi = {
           "$ref": "#/components/schemas/AvatarStatus"
         },
         "description": "Parsed as state.status. Overrides expression query preference with its mapped expression. Duplicate/unknown status values are refused before rendering or cache validation."
+      },
+      "view": {
+        "name": "view",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "avatar",
+            "full"
+          ],
+          "default": "avatar",
+          "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
+        }
       }
     },
     "headers": {

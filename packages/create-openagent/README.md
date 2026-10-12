@@ -5,7 +5,7 @@ explicit receiver trust, authenticated HTTP requests and animated avatars run
 locally without a Life account or a hosted identity service.
 
 ```sh
-npx create-openagent@0.2.0 my-agent-app --yes
+npx create-openagent@0.3.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -13,8 +13,8 @@ npm run dev
 
 In a second terminal, run `npm run agent`. It signs an actual server-issued
 challenge; the receiver verifies the signature and current trust and consumes
-the challenge exactly once. The viewer uses Autos by default, supports SpaceX,
-and updates from actual verified requests. It uses the same SDK player you can
+the challenge exactly once. The viewer uses Autos by default, offers all 17 families and 62 kinds with face
+framing (including SpaceX and holiday characters), and updates from actual verified requests. It uses the same SDK player you can
 mount in your own UI.
 
 Node 20+ is required. Private keys and receiver state stay in the generated

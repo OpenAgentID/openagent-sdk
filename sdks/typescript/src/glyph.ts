@@ -3,7 +3,7 @@ import { blake3 } from '@noble/hashes/blake3';
 import { base58 } from '@scure/base';
 import { isAgentAvatarDid, parseAvatarDid } from './avatar-did.js';
 export { isAgentAvatarDid } from './avatar-did.js';
-import { renderCharacterSvg, parseCharacterAppearance, type AvatarExpression, type CharacterAppearance, type LiveEyeState } from './characters.js';
+import { renderCharacterSvg, parseCharacterAppearance, type CharacterView, type AvatarExpression, type CharacterAppearance, type LiveEyeState } from './characters.js';
 
 export interface GlyphOptions {
   /** Square pixel dimensions, 32–2048. Geometry is independent of size. */
@@ -22,6 +22,8 @@ export interface AgentAvatar {
 }
 
 export interface AvatarOptions extends GlyphOptions {
+  /** Face crop by default; use full for a complete character illustration. */
+  view?: CharacterView;
   /** Runtime expression overrides the profile's preferred expression. */
   expression?: AvatarExpression;
   animated?: boolean;
@@ -196,7 +198,7 @@ export function agentAvatar(did: string, profile: AgentAvatar = {}, options?: Av
   const svg = agentDid && profile.avatarSkin !== null
     ? renderCharacterSvg(did, { ...appearance, size: options?.size,
       expression,
-      animated: options?.animated, state: options?.state })
+      animated: options?.animated, state: options?.state, view: options?.view })
     : oasGlyph(did, options);
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }

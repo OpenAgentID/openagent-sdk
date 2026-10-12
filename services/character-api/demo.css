@@ -57,3 +57,5 @@ footer { display: flex; justify-content: space-between; padding-top: 30px; font-
   .timeline li[aria-current=step] { color: #ccebd3; background: #294332; border-color: #82b999; }
   a { color: #9ed9b2; } pre { background: #202e25; } #status.error { color: #ff9ca8; }
 }
+
+#preview svg[data-character-view="avatar"]{border-radius:50%;overflow:hidden}

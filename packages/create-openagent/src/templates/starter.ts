@@ -9,7 +9,7 @@ export function generateStarterTemplate(projectName: string): TemplateFile[] {
       type: 'module', engines: { node: '>=20' }, scripts: {
         dev: 'node src/server.mjs', agent: 'node src/agent.mjs', identity: 'node src/identity.mjs',
         test: 'node --test test/*.test.mjs',
-      }, dependencies: { '@openagentid/sdk': '0.4.0' } }, null, 2) + '\n' },
+      }, dependencies: { '@openagentid/sdk': '0.5.0' } }, null, 2) + '\n' },
     { path: '.gitignore', content: 'node_modules/\n.openagent/\ncoverage/\n.env\n' },
     { path: 'src/workspaces.mjs', content: workspaces },
     { path: 'src/server.mjs', content: server },
@@ -288,17 +288,27 @@ const html = String.raw`<!doctype html>
 <title>My OpenAgent</title><link rel="stylesheet" href="/style.css"><script type="module" src="/viewer.js"></script></head>
 <body><main><p class="eyebrow">OpenAgent · local starter</p><h1>Your agent, alive.</h1>
 <div id="avatar" aria-label="Agent avatar"></div><p id="status" role="status">Connecting to the local receiver…</p>
-<p id="identity"></p><div class="controls"><label>Skin <select id="skin"><option value="autos">Autos</option><option value="spacex">SpaceX</option></select></label>
+<p id="identity"></p><div class="controls"><label>Family <select id="skin"></select></label>
+<label>Kind <select id="shape"></select></label>
 <label>Expression <select id="expression"><option value="">Follow actual status</option></select></label></div>
 <p>In another terminal, run:</p><pre>npm run agent -- "Hello from my agent"</pre>
 <p>This viewer is read-only. A completed request appears after the receiver verifies a fresh signed proof.</p>
 <p>Keys stay on this computer. No account or identity service is required.</p></main></body></html>
 `;
-const css = String.raw`:root{font-family:system-ui,sans-serif;color:#ecf0f5;background:#10151c;color-scheme:dark}body{margin:0}main{max-width:760px;margin:0 auto;padding:48px 24px}h1{font-size:clamp(2rem,6vw,3.8rem);letter-spacing:-.05em;margin:12px 0}p{line-height:1.6;color:#bdc8d6}.eyebrow{font-size:.85rem;letter-spacing:.1em;text-transform:uppercase}#avatar{height:300px;display:flex;align-items:center;justify-content:center;margin:12px 0}#avatar svg{max-width:100%;height:280px}#identity{font-family:monospace;font-size:.85rem;overflow-wrap:anywhere}.controls{display:flex;gap:24px;flex-wrap:wrap}label{display:flex;gap:10px;align-items:center}select{padding:8px;border-radius:8px;background:#222d3b;color:inherit;border:1px solid #516176}pre{padding:18px;white-space:pre-wrap;background:#1b2532;border-radius:12px;border:1px solid #344458}#status{font-weight:600;color:#fff}
+const css = String.raw`:root{font-family:system-ui,sans-serif;color:#ecf0f5;background:#10151c;color-scheme:dark}body{margin:0}main{max-width:760px;margin:0 auto;padding:48px 24px}h1{font-size:clamp(2rem,6vw,3.8rem);letter-spacing:-.05em;margin:12px 0}p{line-height:1.6;color:#bdc8d6}.eyebrow{font-size:.85rem;letter-spacing:.1em;text-transform:uppercase}#avatar{height:300px;display:flex;align-items:center;justify-content:center;margin:12px 0}#avatar svg{max-width:100%;height:280px;border-radius:50%;overflow:hidden}#identity{font-family:monospace;font-size:.85rem;overflow-wrap:anywhere}.controls{display:flex;gap:24px;flex-wrap:wrap}label{display:flex;gap:10px;align-items:center}select{padding:8px;border-radius:8px;background:#222d3b;color:inherit;border:1px solid #516176}pre{padding:18px;white-space:pre-wrap;background:#1b2532;border-radius:12px;border:1px solid #344458}#status{font-weight:600;color:#fff}
 `;
-const viewer = String.raw`import { mountCharacter, getCharacterExpressions } from '/character-player.js';
+const viewer = String.raw`import { mountCharacter, getCharacterExpressions, getCharacterSkins } from '/character-player.js';
 
 const skin = document.querySelector('#skin');
+const shape = document.querySelector('#shape');
+const catalog = getCharacterSkins();
+const display = value => value.replaceAll('-', ' ').replace(/^./, letter => letter.toUpperCase());
+skin.replaceChildren(...catalog.map(entry => new Option(entry.label, entry.id)));
+skin.value = 'autos';
+function kinds() {
+  shape.replaceChildren(new Option('From identity', ''), ...catalog.find(entry => entry.id === skin.value).shapes.map(value => new Option(display(value), value)));
+}
+kinds();
 const expression = document.querySelector('#expression');
 const label = document.querySelector('#status');
 const identity = document.querySelector('#identity');
@@ -307,7 +317,8 @@ for (const value of getCharacterExpressions()) {
   expression.append(option);
 }
 let player, did, revision = -1, latestStatus = 'idle', stopped = false, timer;
-skin.addEventListener('change', () => player?.setAppearance({ skin: skin.value }));
+skin.addEventListener('change', () => { kinds(); player?.setAppearance({ skin: skin.value }); });
+shape.addEventListener('change', () => player?.setAppearance({ shape: shape.value || null }));
 expression.addEventListener('change', () => player?.update({ status: latestStatus, expression: expression.value || null }));
 async function refresh() {
   try {
@@ -319,7 +330,7 @@ async function refresh() {
         !['idle', 'working', 'success'].includes(state.status) || !Number.isSafeInteger(state.completedRequests) || state.completedRequests < 0) throw new Error('Invalid receiver state.');
     if (!player || state.did !== did) {
       player?.dispose(); document.querySelector('#avatar').replaceChildren();
-      did = state.did; player = mountCharacter(document.querySelector('#avatar'), did, { skin: skin.value, size: 280, reducedMotion: 'system' });
+      did = state.did; player = mountCharacter(document.querySelector('#avatar'), did, { skin: skin.value, ...(shape.value ? { shape: shape.value } : {}), size: 280, reducedMotion: 'system' });
       identity.textContent = did; revision = -1;
     }
     if (state.revision !== revision) {
@@ -341,7 +352,7 @@ Requires Node 20+. Run npm install, then npm run dev. Open the numeric loopback 
 
     npm run agent -- "Hello from my agent"
 
-The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, optional SpaceX and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
+The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, 16 optional families (including SpaceX and seasonal characters), distinct kinds, face framing and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
 
 On first setup, src/workspaces.mjs creates two separate local authorities, persists a unique receiver audience and explicitly imports the signer's public DID/key document into the receiver with trustIdentity. The receiver has no signing key for that agent. The public export is .openagent/identity.json. Private keys, challenge and replay state remain under .openagent/ and are excluded from git. Inspect public identity with npm run identity -- export. Never publish .openagent/ or serve it as static assets.
 
@@ -353,7 +364,7 @@ Revocation is the receiver's durable local trust decision. Restarting does not r
 
 The HTTP service listens only on 127.0.0.1:3210. Set PORT consistently for the server and agent command to choose another port, or set OPENAGENT_RECEIVER_URL on the command to the exact printed numeric origin. Host checks prevent DNS rebinding, cross-origin browser controls are refused, and only fixed public assets are served. Trust/revoke are local operator actions, never HTTP controls. GET /state contains only public DID and transient request presentation metadata; it contains no message, output, token or key.
 
-This starter deliberately has no cloud-deployment, MCP, enterprise bridge or optional identity-stack dependency. Historical 0.1 templates need migration and are not generated by create-openagent 0.2.
+This starter deliberately has no cloud-deployment, MCP, enterprise bridge or optional identity-stack dependency. Historical 0.1 templates need migration and are not generated by create-openagent 0.3.
 `;
 
 const tests = String.raw`import test from 'node:test';
@@ -483,7 +494,9 @@ test('host, browser-origin, closed-schema and private/static paths are refused',
   const viewer = await fetch(f.app.url + '/');
   assert.equal(viewer.status, 200); assert.equal(viewer.headers.get('cache-control'), 'no-store');
   assert.match(viewer.headers.get('content-security-policy'), /frame-ancestors 'none'/);
-  assert.match(await viewer.text(), /Autos/);
+  const markup = await viewer.text();
+  assert.match(markup, /<select id="skin"><\/select>/);
+  assert.match(markup, /<select id="shape"><\/select>/);
   const script = await fetch(f.app.url + '/character-player.js');
   assert.equal(script.status, 200); assert.match(await script.text(), /mountCharacter/);
   const huge = await post(f.app, '/request', { value: 'x'.repeat(25000) }); assert.equal(huge.status, 413);

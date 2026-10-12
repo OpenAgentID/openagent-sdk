@@ -127,7 +127,7 @@ export {
 } from './errors.js';
 
 /** SDK version — kept in sync with `package.json`. */
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 
 // OpenAgentID 0.2 identity, avatars and verified trust evidence.
 export * from './glyph.js';

@@ -43,7 +43,7 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.match(html, /Local demo fixture/);
   assert.match(html, /State changes stay in this page/);
   assert.match(html, /value="did:oas:openagent:agent:preview"/);
-  for (const id of ['skin', 'shape', 'activity', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated', 'replay', 'timeline', 'code-example']) {
+  for (const id of ['skin', 'shape', 'view', 'activity', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated', 'replay', 'timeline', 'code-example']) {
     assert.ok(html.includes(`id="${id}"`));
   }
   assert.ok(!/https?:\/\//.test(html));

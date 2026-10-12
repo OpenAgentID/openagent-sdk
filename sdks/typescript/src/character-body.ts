@@ -1,7 +1,46 @@
 /** Closed, validated character geometry shared by text and DOM renderers. */
-import type { CharacterSkin, CharacterShape } from './characters.js';
+import type { CharacterSkin, CharacterShape, CharacterView } from './characters.js';
+import type { CharacterArtNode, CharacterArtFamily } from './character-art-types.js';
+import { yearRoundArt } from './character-art-year-round.js';
+import { seasonalArt } from './character-art-seasonal.js';
+export const characterArt: Readonly<Record<string, CharacterArtFamily>> = { ...yearRoundArt, ...seasonalArt };
+const number = (value: number): string => String(Number(value.toFixed(4)));
+const escape = (value: string): string => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+/** Nodes come exclusively from the package-owned art registry. */
+export function serializeCharacterBody(node: CharacterArtNode): string {
+  const attributes = Object.entries(node.attributes).map(([key, value]) => `${key}="${escape(value)}"`).join(' ');
+  return node.children?.length
+    ? `<${node.tag} ${attributes}>${node.children.map(serializeCharacterBody).join('')}</${node.tag}>`
+    : `<${node.tag} ${attributes}/>`;
+}
+function instanceNode(node: CharacterArtNode, instance: string): CharacterArtNode {
+  return { tag: node.tag,
+    attributes: Object.fromEntries(Object.entries(node.attributes).map(([key, value]) => [key, value.replaceAll('__INSTANCE__', instance)])),
+    ...(node.children ? { children: node.children.map(child => instanceNode(child, instance)) } : {}) };
+}
+
+/** One geometry contract for SVG, browser player, and profile fallbacks. */
+export function characterFraming(skin: CharacterSkin, shape: CharacterShape, view: CharacterView): { viewBox: string; faceTransform: string } {
+  const art = characterArt[skin]?.shapes[shape];
+  let x = 256, y = 264, scale = 1;
+  let crop = { x: 96, y: 104, size: 320 };
+  if (art) {
+    x = 64 + art.face.x * 1.2; y = 16 + art.face.y * 1.2; scale = art.face.scale * 1.2;
+    crop = { x: 64 + art.crop.x * 1.2, y: 16 + art.crop.y * 1.2, size: art.crop.size * 1.2 };
+  } else if (skin === 'autos') {
+    const face = shape === 'slender' ? [152, .75, 216] : shape === 'wide' ? [190, .95, 264] : [168, .85, 240];
+    y = face[0]!; scale = face[1]!;
+    crop = { x: x - face[2]! / 2, y: y - face[2]! / 2, size: face[2]! };
+  }
+  return { viewBox: view === 'full' ? '0 0 512 512' : [crop.x, crop.y, crop.size, crop.size].map(number).join(' '),
+    faceTransform: `translate(${number(x)} ${number(y)}) scale(${number(scale)}) translate(-256 -264)` };
+}
+
 const autosShapes = ['standard', 'slender', 'wide'] as const;
-export function characterBody(skin: CharacterSkin, shape: CharacterShape, color: string): { tag: string; attributes: Readonly<Record<string, string>> } {
+export function characterBody(skin: CharacterSkin, shape: CharacterShape, color: string, instance = 'oaid'): CharacterArtNode {
+  const art = characterArt[skin]?.shapes[shape];
+  if (art) return { tag: 'g', attributes: { 'data-character-body': 'true', transform: 'translate(64 16) scale(1.2)' }, children: [instanceNode(art.body, instance)] };
   const attributes = { 'data-character-body': 'true', fill: color };
   if (skin === 'autos') {
     const variant = autosShapes.indexOf(shape as typeof autosShapes[number]);

@@ -8,7 +8,7 @@ identity service. Your application controls keys, trust and access.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.2.0 my-agent-app --yes
+npx create-openagent@0.3.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -16,15 +16,15 @@ npm run dev
 
 Open the local URL, then run `npm run agent` in a second terminal. The receiver
 verifies a real signed request; its status updates the agent's live eyes. Autos
-is the default skin and SpaceX is selectable. Keys and trust survive restarts.
-The starter uses SDK 0.4.0 and public npm dependencies only.
+is the default skin; SpaceX, original crafted families and holiday characters are selectable. Keys and trust survive restarts.
+The starter uses SDK 0.5.0 and public npm dependencies only.
 
-For an existing application, install `@openagentid/sdk@0.4.0` and follow the
+For an existing application, install `@openagentid/sdk@0.5.0` and follow the
 [TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
 The included `oaid` CLI creates identities, exchanges public trust documents,
 issues challenges, signs and verifies proofs, revokes local trust and renders
 avatars. No command requires a Life service. See the
-[0.4.0 shipment contents](docs/release-0.4.0.md).
+[0.5.0 shipment contents](docs/release-0.5.0.md).
 
 Life sells optional hosted services around this core. Inside the Life ecosystem,
 LifeID authenticates humans, Blinds brokers credentials and Genesis KMS stores

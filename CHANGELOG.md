@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 — character families and face avatars, 2026-10-12
+
+- Add twelve original crafted families and Halloween, Thanksgiving and Christmas,
+  each with multiple distinct character kinds: 17 families and 62 kinds total.
+  Autos remains the default; every family uses the shared live-v1 eye expressions.
+- Frame the upper face by default in SDK SVGs, the browser player, HTTP API,
+  CLI and profile fallback. Add strictly typed full-character rendering. Preserve
+  Autos/SpaceX identity selection and eye animation continuity on appearance changes.
+- Expose the catalog and kind/framing controls through the CLI, starter and hosted
+  demo; extend strict profile validation and the public OpenAPI contract. Check
+  the starter's catalog-populated controls in its generated HTTP regression test.
+- Qualify family/kind rendering, circular face-mask bounds, live status continuity,
+  isolated SVG paint references, reduced motion and real starter request status.
+  This source change does not itself establish production Orbit rollout.
+
 ## Unreleased — provisioning documentation, 2026-10-12
 
 - Rewrite the agent creation guide around SDK 0.4.0's real local self-root

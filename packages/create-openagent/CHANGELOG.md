@@ -1,5 +1,12 @@
 # Changelog — create-openagent
 
+
+## [0.3.0] - 2026-10-12
+
+- Pin SDK 0.5.0 and populate family/kind choices from its catalog, including all
+  holiday families. Keep Autos default, face framing, real verified-request state
+  and stable animated eye nodes across appearance changes.
+
 ## [0.2.0] - 2026-10-11
 
 - Generate a complete local identity and animated-avatar application using SDK
