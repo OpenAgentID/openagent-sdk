@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — provisioning documentation, 2026-10-12
+
+- Rewrite the agent creation guide around SDK 0.4.0's real local self-root
+  provisioning, explicit receiver trust and persistent identity. Document the
+  separately configured provider facade and Life integration requirements;
+  remove implicit ACT issuance, unsupported refresh/load options and invented
+  provisioning timings. Make the local examples directly runnable as Node 20
+  JavaScript modules. Documentation only; package versions are unchanged.
+
 ## 0.4.0 — public developer tooling, 2026-10-11
 
 - Add a Node-only persistent local identity authority with real Ed25519 keys,
