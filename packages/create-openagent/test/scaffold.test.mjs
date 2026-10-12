@@ -21,13 +21,25 @@ test('scaffold writes the public-only runnable starter and complete real-HTTP te
   const files = generateStarterTemplate('app');
   for (const file of files) assert.equal(await readFile(join(root, 'app', file.path), 'utf8'), file.content);
   const manifest = JSON.parse(await readFile(join(root, 'app', 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.6.0' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.7.0' });
   assert.equal(manifest.engines.node, '>=20');
   assert.equal(manifest.scripts.dev, 'node src/server.mjs');
   assert.equal(manifest.scripts.agent, 'node src/agent.mjs');
   assert.equal(manifest.scripts.test, 'node --test test/*.test.mjs');
   assert.deepEqual((await readdir(join(root, 'app'))).sort(), ['.gitignore', 'README.md', 'package.json', 'public', 'src', 'test'].sort());
   assert.match(await readFile(join(root, 'app', '.gitignore'), 'utf8'), /^\.openagent\/$/m);
+});
+test('generated appearance controls preserve the real receiver state and current choices before its first response', () => {
+  const files = new Map(generateStarterTemplate('fidelity').map(file => [file.path, file.content]));
+  const html = files.get('public/index.html');
+  assert.match(html, /id="finish"><option value="plush">Soft plush/);
+  assert.match(html, /id="eye-placement"><option value="face">On face/);
+  const viewer = files.get('public/viewer.js');
+  assert.match(viewer, /setAppearance\(\{ finish: finish.value \}\)/);
+  assert.match(viewer, /setAppearance\(\{ eyePlacement: eyePlacement.value \}\)/);
+  assert.match(viewer, /mountCharacter\([^;]+finish: finish.value, eyePlacement: eyePlacement.value, accessories: selectedAccessories\(\)/);
+  assert.match(viewer, /latestStatus = state.status; player.update\(\{ status: latestStatus/);
+  assert.doesNotMatch(viewer, /fetch\([^)]*,[^)]*method: ['"]POST/);
 });
 test('absent destination is required; files, directories and symlinks are preserved', async t => {
   const root = await directory(t);

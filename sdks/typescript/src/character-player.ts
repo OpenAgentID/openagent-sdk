@@ -1,7 +1,9 @@
 /** A mounted inline-SVG character; importing this module does not require a DOM. */
-import { generateCharacter, getCharacterSkins, type CharacterView, type CharacterOptions, type CharacterSkin, type CharacterShape, type CharacterDescriptor } from './characters.js';
-import { characterBody, characterFraming } from './character-body.js';
-import { characterAccessories, type CharacterAccessory } from './character-accessories.js';
+import { generateCharacter, getCharacterSkins, type CharacterFinish, type CharacterEyePlacement, type CharacterView, type CharacterOptions, type CharacterSkin, type CharacterShape, type CharacterDescriptor } from './characters.js';
+import { characterBody, characterFraming, type CharacterFraming } from './character-body.js';
+import { characterAccessories, characterGlassesPose, type CharacterAccessory } from './character-accessories.js';
+import { characterMaterial } from './character-material.js';
+import { characterEyeMount, raisedEyeStems } from './character-eye-mount.js';
 import { createCharacterAnimator, type CharacterFrame } from './character-animation.js';
 import type { CharacterArtNode } from './character-art-types.js';
 import type { CharacterStateUpdate, CharacterRuntimeState } from './character-state.js';
@@ -17,6 +19,8 @@ export interface CharacterAppearanceUpdate {
   /** null restores the identity-selected shape. */
   readonly shape?: CharacterShape | null;
   readonly size?: number;
+  readonly finish?: CharacterFinish;
+  readonly eyePlacement?: CharacterEyePlacement;
   readonly view?: CharacterView;
   /** [] removes every accessory; omission preserves the current selection. */
   readonly accessories?: readonly CharacterAccessory[];
@@ -70,22 +74,36 @@ export function mountCharacter(element: Element, did: string, options: Character
   const eyes = ['left', 'right'].map(side => node('rect', { 'data-character-eye': side }));
   gaze.append(...eyes);
   let accessories = artNode(characterAccessories(descriptor.accessories));
-  face.append(accessories, gaze);
+  let eyeMount = node('g');
+  face.append(eyeMount, accessories, gaze);
+  let framing: CharacterFraming;
+  let frames: Element | null = null;
+  let temples: Element[] = [];
+  let pods: Element | null = null;
+  let stems: Element | null = null;
   let body: SVGElement;
   function setDescriptor(next: CharacterDescriptor): void {
-    const geometry = characterBody(next.skin, next.shape, next.color, instance);
+    const geometry = characterMaterial(characterBody(next.skin, next.shape, next.color, instance), next.finish, instance);
     const nextBody = artNode(geometry);
-    const framing = characterFraming(next.skin, next.shape, next.view);
+    framing = characterFraming(next.skin, next.shape, next.view, next);
     svg.setAttribute('viewBox', framing.viewBox);
     face.setAttribute('transform', framing.faceTransform);
-    const nextAccessories = artNode(characterAccessories(next.accessories));
+    const nextAccessories = artNode(characterAccessories(next.accessories, framing.head, next.state.gaze, framing.eyeOffset));
     accessories.replaceWith(nextAccessories);
     accessories = nextAccessories;
+    frames = accessories.querySelector('[data-glasses-frames]');
+    temples = Array.from(accessories.querySelectorAll('[data-glasses-temples]'));
+    const nextMount = next.eyePlacement === 'raised'
+      ? artNode(characterEyeMount(framing.head, next.color, next.finish, instance, next.state.gaze)) : node('g');
+    eyeMount.replaceWith(nextMount);
+    eyeMount = nextMount;
+    pods = eyeMount.querySelector('[data-raised-eye-pods]');
+    stems = eyeMount.querySelector('[data-raised-eye-stems]');
     if (body) body.replaceWith(nextBody);
     else svg.append(nextBody);
     body = nextBody;
     for (const [key, value] of Object.entries({ width: next.size, height: next.size,
-      'data-character-view': next.view, 'data-character-skin': next.skin, 'data-character-version': 1, 'data-character-shape': next.shape })) svg.setAttribute(key, String(value));
+      'data-character-view': next.view, 'data-character-finish': next.finish, 'data-character-eye-placement': next.eyePlacement, 'data-character-skin': next.skin, 'data-character-version': 1, 'data-character-shape': next.shape })) svg.setAttribute(key, String(value));
     descriptor = next;
   }
   function paint(frame: CharacterFrame): void {
@@ -93,10 +111,16 @@ export function mountCharacter(element: Element, did: string, options: Character
     svg.setAttribute('data-character-status', frame.status);
     title.textContent = `OpenAgent ${getCharacterSkins().find(entry => entry.id === descriptor.skin)!.label} character, ${frame.expression}`;
     gaze.setAttribute('transform', `translate(${numeric(frame.gaze.x * 20)} ${numeric(frame.gaze.y * 14)})`);
+    const glasses = characterGlassesPose(framing.head, frame.gaze, framing.eyeOffset, (frame.eyes[0].centerY + frame.eyes[1].centerY) / 2);
+    frames?.setAttribute('transform', glasses.transform);
+    for (const temple of temples) temple.setAttribute('d', glasses.temples);
+    pods?.setAttribute('transform', `translate(${numeric(frame.gaze.x * 20)} ${numeric(frame.gaze.y * 14)})`);
+    stems?.setAttribute('d', raisedEyeStems(framing.head, frame.gaze));
     frame.eyes.forEach((eye, index) => {
       const rect = eyes[index]!;
-      for (const key of ['x', 'y', 'width', 'height', 'rx'] as const) rect.setAttribute(key, numeric(eye[key]));
-      rect.setAttribute('transform', `rotate(${numeric(eye.rotation)} ${eye.centerX} ${numeric(eye.centerY)})`);
+      const offset = index === 0 ? -framing.eyeOffset : framing.eyeOffset;
+      for (const key of ['x', 'y', 'width', 'height', 'rx'] as const) rect.setAttribute(key, numeric(eye[key] + (key === 'x' ? offset : 0)));
+      rect.setAttribute('transform', `rotate(${numeric(eye.rotation)} ${numeric(eye.centerX + offset)} ${numeric(eye.centerY)})`);
     });
   }
   function active(): void { if (disposed) throw new Error('Character player is disposed'); }
@@ -141,7 +165,7 @@ export function mountCharacter(element: Element, did: string, options: Character
     setAppearance(input: CharacterAppearanceUpdate) {
       active();
       if (!input || typeof input !== 'object' || Array.isArray(input) ||
-          Object.keys(input).some(key => !['skin', 'shape', 'accessories', 'size', 'view'].includes(key))) throw new TypeError('Invalid character appearance update');
+          Object.keys(input).some(key => !['skin', 'shape', 'accessories', 'finish', 'eyePlacement', 'size', 'view'].includes(key))) throw new TypeError('Invalid character appearance update');
       const next = { ...appearance };
       if (input.skin !== undefined) {
         if (input.skin !== descriptor.skin) delete next.shape;
@@ -149,6 +173,8 @@ export function mountCharacter(element: Element, did: string, options: Character
       }
       if (input.shape === null) delete next.shape;
       else if (input.shape !== undefined) next.shape = input.shape;
+      if (input.finish !== undefined) next.finish = input.finish;
+      if (input.eyePlacement !== undefined) next.eyePlacement = input.eyePlacement;
       if (input.view !== undefined) next.view = input.view;
       if (input.size !== undefined) next.size = input.size;
       if (input.accessories !== undefined) next.accessories = input.accessories;

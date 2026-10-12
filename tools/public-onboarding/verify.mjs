@@ -54,18 +54,18 @@ try {
   source = run('source-commit', ['git', 'rev-parse', 'HEAD'], root).trim();
   assert.match(source, /^[0-9a-f]{40}$/);
   if (process.env.OAID_SOURCE_SHA) assert.equal(source, process.env.OAID_SOURCE_SHA);
-  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.6.0', 'pack-sdk'),
-    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.4.0', 'pack-generator')];
+  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.7.0', 'pack-sdk'),
+    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.5.0', 'pack-generator')];
   const tooling = join(fixture, 'tools');
   await mkdir(tooling);
   await writeFile(join(tooling, 'package.json'), JSON.stringify({ name: 'public-generator-consumer', private: true }));
   run('install-generator-archive', ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund', packages[1].file], tooling);
   const generator = join(tooling, 'node_modules/.bin/create-openagent');
-  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.4.0');
+  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.5.0');
   run('generate-noninteractive-application', [generator, 'my-agent-app', '--yes'], fixture);
   const application = join(fixture, 'my-agent-app');
   const manifest = JSON.parse(await readFile(join(application, 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.6.0' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.7.0' });
   // Before publication the exact review artifact substitutes for the declared
   // registry release. No source or transitive dependency is replaced.
   run('install-sdk-archive-in-application', ['npm', 'install', '--ignore-scripts', '--save-exact', '--no-audit', '--no-fund', packages[0].file], application);
@@ -81,7 +81,7 @@ try {
   checks.push({ name: 'public-registry-dependency-closure', passed: true });
   run('generated-real-http-restart-replay-revocation-tests', ['npm', 'test'], application);
   const cli = join(application, 'node_modules/.bin/oaid');
-  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.6.0');
+  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.7.0');
   assert(run('installed-sdk-cli-help', [cli, '--help'], application).includes('oaid agent trust'));
 
   const hello = join(fixture, 'hello-agent');
@@ -200,6 +200,18 @@ try {
       assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
       assert(await page.evaluate(() => document.querySelector('#avatar svg') === window.oaidOriginalSvg));
     });
+    await browserCheck(label + '-plush-and-raised-controls-preserve-real-status', async () => {
+      await page.selectOption('#finish', 'flat');
+      await page.selectOption('#eye-placement', 'raised');
+      assert.equal(await page.locator('#avatar svg').getAttribute('data-character-finish'), 'flat');
+      assert.equal(await page.locator('#avatar [data-character-eye-mount]').count(), 1);
+      assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
+      await page.selectOption('#finish', 'plush');
+      assert.equal(await page.locator('#avatar filter').count(), 2);
+      await page.selectOption('#eye-placement', 'face');
+      assert(await page.evaluate(() => document.querySelector('#avatar svg') === window.oaidOriginalSvg &&
+        [...document.querySelectorAll('#avatar [data-character-eye]')].every((eye, i) => eye === window.oaidOriginalEyes[i])));
+    });
     if (label === 'desktop') {
       await browserCheck('all-62-kinds-face-mask-expression-extremes-and-distinct-mount-paints', async () => {
         const result = await page.evaluate(async () => {
@@ -249,7 +261,7 @@ try {
               }
               player.update({ status: 'reasoning', expression: null, gaze: { x: 0, y: 0 } });
               player.setAppearance({ view: 'full' });
-              if (svg.getAttribute('viewBox') !== '0 0 512 512') failures.push('full-view:' + family.id + '/' + shape);
+              if (Number(svg.getAttribute('viewBox').split(' ')[2]) < 512) failures.push('full-view:' + family.id + '/' + shape);
               player.setAppearance({ view: 'avatar' });
               for (const accessories of [[], ['glasses'], ['headphones'], ['glasses', 'headphones']]) {
                 player.setAppearance({ accessories });
@@ -261,6 +273,36 @@ try {
                 if (svg.outerHTML !== before) failures.push('invalid-accessory-mutated-player');
               }
               if (originalEyes.some((eye, i) => eye !== face.querySelectorAll('[data-character-eye]')[i]) || player.getState().status !== 'reasoning') failures.push('state-replaced:' + family.id + '/' + shape);
+              // Every placement shares fixed frame dimensions, exact eye gaze and a stable crop.
+              for (const eyePlacement of ['face', 'raised']) {
+                player.setAppearance({ eyePlacement, accessories: ['glasses', 'headphones'] });
+                const crop = svg.getAttribute('viewBox');
+                const dimensions = () => [...face.querySelectorAll('[data-glasses-frames] rect')].map(e => ['x', 'y', 'width', 'height', 'rx'].map(k => e.getAttribute(k)).join(','));
+                const fixedFrames = dimensions();
+                const headphone = face.querySelector('[data-character-accessory="headphones"]').outerHTML;
+                for (const gaze of [{x:-1,y:-1},{x:1,y:1},{x:0,y:0}]) {
+                  player.update({ gaze, expression: 'scared', blink: .6 });
+                  const frameTranslate = face.querySelector('[data-glasses-frames]').getAttribute('transform').match(/-?[\d.]+/g).map(Number);
+                  const eyeTranslate = face.querySelector('[data-character-eyes]').getAttribute('transform').match(/-?[\d.]+/g).map(Number);
+                  const centerY = [...face.querySelectorAll('[data-character-eye]')].reduce((sum,e)=>sum+Number(e.getAttribute('y'))+Number(e.getAttribute('height'))/2,0)/2;
+                  if (Math.abs(frameTranslate[0]-eyeTranslate[0])>.001 || Math.abs(264+frameTranslate[1]-centerY-eyeTranslate[1])>.001) failures.push('glasses-desynchronized');
+                  if (JSON.stringify(dimensions()) !== JSON.stringify(fixedFrames)) failures.push('glasses-resized');
+                  if (headphone !== face.querySelector('[data-character-accessory="headphones"]').outerHTML) failures.push('headphones-moved-with-eyes');
+                  if (crop !== svg.getAttribute('viewBox')) failures.push('crop-breathes');
+                  const box = svg.getBoundingClientRect(), cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+                  for (const geometry of face.querySelectorAll('[data-character-accessories] path,[data-character-accessories] rect,[data-raised-eye-pods] ellipse')) {
+                    const transform = geometry.getScreenCTM();
+                    const stroke = Number.parseFloat(getComputedStyle(geometry).strokeWidth) / 2 * Math.hypot(transform.a, transform.b);
+                    const length = geometry.getTotalLength();
+                    for (let i = 0; i <= 48; i++) {
+                      const p = geometry.getPointAtLength(length * i / 48).matrixTransform(transform);
+                      if (Math.hypot(p.x-cx,p.y-cy)+stroke > box.width/2-.1) { failures.push('fidelity-crop:'+family.id+'/'+shape+'/'+eyePlacement); break; }
+                    }
+                  }
+                }
+              }
+              player.setAppearance({ eyePlacement: 'face' });
+              player.update({ status: 'reasoning', expression: null, blink: 0, gaze: {x:0,y:0} });
               const footer = document.createElement('div'); footer.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px'; card.append(footer);
               const mini = document.createElement('div'); mini.style.cssText = 'width:32px;height:32px;border-radius:50%;overflow:hidden'; footer.append(mini);
               players.push(mountCharacter(mini, 'did:oas:openagent:agent:family-qualification', { skin: family.id, shape, accessories, size: 32, reducedMotion: true }));
@@ -284,6 +326,38 @@ try {
         assert.deepEqual(result.failures, []);
       });
       await page.evaluate(() => { window.oaidGalleryPlayers.forEach(player => player.dispose()); document.querySelector('#family-gallery').remove(); });
+      await browserCheck('fidelity-large-render-and-synchronized-moving-frames', async () => {
+        const result = await page.evaluate(async () => {
+          const { mountCharacter } = await import('/character-player.js');
+          const gallery = document.createElement('section'); gallery.id = 'fidelity-study';
+          gallery.style.cssText = 'display:flex;gap:16px;background:#f7f5f1;padding:24px;color:#252938;width:1248px;box-sizing:border-box;font:14px system-ui';
+          document.body.append(gallery); const players = [];
+          for (const [label, skin, finish, eyePlacement] of [['Original vector','autos','flat','face'],['Shared plush','autos','plush','face'],['Raised eyes','autos','plush','raised'],['SpaceX raised','spacex','plush','raised']]) {
+            const card = document.createElement('div'); gallery.append(card);
+            const avatar = document.createElement('div'); avatar.style.cssText = 'width:280px;height:280px;border-radius:50%;overflow:hidden;background:#fff'; card.append(avatar);
+            const caption = document.createElement('p'); caption.textContent = label; card.append(caption);
+            players.push(mountCharacter(avatar,'did:oas:openagent:agent:character-vector',{skin,shape:skin==='autos'?'standard':'circle',finish,eyePlacement,accessories:['glasses','headphones'],size:280,reducedMotion:false,state:{status:'reasoning'}}));
+          }
+          const moving = players[1], svg = gallery.children[1].querySelector('svg');
+          const frames = [], sizes = new Set(), crops = new Set();
+          moving.update({gaze:{x:1,y:-1},expression:'surprised'});
+          for(let i=0;i<30;i++) {
+            await new Promise(requestAnimationFrame);
+            const g = svg.querySelector('[data-glasses-frames]'), e = svg.querySelector('[data-character-eyes]');
+            const gt=g.getAttribute('transform').match(/-?[\d.]+/g).map(Number), et=e.getAttribute('transform').match(/-?[\d.]+/g).map(Number);
+            const cy=[...svg.querySelectorAll('[data-character-eye]')].reduce((sum,r)=>sum+Number(r.getAttribute('y'))+Number(r.getAttribute('height'))/2,0)/2;
+            frames.push({glasses:g.getAttribute('transform'),eyes:e.getAttribute('transform'),same:Math.abs(gt[0]-et[0])<.001&&Math.abs(264+gt[1]-cy-et[1])<.001});
+            sizes.add([...g.querySelectorAll('rect')].map(r=>r.getAttribute('width')+':'+r.getAttribute('height')).join('|'));
+            crops.add(svg.getAttribute('viewBox'));
+          }
+          window.oaidFidelityPlayers=players;
+          return {synchronized:frames.every(f=>f.same),uniqueFrames:new Set(frames.map(f=>f.eyes)).size,frameSizes:sizes.size,crops:crops.size};
+        });
+        assert(result.synchronized); assert(result.uniqueFrames>3); assert.equal(result.frameSizes,1); assert.equal(result.crops,1);
+        await page.locator('#fidelity-study').screenshot({path:join(out,'fidelity-study.png')});
+        await page.evaluate(()=>{window.oaidFidelityPlayers.forEach(p=>p.dispose());document.querySelector('#fidelity-study').remove()});
+      });
+
     }
     assert.deepEqual(errors, []);
     assert.deepEqual(externalRequests, []);

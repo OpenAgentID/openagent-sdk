@@ -50,10 +50,71 @@ describe('public stateless character API', () => {
       new URL('../../../docs/character-api.openapi.json', import.meta.url), 'utf8',
     )));
     expect(characterApiOpenApi.openapi).toBe('3.1.0');
-    expect(characterApiOpenApi.info.version).toBe('0.6.0');
+    expect(characterApiOpenApi.info.version).toBe('0.7.0');
     expect(characterApiOpenApi.security).toEqual([]);
     expect(characterApiOpenApi.components.schemas.CharacterGenerateRequestV1.additionalProperties).toBe(false);
     expect(characterApiOpenApi.components.schemas.LiveEyeStateV1.additionalProperties).toBe(false);
+  });
+
+  it('documents strict material and eye placement across request, stored appearance and resolved descriptor schemas', () => {
+    const schemas = characterApiOpenApi.components.schemas;
+    expect(schemas.CharacterFinish).toMatchObject({ type: 'string', enum: ['plush', 'flat'], default: 'plush' });
+    expect(schemas.CharacterEyePlacement).toMatchObject({ type: 'string', enum: ['face', 'raised'], default: 'face' });
+    for (const schema of [schemas.CharacterAppearanceV1, schemas.CharacterOptionsV1,
+      schemas.CharacterGenerateRequestV1, schemas.CharacterDescriptorV1]) {
+      expect(schema.properties.finish).toEqual({ $ref: '#/components/schemas/CharacterFinish' });
+      expect(schema.properties.eyePlacement).toEqual({ $ref: '#/components/schemas/CharacterEyePlacement' });
+    }
+    expect(schemas.CharacterDescriptorV1.required).toContain('finish');
+    expect(schemas.CharacterDescriptorV1.required).toContain('eyePlacement');
+    expect(schemas.CharacterAppearanceV1.required).toEqual(['skin']);
+    expect(schemas.LiveEyeStateV1.properties).not.toHaveProperty('finish');
+    expect(schemas.LiveEyeStateV1.properties).not.toHaveProperty('eyePlacement');
+    for (const route of ['/{did}', '/svg/{did}'] as const) {
+      for (const method of ['get', 'head', 'options'] as const) {
+        for (const selector of ['finish', 'eyePlacement'] as const) {
+          expect(characterApiOpenApi.paths[route][method].parameters)
+            .toContainEqual({ $ref: `#/components/parameters/${selector}` });
+        }
+      }
+    }
+  });
+
+  it('carries every finish and eye placement through JSON, SVG and POST on all families without changing live state or accessories', async () => {
+    for (const skin of getCharacterSkins()) {
+      const baseline = generateCharacter(did, { skin: skin.id });
+      for (const finish of ['plush', 'flat'] as const) {
+        for (const eyePlacement of ['face', 'raised'] as const) {
+          const options = { skin: skin.id, finish, eyePlacement, animated: false,
+            accessories: ['glasses', 'headphones'] as const,
+            state: { status: 'reasoning' as const, expression: 'curious' as const, blink: 0.4, gaze: { x: -1, y: 1 } } };
+          const expected = generateCharacter(did, options);
+          const query = `?skin=${skin.id}&finish=${finish}&eyePlacement=${eyePlacement}&accessories=headphones,glasses&animated=false&status=reasoning&expression=curious&blink=0.4&gazeX=-1&gazeY=1`;
+          // Query expression is the outer fallback; the status chooses thoughtful.
+          const queryExpected = generateCharacter(did, { ...options, expression: 'curious',
+            state: { status: 'reasoning', blink: 0.4, gaze: { x: -1, y: 1 } } });
+          const get = await handler(new Request(path() + query));
+          expect(get.status).toBe(200);
+          expect(await get.json()).toEqual(queryExpected);
+          const image = await handler(new Request(path(did, true) + query));
+          expect(image.status).toBe(200);
+          expect(await image.text()).toBe(queryExpected.svg);
+          const generated = await handler(post({ did, ...options }));
+          expect(generated.status).toBe(200);
+          expect(generated.headers.get('cache-control')).toBe('no-store');
+          expect(await generated.json()).toEqual(expected);
+          expect(expected).toMatchObject({ did, finish, eyePlacement, skin: skin.id,
+            shape: baseline.shape, color: baseline.color, accessories: ['glasses', 'headphones'],
+            expression: 'curious', state: options.state });
+          expect(expected.svg).toContain(`data-character-finish="${finish}"`);
+          expect(expected.svg).toContain(`data-character-eye-placement="${eyePlacement}"`);
+        }
+      }
+    }
+    const defaults = await handler(new Request(path()));
+    const explicit = await handler(new Request(path() + '?finish=plush&eyePlacement=face'));
+    expect(await defaults.json()).toEqual(await explicit.json());
+    expect(defaults.headers.get('etag')).toBe(explicit.headers.get('etag'));
   });
 
   it('serves the independent accessory catalog with a closed schema and credential-free catalog semantics', async () => {
@@ -377,7 +438,7 @@ describe('public stateless character API', () => {
     const descriptor = await response.json();
     expect(descriptor).toEqual(generateCharacter(identity));
     expect(descriptor).toMatchObject({ did: identity, skin: 'autos', skinVersion: 1,
-      eyeStyle: 'live-v1', expression: 'neutral', size: 512, animated: true, state: { blink: 0, gaze: { x: 0, y: 0 } } });
+      eyeStyle: 'live-v1', finish: 'plush', eyePlacement: 'face', expression: 'neutral', size: 512, animated: true, state: { blink: 0, gaze: { x: 0, y: 0 } } });
     expect(descriptor).not.toHaveProperty('owner');
     expect(descriptor).not.toHaveProperty('verified');
   });
@@ -402,6 +463,11 @@ describe('public stateless character API', () => {
     '?accessories=glasses&accessories=headphones', '?accessories=&accessories=',
     '?accessories=glasses&%61ccessories=glasses', '?accessories=glasses%0A',
     '?state.accessories=glasses', '?accessory=glasses',
+    '?finish=', '?finish=unknown', '?finish=Plush', '?finish=plush%20', '?finish=null',
+    '?finish=plush&finish=flat', '?finish=plush&%66inish=plush',
+    '?eyePlacement=', '?eyePlacement=unknown', '?eyePlacement=Face', '?eyePlacement=raised%0A',
+    '?eyePlacement=face&eyePlacement=raised', '?eyePlacement=face&%65yePlacement=face',
+    '?eye-placement=raised', '?state.finish=flat', '?state.eyePlacement=raised',
     '?status=unknown', '?status=Idle', '?status=', '?status=reasoning%0A',
     '?status=idle&status=working', '?status=idle&%73tatus=idle', '?state.expression=happy',
     '?status=unknown&expression=happy', '?status=success&expression=unknown',
@@ -465,6 +531,12 @@ describe('public stateless character API', () => {
     { did, accessories: [{ id: 'glasses' }] }, { did, accessories: ['glasses', 'glasses'] },
     { did, accessories: ['headphones', 'headphones'] }, { did, accessories: ['glasses', 'headphones', 'glasses'] },
     { did, state: { accessories: ['glasses'] } }, { did, accessory: 'glasses' },
+    { did, finish: null }, { did, finish: '' }, { did, finish: 'unknown' }, { did, finish: 'Plush' },
+    { did, finish: 'plush ' }, { did, finish: true }, { did, finish: [] }, { did, finish: {} },
+    { did, eyePlacement: null }, { did, eyePlacement: '' }, { did, eyePlacement: 'unknown' },
+    { did, eyePlacement: 'Face' }, { did, eyePlacement: 'raised\n' }, { did, eyePlacement: 1 },
+    { did, eyePlacement: [] }, { did, eyePlacement: {} }, { did, 'eye-placement': 'raised' },
+    { did, state: { finish: 'flat' } }, { did, state: { eyePlacement: 'raised' } },
   ])('rejects invalid JSON schema input: %j', async body => {
     const response = await handler(post(body));
     expect(response.status).toBe(400);
@@ -601,7 +673,8 @@ describe('public stateless character API', () => {
       path() + '?gazeX=1&gazeY=0', path() + '?size=128', path() + '?animated=false',
       path() + '?shape=wide&expression=happy', path(did, true)];
     urls.push(path() + '?status=reasoning', path() + '?status=blocked', path() + '?view=full',
-      path() + '?accessories=glasses', path() + '?accessories=headphones');
+      path() + '?accessories=glasses', path() + '?accessories=headphones',
+      path() + '?finish=flat', path() + '?eyePlacement=raised');
     const tags = [];
     for (const url of urls) tags.push((await handler(new Request(url))).headers.get('etag'));
     expect(new Set(tags).size).toBe(urls.length);

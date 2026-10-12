@@ -1,5 +1,13 @@
 # Changelog — create-openagent
 
+## [0.5.0] - 2026-10-12
+
+- Pin SDK 0.7.0 and expose soft plush/flat finish and on-face/raised eye controls
+  across every family, preserving wearables and real verified-request state.
+- Keep the persisted signer/receiver, restart/replay/revocation behavior and
+  loopback-only transport unchanged; qualify the generated HTTP controls with
+  the same packed SDK used by browser acceptance.
+
 ## [0.4.0] - 2026-10-12
 
 - Pin SDK 0.6.0 and add combinable glasses/headphones controls that preserve the

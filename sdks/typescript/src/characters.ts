@@ -3,6 +3,9 @@ import { characterBody, characterFraming, characterArt, serializeCharacterBody }
 import { characterAccessories, parseCharacterAccessories, type CharacterAccessory } from './character-accessories.js';
 export { getCharacterAccessories, parseCharacterAccessories } from './character-accessories.js';
 export type { CharacterAccessory, CharacterAccessoryDescription } from './character-accessories.js';
+import { characterMaterial, type CharacterFinish } from './character-material.js';
+import { characterEyeMount } from './character-eye-mount.js';
+export type { CharacterFinish } from './character-material.js';
 import { blake3 } from '@noble/hashes/blake3';
 import { isAgentAvatarDid } from './avatar-did.js';
 export { isAgentAvatarDid } from './avatar-did.js';
@@ -15,6 +18,7 @@ export type CharacterSkin = 'autos' | 'spacex' | 'fold' | 'sprig' | 'ripple' | '
   'halloween' | 'thanksgiving' | 'christmas';
 export type CharacterView = 'avatar' | 'full';
 export type CharacterEyeStyle = 'live-v1';
+export type CharacterEyePlacement = 'face' | 'raised';
 export type CharacterShape = 'standard' | 'slender' | 'wide' | 'circle' | 'pebble' |
   'squircle' | 'capsule' | 'triangle' | 'hexagon' | 'cloud' | 'droplet' |
   'kite' | 'fan' | 'bud' | 'leaf' | 'drop' | 'wave' | 'comet' | 'satellite' |
@@ -27,6 +31,10 @@ export interface CharacterAppearance {
   readonly skin: CharacterSkin;
   readonly skinVersion?: 1;
   readonly eyeStyle?: CharacterEyeStyle;
+  /** Shared body material; plush is the default, flat preserves the vector finish. */
+  readonly finish?: CharacterFinish;
+  /** Raised places the same live eyes on soft pods above the head. */
+  readonly eyePlacement?: CharacterEyePlacement;
   readonly shape?: CharacterShape;
   /** Independent wearable layers; omit or pass [] for no accessories. */
   readonly accessories?: readonly CharacterAccessory[];
@@ -58,6 +66,8 @@ export interface CharacterDescriptor {
   readonly skin: CharacterSkin;
   readonly skinVersion: 1;
   readonly eyeStyle: CharacterEyeStyle;
+  readonly finish: CharacterFinish;
+  readonly eyePlacement: CharacterEyePlacement;
   readonly shape: CharacterShape;
   readonly accessories: readonly CharacterAccessory[];
   readonly expression: AvatarExpression;
@@ -103,16 +113,20 @@ function record(value: unknown, keys: readonly string[], label: string): Record<
 }
 
 function normalizedOptions(options: CharacterOptions | undefined): {
-  skin: CharacterSkin; shape?: CharacterShape; accessories: readonly CharacterAccessory[]; expression: AvatarExpression;
+  skin: CharacterSkin; finish: CharacterFinish; eyePlacement: CharacterEyePlacement; shape?: CharacterShape; accessories: readonly CharacterAccessory[]; expression: AvatarExpression;
   view: CharacterView; size: number; animated: boolean; state: CharacterDescriptor['state'];
 } {
   const value: Record<string, unknown> = options === undefined ? {} : record(options,
-    ['skin', 'skinVersion', 'eyeStyle', 'shape', 'accessories', 'view', 'expression', 'size', 'animated', 'state'], 'options');
+    ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'accessories', 'view', 'expression', 'size', 'animated', 'state'], 'options');
   const selection = catalog.find(entry => entry.id === (value.skin === undefined ? 'autos' : value.skin));
   if (!selection) throw new TypeError('Unsupported character skin');
   const skin = selection.id;
   if (value.skinVersion !== undefined && value.skinVersion !== 1) throw new TypeError('Unsupported character skin version');
   if (value.eyeStyle !== undefined && value.eyeStyle !== 'live-v1') throw new TypeError('Unsupported character eye style');
+  const finish = value.finish === undefined ? 'plush' : value.finish;
+  if (finish !== 'plush' && finish !== 'flat') throw new TypeError('Unsupported character finish');
+  const eyePlacement = value.eyePlacement === undefined ? 'face' : value.eyePlacement;
+  if (eyePlacement !== 'face' && eyePlacement !== 'raised') throw new TypeError('Unsupported character eye placement');
   const shapes = selection.shapes;
   if (value.shape !== undefined && !shapes.includes(value.shape as CharacterShape)) {
     throw new TypeError('Unsupported shape for character skin');
@@ -130,7 +144,7 @@ function normalizedOptions(options: CharacterOptions | undefined): {
   const input = value.state === undefined ? {} : value.state;
   const resolved = parseCharacterState(input, expression as AvatarExpression);
   const supplied = input as Record<string, unknown>;
-  return { skin, view, shape: value.shape as CharacterShape | undefined, accessories: parseCharacterAccessories(value.accessories), expression: resolved.expression, size, animated,
+  return { skin, finish, eyePlacement, view, shape: value.shape as CharacterShape | undefined, accessories: parseCharacterAccessories(value.accessories), expression: resolved.expression, size, animated,
     state: Object.freeze({ blink: resolved.blink, gaze: resolved.gaze,
       ...(supplied.status === undefined ? {} : { status: resolved.status }),
       ...(supplied.expression === undefined ? {} : { expression: resolved.expression }) }) };
@@ -138,14 +152,16 @@ function normalizedOptions(options: CharacterOptions | undefined): {
 
 /** Strict stored body/face selection; expression and live state belong elsewhere. */
 export function parseCharacterAppearance(value: unknown): CharacterAppearance {
-  const selection = record(value, ['skin', 'skinVersion', 'eyeStyle', 'shape', 'accessories'], 'appearance');
+  const selection = record(value, ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'accessories'], 'appearance');
   if (!Object.hasOwn(selection, 'skin') || !catalog.some(entry => entry.id === selection.skin)) {
     throw new TypeError('Character appearance requires a supported skin');
   }
   const normalized = normalizedOptions({ skin: selection.skin,
     skinVersion: selection.skinVersion, eyeStyle: selection.eyeStyle,
-    shape: selection.shape, accessories: selection.accessories } as CharacterOptions);
+    finish: selection.finish, eyePlacement: selection.eyePlacement, shape: selection.shape, accessories: selection.accessories } as CharacterOptions);
   return Object.freeze({ skin: normalized.skin,
+    ...(selection.finish === undefined ? {} : { finish: normalized.finish }),
+    ...(selection.eyePlacement === undefined ? {} : { eyePlacement: normalized.eyePlacement }),
     ...(selection.skinVersion === undefined ? {} : { skinVersion: 1 as const }),
     ...(selection.eyeStyle === undefined ? {} : { eyeStyle: 'live-v1' as const }),
     ...(normalized.shape === undefined ? {} : { shape: normalized.shape }),
@@ -153,7 +169,7 @@ export function parseCharacterAppearance(value: unknown): CharacterAppearance {
 }
 
 function numeric(value: number): string {
-  return Number(value.toFixed(3)).toString();
+  return Number(value.toFixed(4)).toString();
 }
 
 export type EyeGeometry = readonly [width: number, height: number, centerY: number, rotation: number];
@@ -184,7 +200,7 @@ for (const pair of Object.values(expressionEyes)) {
 }
 Object.freeze(expressionEyes);
 
-function eyes(expression: AvatarExpression, state: CharacterDescriptor['state'], animated: boolean, seed: Uint8Array): string {
+function eyes(expression: AvatarExpression, state: CharacterDescriptor['state'], animated: boolean, seed: Uint8Array, eyeOffset: number): string {
   const gazeX = state.gaze.x * 20;
   const gazeY = state.gaze.y * 14;
   const duration = 4 + seed[2]! / 255 * 2;
@@ -196,7 +212,8 @@ function eyes(expression: AvatarExpression, state: CharacterDescriptor['state'],
     const poses = [[gazeX, gazeY], [gazeX + dx, gazeY - dy], [gazeX - dx, gazeY + dy], [gazeX, gazeY]];
     result.push(`<animateTransform attributeName="transform" type="translate" values="${poses.map(([x, y]) => `${numeric(x!)} ${numeric(y!)}`).join(';')}" keyTimes="0;0.35;0.7;1" calcMode="spline" keySplines="0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1" dur="${numeric(duration * 2)}s" begin="0s" repeatCount="indefinite"/>`);
   }
-  for (const [index, side, centerX] of [[0, 'left', 222], [1, 'right', 290]] as const) {
+  for (const [index, side, baseX] of [[0, 'left', 222], [1, 'right', 290]] as const) {
+    const centerX = baseX + (index === 0 ? -eyeOffset : eyeOffset);
     const [width, openHeight, centerY, rotation] = expressionEyes[expression][index];
     const height = openHeight - state.blink * (openHeight - 2);
     const y = centerY - height / 2;
@@ -225,12 +242,19 @@ export function generateCharacter(did: string, options?: CharacterOptions): Char
   const shape = normalized.shape ?? shapes[seed[0]! % shapes.length]!;
   const color = characterArt[normalized.skin]?.shapes[shape]?.color ?? characterArt[normalized.skin]?.color ?? palette[seed[1]! % palette.length]!;
   const fingerprint = [...seed].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-  const framing = characterFraming(normalized.skin, shape, normalized.view);
-  const geometry = characterBody(normalized.skin, shape, color, `oaid-${fingerprint.slice(0, 16)}-${shape}`);
-  const layers = normalized.accessories.length ? serializeCharacterBody(characterAccessories(normalized.accessories)) : '';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${framing.viewBox}" width="${normalized.size}" height="${normalized.size}" role="img" data-character-skin="${normalized.skin}" data-character-version="1" data-character-shape="${shape}" data-character-view="${normalized.view}" data-character-expression="${normalized.expression}" data-character-seed="${fingerprint}"><title>OpenAgent ${family.label} character</title>${serializeCharacterBody(geometry)}<g data-character-face="true" transform="${framing.faceTransform}">${layers}${eyes(normalized.expression, normalized.state, normalized.animated, seed)}</g></svg>`;
+  const framing = characterFraming(normalized.skin, shape, normalized.view, normalized);
+  const instance = `oaid-${fingerprint.slice(0, 16)}-${shape}`;
+  const geometry = characterMaterial(characterBody(normalized.skin, shape, color, instance), normalized.finish, instance);
+  const { gaze } = normalized.state;
+  const dx = (1 - Math.abs(gaze.x)) * .4, dy = (1 - Math.abs(gaze.y)) * (5 / 14);
+  const motion = normalized.animated ? { duration: (4 + seed[2]! / 255 * 2) * 2,
+    poses: [gaze, { x: gaze.x + dx, y: gaze.y - dy }, { x: gaze.x - dx, y: gaze.y + dy }, gaze] } : undefined;
+  const layers = normalized.accessories.length ? serializeCharacterBody(characterAccessories(normalized.accessories, framing.head, gaze, framing.eyeOffset, motion, (expressionEyes[normalized.expression][0][2] + expressionEyes[normalized.expression][1][2]) / 2)) : '';
+  const eyeMount = normalized.eyePlacement === 'raised'
+    ? serializeCharacterBody(characterEyeMount(framing.head, color, normalized.finish, instance, gaze, motion)) : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${framing.viewBox}" width="${normalized.size}" height="${normalized.size}" role="img" data-character-skin="${normalized.skin}" data-character-version="1" data-character-shape="${shape}" data-character-view="${normalized.view}" data-character-finish="${normalized.finish}" data-character-eye-placement="${normalized.eyePlacement}" data-character-expression="${normalized.expression}" data-character-seed="${fingerprint}"><title>OpenAgent ${family.label} character</title>${serializeCharacterBody(geometry)}<g data-character-face="true" transform="${framing.faceTransform}">${eyeMount}${layers}${eyes(normalized.expression, normalized.state, normalized.animated, seed, framing.eyeOffset)}</g></svg>`;
   return Object.freeze({ did, skin: normalized.skin, skinVersion: 1, eyeStyle: 'live-v1',
-    shape, accessories: normalized.accessories, expression: normalized.expression, color, view: normalized.view, size: normalized.size, animated: normalized.animated,
+    shape, finish: normalized.finish, eyePlacement: normalized.eyePlacement, accessories: normalized.accessories, expression: normalized.expression, color, view: normalized.view, size: normalized.size, animated: normalized.animated,
     state: normalized.state, svg });
 }
 

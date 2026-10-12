@@ -8,7 +8,7 @@ roots have no reduced access tier; each application controls its permissions.
 
 ## Local identity, no hosted service required
 
-Use the Node-only local module in SDK 0.6.0 to keep identity
+Use the Node-only local module in SDK 0.7.0 to keep identity
 keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
@@ -38,6 +38,30 @@ that bring distributed storage or different trust authorities.
 The `OpenAgent` facade still wraps separately configured OAS identity, Arsenal
 credentials and AEGIS verification clients. It fails closed if a required client
 is missing. Its endpoint options do not create those clients automatically.
+
+## Version 0.7.0
+
+Every character family defaults to a soft plush finish and on-face eyes. Pass
+`finish: 'flat'` for flat vector material or `eyePlacement: 'raised'` for the same
+live eyes on raised pods. These strictly typed appearance choices are independent
+of identity, expression and activity state. The descriptor includes their resolved
+values; stored appearance fields remain optional.
+
+```ts
+import { mountCharacter } from '@openagentid/sdk/browser';
+
+const element = document.querySelector('#agent-avatar');
+if (!element) throw new Error('Missing avatar element');
+const player = mountCharacter(element, agent.did, { accessories: ['glasses', 'headphones'] });
+player.update({ status: 'reasoning' });
+player.setAppearance({ finish: 'flat', eyePlacement: 'raised' });
+// Dispose when the host removes the avatar.
+player.dispose();
+```
+
+Glasses retain fixed lens dimensions while following gaze, with temples reaching
+the head sides. Headphones fit outside the head; the face crop reserves room for
+them. See the [0.7.0 release contents](../../docs/release-0.7.0.md).
 
 ## Version 0.3.0
 

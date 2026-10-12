@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { characterAccessories, getCharacterAccessories, parseCharacterAccessories,
+import { characterAccessories, characterGlassesPose, getCharacterAccessories, parseCharacterAccessories,
   type CharacterAccessory } from '../src/character-accessories.js';
 import type { CharacterArtNode } from '../src/character-art-types.js';
 import { characterFraming, serializeCharacterBody } from '../src/character-body.js';
@@ -53,9 +53,6 @@ function artPoints(root: CharacterArtNode): Point[] {
   });
 }
 
-function withoutAccessories(svg: string): string {
-  return svg.replace(serializeCharacterBody(characterAccessories(both)), '');
-}
 
 describe('independent character accessories', () => {
   it('exposes a deeply immutable descriptive catalog without a synthetic none entry', () => {
@@ -92,7 +89,7 @@ describe('independent character accessories', () => {
     expect(art.attributes['data-character-accessories']).toBe('true');
     expect(art.children?.map(child => child.attributes['data-character-accessory'])).toEqual(value);
     const allowed = ['data-character-accessories', 'data-character-accessory', 'aria-hidden',
-      'd', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'x', 'y', 'width', 'height', 'rx'];
+      'transform', 'data-glasses-frames', 'data-glasses-temples', 'd', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'x', 'y', 'width', 'height', 'rx'];
     for (const node of descendants(art)) {
       expect(['g', 'rect', 'path']).toContain(node.tag);
       expect(Object.isFrozen(node)).toBe(true);
@@ -116,28 +113,40 @@ describe('independent character accessories', () => {
     expect(descendants(glasses).every(node => node.attributes.fill === undefined || node.attributes.fill === 'none')).toBe(true);
   });
 
-  it('keeps accessory outlines and half-strokes inside every current circular face crop', () => {
-    const points = artPoints(characterAccessories(both));
-    expect(points.length).toBeGreaterThan(100);
-    for (const point of points) {
-      expect(Number.isFinite(point.x) && Number.isFinite(point.y)).toBe(true);
-      expect(Math.hypot(point.x - 256, point.y - 264) + point.stroke,
-        `outline at (${point.x},${point.y}), half-stroke ${point.stroke}`).toBeLessThanOrEqual(100);
-    }
-    for (const family of getCharacterSkins()) for (const shape of family.shapes) {
-      const framing = characterFraming(family.id, shape, 'avatar');
+  it('fits external headgear inside every circular crop with stable framing across gaze and expression', () => {
+    for (const family of getCharacterSkins()) for (const shape of family.shapes) for (const eyePlacement of ['face', 'raised'] as const) {
+      const framing = characterFraming(family.id, shape, 'avatar', { accessories: both, eyePlacement });
       const [cropX, cropY, size] = framing.viewBox.split(' ').map(Number) as [number, number, number];
       const [faceX, faceY, scale] = framing.faceTransform.match(/-?\d+(?:\.\d+)?/g)!.map(Number) as [number, number, number, ...number[]];
+      const points = artPoints(characterAccessories(both, framing.head, { x: 0, y: 0 }, framing.eyeOffset));
       for (const point of points) {
-        const x = faceX + (point.x - 256) * scale;
-        const y = faceY + (point.y - 264) * scale;
+        const x = faceX + (point.x - 256) * scale, y = faceY + (point.y - 264) * scale;
         expect(Math.hypot(x - (cropX + size / 2), y - (cropY + size / 2)) + point.stroke * scale,
-          family.id + '/' + shape).toBeLessThan(size / 2);
+          family.id + '/' + shape + '/' + eyePlacement).toBeLessThan(size / 2);
       }
+      const cups = descendants(characterAccessories(['headphones'], framing.head)).filter(node => node.tag === 'rect' && node.attributes.width === '27');
+      expect(Number(cups[0]!.attributes.x) + 27).toBeLessThan(framing.head.left);
+      expect(Number(cups[1]!.attributes.x)).toBeGreaterThan(framing.head.right);
+      const options = { skin: family.id, shape, eyePlacement, accessories: both, animated: false };
+      const rest = generateCharacter(did, options);
+      const moved = generateCharacter(did, { ...options, state: { gaze: { x: 1, y: -1 }, expression: 'scared' } });
+      expect(rest.svg.match(/viewBox="([^"]+)"/)![1]).toBe(moved.svg.match(/viewBox="([^"]+)"/)![1]);
     }
   });
 
-  it.each(getCharacterSkins().map(family => ({ family })))('adds wearables to $family.id without changing seed, body, framing or live eyes', ({ family }) => {
+  it('moves only frames with gaze while temple endpoints remain on the head', () => {
+    const head = { left: 130, right: 382, top: 120, sideY: 270 };
+    const rest = characterGlassesPose(head, { x: 0, y: 0 });
+    const moved = characterGlassesPose(head, { x: 1, y: -1 });
+    expect(rest.transform).toBe('translate(0 0)');
+    expect(moved.transform).toBe('translate(20 -14)');
+    expect(moved.temples).toContain('M130 270');
+    expect(moved.temples).toContain('M382 270');
+    const frames = (gaze: { x: number; y: number }) => descendants(characterAccessories(['glasses'], head, gaze)).filter(node => node.tag === 'rect').map(node => node.attributes);
+    expect(frames({ x: 1, y: -1 })).toEqual(frames({ x: 0, y: 0 }));
+  });
+
+  it.each(getCharacterSkins().map(family => ({ family })))('adds wearables to $family.id without changing seed, body or live eyes', ({ family }) => {
     const options: CharacterOptions = { skin: family.id, animated: true, state: { expression: 'scared', gaze: { x: -1, y: 1 } } };
     const bare = generateCharacter(did, options);
     const adorned = generateCharacter(did, { ...options, accessories: both });
@@ -145,7 +154,9 @@ describe('independent character accessories', () => {
     expect(bare.svg).not.toContain('data-character-accessories');
     expect(adorned.accessories).toEqual(both);
     expect(Object.isFrozen(adorned.accessories)).toBe(true);
-    expect(withoutAccessories(adorned.svg)).toBe(bare.svg);
+    expect(adorned.color).toBe(bare.color);
+    expect(adorned.shape).toBe(bare.shape);
+    expect(adorned.svg.slice(adorned.svg.indexOf('<g data-character-eyes'))).toBe(bare.svg.slice(bare.svg.indexOf('<g data-character-eyes')));
     expect(adorned.svg.indexOf('data-character-accessories')).toBeLessThan(adorned.svg.indexOf('data-character-eyes'));
     expect(generateCharacter(did, { ...options, accessories: ['headphones', 'glasses'] }).svg).toBe(adorned.svg);
     const appearance = parseCharacterAppearance({ skin: family.id, accessories: ['headphones', 'glasses'] });
