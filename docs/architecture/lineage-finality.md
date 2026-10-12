@@ -1,47 +1,69 @@
-# Lineage Finality
+# Lineage and anchor authority
 
-OAS SDK is the upstream lineage contract. Downstream products consume the OAS verifier result; they do not define lineage independently.
+A valid signature, a current trusted identity and permission for an operation
+are separate decisions. OpenAgentID supplies portable verification and explicit
+authority hooks; it does not require every agent to use a human root or one
+centralized finality service.
 
-## Invariant
+## Portable identity verification
 
-No privileged agent action is valid unless the required authority path can be reconstructed from finalized Sigil GAL state through the OAS SDK verifier contract.
+`IdentityVerifier` verifies signed possession/delegation evidence against the
+receiver's authoritative DID keys, root policy, current revocation and atomic
+challenge/replay store. It supports owned roots and explicitly authorized self
+roots. The Node local workspace implements direct self-root trust using public
+key pins at that receiver.
 
-Local DID and signature checks are still useful. They prove key possession, document integrity, and offline identity material. They do not authorize privileged ecosystem actions by themselves.
+Signatures may be checked locally; external ownership, current revocation and
+application permissions still depend on the configured authority. A request's
+declared root or lineage array is insufficient. See
+[identity verification](../identity-verification.md) for the exact contract.
 
-## Downstream Responsibilities
+## Provider-facade authority hooks
 
-| System | Responsibility |
-| --- | --- |
-| OAS SDKs | Own the verifier interface, local identity checks, Sigil-backed authority result shape, and fail-closed error model. |
-| OpenAgent SDK | Call OAS verification before creating sessions, accepting ACTs, or returning privileged `AuthContext` values. |
-| OpenAgentID | Admit unknown agents at the anonymous/key-possession tier; require OAS + Sigil lineage before issuing durable identity, elevated trust, or ecosystem access. |
-| AEGIS | Apply policy to the OAS verification result. Do not maintain an independent lineage definition. |
-| Arsenal | Issue ACTs and broker credentials only after the OAS result proves the required Sigil lineage path. |
-| Forge SDKs | Bind runtime identity to the OAS result before tool execution, collaboration, wallet, or capability flows. |
-| Kin | Treat agent/social/workspace authority as OAS-verified lineage plus Kin-specific policy. |
-| Aut0 | Treat org, department, team, position, and agent membership as OAS-verified lineage plus Aut0 workflow policy. |
-| OATS | Score only the authority and behavior paths that can be tied to the OAS verification result. |
-| MARS | Resolve and index OAS documents, then require Sigil-backed OAS verification for privileged registry claims. |
+The configured verification facade retains these genuine interfaces:
 
-## Modes
+- `PrivilegedAuthorityVerifier.verify(ctx, options)` supplies a verified
+  `LineageAuthorityContext` from the deployment's authority backend.
+- `PrivilegedAuthorityVerificationClient` wraps a real `VerificationClient`
+  and invokes that hook when `requirePrivilegedAuthority` is requested.
+- `LineageAuthorityContext` carries `subject`, `source`, `root`, `path`,
+  `finalizedBlock`, `pathKind`, `scopes` and `generation`, with optional root/org
+  commitment and expiry metadata.
 
-**Portable identity mode** verifies:
+The wrapper checks bindings and required path metadata; the configured authority
+verifier must actually reconstruct and verify that authority. Returning a shaped
+object without the underlying checks supplies no proof. Keep the names and fields
+intact when integrating an existing deployment.
 
-- DID syntax and entity kind
-- DID document schema
-- document signatures
-- local lineage proof structure
-- attestations and presentations
+These facade APIs and some upstream documentation retain Sigil-oriented comments
+and terminology. They describe the legacy anchored integration, not a mandatory
+backend for local identity, portable JWT verification or the browser player.
+The existing [EAS adapter](../../adapters/eas/typescript/) is another explicit
+anchor seam. It requires its own authoritative configuration and is not a
+default global trust source.
 
-**Privileged authority mode** additionally verifies:
+## Base and backend migration
 
-- HMR, MHR, and ENR root anchors on Sigil
-- typed lineage edges for the required path
-- org lineage roots and membership proofs where applicable
-- edge scope and expiry
-- revocation-first status from Sigil GAL
-- finalized block height and metadata commitments
+The implemented [EAS adapter](../../adapters/eas/typescript/) is configurable
+for Base; its README uses Base RPC and EAS GraphQL endpoints. The separate
+`@openagentid/anchor-eas` package is published at 0.1.1. Select its schema UID,
+trusted attester, endpoints, confirmation policy and, when publishing, actual
+EAS contract and protected signer explicitly.
 
-## Fail-Closed Rule
+That support does not prove a default Base backend, a deployed trusted contract
+or a completed Sigil-to-Base data migration. A migration must preserve identifier
+bindings, authority commitments, revocation, finality and rollback policy.
+Renaming legacy type fields does not implement or verify that migration.
 
-If a downstream system needs privileged authority and cannot verify Sigil-backed lineage through OAS, it must reject the action. It may still return an anonymous or low-trust identity result for discovery, onboarding, or account creation.
+## Fail closed at the required boundary
+
+If an application requires an owned root, a particular chain anchor or an
+organization membership proof, it must refuse the operation when that authority
+is missing, stale or unavailable. It must not downgrade the required permission
+check to DID syntax or successful key possession. Self-root approval is a
+separate explicit policy, not a fallback for a failed owned-root check.
+
+The identity decision can be shared by OIDC, OATS, credential brokers and runtime
+consumers through their configured contracts. Each consumer still authorizes its
+own operation and tenant; identity, reputation and avatar pixels do not grant
+those permissions automatically.

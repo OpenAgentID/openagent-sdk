@@ -25,6 +25,8 @@ distinct silhouettes and signature details keep each family recognizable.
 
 For an existing application, install `@openagentid/sdk@0.7.2` and follow the
 [TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
+The [developer-tooling guide](docs/developer-tooling.md) covers the current CLI,
+receiver trust/storage, portable verification, OIDC/OATS and browser state APIs.
 The included `oaid` CLI creates identities, exchanges public trust documents,
 issues challenges, signs and verifies proofs, revokes local trust and renders
 avatars. No command requires a Life service. See the
@@ -72,34 +74,41 @@ trust without a Life account or centralized service. See the
 The existing `OpenAgent` facade wraps configured OAS, Arsenal and AEGIS clients.
 Those clients must be supplied; endpoint strings alone do not initialize them.
 The standalone local identity and live-avatar APIs need only this public SDK.
+Owned and explicitly authorized self-root identities are supported; identity
+verification grants no application permission by itself. Chain-finality providers
+are explicit [authority/anchor integrations](docs/architecture/lineage-finality.md),
+not a prerequisite for the public starter. The EAS adapter can be configured for Base; its availability does not prove
+a deployed default or a completed migration.
 
-Every language implementation is gated by the same conformance suite — the canonical ACT verification vectors in [`conformance/`](conformance/) — so a token that verifies in one language verifies in all of them.
+The canonical ACT vectors in [`conformance/`](conformance/) exercise shared
+verification cases. They do not establish universal language/API parity or
+compatibility beyond the qualified formats and cases.
 
 ## Languages
 
-| Language | Package | Install | Docs |
-|---|---|---|---|
-| TypeScript | [`@openagentid/sdk`](https://www.npmjs.com/package/@openagentid/sdk) | `npm install @openagentid/sdk` | [sdks/typescript](sdks/typescript/) |
-| Python | [`openagentid-sdk`](sdks/python/) | `pip install openagentid-sdk` | [sdks/python](sdks/python/) |
-| Rust | [`openagent-sdk`](sdks/rust/) | `cargo add openagent-sdk` | [sdks/rust](sdks/rust/) |
-| Go | [`openagent`](sdks/go/) | `go get github.com/OpenAgentID/openagent-sdk/sdks/go` | [sdks/go](sdks/go/) |
-| Swift | [`OpenAgentSDK`](sdks/swift/) | SwiftPM — this repo as a package dependency | [sdks/swift](sdks/swift/) |
-| Kotlin | [`id.openagent:sdk`](sdks/kotlin/) | Gradle — see the module README | [sdks/kotlin](sdks/kotlin/) |
+| Language | Distribution | Current integration |
+|---|---|---|
+| TypeScript | npm `@openagentid/sdk` 0.7.2 | `npm install @openagentid/sdk@0.7.2`; [current guide](docs/developer-tooling.md) |
+| Python | PyPI `openagentid-sdk` 0.1.0 | `pip install openagentid-sdk==0.1.0`; [module](sdks/python/) |
+| Rust | Unified facade is source-only | [sdks/rust](sdks/rust/); optional OAS/Arsenal/AEGIS Git dependencies may require separate access |
+| Go | Source module | [sdks/go](sdks/go/); Go 1.26.4+, use the checkout's module |
+| Swift | Source package | Add [sdks/swift](sdks/swift/) as a local package, not the repository root |
+| Kotlin | Source module | [sdks/kotlin](sdks/kotlin/); no unified Maven Central release is asserted |
 
-The npm SDK is published. Check each language module before selecting it: Rust
-currently references private OAS, Arsenal and AEGIS repositories. That path is not
-yet a public clean-clone onboarding experience. The TypeScript local identity
-and avatar path has no private repository requirement.
+Registry availability was checked on 12 October 2026. Each language has its own
+API and release track. The TypeScript local workspace and browser player need
+no private repository. The starter is `create-openagent` 0.5.2; the separate
+OIDC provider is `@openagentid/oidc` 0.2.0.
 
 ## What's in the box
 
-- **Verify-first ACT verification** — `act.verify()` fluent builders and framework middleware (Express, fetch, Axum, FastAPI/Starlette, `net/http`, Ktor) in every language
-- **Key custody** — seed-based Ed25519 key management with identical semantics across languages
-- **Fail-closed subsystems** — no silent stubs in production; in-memory fakes live in [`@openagentid/sdk-testing`](sdks/testing/) for tests only
-- **Core Protocol authentication** — the Section 15 challenge-response flow, with HTTP adapters in [`adapters/http`](adapters/http/)
-- **EAS anchoring** — chain-agnostic lineage anchors with an Ethereum Attestation Service adapter in [`adapters/eas`](adapters/eas/)
-- **Bridges & integrations** — [OIDC](bridges/oidc/), [SCIM 2.0](bridges/scim/), [MCP](integrations/mcp/), [Claude Agent SDK](integrations/claude-agent-sdk/)
-- **Shared crypto** — [`@openagentid/crypto-wasm`](crates/openagent-crypto-wasm/), the Rust crypto core compiled to WASM for cross-language parity
+- **Local identity and CLI** — real Ed25519 keys, explicit receiver trust, persisted challenges/revocation and the bundled `oaid` commands.
+- **Portable verification** — configurable authoritative keys, owner/self-root policy, revocation and atomic replay.
+- **Live avatars** — deterministic appearance, face framing, shared smooth eyes and status updates independent of identity permission.
+- **Protocol components** — ACT verification and framework adapters have their own source APIs and crypto-binding requirements; they are distinct from local possession JWTs.
+- **EAS anchoring** — the configurable Ethereum Attestation Service adapter in [`adapters/eas`](adapters/eas/), including Base endpoint configuration.
+- **Bridges and integrations** — [OIDC](bridges/oidc/), [SCIM](bridges/scim/), [MCP](integrations/mcp/) and [harness source](integrations/claude-agent-sdk/) have distinct configuration and availability boundaries.
+- **Crypto implementations** — native Node/browser modules and the separate [crypto-WASM component](crates/openagent-crypto-wasm/) serve their documented APIs; a seed does not promise identical recovery behavior across every module.
 
 ## Repository layout
 

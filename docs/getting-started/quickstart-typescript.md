@@ -1,7 +1,9 @@
 # Quickstart — TypeScript and JavaScript
 
-The SDK 0.7 developer path runs on Node 20+ without a Life account, API key,
+The SDK 0.7.2 developer path runs on Node 20+ without a Life account, API key,
 hosted resolver or private package. Keys and trust stay on your infrastructure.
+The [developer-tooling guide](../developer-tooling.md) includes the complete CLI,
+verification, OIDC/OATS and current browser integration map.
 
 ## Start a working application
 
@@ -74,9 +76,13 @@ revocation and atomic replay storage to the existing `IdentityVerifier`.
 ## Put a live avatar in your UI
 
 ```ts
-import { mountCharacter } from '@openagentid/sdk/character-player';
+import { mountCharacter } from '@openagentid/sdk/browser';
 
-const avatar = mountCharacter(document.querySelector('#avatar')!, agentDid);
+const element = document.querySelector('#avatar');
+if (!element) throw new Error('Missing avatar element');
+// Rendering preview only; use your registered agent's literal DID in production.
+const agentDid = 'did:oas:openagent:agent:preview';
+const avatar = mountCharacter(element, agentDid);
 avatar.update({ status: 'reasoning' }); // thoughtful
 avatar.update({ status: 'working' });   // attentive
 avatar.update({ status: 'success' });   // happy
@@ -88,21 +94,26 @@ avatar.dispose();
 
 Feed `update` from the application's authorized activity channel. It changes the
 presentation, not identity, permissions or the agent's saved profile. The player
-preserves its animation timeline and honors reduced motion.
+preserves its animation timeline and honors system reduced motion. The catalog
+contains 17 families, 62 kinds and 18 shared expressions. `view: 'avatar'` frames
+the face by default; use `view: 'full'` for the body. Stored appearance, render
+framing and current activity remain independent. Map only real authorized phases
+to status; a running process does not establish that it is reasoning.
 
 ## Inspect and integrate from the terminal
 
 ```sh
-npx oaid --help
-npx oaid init --directory .openagentid --audience https://my-app.example/agents
-npx oaid agent create --directory .openagentid --name researcher
-npx oaid doctor --directory .openagentid
+npx --no-install oaid --help
+npx --no-install oaid init --directory .openagentid --audience https://my-app.example/agents
+npx --no-install oaid agent create --directory .openagentid --name researcher
+npx --no-install oaid doctor --directory .openagentid
 ```
 
 Use `agent export`/`agent trust` to exchange public identity documents,
 `challenge`/`prove`/`verify --local` for authenticated requests, and `agent revoke`
 to withdraw this receiver's trust. Commands return JSON for automation and nonzero
-exit codes on refusal. Run `npx oaid --help` for exact options. `doctor` validates
+exit codes on refusal. Run `npx --no-install oaid --help` after installing the SDK
+for exact options; these calls use its bundled binary. `doctor` validates
 workspace storage and reports metadata; it does not claim a remote login worked.
 
 The existing remote `verify --endpoint`, `oidc doctor`, `glyph` and new `avatar`
@@ -112,6 +123,8 @@ and [characters](../characters.md) for the protocol and presentation APIs.
 ## Optional integrations
 
 `@openagentid/oidc` can bridge verified agents into an OIDC relying party.
+Its independent published version is 0.2.0; production requires real signing
+keys, registered clients, shared durable storage and current identity authority.
 The `OpenAgent` facade supports separately configured identity, credential and
 verification clients. Calling `OpenAgent.createAgent` with no identity client
 fails closed; endpoint strings alone do not construct those clients. LifeID,

@@ -1,224 +1,116 @@
-# TypeScript API Reference
+# TypeScript API reference
 
-This page documents every public export of `@openagentid/sdk`. For conceptual docs and task-oriented walkthroughs, see the [guides](../guides/creating-an-agent.md). For the underlying wire formats, see [wire-formats.md](wire-formats.md).
+This is a map of the current SDK 0.7.2 surfaces. The linked source declarations
+are authoritative for exact types and exports; the public
+[developer-tooling guide](../developer-tooling.md) supplies the complete first
+integration. The separate OIDC package remains version 0.2.0.
 
-## Module: `@openagentid/sdk`
+## Node local authority
 
-### `OpenAgent` (namespace)
+Import `OpenAgentWorkspace` from `@openagentid/sdk/local`. This is Node-only,
+single-host filesystem custody and receiver-controlled trust.
 
-The static facade. Stateless (or holds a process-wide cached resolver). Every method is async unless noted.
+| Method | Actual contract |
+| --- | --- |
+| `initialize(directory, { audience, namespace? })` | Initialize an absent private workspace; refuse existing or invalid state. |
+| `open(directory)` | Open valid existing state without resetting, repairing or stealing a lock. |
+| `createAgent(name)` | Generate a real Ed25519 signer and approve it at this workspace. |
+| `listAgents()` | Return registration metadata, not private keys. |
+| `exportIdentity(did)` | Return a public `LocalAgentDocument`. |
+| `trustIdentity(document)` | Explicitly pin a public identity at this receiver; reimport does not undo revocation. |
+| `issueChallenge(did)` | Persist a fresh DID/audience-bound `LocalChallenge`. |
+| `prove(did, { nonce, audience })` | Sign an `AgentIdentityProof` with the local private signer. |
+| `verify(proof, { nonce })` | Verify current local trust and durably consume the issued challenge/proof ID. |
+| `revoke(did)` | Persist withdrawal of this receiver's trust. |
+| `inspect()` | Return audience, namespace and registration counts. |
 
-#### `OpenAgent.createAgent(options): Promise<Agent>`
+Times use Unix seconds. The local challenge/proof window is 60 seconds. The
+public document and possession proof do not grant trust to another receiver.
+See [local source](../../sdks/typescript/src/local-workspace.ts).
 
-Mint a new agent under a parent identity.
+## Portable identity verification
 
-```ts
-interface CreateAgentOptions {
-  parent: Did;                        // HMR or agent DID
-  name: string;                       // human-readable; forms part of the child DID
-  scopes: Scope[];                    // strict subset of parent's scopes
-  namespace?: string;                 // defaults to parent's namespace
-  expiresInHours?: number;            // defaults to 1
-  conditions?: PolicyConditions;      // attached AEGIS policies
-}
-```
+`IdentityVerifier`, `AgentIdentityProof`, `VerifiedAgentIdentity` and configuration
+types are root exports. Configure authoritative resolution, root approval,
+revocation and atomic replay. `verify` proves possession; `verifyLineage` and
+`resolve` establish current chain/root trust without a new possession proof.
 
-Returns an `Agent`. Throws `OpenAgentError` on parent verification failure, scope amplification, broker unreachable, or namespace mismatch.
+`VerifiedAgentIdentity` carries `did`, root-first `lineage`, Unix-second `expiresAt`
+and an explicit owned/self root result. Owned results bind a real person/org;
+self roots require a current authoritative grant and have `owner: null`.
 
-#### `OpenAgent.loadAgent(did, options?): Promise<Agent>`
+`createIdentityVerificationHandler` and `verifyIdentityRemote` supply Fetch
+transport around that authority. See the [normative verification contract](../identity-verification.md),
+[verifier source](../../sdks/typescript/src/identity-verification.ts) and
+[HTTP source](../../sdks/typescript/src/verification-api.ts).
 
-Load an existing agent. The calling process must hold either the agent's private key (identified by `OPENAGENT_AGENT_KEY_PATH` or passed in `options.keyMaterial`) or a bearer ACT.
+## Presentation and browser state
 
-```ts
-interface LoadAgentOptions {
-  act?: string;                         // bearer ACT
-  keyMaterial?: Uint8Array;             // raw private key bytes
-  keyPath?: string;                     // path to a PEM key file
-  skillsPolicyPath?: string;            // SKILLS.md path
-}
-```
+`@openagentid/sdk/characters` exports `generateCharacter`, `renderCharacterSvg`,
+`getCharacterSkins`, `getCharacterExpressions`, `getCharacterStatuses`, appearance
+and state types. The closed catalog has 17 families, 62 kinds and 18 expressions.
+`CharacterAppearance` stores skin/version, eye style, shape, finish, eye placement
+and accessories. `view` belongs to render/player options, not that stored type.
 
-#### `OpenAgent.authenticate(request): Promise<Context>`
+`@openagentid/sdk/browser` is self-contained browser ESM. It exports
+`mountCharacter(element, did, options?)` and catalogs. The returned player has
+`update`, `setAppearance`, `setReducedMotion`, `getState` and `dispose`.
+`@openagentid/sdk/character-player` also exposes the player as a module, while
+`@openagentid/sdk/character-animation` supplies DOM-free sampled geometry.
 
-Authenticate an inbound request. `request` is one of: `IncomingMessage`, `Request` (Fetch API), a plain `{ headers, method, url }` object, or any framework type for which an adapter has been installed.
+Root/`glyph` exports include `oasGlyph`, `glyphEndpoint`, `agentAvatar` and
+`isAgentAvatarDid`. Display parsing establishes no authentication or permission.
+See [characters](../characters.md), [Glyph](../glyph.md) and
+[player source](../../sdks/typescript/src/character-player.ts).
 
-Returns a `Context` on success. Throws `OpenAgentError` on any failure — check `err.code` to differentiate `UNAUTHENTICATED`, `INVALID_TOKEN`, `EXPIRED`, `LINEAGE_BROKEN`, `POLICY_DENIED`, etc.
+## OATS and OIDC
 
-#### `OpenAgent.authenticateHandshake(mcpInitRequest): Promise<Context>`
+Root exports include `VerifiedOatsScorer` and `createOatsEvidenceVerifier`.
+They require verified attestation evidence, explicit trusted issuers and current
+identity/credential authority. See [OATS](../oats.md).
 
-Same as `authenticate`, but reads from an MCP `initialize` request's `clientInfo.openagent` field instead of HTTP headers.
+The separate `@openagentid/oidc@0.2.0` exports `createAgentOidcProvider` and its
+configuration/identity contracts. See the [provider reference](../../bridges/oidc/typescript/README.md).
+The SDK's `oaid oidc doctor` is diagnosis, not an OIDC login client.
 
-#### `OpenAgent.revoke(did, options?): Promise<void>`
+## Configured provider facade
 
-Revoke an agent and (by default) all of its descendants. Requires the caller to hold either an ancestor key or a policy admin credential.
+Root exports `OpenAgent`, `OpenAgentRuntime`, `OpenAgentInstance`, `IdentityProvider`,
+`ArsenalClient`, `VerificationClient`, `AuthContext` and configuration types.
+These operations require supplied concrete clients:
 
-```ts
-interface RevokeOptions {
-  reason?: string;
-  cascadeDescendants?: boolean;    // defaults to true
-}
-```
+| Surface | Contract |
+| --- | --- |
+| `OpenAgent.configure(config)` | Replace the singleton runtime with explicitly configured clients. |
+| `runtime.createAgent(input)` | Validate `CreateAgentInput`, call the configured identity provider and return an `OpenAgentInstance`. |
+| `runtime.loadAgent(did, skills?)` | Resolve through the configured identity provider. |
+| `runtime.authenticate(request, options?)` | Call the configured verification client with a WHATWG `Request`. |
+| `instance.credentialsFor(provider)` | Obtain a handle from the configured credential client. |
 
-#### `OpenAgent.audit(agentDid?): AuditQuery`
+`CreateAgentInput` requires `parent`, `name` and a nonempty `scopes` array; optional
+fields are `namespace`, `skills` and `metadata`. This provider-facade parent input
+does not prohibit self-root identities through the local/general verifier paths.
+Creation does not implicitly issue an ACT or start a worker. Endpoint strings
+do not instantiate these clients. See [facade source](../../sdks/typescript/src/agent.ts)
+and [configuration](../../sdks/typescript/src/config.ts).
 
-Returns a fluent audit query builder. Passing a DID scopes the query to one agent; omitting it queries across the whole tenant (requires policy admin).
+The facade does not expose the former guide's proposed `authenticateHandshake`,
+global `revoke`, `audit`, `healthCheck`, `refresh` or `startAutoRefresh` methods.
+Use actual exported contracts rather than those historical example shapes.
+Current per-instance methods and credential handles are declared in source.
 
-#### `OpenAgent.healthCheck(): Promise<HealthResult>`
+`PrivilegedAuthorityVerifier`, `PrivilegedAuthorityVerificationClient` and
+`LineageAuthorityContext` are genuine optional authority hooks with legacy anchor
+metadata. ACT/key helpers have explicit crypto-binding initialization. See
+[authority boundary](../architecture/lineage-finality.md) and
+[crypto integrations](../architecture/why-wasm-crypto.md).
 
-Self-test the crypto core and the broker connection.
+## CLI and diagnostics
 
-#### `OpenAgent.configure(config): void`
-
-Set process-wide configuration. Must be called before any other SDK method.
-
-```ts
-interface OpenAgentConfig {
-  brokerUrl?: string;
-  aegisUrl?: string;
-  namespace?: string;
-  audit?: AuditConfig;
-  cache?: CacheConfig;
-}
-```
-
-#### `OpenAgent.scopeMatches(held, required): boolean`
-
-Utility. Checks whether the list of `held` scopes satisfies the list of `required` scopes, honoring hierarchy and negations.
-
----
-
-### `Agent` (class)
-
-Returned by `createAgent` and `loadAgent`.
-
-```ts
-class Agent {
-  readonly did: Did;
-  readonly scopes: readonly Scope[];
-  readonly expiresAt: Date;
-  readonly lineage: readonly Did[];
-  readonly actCompactString: string;
-
-  credentialsFor(service: string, options?: CredentialOptions): Promise<Credentials>;
-  rawCredential(service: string): Promise<string>;     // escape hatch
-
-  delegate(options: DelegateOptions): Promise<Agent>;
-  refresh(): Promise<void>;
-  startAutoRefresh(intervalSeconds: number): AbortController;
-
-  wallet(options?: WalletOptions): Promise<Wallet>;
-
-  skillsPolicy(): SkillsPolicy;
-
-  sign(message: Uint8Array): Promise<Uint8Array>;      // raw Ed25519 sign
-  verify(message: Uint8Array, sig: Uint8Array): Promise<boolean>;
-
-  hasScope(scope: Scope): boolean;
-  requireScope(scope: Scope): void;                    // throws on miss
-}
-```
-
-### `Context` (interface)
-
-Returned by `authenticate`.
-
-```ts
-interface Context {
-  readonly did: Did;
-  readonly scopes: readonly Scope[];
-  readonly lineage: readonly Did[];
-  readonly rootHuman: Did;
-  readonly actingAs: Did;
-  readonly expiresAt: Date;
-  readonly policyDecisions: readonly PolicyDecision[];
-
-  hasScope(scope: Scope): boolean;
-  requireScope(scope: Scope): void;
-}
-```
-
-### `Credentials` (interface)
-
-Returned by `agent.credentialsFor`.
-
-```ts
-interface Credentials {
-  fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
-  get(url: string, init?: RequestInit): Promise<Response>;
-  post(url: string, init?: RequestInit): Promise<Response>;
-  put(url: string, init?: RequestInit): Promise<Response>;
-  delete(url: string, init?: RequestInit): Promise<Response>;
-  patch(url: string, init?: RequestInit): Promise<Response>;
-  stream(url: string, init?: RequestInit): Promise<ReadableStream<Uint8Array>>;
-  multipart(url: string, parts: MultipartPart[]): Promise<Response>;
-}
-```
-
-### `SkillsPolicy` (interface)
-
-```ts
-interface SkillsPolicy {
-  canInvoke(name: string, context?: Record<string, unknown>): PolicyDecision;
-  list(): readonly SkillDefinition[];
-  reload(): Promise<void>;
-}
-
-interface PolicyDecision {
-  readonly allowed: boolean;
-  readonly reason: string | null;
-  readonly skill: string;
-  readonly requiresApproval: boolean;
-  readonly approvalPrompt?: string;
-}
-```
-
-### `Wallet` (interface)
-
-```ts
-interface Wallet {
-  address(chain: Chain): Promise<string>;
-  balance(chain: Chain): Promise<Balance>;
-  signTransaction(tx: UnsignedTransaction): Promise<SignedTransaction>;
-  send(tx: UnsignedTransaction): Promise<TransactionReceipt>;
-  history(options?: HistoryOptions): Promise<Transaction[]>;
-}
-
-type Chain =
-  | 'bitcoin' | 'ethereum' | 'optimism' | 'arbitrum' | 'base'
-  | 'polygon' | 'bnb' | 'avalanche' | 'solana' | 'cosmos'
-  | 'cardano' | 'polkadot' | 'near' | 'aptos' | 'sui'
-  | 'stellar' | 'tron' | 'xrpl';
-```
-
-### `OpenAgentError` (class)
-
-Single error type for all SDK failures.
-
-```ts
-class OpenAgentError extends Error {
-  readonly code: ErrorCode;
-  readonly httpStatus: number;
-  readonly details: Record<string, unknown>;
-}
-
-type ErrorCode =
-  | 'UNAUTHENTICATED' | 'INVALID_TOKEN' | 'EXPIRED'
-  | 'LINEAGE_BROKEN' | 'LINEAGE_REVOKED'
-  | 'SCOPE_DENIED' | 'SCOPE_AMPLIFICATION'
-  | 'POLICY_DENIED' | 'POLICY_REQUIRES_APPROVAL'
-  | 'BROKER_UNAVAILABLE' | 'UPSTREAM_ERROR'
-  | 'INVALID_REQUEST' | 'INTERNAL';
-```
-
-The full code table with recommended HTTP status and remediation is in [error-codes.md](error-codes.md).
-
-## Subpath exports
-
-- `@openagentid/sdk/express` — `expressMiddleware(options)` for Express/Connect.
-- `@openagentid/sdk/fastify` — `fastifyPlugin(options)` for Fastify.
-- `@openagentid/sdk/hono` — `honoMiddleware(options)` for Hono.
-- `@openagentid/sdk/claude-agent` — `openagentPlugin(options)` for the Claude Agent SDK.
-- `@openagentid/sdk/mcp` — helpers for MCP server integration (`authenticateTransport`, `filterTools`).
-- `@openagentid/sdk/testing` — a test double (`FakeBroker`, `stubAgent`, `stubContext`).
-
-Each subpath has a small dedicated API surface — the common case is a single function that returns a middleware.
+The `oaid` binary is included in the installed SDK. Local commands, HTTPS
+verification, OIDC diagnosis and avatar/Glyph rendering are listed by
+`npx --no-install oaid --help`. See the
+[exact CLI sequence](../developer-tooling.md#use-the-cli-with-an-existing-application)
+and [CLI source](../../sdks/typescript/src/cli.ts). Commands return JSON/SVG and
+nonzero exit codes on failure; `doctor` reports workspace metadata, not a remote
+acceptance verdict.

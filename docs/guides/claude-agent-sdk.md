@@ -1,133 +1,67 @@
-# Claude Agent SDK Integration
+# Agent Harness Integration
 
-The Claude Agent SDK (the library behind Claude Code and similar agent harnesses) runs agents that invoke tools, read files, make HTTP calls, and consult skill definitions. OpenAgent drops into that harness as a plugin, wiring identity, capabilities, and skills governance into an existing agent loop without rewriting your agent logic.
+OpenAgentID identity, capabilities and skill policy can be attached to a host
+agent loop. The repository includes the separate Claude Agent SDK integration
+source under `integrations/claude-agent-sdk`; the public unified SDK has no
+`@openagentid/sdk/claude-agent` subpath. The public starter does not require
+this harness or integration package.
 
-## What the integration does
+## Actual source contract
 
-When installed as a plugin, OpenAgent intercepts three surfaces:
+The TypeScript integration entry exports `openAgentPlugin` plus lifecycle/tool/
+skill hooks, capability and skills-policy interfaces, and component audit
+primitives. Its actual `OpenAgentPluginOptions` requires:
 
-1. **Tool invocation.** Before any tool call, OpenAgent checks whether the current agent identity has the scopes the tool declares. If not, the call is denied with a structured error the harness can surface to the model.
-2. **Credential injection.** When a tool needs an API key (OpenAI, GitHub, etc.), it asks OpenAgent, and OpenAgent hands back a fetch-shaped object that goes through the Arsenal broker. The raw credential never enters the process.
-3. **Skills consultation.** Before the harness advertises a named skill to the model, OpenAgent's skills policy is consulted. Skills whose current context would deny invocation are hidden from the advertised list (or flagged with a "requires approval" marker for human-in-the-loop skills).
+- `agent: OpenAgentIdentity`, supplied by the host's real identity custody.
+- `capabilities: CapabilityChecker`, implementing the chosen authoritative
+  permission contract.
+- Optional `skillsPolicy`, `audit`, `signMessages` and `denyMode`.
 
-The integration is a one-line install and a configuration block.
+`openAgentPlugin` returns the component's own hook object. The host must wire
+those hooks into its exact installed harness API before operations occur.
+Placing an arbitrary object into a host's `plugins` array is not proof its
+callbacks are called or refusals block execution. Package names in the source
+manifest do not establish current public availability or compatibility with a
+particular external harness release.
 
-## TypeScript — installing the plugin
+The hooks include `onSessionStart`, `preToolUse`, `postToolUse`, `onMessage`,
+`onSkillInvoke` and `onSessionEnd`, with typed context/input/result structures.
+Use the actual source types; the integration `OpenAgentIdentity` and checker
+are not automatically a unified `OpenAgentInstance` or an authenticated human
+owner. A static capability checker is configured policy data, not proof that a
+broker authorized the caller.
 
-```ts
-import { ClaudeAgent } from '@anthropic/claude-agent-sdk';
-import { openagentPlugin } from '@openagentid/sdk/claude-agent';
+## Wire real authority and controls
 
-const agent = new ClaudeAgent({
-  model: 'claude-sonnet-4-6',
-  tools: [...],
-  plugins: [
-    openagentPlugin({
-      agentDid: process.env.AGENT_DID!,
-      skillsPolicyPath: './SKILLS.md',
-    }),
-  ],
-});
+Before granting tools, verify the accepted proof/root/revocation/replay under
+[current identity authority](../identity-verification.md). Adapt the result and
+application permission to the component's identity/checker interfaces. Keep
+trusted keys, audience, tenant and requested scopes under host control.
 
-await agent.run('Summarize yesterday\'s PR activity and post a report to #engineering');
-```
+Call the pre-tool/skill guard before side effects and honor its denial result or
+exception; invoke post-tool hooks only after the actual outcome. Validate
+arguments and outbound targets separately. The source has no automatic parent
+`.delegate()` or human-approval UI, subagent high-risk-scope filter, paused-run
+consent workflow or unified credential injection. Provision child identity and
+permissions through the actual signer/issuer contracts.
 
-That's it. Once the plugin is in the plugin list, every tool call the agent makes is gated, every credential fetch goes through the broker, and every skill invocation consults the policy. You can watch the intercepts via `agent.on('openagent:decision', d => console.log(d))` which fires on every allow/deny decision.
+## Audit and message signing
 
-## Rust — installing the plugin
+`audit: true` selects memory plus console sinks; it does not provision durable
+storage. A custom `AuditSink` must use the host's actual custody/failure policy.
+Component audit chains swallow sink failures, so hook success cannot certify
+compliance delivery. There is no `OpenAgent.audit(...).forRun()` query DSL.
+[Audit responsibilities](audit-and-compliance.md).
 
-```rust
-use claude_agent_sdk::ClaudeAgent;
-use openagent_sdk::claude_agent::plugin as openagent_plugin;
-use std::path::Path;
+Optional message signing uses the real supplied identity signer and its exact
+message contract. The host/receiver still validates the signed content,
+recipient and accepted key policy; a signature callback is not a registered
+Messages transport or proof that an agent profile can reply.
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let agent = ClaudeAgent::builder()
-        .model("claude-sonnet-4-6")
-        .plugin(openagent_plugin::builder()
-            .agent_did(std::env::var("AGENT_DID")?)
-            .skills_policy(Path::new("./SKILLS.md"))
-            .build()?)
-        .build()?;
-
-    agent.run("Summarize yesterday's PR activity and post a report to #engineering").await?;
-    Ok(())
-}
-```
-
-## Tool declarations
-
-For the plugin to gate a tool correctly, the tool needs to declare what scopes it requires. The Claude Agent SDK has a metadata field for this:
-
-```ts
-agent.defineTool({
-  name: 'github_create_pr',
-  description: 'Open a pull request against the repo.',
-  metadata: {
-    openagent: {
-      scopes: ['github:pulls:write'],
-      skill: 'draft-pr',   // optional: also consult the skills policy
-    },
-  },
-  parameters: { /* ... */ },
-  handler: async (args, ctx) => {
-    const github = await ctx.openagent.credentialsFor('github');
-    return github.post('https://api.github.com/...', { /* ... */ });
-  },
-});
-```
-
-At invocation time, the plugin:
-
-1. Checks `ctx.openagent.hasScope('github:pulls:write')` — throws `ScopeDenied` if missing.
-2. If `skill` is set, consults the skills policy via `canInvoke('draft-pr', args)` — throws `PolicyDenied` with a reason if denied.
-3. Exposes the `ctx.openagent.credentialsFor(...)` surface to the handler, already bound to the current agent.
-
-The agent's plugin context is `ctx.openagent`, which holds a ready-to-use `Agent` object for the current run.
-
-## Human approval hooks
-
-When a skill policy denies a call because it requires a human approval, the plugin emits a `needs-approval` event instead of a hard failure. You can wire this to Slack, email, a mobile push, or a web UI:
-
-```ts
-agent.on('openagent:needs-approval', async (evt) => {
-  const url = await sendSlackApprovalPrompt(evt.skill, evt.args, evt.reason);
-  console.log(`approval requested: ${url}`);
-});
-```
-
-The agent run pauses. When the human approves (via whatever UI you built, which creates an approval token in AEGIS), the policy re-evaluates on the next attempt and the run continues. If the human denies or times out, the run fails with a reason that rolls up into the model's context so it can recover gracefully.
-
-## Delegated sub-agents
-
-The Claude Agent SDK spawns sub-agents for parallel task execution. When the plugin is active, every sub-agent is automatically delegated from the parent:
-
-```ts
-const child = await ctx.openagent.delegate({
-  name: 'subtask-1',
-  scopes: ctx.openagent.scopes.filter(s => s !== 'github:pulls:merge'),
-  expiresInMinutes: 30,
-});
-```
-
-Sub-agents inherit a strict subset of the parent's scopes — the plugin enforces this automatically when the harness calls `spawnSubAgent`. You can override the subset policy if you want finer control, but the default is "everything the parent has, minus high-risk scopes."
-
-## Audit log correlation
-
-Every decision, every credential fetch, and every tool call gets tagged with the Claude Agent SDK's run ID and task ID. You can replay an entire agent run from the audit log:
-
-```ts
-const entries = await OpenAgent.audit(ctx.openagent.did).forRun(runId);
-for (const e of entries) {
-  console.log(`${e.timestamp} ${e.kind} ${e.decision} ${e.reason ?? ''}`);
-}
-```
-
-This is especially useful for debugging: when a run fails mysteriously, the audit log tells you exactly which tool was denied, what scope was missing, and which policy clause fired.
-
-## Stdio-mode MCP servers as Claude Agent tools
-
-If your agent runs an MCP server as a tool, and that MCP server itself uses OpenAgent, the two integrate cleanly: the outer agent's delegated ACT is passed to the MCP server via the `clientInfo.openagent` handshake field, and the MCP server authenticates as if the outer agent called it directly. No double-wrapping required.
-
-Next: [multi-chain wallets](multi-chain-wallets.md).
+Source: [`plugin.ts`](../../integrations/claude-agent-sdk/typescript/src/plugin.ts),
+[`hooks.ts`](../../integrations/claude-agent-sdk/typescript/src/hooks.ts),
+[`types.ts`](../../integrations/claude-agent-sdk/typescript/src/types.ts) and
+[`index.ts`](../../integrations/claude-agent-sdk/typescript/src/index.ts).
+Use the [public starter and CLI](../developer-tooling.md) for a complete
+account-free first-run application; adopt a harness integration only with its
+real dependency, adapter and custody contracts.

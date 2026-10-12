@@ -25,16 +25,19 @@ they are not needed by the local workspace or avatar APIs.
 ## Verify your setup
 
 ```sh
-npx oaid --version
-npx oaid init --audience https://my-app.example/agents
-npx oaid agent create --name researcher
-npx oaid doctor
+npx --no-install oaid --version
+npx --no-install oaid init --audience https://my-app.example/agents
+npx --no-install oaid agent create --name researcher
+npx --no-install oaid doctor
 ```
 
-`init` refuses to overwrite existing state. `doctor` opens and validates the
+These commands use the installed SDK's bundled CLI. `init` refuses to overwrite
+existing state. `doctor` opens and validates the
 workspace and reports public metadata, not private keys. It does not assert that
 an external login or permission check succeeded. Use the quickstart's actual
 challenge/proof/verify flow to test identity authentication.
+The [developer-tooling guide](../developer-tooling.md) shows the exact separate
+signer/receiver CLI flow and current browser/verification integrations.
 
 ## Bring your own services
 
