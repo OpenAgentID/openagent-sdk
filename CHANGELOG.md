@@ -18,7 +18,7 @@
 - Release HTTP, MCP, Claude hooks, SCIM and EAS 0.2.0 integrations with current
   SDK support, authenticated flows and fail-closed revocation/replay behavior.
   HTTP now requires authoritative key resolution and atomic nonce admission;
-  EAS requires trusted attesters; SCIM requires actual identity provisioning.
+  EAS supports native Node imports/requires and requires trusted attesters; SCIM requires actual identity provisioning.
 - Update sdk-testing 0.1.2 and create-openagent 0.5.3; preserve Autos as the
   default, SpaceX and all existing families, colors, accessories and live state.
 - Replace placeholder deployment handlers with complete ACT receivers and

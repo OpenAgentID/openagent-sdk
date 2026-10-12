@@ -13,7 +13,7 @@ before publication. This file describes release contents, not publication status
 | `@openagentid/mcp` | 0.2.0 | Current workspace signer/receiver adapters and bound tool arguments |
 | `@openagentid/claude-agent` | 0.2.0 | Official typed hooks, actual SDK signing custody and explicit scope enforcement |
 | `@openagentid/scim` | 0.2.0 | Real injected provisioning and fail-closed deprovisioning |
-| `@openagentid/anchor-eas` | 0.2.0 | Trusted attesters, DID binding and native on-chain revocation |
+| `@openagentid/anchor-eas` | 0.2.0 | Native Node/browser imports, trusted attesters, DID binding and on-chain revocation |
 | `@openagentid/sdk-testing` | 0.1.2 | Current SDK type and runtime compatibility |
 | `create-openagent` | 0.5.3 | Working app pinned to SDK 0.7.3 |
 
