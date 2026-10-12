@@ -1,86 +1,108 @@
 # Managing Credentials
 
-Managing credentials for autonomous agents is the problem that motivated OpenAgent to exist. The conventional approach — mint an API key per agent, store it in a secrets manager, hope it never leaks — falls apart the moment you have thousands of agents, short-lived workloads, or any kind of delegation. OpenAgent solves this with the Arsenal credential proxy.
+SDK 0.7.2 provides a TypeScript credential **proxy client contract**. It does
+not provision a broker, import production secrets or grant permission to use a
+provider. The public [local identity path](creating-an-agent.md) needs none of
+these services. Add credential brokering only when your application requires it.
 
-## The model
+## Configure a real client
 
-Your production secrets (OpenAI, Anthropic, GitHub, Stripe, Postgres, anything else with an API key or connection string) live in one place: the **Arsenal broker**. The broker is a service you deploy in your infrastructure. It holds the real credentials and nothing else holds them.
+An `OpenAgentRuntime` facade uses `clients.credentials`, supplied by the host.
+The injected `ArsenalClient` implements:
 
-Your agents never see the credentials. When an agent wants to call OpenAI, it sends the request *through* the broker. The broker looks up the credential for `openai`, attaches it to the outgoing request, proxies upstream, and returns the response verbatim. The agent process, if fully compromised, leaks no credentials — because it never had any.
+- `requestCredential({agentDid, provider, scopes?})` returning
+  `{provider, proxyUrl, expiresAt, remainingCalls?, metadata?}`.
+- Optional `release(credentialProxyUrl)` to withdraw the issued proxy handle.
 
-The facade in the SDK is `agent.credentialsFor(service)`:
+The client authenticates the caller and selected tenant to the actual broker.
+The broker authorizes the provider, scope and upstream request; an agent DID or
+requested scope array is not itself that authority. `endpoints.arsenalBroker`
+alone does not construct a client. Facade use fails closed when the required
+credential client is missing.
 
-```ts
-const openai = await agent.credentialsFor('openai');
-const res = await openai.post('https://api.openai.com/v1/chat/completions', {
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify(chatBody),
-});
-```
-
-```rust
-let openai = agent.credentials_for("openai").await?;
-let res = openai
-    .post("https://api.openai.com/v1/chat/completions")
-    .header("content-type", "application/json")
-    .json(&chat_body)
-    .send()
-    .await?;
-```
-
-The returned object is a fetch-shaped proxy. It supports `fetch`, `get`, `post`, `put`, `delete`, and `patch` methods, plus streaming (`.stream()`) and multipart (`.multipart()`). It has the same ergonomics as `node-fetch` or `reqwest::Client`.
-
-## Registering a credential
-
-Credentials are registered with the broker out-of-band. You have three options:
-
-1. **Broker CLI** — `arsenal cred register openai --value 'sk-...' --scope 'agent=*'`. The CLI is included with the Arsenal server package.
-2. **Admin API** — `POST /admin/v1/credentials` on the broker with a JSON body. Use this from Terraform or an operator.
-3. **Secret manager sync** — the broker can watch an external secret manager (Vault, OpenBao, AWS Secrets Manager, GCP Secret Manager) and pull credentials in automatically. This is the recommended production pattern because it keeps the source of truth in one place.
-
-In every case, the broker encrypts the credential at rest using a key from its KMS (OpenBao by default in L1fe deployments, but AWS KMS, GCP KMS, and HashiCorp Vault Transit are all supported).
-
-## Service names
-
-The first argument to `credentialsFor` is a service name. It maps to an entry in the broker's credential catalog. Names are flat strings — `openai`, `anthropic`, `github`, `stripe`, `postgres-prod`, `snowflake-analytics`. Pick a naming convention and stick to it. Scopes are checked against the catalog entry's declared scope prefix (`openai:*` by default), so renaming services requires updating scopes.
-
-A single service can have multiple credentials rotated behind it — the broker does the selection. That's how zero-downtime key rotation works: you register `openai` with the new key, mark the old one as draining, and the broker switches over without any client change.
-
-## SSRF guard
-
-Arsenal's credential proxy is platform-agnostic — it can attach credentials to calls going to any URL — and that's a footgun if you're not careful. A compromised agent could ask the broker to proxy a call to `http://169.254.169.254/` and exfiltrate the provider credential to an attacker-controlled endpoint.
-
-The broker has an 11-step SSRF guard on every proxied request: scheme allowlist, DNS resolution with IP family pinning, IP allowlist / blocklist, HTTP redirect interception and re-validation, header stripping of sensitive fields, and a post-response scrub. The guard is on by default and can only be relaxed per-service (not globally). See [architecture/threat-model.md](../architecture/threat-model.md).
-
-## Caching proxied responses
-
-`credentialsFor` returns an object with an optional response cache:
+With an already configured `OpenAgentInstance`, the actual API is
+`credentialsFor(provider, scopes?: readonly string[])`:
 
 ```ts
-const openai = await agent.credentialsFor('openai', {
-  cache: {
-    mode: 'semantic',   // 'none' | 'exact' | 'semantic' | 'perceptual'
-    ttlSeconds: 300,
-  },
-});
+import type { OpenAgentInstance } from '@openagentid/sdk';
+
+export async function readProviderJson(
+  agent: OpenAgentInstance,
+  provider: string,
+  target: string,
+  init: RequestInit,
+  scopes: readonly string[],
+): Promise<unknown> {
+  const credential = await agent.credentialsFor(provider, scopes);
+  try {
+    const response = await credential.fetch(target, init);
+    if (!response.ok) throw new Error('Provider request refused');
+    return await response.json();
+  } finally {
+    await credential.release();
+  }
+}
 ```
 
-Semantic caching reuses responses for near-identical requests (e.g., the same chat prompt with slight whitespace differences). This is usually worth enabling for LLM calls — it's been shown to cut spend by 20–40% on agent workloads — but only when you understand the tradeoff with nondeterminism. See [Foundry caching](https://docs.l1fe.ai/foundry/caching) for the full semantics.
+This helper requires a real configured agent/client and the host's permitted
+provider/target/scopes. It issues no fabricated credentials or public broker
+promise. The helper consumes the JSON body before releasing. Streaming applications
+should retain their handle until body consumption/cleanup has finished.
 
-## Direct credential access (escape hatch)
+`createCredentialHandle({agentDid, provider, arsenal, fetchImpl,
+requestTimeoutMs, scopes?})` is the lower-level exported function for hosts
+that already have an authorized DID and real broker client. The local
+workspace's public `LocalAgent` record is not an `OpenAgentInstance` and does
+not have `credentialsFor`.
 
-If you absolutely need the raw credential in-process (e.g., you're using a client library that won't accept a base URL override), call `agent.rawCredential('openai')`. This returns a short-lived, single-use credential string bound to the agent's DID. You get one shot; using it refuses further access. It's intended for integration with legacy clients and is audited separately.
+## Handle behavior and proxy transport
 
-The SDK will warn loudly if you call `rawCredential` and the agent does not have the `openagent:credential:raw` meta-scope. Most deployments deny that meta-scope by policy and force everything through the proxy.
+`CredentialHandle` exposes `provider`, `agentDid`, `expiresAt`, `fetch`,
+`refresh()` and `release()`. Use a target URL plus explicit `RequestInit` for
+method, headers and body. There are no `post`/`get`/`stream`/`multipart` wrapper
+methods, raw-secret getter or per-handle cache/broker-URL options in this API.
+A standard returned `Response` provides its body for streaming.
 
-## Per-service overrides
+The SDK sends the request to the broker-issued `proxyUrl`, with
+`X-Arsenal-Target` set to the requested upstream URL and `X-Arsenal-Agent` set
+to the issued provider identifier. It forwards the explicit method/headers/body
+and an abort signal using the configured fetch/timeout. The default facade
+request timeout is 30 seconds; the timer ends when fetch resolves, so it is not
+a guaranteed deadline for consuming an entire response stream.
 
-If you need to route calls for one service through a specific broker (multi-region, high-availability), pass a broker URL:
+The broker-issued URL may contain scoped credential material. Treat it as a
+secret: do not log, expose to the browser, include in telemetry or publish it.
+The SDK does not independently validate broker expiry/call counters, implement
+SSRF policy, scrub responses or assert which upstream secret is attached.
+The real broker enforces those contracts. It must restrict upstream origins,
+redirects, resolved addresses, tenant/provider scope and credential expiry;
+never let a requested target expand authorized access.
 
-```ts
-const openai = await agent.credentialsFor('openai', { brokerUrl: 'https://broker-eu.acme.com' });
-```
+## Refresh, release and storage
 
-The SDK will still sign with the agent's ACT, but send the request to the specified broker. Useful for data residency requirements.
+`refresh()` requests a fresh credential and returns a **new** handle using the
+same bound client/DID/provider/scopes. It does not mutate or release the old
+handle, refresh automatically, or implement provider key rotation. The host
+controls safe retry/renewal; avoid retrying uncertain non-idempotent upstream
+operations.
 
-Next: [delegating authority](delegating-authority.md).
+`release()` marks this handle released before invoking the optional broker
+release hook. Later `fetch` calls on the released handle are refused. Repeat
+release calls are no-ops; a broker release failure can still reject the first
+call, and the local released flag does not prove remote revocation succeeded.
+Provider secret registration, rotation, custody, audit and recovery belong to
+the actual broker/secret service. This SDK exposes no credential-registration
+CLI/admin route, automatic secret-manager synchronization or `rawCredential`.
+
+In Life integrations, **Blinds** brokers agent credentials and **Genesis KMS**
+protects customer secrets using Google Cloud KMS. Those service contracts must
+be configured and authorized; the SDK does not supply a retired KMS fallback
+or migrate existing encrypted data. Other deployments choose their own real
+custody/client implementation.
+
+Source: [`credentials.ts`](../../sdks/typescript/src/credentials.ts),
+[`agent.ts`](../../sdks/typescript/src/agent.ts) and
+[`config.ts`](../../sdks/typescript/src/config.ts). See
+[developer tooling](../developer-tooling.md),
+[request authentication](authenticating-requests.md) and
+[audit responsibilities](audit-and-compliance.md).

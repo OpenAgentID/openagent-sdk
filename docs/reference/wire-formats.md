@@ -1,180 +1,115 @@
-# Wire Formats
+# Wire-Format Boundaries
 
-This page documents the byte-level formats OpenAgent emits and consumes: DID strings, Arsenal Capability Tokens (ACTs), detached signatures, audit log entries, and the handshake extension for MCP. Implementing an interop library for a language OpenAgent doesn't ship? This is your document.
+OpenAgentID has distinct signed formats. Use the exact implementation and
+version for the boundary you verify; do not reinterpret one token as another
+because both identify an agent. This page describes the public TypeScript
+SDK 0.7.2 and separate OIDC 0.2.0 integration.
 
-## DID
+| Surface | Wire representation | Verification authority |
+| --- | --- | --- |
+| Identity possession/delegation | Compact signed JWTs inside `{token, delegations}` | Exact authoritative DID keys/purposes, current root/revocation, issued nonce and atomic replay |
+| Canonical ACT | Binary CBOR capability envelope and signed claims bytes | Canonical ACT verifier with trusted issuer/key/audience/time/required-scope policy |
+| OIDC | Provider authorization code, signed ID tokens, opaque access tokens and UserInfo | Registered issuer/client keys, PKCE, nonce, current identity binding and provider storage |
+| OATS OAS attestation | Signed VC JSON using the supported Ed25519/JCS proof profile | Trusted issuer assertion keys, both current identities and credential revocation |
+| Audit receipts | Component-specific record and hash-chain serializer | Host-selected durable custody and trusted checkpoints |
 
-The canonical DID format is a string:
+## Exact DIDs
 
-```
-did:oas:<namespace>:<kind>:<fingerprint>[?<query>][#<fragment>]
-```
+New local identities use `did:oas:<namespace>:agent:<identifier>`. The general
+shared validator supports its OAS entity-kind variants and readable legacy
+`did:l1fe:<kind>:<identifier>` form. `agent:instance` is a compound kind.
+The proof's issuer/subject, key controller and result remain exact literal DIDs;
+normalizing a legacy method or deriving a DID from an unrelated ID changes the
+principal.
 
-- `namespace` is `[a-z0-9][a-z0-9\-]{0,62}`, roughly a DNS label. Examples: `acme`, `l1fe`, `local`, `test`.
-- `kind` is one of the 11 OAS entity kinds: `hmr`, `mhr`, `enr`, `agent`, `tool`, `skill`, `workflow`, `model`, `dataset`, `service`, `agent:instance`. The colon in `agent:instance` is allowed.
-- `fingerprint` is a base58btc-encoded BLAKE3 hash of the public key, truncated to 26 bytes. 36 characters long.
+Local `OpenAgentWorkspace` identifies its real Ed25519 key with
+`base58(BLAKE3(raw32BytePublicKey)[0:26])` as the identifier, without a multibase
+prefix. Other supported opaque DID identifiers need not be this key-derived
+form. A key fingerprint is not the recoverable public key; the authoritative
+resolver/trust pin provides the actual method.
 
-The query and fragment are used for proofs and service endpoints and follow the W3C DID Core spec.
+Proof subject DIDs use the shared validator, not arbitrary DID URLs with query
+or fragment. A protected JWT `kid` names an authorized verification-method ID,
+which may include its `#` method fragment. Avatar-only compatibility for literal
+IAM identifiers does not broaden authentication schemas or create an alias.
 
-Example:
+## Possession and delegation JWT
 
-```
-did:oas:acme:agent:8hT3k4Pq2mXrY9vWbCdEfGh1JkLmNo
-```
+The SDK takes `{token: string, delegations: readonly string[]}`. `token` is a
+possession JWT; delegations are signed root-first links. A direct approved self
+root has an empty chain. All accepted JWTs have protected `alg` (Ed25519/EdDSA
+or RSA/RS256) and exact authoritative `kid`, plus required integer Unix
+`iat`, `nbf`, `exp` and unique `jti`.
 
-Public key recovery is direct: the fingerprint is a hash, not the key itself, so recovering the key requires a resolver lookup. Resolvers are documented in the [OAS SPECIFICATION](../../../forge/oas/oas/docs/oas/SPECIFICATION.md).
+| Field | Possession | Delegation |
+| --- | --- | --- |
+| Protected `typ` | `oaid-proof+jwt` | `oaid-delegation+jwt` |
+| `iss` | Exact agent DID | Exact parent DID |
+| `sub` | Same exact agent DID | Exact child DID |
+| `aud` | Exact service audience string; arrays refused | Same |
+| Key purpose | `authentication` | `capabilityDelegation` |
+| Additional possession claims | Receiver-issued `nonce`, `kind: 'agent'` | Not possession evidence |
 
-## Arsenal Capability Token (ACT) — compact form
+The verifier checks signed bytes before trusting claims, current root/owner or
+self authorization, every delegated lifetime and revocation, then atomically
+consumes the issued challenge/proof ID. It never accepts embedded keys or a
+caller-selected `jku` as authority. [Full contract](../identity-verification.md).
 
-ACTs are JWS-like compact tokens:
+The Fetch verification handler accepts JSON containing **only** `{proof}`
+with `Content-Type: application/json`. The chosen service fixes audience and
+resolves the previously issued nonce. It does not derive challenge authority
+from an echoed header. Successful `no-store` responses contain `{identity}`;
+see the current [verification handler](../../sdks/typescript/src/verification-api.ts).
 
-```
-<header>.<payload>.<signature>
-```
+## Canonical ACT is binary CBOR
 
-Each part is base64url without padding. The structure is compatible with JWT parsers for casual inspection but uses Ed25519 (`EdDSA`) exclusively.
+The SDK `act.verify(tokenBytes)` receives a `Uint8Array`, not a
+`header.payload.signature` JWT. Its actual compiled `act_verify` binding
+verifies the canonical ACT envelope's version/algorithm and original signed
+claims bytes, then checks time, expected issuer/audience and required scopes.
+Supply raw trusted 32-byte Ed25519 public keys and the actual initialized
+binding; no unsigned/mock fallback is permitted.
 
-**Header** (JSON):
+The returned `ActClaims` has `jti`, `sub`, `iss`, `aud`, `iat`, `nbf`, `exp`,
+`tenant_id` and `scope`, with optional `cnf`, `delegation` and `ext`. These
+JavaScript result names do not define a new JSON signing format. Wildcard
+matching belongs to the canonical verifier's grant policy; requests remain
+literal. Do not invent wildcard audience acceptance, negation rules or a
+universal token-size/interoperability guarantee from an illustrative payload.
 
-```json
-{
-  "alg": "EdDSA",
-  "typ": "openagent-act",
-  "kid": "did:oas:acme:broker:main#sig-2026"
-}
-```
+Use the [actual TypeScript ACT API](../../sdks/typescript/src/act.ts),
+[WASM binding source](../../crates/openagent-crypto-wasm/src/lib.rs),
+[canonical ACT repository](https://github.com/OpenAgentID/act) and committed
+[conformance vectors](../../conformance/vectors) for byte-level implementation.
+An OIDC bridge can transport signed ACT bytes separately (for example encoded
+as `actB64`); that does not turn the underlying ACT into a JWT.
 
-**Payload** (JSON):
+## OAS VC and audit records
 
-```json
-{
-  "iss": "did:oas:acme:broker:main",
-  "sub": "did:oas:acme:agent:WorkerBot",
-  "par": "did:oas:acme:agent:RootBot",
-  "aud": ["*"],
-  "iat": 1712798000,
-  "nbf": 1712798000,
-  "exp": 1712884400,
-  "scopes": ["openai:chat:invoke", "github:repo:read", "!github:pulls:merge"],
-  "lineage": [
-    "did:oas:acme:hmr:alice",
-    "did:oas:acme:agent:RootBot",
-    "did:oas:acme:agent:WorkerBot"
-  ],
-  "policies": ["acme:default", "acme:after-hours-restrict"],
-  "jti": "01JE5XG9R8Q2T4K9ABY"
-}
-```
+The concrete OATS verifier supports the OAS `Ed25519Signature2020` baseline:
+remove top-level `proof`, JCS serialize the remaining complete credential,
+verify Ed25519 `proofValue` encoded as `z`-prefixed base58btc, and enforce
+assertion purpose/context/date/ID plus current issuer/subject/revocation.
+It is not a universal JSON-LD normalization suite. [Normative profile](../oats.md).
 
-**Signature** is over `base64url(header) || '.' || base64url(payload)` using Ed25519 with the broker's signing key.
+Skills-policy invocation receipts and harness audit records have different
+field names, hash algorithms and serialization. Their exact component source
+is normative for those records; the unified SDK emits no universal automatic
+`credential.fetch`/wallet/compliance schema or signed audit export.
+[Audit responsibilities](../guides/audit-and-compliance.md).
 
-Fields:
-- `iss` — broker DID that minted this token.
-- `sub` — agent DID this token authorizes.
-- `par` — immediate parent DID.
-- `aud` — audience filter; `["*"]` means any service. Otherwise a list of service names.
-- `iat`, `nbf`, `exp` — Unix timestamps (seconds).
-- `scopes` — array of scopes, including negations (prefix `!`).
-- `lineage` — full chain from human root to subject. Verifiers walk this.
-- `policies` — policy identifiers evaluated at use time.
-- `jti` — ULID unique per token; used for revocation.
+## MCP and HTTP are explicit adapters
 
-Tokens are always under 1 KB in practice.
+The repository's separate MCP adapter carries `_meta.openagent.identity` on a
+tool call as `{did, proof, nonce?, context?}`; its verifier interprets the
+opaque proof under a real host policy. It does not mount an
+`OpenAgent.authenticateHandshake` method or define an automatic
+`clientInfo.openagent` initialization proof. [Actual integration](../guides/mcp-integration.md).
 
-## Detached signature header
-
-For request signing without a Bearer token, OpenAgent uses two headers:
-
-```
-X-OpenAgent-Did: did:oas:acme:agent:WorkerBot
-X-OpenAgent-Signature: <base64url-signature>,t=<timestamp>,n=<nonce>
-```
-
-The signature is over a canonical string:
-
-```
-<method>\n<path-and-query>\n<timestamp>\n<nonce>\n<body-blake3-hex>
-```
-
-`body-blake3-hex` is the lowercase hex encoding of BLAKE3 over the raw request body. An empty body hashes to the empty-string BLAKE3. Timestamps older than 300 seconds are rejected. Nonces must be unique within the 300-second window; the SDK tracks them in a bounded LRU.
-
-## Audit log entry
-
-Audit entries are JSON with a stable key order (the chain hash depends on canonical JSON). The canonical form uses UTF-8 encoding, keys sorted lexicographically, no insignificant whitespace, and floats formatted with `ryu`.
-
-```json
-{
-  "agent_did": "did:oas:acme:agent:WorkerBot",
-  "decision": "allow",
-  "entry_hash": "blake3:b1e4...",
-  "id": "audit:0000017fe7b8c9a3",
-  "kind": "credential.fetch",
-  "lineage": [
-    "did:oas:acme:hmr:alice",
-    "did:oas:acme:agent:RootBot",
-    "did:oas:acme:agent:WorkerBot"
-  ],
-  "prev_hash": "blake3:9f2a...",
-  "reason": null,
-  "request": {
-    "byte_count": 1243,
-    "method": "POST",
-    "url_hash": "sha256:7c..."
-  },
-  "response": {
-    "byte_count": 4118,
-    "latency_ms": 824,
-    "status": 200
-  },
-  "scope_held": true,
-  "scope_required": "openai:chat:invoke",
-  "service": "openai",
-  "timestamp": "2026-04-11T08:14:22.431Z"
-}
-```
-
-`entry_hash` is `blake3(canonical_json_without_entry_hash_field)`. `prev_hash` is the previous entry's `entry_hash` for the same agent, or `"blake3:0000..."` for the genesis entry.
-
-Entry kinds: `auth.attempt`, `auth.success`, `auth.failure`, `scope.check`, `skill.decision`, `credential.fetch`, `delegate.create`, `delegate.revoke`, `wallet.sign`, `wallet.policy`, `policy.evaluate`, `admin.config`, `health.probe`.
-
-## MCP handshake extension
-
-OpenAgent extends the MCP `initialize` request's `clientInfo` with an `openagent` field:
-
-```json
-{
-  "clientInfo": {
-    "name": "claude-desktop",
-    "version": "1.0.0",
-    "openagent": {
-      "did": "did:oas:acme:agent:ClaudeDesktop",
-      "act": "eyJhbGciOiJFZERTQSIsInR5cCI6Im9wZW5hZ2VudC1hY3QifQ...",
-      "proof": {
-        "nonce": "n-0001",
-        "signature": "<base64url>",
-        "created": "2026-04-11T08:14:22Z"
-      }
-    }
-  }
-}
-```
-
-The `proof` field is optional. When present, it provides a fresh signature over `("mcp-init", nonce, created, act_jti)` proving the client holds the ACT's private key (not just the token). Servers can require proof for sensitive tool surfaces.
-
-## Scope string format
-
-Scopes are colon-delimited identifiers: `service:resource:action`. Each segment matches `[a-z0-9][a-z0-9\-]*`. A wildcard `*` is allowed in place of a segment. Negation is a leading `!`.
-
-Examples:
-
-- `openai:chat:invoke`
-- `github:repo:read`
-- `github:*:*` — all GitHub resources, all actions
-- `*:*:*` — universal (rarely used)
-- `!github:pulls:merge` — explicit negation
-
-The full grammar is in [scope-grammar.md](scope-grammar.md).
-
-## Versioning
-
-Wire formats are versioned by the `typ` field (for ACTs) and the `kind` field (for audit entries). Adding new kinds is a minor-version change; altering an existing field's shape requires a new `typ` value and a migration period. OpenAgent guarantees that a 0.1.x reader accepts all 0.1.x writers for a rolling 12-month window.
+Older standalone/HTTP adapter sessions use different schemes and storage
+contracts. The local starter and Fetch verification handler do not implement a
+universal `X-OpenAgent-Signature` detached-request format or in-memory LRU
+replay authority. Use the chosen adapter's exact implementation, durable
+replay and permission contract. Version compatibility is tested for actual
+packages/formats, not guaranteed as an invented rolling window for every
+reader/writer.

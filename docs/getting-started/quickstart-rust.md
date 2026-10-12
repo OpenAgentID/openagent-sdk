@@ -1,111 +1,52 @@
-# Quickstart — Rust
+# Rust integration quickstart
 
-The Rust SDK is the reference implementation. Everything the TypeScript SDK does, the Rust SDK does natively — no WASM boundary — and slightly faster. Both SDKs share the same public API shape so you can port code between them without surprises.
+For a complete first application using public dependencies, use the
+[TypeScript/JavaScript starter](quickstart-typescript.md). The Rust crate has a
+separate integration surface and dependency track; it does not expose the Node
+local workspace or browser player.
 
-## The three lines
+## Dependency and feature requirements
 
-```rust
-use openagent_sdk::{authenticate_with_verifier, CreateAgentOptions, OpenAgent, Verifier};
+The current [Rust package manifest](../../sdks/rust/Cargo.toml) is version 0.1.0
+and requires Rust 1.78+. It references OAS and ACT Git dependencies, with optional
+Arsenal and AEGIS Git dependencies. Access to those dependencies must be available
+before treating this as a clean-clone onboarding path. Publishing the TypeScript
+SDK does not make every integration crate public.
 
-let agent = OpenAgent::create_agent(CreateAgentOptions::new("did:oas:acme:hmr:alice", "research-bot").scopes(["openai:chat:invoke"])).await?;
-let ctx   = authenticate_with_verifier(&Verifier::default(), agent.did()).await?;
-let creds = agent.credentials_for("openai").await?;
-```
+| Cargo feature | Actual effect |
+| --- | --- |
+| Default | Identity, ACT verification, configuration and skills interfaces; no configured credential broker or AEGIS verifier. |
+| `arsenal` | Compiles the credential module and links the Arsenal dependencies. |
+| `aegis` | Compiles the verification module and exposes its verifier/context types. |
+| `axum` | Enables the crate's ACT middleware integration. |
+| `full` | Enables `arsenal`, `aegis` and `axum`. |
 
-Same shape as the TypeScript quickstart: `create_agent` mints a new DID under a parent and records requested scopes, `authenticate_with_verifier` turns a DID into a verified context through the verifier contract, and `credentials_for` returns a proxy that attaches credentials without ever exposing them to your code.
+## Wire the operations you need
 
-## A complete Axum server
+Use `OpenAgentBuilder` and the actual configured provider clients for broker and
+verification operations. `OpenAgent::create_agent(CreateAgentOptions)` uses
+identity configuration, not an automatic remote login or token issue. With no
+parent it creates an HMR identity; with a parent it follows the derivation path.
+Creating that material is not proof of a real authenticated human owner.
 
-Here's a real Axum server that gates a `/chat` endpoint:
+The default creation path attaches no credential client or AEGIS verifier and
+uses a deny-all skills policy. Selecting a feature compiles the subsystem; it
+does not authorize a provider or initialize a service connection. Configure
+custody, current lineage/revocation and the broker's scopes explicitly.
 
-```rust
-use axum::{extract::State, http::Request, response::IntoResponse, routing::post, Router};
-use axum::body::Body;
-use openagent_sdk::{OpenAgent, Agent, Context, OpenAgentError};
-use serde_json::Value;
-use std::sync::Arc;
+Under `aegis`, `authenticate_with_verifier` and `Verifier` consume the configured
+verification contract. `VerifiedContext` and `LineageAuthorityContext` are the
+actual context names; do not assume the TypeScript facade's methods or an
+`OpenAgent::from_env()` constructor exists here.
 
-#[derive(Clone)]
-struct AppState {
-    openagent: Arc<OpenAgent>,
-}
+Consult the current source before integrating:
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let state = AppState {
-        openagent: Arc::new(OpenAgent::from_env().await?),
-    };
+- [Facade and CreateAgentOptions](../../sdks/rust/src/agent.rs)
+- [Builder](../../sdks/rust/src/builder.rs)
+- [ACT verifier and middleware](../../sdks/rust/src/act.rs)
+- [Feature-gated verification](../../sdks/rust/src/verification.rs)
+- [Public re-exports](../../sdks/rust/src/lib.rs)
+- [Authority/anchor boundary](../architecture/lineage-finality.md)
 
-    let app = Router::new()
-        .route("/chat", post(chat_handler))
-        .with_state(state);
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    axum::serve(listener, app).await?;
-    Ok(())
-}
-
-async fn chat_handler(
-    State(state): State<AppState>,
-    req: Request<Body>,
-) -> Result<impl IntoResponse, OpenAgentError> {
-    let ctx: Context = state.openagent.authenticate(&req).await?;
-    ctx.require_scope("openai:chat:invoke")?;
-
-    let agent: Agent = state.openagent.load_agent(&ctx.did).await?;
-    let openai = agent.credentials_for("openai").await?;
-
-    let body = axum::body::to_bytes(req.into_body(), 1024 * 1024).await
-        .map_err(|e| OpenAgentError::invalid_request(e.to_string()))?;
-
-    let upstream = openai
-        .post("https://api.openai.com/v1/chat/completions")
-        .header("content-type", "application/json")
-        .body(body.to_vec())
-        .send()
-        .await?;
-
-    let status = upstream.status();
-    let text: Value = upstream.json().await?;
-    Ok((status, axum::Json(text)))
-}
-```
-
-The `OpenAgent::from_env()` constructor reads `OPENAGENT_BROKER_URL`, `OPENAGENT_AEGIS_URL`, and `OPENAGENT_NAMESPACE` from the environment and connects to your Arsenal broker and AEGIS verifier. In a local dev setup those will default to `http://localhost:7878` and `http://localhost:7979`.
-
-`ctx.require_scope("openai:chat:invoke")?` is a convenience that either succeeds or returns `OpenAgentError::ScopeDenied { required, held }`, which Axum will render as 403 by default thanks to the `IntoResponse` implementation on `OpenAgentError`.
-
-## Minting an agent from a CLI
-
-If you want to create an agent from outside a service (e.g. a provisioning script), it looks like this:
-
-```rust
-use openagent_sdk::{OpenAgent, CreateAgentOptions, Namespace};
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let oa = OpenAgent::from_env().await?;
-
-    let agent = oa
-        .create_agent(
-            CreateAgentOptions::new("did:oas:acme:hmr:alice", "research-bot")
-                .namespace(Namespace::from("acme"))
-                .scopes(["openai:chat:invoke", "anthropic:messages:invoke"])
-                .expires_in_hours(24 * 7)
-        )
-        .await?;
-
-    println!("minted {}", agent.did());
-    println!("act   = {}", agent.act_compact_string());
-
-    Ok(())
-}
-```
-
-That ACT string is the Bearer token your new agent will use in `Authorization` headers. Store it somewhere the agent process can read it (not hard-coded in source). The DID is public and can go anywhere.
-
-## Error handling
-
-`OpenAgentError` is the single error type for all SDK calls. It implements `std::error::Error`, `thiserror::Error`, and `IntoResponse` (when the `axum` feature is enabled). Variants cover invalid input, broker unreachable, scope denied, lineage verification failed, signature invalid, policy denied, and a few more — see [error-codes.md](../reference/error-codes.md) for the full list.
-
-Continue with [core concepts](core-concepts.md), or jump to [creating an agent](../guides/creating-an-agent.md).
+This guide describes the source contract; it claims no running broker,
+human-owner enrollment, Base backend or automatic credential issuance.

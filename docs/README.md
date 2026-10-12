@@ -1,43 +1,74 @@
-# OpenAgent SDK Documentation
+# OpenAgentID documentation
 
-**OpenAgent is Clerk/Auth0 for autonomous agents.**
+OpenAgentID is free, open agent identity and developer tooling in the
+[Open Software](https://open.software) family. Create a real identity, verify a
+signed request and mount an animated avatar on infrastructure you control.
+Life provides optional hosted services around the same core.
 
-Identity, capabilities, credentials, and governance — one import, two languages (Rust and TypeScript), zero vendor lock-in. OpenAgent gives every agent a portable OAS identity, Sigil-finalized lineage for privileged authority, a scoped capability token that your backends can trust, and a policy layer that decides which skills the agent is allowed to invoke.
+## Start here
 
-Under the hood, OpenAgent is a thin facade over three standards:
+```sh
+npx create-openagent@0.5.2 my-agent-app --yes
+cd my-agent-app
+npm install
+npm run dev
+```
 
-- **OAS** (Open Agent Specification) — W3C DID-based identity and the upstream lineage verifier contract for humans, agents, tools, models, and services. Base identity is locally verifiable; privileged lineage must be Sigil-backed.
-- **Arsenal** — Agent Capability Tokens (ACTs) and a credential proxy that holds your provider secrets so agents never see them.
-- **AEGIS** — Verification, delegation, policy enforcement, multi-chain wallets, and audit.
+Open the printed local URL, then run `npm run agent` in another terminal. The
+receiver verifies a real signed request and updates the local avatar. The starter
+uses public SDK 0.7.2; no account, hosted identity service or private package is
+required. Node 20+ and private persistent storage are required for local identity.
 
-You import one package. You get all three. Each layer is independently documented in [architecture/overview.md](architecture/overview.md), but you will almost never reach past the facade in day-to-day code.
+The [developer-tooling guide](developer-tooling.md) covers the complete public
+journey: explicit receiver trust, CLI commands, durable challenges/replay and
+revocation, portable verification, browser state and optional OIDC/OATS.
 
-## Who this is for
+## Choose your integration
 
-This documentation is written for application developers — people building agentic products who need to answer the question *"how do I know this request really came from my agent, and is this agent allowed to do what it's asking to do?"* If you have ever wrapped an OpenAI key in an API and panicked about how to rotate it, OpenAgent is for you. If you are building an MCP server and want to gate tools by caller identity, OpenAgent is for you. If you are integrating with the Claude Agent SDK and want skills governance without rolling your own policy engine, OpenAgent is for you.
+| Task | Guide |
+| --- | --- |
+| Add identity to an existing JavaScript/TypeScript app | [Quickstart](getting-started/quickstart-typescript.md) and [installation](getting-started/installation.md) |
+| Create keys, exchange public identity and retain trust | [Creating an agent](guides/creating-an-agent.md) |
+| Verify signature, lineage, current authority and replay | [Identity verifier and Fetch API](identity-verification.md) |
+| Authenticate HTTP requests with configured clients | [Request authentication](guides/authenticating-requests.md) |
+| Animate current agent state or render deterministic SVG | [Characters and live eyes](characters.md), [Glyph](glyph.md) and [character design](guides/character-design.md) |
+| Federate an agent into an OIDC relying party | [OIDC 0.2.0 provider](../bridges/oidc/typescript/README.md) |
+| Score verified agent attestations | [OATS verified-ingestion contract](oats.md) |
+| Understand trust, ownership, scopes and presentation | [Core concepts](getting-started/core-concepts.md) |
+| Supply service or anchor adapters | [Architecture](architecture/overview.md) and [lineage/anchor authority](architecture/lineage-finality.md) |
+| Find exported TypeScript types | [API reference](reference/typescript-api.md) and [SDK source](../sdks/typescript/src/index.ts) |
+| Use the Rust integration facade | [Rust integration quickstart](getting-started/quickstart-rust.md) |
 
-This documentation is **not** a cryptography primer. You do not need to understand Ed25519, HKDF, or FROST threshold signatures to ship. The quickstarts assume ordinary backend experience in TypeScript or Rust.
+## Current release and boundaries
 
-## How to read these docs
+Published packages are `@openagentid/sdk@0.7.2`, `create-openagent@0.5.2` and the
+independent `@openagentid/oidc@0.2.0`. See the
+[0.7.2 shipment list](release-0.7.2.md). Other language modules and integration
+crates have separate feature/version tracks; this version statement does not
+claim public availability of all their dependencies.
 
-1. **[Getting started](getting-started/installation.md)** — install the SDK and run a three-line demo.
-2. **[Core concepts](getting-started/core-concepts.md)** — a plain-English explanation of DIDs, lineage, capabilities, and skills policies. Read this once, then refer back as needed.
-3. **[Guides](guides/creating-an-agent.md)** — task-oriented walkthroughs for the things you will actually do: create an agent, authenticate a request, delegate authority, govern skills, integrate with MCP or the Claude Agent SDK, handle multi-chain wallets, and produce an audit trail.
-4. **[Reference](reference/typescript-api.md)** — the public API surface, wire formats, scope grammar, and error codes.
-5. **[Comparisons](comparisons/vs-oauth.md)** — why we built this instead of using OAuth, raw API keys, or Clerk.
-6. **[Architecture](architecture/overview.md)** — if you want to understand the three-layer model, why the crypto core runs in WASM, and what OpenAgent does and does not protect against.
-7. **[Lineage finality](architecture/lineage-finality.md)** — how OAS SDK centralizes Sigil-backed lineage verification for downstream systems.
+The browser catalog contains 17 families, 62 kinds and 18 shared expressions.
+Autos, plush material, on-face eyes and face crop are the defaults. Appearance
+choices preserve the live eye timeline; they convey no identity authority or
+application permissions.
 
-## A word on stability
+Agents can have an approved person/org owner or be explicitly authorized self
+roots. The receiver controls trust and permissions. Neither DID syntax, a valid
+signature nor an avatar alone establishes a human owner, tenant membership or
+access to a service.
 
-The SDKs are versioned 0.1.0 at the time of this writing. The public facade (`OpenAgent.createAgent`, `OpenAgent.authenticate`, `agent.credentialsFor`, `agent.skillsPolicy`) is the stable surface and will follow SemVer. The underlying OAS, Arsenal, and AEGIS crates have their own release tracks documented in the architecture section — you should not depend on them directly unless you are writing an adapter.
+The configured `OpenAgentRuntime` facade wraps supplied OAS, Arsenal and AEGIS
+clients. It does not instantiate them from endpoint strings, automatically issue
+credentials during creation or make private dependencies publicly accessible.
+The standalone local identity and avatar path does not depend on these clients.
 
-## Examples
-
-The companion [examples directory](../examples/) has runnable projects for each major workflow: hello-agent, MCP server integration, Claude Agent SDK plugin, delegated agents, skills governance, and credential proxy. Every example is a self-contained project that compiles and runs once the SDK packages resolve.
+Existing integration guides/examples describe particular adapters and may need
+provider configuration and dependency access. Use the public starter for the
+complete first-run example; consult actual module types before adopting an
+older provider-specific example. Anchor providers are explicit integrations,
+not a mandatory chain for every identity.
 
 ## License
 
-Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
-
-Licensed under either of [Apache License 2.0](../LICENSE-APACHE) or [MIT license](../LICENSE-MIT), at your option.
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai).
+Licensed under [Apache-2.0](../LICENSE-APACHE) or [MIT](../LICENSE-MIT), at your option.

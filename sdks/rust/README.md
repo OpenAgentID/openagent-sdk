@@ -1,147 +1,62 @@
-# openagent-sdk
+# openagent-sdk (Rust)
 
-> **Clerk for autonomous agents.** One import. One identity. One credential proxy.
-> One verification pipeline. Zero glue code.
+The Rust facade has its own source version (**0.1.0**, Rust 1.78 / edition
+2021) and feature/dependency track. It wraps OAS identity and canonical ACT,
+with optional Arsenal and AEGIS integration. It is not the Node local
+workspace/browser-avatar API shipped as `@openagentid/sdk@0.7.2`.
 
-The OpenAgent SDK is the developer-facing facade for the L1fe agent stack. It
-wraps three layers under a single Rust crate so app developers don't have to
-learn three vocabularies:
+Follow the [Rust integration quickstart](../../docs/getting-started/quickstart-rust.md)
+for actual source/dependency and verifier setup. For the complete public
+account-free Node application, use
+[the developer tooling guide](../../docs/developer-tooling.md).
 
-- **OAS** (`oas-sdk`) — `did:oas` identity and the upstream Sigil-backed lineage verifier contract.
-- **Arsenal** (`arsenal-sdk`) — Agent Capability Tokens and the credential proxy
-  that lets agents call APIs without ever seeing raw secrets.
-- **AEGIS** (`aegis-sdk`) — verification, authentication, policy, and delegation.
+## Real Cargo features
 
-If you've used Clerk for web auth or Auth0 for OIDC, this is the same idea for
-autonomous agents.
+| Feature | Default | Effect |
+| --- | --- | --- |
+| `arsenal` | off | Compiles credential/capability integration and links Arsenal dependencies. |
+| `aegis` | off | Compiles verification integration and links the AEGIS SDK/core dependencies. |
+| `axum` | off | Compiles the ACT extractor/layer integration with Axum. |
+| `full` | off | Enables `arsenal`, `aegis` and `axum`. |
 
-## Agent auth in three lines
+Disabled optional subsystems are absent from the relevant compiled module/type
+surface; the features are not reserved/no-op flags. Dependencies include their
+actual Git/version/access requirements. A source manifest is not proof of a
+current public crate/dependency release.
 
-```rust
-use openagent_sdk::{OpenAgent, CreateAgentOptions};
+## Creation and configured services
 
-let agent = OpenAgent::create_agent(CreateAgentOptions {
-    name: "my-bot",
-    scopes: &["openai:chat:completions", "github:repo:read"],
-    ..Default::default()
-}).await?;
+`OpenAgent::create_agent(CreateAgentOptions)` creates the source-specific local
+identity record and deny-all default skills policy. With no parent, its current
+helper creates an HMR-kind document; a valid local key/document does **not**
+prove a real human or enroll a LifeID owner. Parent derivation needs the actual
+OAS key/document contract. This is separate from the TypeScript verifier's
+explicit owner/self-root approval policy.
 
-println!("agent did: {}", agent.did());
-```
-
-That's it. The agent now has a signed OAS identity document, a default skill
-policy, and is ready to receive credentials once its privileged authority path
-is verified through OAS with Sigil GAL backing.
-
-## What you get
-
-| Capability | Method | Wraps |
-|------------|--------|-------|
-| Mint or derive an agent identity | `OpenAgent::create_agent` | `oas-sdk` |
-| Verify an inbound DID and lineage authority | `Verifier::verify` / `authenticate_with_verifier` | `oas-sdk` + `aegis-sdk` |
-| Fetch credentials through a proxy | `agent.credentials_for("openai").await?.post(...)` | `arsenal-sdk` |
-| Check whether a skill is allowed | `agent.check_skill("frontend-design")` | `openagent-skills-policy` (stub) |
-
-## Wiring an Arsenal broker
-
-The default `create_agent` path is offline-friendly: it mints identities but
-does not connect to a credential broker. For production, use the builder:
-
-```rust
-use openagent_sdk::{OpenAgentBuilder, CreateAgentOptions};
-use arsenal_sdk::{ArsenalClient, AgentIdentityLoader};
-use arsenal_core::identity::TenantId;
-
-let identity = AgentIdentityLoader::generate(TenantId::generate(), "ops")?;
-let arsenal = ArsenalClient::builder()
-    .identity(identity)
-    .broker_url("https://broker.l1fe.ai")
-    .broker_mtls("/etc/l1fe/agent.crt", "/etc/l1fe/agent.key")
-    .build()?;
-
-let agent = OpenAgentBuilder::new()
-    .with_arsenal_client(arsenal)
-    .build(CreateAgentOptions {
-        name: "ops-bot",
-        scopes: &["openai:chat:completions"],
-        ..Default::default()
-    })
-    .await?;
-
-let creds = agent.credentials_for("openai").await?;
-let response = creds.post(
-    "https://api.openai.com/v1/chat/completions",
-    Default::default(),
-    serde_json::to_vec(&payload)?,
-).await?;
-```
-
-The proxy will resolve `{{OAUTH2_OPENAI_TOKEN}}` (or whatever variable is bound
-to the agent's capability) server-side. The agent never sees the raw key.
-
-## Wiring an AEGIS verifier
-
-AEGIS should consume the OAS verification result. It may add policy,
-authentication, wallet, and delegation checks, but it should not maintain a
-separate lineage definition.
-
-```rust
-use std::sync::Arc;
-use openagent_sdk::OpenAgentBuilder;
-use aegis_core::PluginRegistry;
-
-let registry = Arc::new(PluginRegistry::new());
-// ... register DID resolvers, auth providers, policy engines on the registry ...
-
-let agent = OpenAgentBuilder::new()
-    .with_aegis_registry(registry)
-    .build(opts)
-    .await?;
-
-let verifier = agent.verifier().expect("just attached");
-let ctx = verifier.verify("did:oas:l1fe:agent:other").await?;
-assert!(ctx.is_valid());
-```
+Creation does not provision a broker or AEGIS verifier. Use `OpenAgentBuilder`
+and the enabled feature's real client/registry/configuration before calling
+its credential or verification operations. Supply current authority/finality
+policy where a source operation requires it; historical Sigil interface names
+do not establish an automatic Base migration or mandatory chain for the
+current Node developer path.
 
 ## Skills policy
 
-`openagent-sdk` ships a stub `SkillsPolicy` trait and a default
-`AllowListPolicy`. Once `openagent-skills-policy` lands, the SDK will depend on
-it directly and the public surface (`can_invoke`, `allowed_skills`,
-`SkillsPolicyHandle`) will stay the same.
+The implemented `SkillsPolicy` trait, `AllowListPolicy` and `SkillsPolicyHandle`
+provide real allow/deny checks. `can_invoke` returns `Result<()>` and
+`allowed_skills` enumerates allowed names. This small in-memory facade is
+separate from the specialized `crates/openagent-skills-policy` component; it
+has no automatic YAML DSL, remote consent service, spend oracle or durable
+audit sink. Attach policy explicitly with `with_skills_policy` and check it
+before the protected action.
 
-```rust
-use openagent_sdk::{AllowListPolicy};
+## Source and license
 
-let agent = agent.with_skills_policy(
-    AllowListPolicy::with_skills(["frontend-design", "code-review"])
-);
-agent.check_skill("frontend-design")?;  // Ok
-agent.check_skill("rocket-science")?;   // SkillDenied
-```
+[`Cargo.toml`](Cargo.toml), [`lib.rs`](src/lib.rs),
+[`agent.rs`](src/agent.rs), [`builder.rs`](src/builder.rs) and
+[`skills.rs`](src/skills.rs) define the actual contracts. Keep proof,
+application permission, credentials and custody distinct.
 
-## Sync shim for CLI tools
-
-```rust
-let agent = openagent_sdk::sync::create_agent(CreateAgentOptions {
-    name: "cli-bot",
-    ..Default::default()
-})?;
-```
-
-## Cargo features
-
-| Feature | Default | Effect |
-|---------|---------|--------|
-| `aegis` | off | Reserved — full AEGIS pipeline always enabled today |
-| `arsenal` | off | Reserved — Arsenal client is always linked today |
-| `full` | off | Convenience meta-feature |
-
-The features exist so the SDK can shrink in a future release; today the wrapped
-crates are always linked.
-
-## License
-
-Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
-
-Licensed under either of [Apache License 2.0](../../LICENSE-APACHE) or [MIT license](../../LICENSE-MIT), at your option.
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai).
+Licensed under [Apache-2.0](../../LICENSE-APACHE) or
+[MIT](../../LICENSE-MIT), at your option.

@@ -1,109 +1,58 @@
 # Delegating Authority
 
-Delegation is what lets a parent agent hand a subset of its authority to a child, with a strict guarantee that the child can never hold more than the parent. OpenAgent's delegation model is a contract-only system: the child's scopes are always a subset of the parent's, and the child's lifetime never outlives the parent's ACT.
+Identity delegation and application capability delegation are different
+contracts. SDK 0.7.2's `IdentityVerifier` verifies signed identity paths; the
+configured issuer/broker authorizes and signs capability grants. Neither the
+local identity module nor `OpenAgentInstance` exposes a `delegate()` method.
 
-## The no-amplification rule
+## Signed identity path
 
-If your parent has `['github:repo:read', 'openai:chat:invoke']`, a child you spawn can only hold scopes from that set or a strict subset. You cannot, at delegation time, add `github:repo:write`, because your parent never had it. Attempting to amplify throws `OpenAgentError::ScopeAmplification` immediately.
+An approved root may be a current real owner or an explicitly authorized agent
+self root. Each parent signs an `oaid-delegation+jwt` with exact parent `iss`,
+child `sub`, fixed service `aud`, integer `iat`/`nbf`/`exp` and unique `jti`.
+The protected `kid` names the parent's current authoritative verification
+method with `capabilityDelegation` purpose. Ed25519/EdDSA and RSA/RS256 are
+supported. An incoming public key cannot appoint that authority.
 
-This is enforced in two places: the SDK checks it client-side before making the broker request (fast fail), and the Arsenal broker re-checks it server-side before issuing the child ACT (authoritative). There is no way to bypass it short of compromising the broker itself.
+The possession proof uses `oaid-proof+jwt`, exact agent `iss`/`sub`, `kind:
+'agent'` and the receiver-issued nonce. Its key requires `authentication`
+purpose. Delegations are root-first in `{token, delegations}`; a direct
+approved self root has an empty array. Every delegation/ancestor and credential
+revocation is checked, and credential lifetime cannot exceed parent/root
+lifetime. Default maximum depth is 16 links.
 
-## Delegating as a parent
+`verifier.verify(proof, {audience, nonce})` authenticates current possession,
+root/chain/revocation and atomic replay. `verifyLineage(did, delegations,
+{audience})` checks the current signed path without proving leaf possession.
+`resolve(did, {audience})` loads the chain from the host's authoritative
+`resolveDelegations`. [Exact verification contract](../identity-verification.md).
 
-```ts
-import { OpenAgent } from '@openagentid/sdk';
+## Issuance and permission
 
-// Inside a parent agent's process
-const parent = await OpenAgent.loadAgent(process.env.PARENT_DID!);
+The parent signer/custody service owns authorized key use, child provisioning
+and signature issuance. The SDK does not derive a child key from a public
+parent DID, guess a child's DID from its name, or mint a child ACT when it
+verifies a chain. The host's registry persists the actual binding and its
+current revocation policy.
 
-const child = await parent.delegate({
-  name: 'page-indexer',
-  scopes: ['tavily:search:invoke'],     // strict subset
-  expiresInMinutes: 15,                  // strict shorter lifetime
-});
+If an application delegates permissions, its real issuer/broker must enforce
+scope attenuation, tenant binding, budget, expiry and revocation when issuing
+and using that grant. Identity JWTs carry identity evidence; they do not
+implicitly convey every application scope. A local `SkillsPolicy.grant()`
+changes an in-memory allowlist and is not a signed transferable capability.
 
-console.log(child.did);
-console.log(child.actCompactString);   // hand this to the child worker
-```
+## Revocation and renewal
 
-```rust
-let child = parent.delegate(
-    DelegateOptions::new("page-indexer")
-        .scopes(["tavily:search:invoke"])
-        .expires_in_minutes(15)
-).await?;
-```
+The current verifier checks every DID/credential status through its configured
+revocation authority. It does not atomically revoke a subtree in a registry or
+push an update to every worker. The issuer/registry defines that operation,
+distribution and failure handling. `OpenAgentWorkspace.revoke(did)` persists
+only that receiver's trust withdrawal; it neither deletes the signer nor
+changes independent receivers.
 
-The `delegate` method does all the lineage bookkeeping: derives a new keypair from the parent's key material using HKDF with the child's name as context, signs a lineage proof, and asks the broker for a child ACT. The child's DID is a deterministic function of the parent's DID and the child name, which means reproducible delegation (useful for idempotent provisioning) but also means you can't have two active children with the same name under the same parent.
-
-## Delegating as a human
-
-Humans delegate the same way, but the caller holds an HMR key instead of an agent ACT:
-
-```ts
-const human = await OpenAgent.loadHuman({ hmrKeyPath: '/secure/alice.hmr.key' });
-const firstAgent = await human.delegate({
-  name: 'root-agent',
-  scopes: ['openai:chat:invoke', 'github:*:read'],
-  expiresInHours: 24,
-});
-```
-
-Loading a human identity requires access to the HMR private key. In production this almost never touches disk — the HMR key lives in a hardware token, a KMS, or a FROST threshold setup where no single party can reconstruct it. See [multi-chain-wallets.md](multi-chain-wallets.md) for how AEGIS handles threshold signing.
-
-## Delegation with conditions
-
-The `delegate` call accepts a `conditions` field that attaches AEGIS policies to the child ACT. These run on every request the child makes:
-
-```ts
-const child = await parent.delegate({
-  name: 'after-hours-bot',
-  scopes: ['openai:chat:invoke'],
-  expiresInHours: 8,
-  conditions: {
-    timeWindow: { start: '22:00', end: '06:00', timezone: 'America/New_York' },
-    maxSpend: { currency: 'USD', amount: 10 },
-    rateLimit: { rpm: 60 },
-    ipAllowlist: ['10.0.0.0/8'],
-  },
-});
-```
-
-When the child makes a request, AEGIS evaluates each condition. A failure returns `PolicyDenied` with a structured reason ("time window violation: current 14:23 not in 22:00–06:00"). Conditions are evaluated in the broker, not in the agent, so a compromised child cannot disable them.
-
-## Delegation chains and the lineage field
-
-Delegation is recursive. A child can delegate a grandchild, which can delegate a great-grandchild, and so on. Every step narrows the scope (or leaves it equal) and shortens the lifetime (or leaves it equal). The chain is recorded and every request carries it:
-
-```ts
-const ctx = await OpenAgent.authenticate(req);
-console.log(ctx.lineage);
-// [
-//   'did:oas:acme:hmr:alice',
-//   'did:oas:acme:agent:RootBot',
-//   'did:oas:acme:agent:Worker',
-//   'did:oas:acme:agent:Shard-3'     // <- ctx.did
-// ]
-console.log(ctx.rootHuman);   // 'did:oas:acme:hmr:alice'
-console.log(ctx.actingAs);    // 'did:oas:acme:agent:Shard-3'
-```
-
-Your service can decide whether to trust a delegated request based on any level of the chain. "Trust anything whose root is an employee HMR" is one policy; "trust only if the immediate parent is in an allowlist" is another; "trust only direct children of the payment-service agent" is a third. All of these are one-liners with `ctx.lineage`.
-
-## Revocation
-
-Revoking a parent revokes every descendant atomically. The broker maintains a short-lived revocation list that every running agent consults before each credential proxy call. A revoke takes effect within seconds:
-
-```ts
-await OpenAgent.revoke('did:oas:acme:agent:BadBot', { reason: 'anomaly-detection-flag' });
-```
-
-This revokes the BadBot ACT and every ACT below it in the lineage tree. Revocation is a broker-side operation — the keys still exist cryptographically, but any request carrying a revoked ACT is denied.
-
-If you revoke a human HMR, every agent anyone has ever spawned under that human is revoked. Use with care.
-
-## Read the no-amplification rule again
-
-Because of the no-amplification rule, delegation is safe-by-construction: no matter how deep the chain, the effective scopes can only contract. That means a bug or a misconfigured AI cannot escalate its own privileges by creating children. This property is the core reason OpenAgent exists — it's what makes autonomous agent trees tractable at enterprise scale.
-
-Next: [skills governance](skills-governance.md).
+There are no unified `OpenAgent.loadHuman`, `OpenAgent.revoke`,
+`agent.actCompactString`, `rootHuman` or `actingAs` APIs. Use the actual verified
+`did`, `owner`, explicit `root`, `lineage` and expiry, then apply the receiving
+application's permission policy. See [creating an agent](creating-an-agent.md),
+[credential clients](managing-credentials.md) and
+[wire boundaries](../reference/wire-formats.md).

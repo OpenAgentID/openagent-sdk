@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased — current developer documentation, 2026-10-12
+
+- Refresh the documentation entry, core concepts, architecture and API/HTTP
+  guidance around the published SDK 0.7.2, create-openagent 0.5.2 and OIDC 0.2.0.
+- Add the complete public CLI signer/receiver flow, explicit local trust,
+  durable challenge/replay/revocation and single-host storage boundary; document
+  portable verification, OATS and current browser families/live state.
+- Remove mandatory human-root/Sigil, automatic-client/ACT issuance, invented
+  facade methods and unsupported request-type/performance claims. Preserve
+  actual legacy authority interfaces; a Base backend migration is not implied.
+- Replace unsupported credential, audit/compliance, delegation, skill, MCP,
+  wallet and harness recipes with actual exports and explicit host/broker
+  responsibilities; distinguish binary CBOR ACT from identity JWTs and preserve
+  component-specific audit/custody boundaries. Separate creation-input, exact
+  facade and canonical ACT scope contracts; correct Rust README feature flags.
+- Clarify private integration dependency requirements, face/full rendering,
+  appearance independence and authorized status updates. Documentation only;
+  package versions, application code and provider state are unchanged.
+
 ## 0.7.2 — brighter character collection, 2026-10-12
 
 - Repaint all 17 families / 62 kinds with brighter curated pigments and coordinated
