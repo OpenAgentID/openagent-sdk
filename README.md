@@ -8,7 +8,7 @@ identity service. Your application controls keys, trust and access.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.3.0 my-agent-app --yes
+npx create-openagent@0.4.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -17,14 +17,14 @@ npm run dev
 Open the local URL, then run `npm run agent` in a second terminal. The receiver
 verifies a real signed request; its status updates the agent's live eyes. Autos
 is the default skin; SpaceX, original crafted families and holiday characters are selectable. Keys and trust survive restarts.
-The starter uses SDK 0.5.0 and public npm dependencies only.
+The starter uses SDK 0.6.0 and public npm dependencies only.
 
-For an existing application, install `@openagentid/sdk@0.5.0` and follow the
+For an existing application, install `@openagentid/sdk@0.6.0` and follow the
 [TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
 The included `oaid` CLI creates identities, exchanges public trust documents,
 issues challenges, signs and verifies proofs, revokes local trust and renders
 avatars. No command requires a Life service. See the
-[0.5.0 shipment contents](docs/release-0.5.0.md).
+[0.6.0 shipment contents](docs/release-0.6.0.md).
 
 Life sells optional hosted services around this core. Inside the Life ecosystem,
 LifeID authenticates humans, Blinds brokers credentials and Genesis KMS stores
@@ -121,3 +121,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). All changes must keep the conformance su
 Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
 
 Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
+
+### Character accessories
+
+Glasses and headphones are optional, combinable layers on every character family.
+Use `accessories: ['glasses', 'headphones']` when rendering or mounting a character,
+and `player.setAppearance({ accessories: [] })` to remove them without resetting
+its live eyes. See the [accessory release guide](docs/release-0.6.0.md) for profile, API and CLI examples.

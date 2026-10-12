@@ -8,7 +8,7 @@ roots have no reduced access tier; each application controls its permissions.
 
 ## Local identity, no hosted service required
 
-Use the Node-only local module in SDK 0.5.0 to keep identity
+Use the Node-only local module in SDK 0.6.0 to keep identity
 keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
@@ -235,3 +235,10 @@ try {
 Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
 
 Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
+
+### Character accessories
+
+Glasses and headphones are optional, combinable layers on every character family.
+Use `accessories: ['glasses', 'headphones']` when rendering or mounting a character,
+and `player.setAppearance({ accessories: [] })` to remove them without resetting
+its live eyes. See the [accessory release guide](../../docs/release-0.6.0.md) for profile, API and CLI examples.

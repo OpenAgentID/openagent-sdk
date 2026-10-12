@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 — independent character accessories, 2026-10-12
+
+- Add transparent glasses and headphones as independent, combinable accessories
+  on every family and kind. Autos remains the default with no accessories.
+- Keep accessory art anchored to the face and inside avatar crops while live
+  eye nodes, status, blinking and expression transitions continue unchanged.
+- Carry strict accessory choices through SDK/profile validation, SVG/JSON API,
+  CLI, browser player, hosted demo and the generated starter; reject unknown or
+  duplicate choices. Appearance choices never grant identity permissions.
+- Align recommended installation and starter commands with SDK 0.6.0 and
+  create-openagent 0.4.0 so the first-run flow includes accessories.
+- Verify all kinds, face crops, real signed starter status and additive/removal
+  behavior. Production Orbit adoption is tracked separately.
+
 ## 0.5.0 — character families and face avatars, 2026-10-12
 
 - Inset every hosted-demo and generated-starter selector arrow by 12px, reserve

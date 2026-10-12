@@ -16,6 +16,7 @@ import { didSchema, scopeSchema, type CreateAgentInput } from './config.js';
 import { IdentityError, ErrorCode, wrapError } from './errors.js';
 import { parseAvatarOverride } from './glyph.js';
 import { getCharacterSkins, type CharacterAppearance, type AvatarExpression } from './characters.js';
+import { parseCharacterAccessories } from './character-accessories.js';
 
 /** Fully qualified `did:oas` identifier. */
 export type Did = string;
@@ -82,6 +83,13 @@ export const characterAppearanceSchema = z.object({
   skinVersion: z.literal(1).optional(),
   eyeStyle: z.literal('live-v1').optional(),
   shape: z.enum([...new Set(getCharacterSkins().flatMap(entry => entry.shapes))] as [NonNullable<CharacterAppearance['shape']>, ...NonNullable<CharacterAppearance['shape']>[]]).optional(),
+  accessories: z.array(z.enum(['glasses', 'headphones'])).max(2).transform((value, context) => {
+    try { return parseCharacterAccessories(value); }
+    catch {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: 'Accessories must be known and unique' });
+      return z.NEVER;
+    }
+  }).optional(),
 }).strict().superRefine((value, context) => {
   const skin = getCharacterSkins().find(entry => entry.id === value.skin)!;
   if (value.shape !== undefined && !skin.shapes.includes(value.shape)) {

@@ -135,6 +135,45 @@ describe('stored character appearance', () => {
     expect(custom.avatarExpression).toBe('thoughtful');
   });
 
+  it('stores canonical accessory selections on every family kind without changing identity or expression', () => {
+    const selections = [[], ['glasses'], ['headphones'], ['headphones', 'glasses']] as const;
+    for (const skin of getCharacterSkins()) {
+      for (const shape of skin.shapes) {
+        for (const accessories of selections) {
+          const parsed = parseIdentityDocument({ ...document,
+            avatarSkin: { skin: skin.id, shape, accessories }, avatarExpression: 'concerned' });
+          expect(parsed.avatarSkin).toEqual({ skin: skin.id, shape,
+            accessories: accessories.length === 2 ? ['glasses', 'headphones'] : [...accessories] });
+          expect(Object.isFrozen(parsed.avatarSkin!.accessories)).toBe(true);
+          expect(parsed.did).toBe(document.did);
+          expect(parsed.parent).toBe(document.parent);
+          expect(parsed.avatarExpression).toBe('concerned');
+          expect(parsed).not.toHaveProperty('accessories');
+        }
+      }
+    }
+    const absent = parseIdentityDocument({ ...document, avatarSkin: { skin: 'autos' } });
+    expect(absent.avatarSkin).toEqual({ skin: 'autos' });
+    expect(absent.avatarSkin).not.toHaveProperty('accessories');
+    const explicitEmpty = parseIdentityDocument({ ...document, avatarSkin: { skin: 'autos', accessories: [] } });
+    expect(explicitEmpty.avatarSkin).toEqual({ skin: 'autos', accessories: [] });
+    const source = ['headphones', 'glasses'];
+    const normalized = characterAppearanceSchema.parse({ skin: 'autos', accessories: source });
+    expect(source).toEqual(['headphones', 'glasses']);
+    expect(normalized.accessories).toEqual(['glasses', 'headphones']);
+    expect(normalized.accessories).not.toBe(source);
+  });
+
+  it.each([
+    null, 'glasses', true, 0, {}, [''], ['unknown'], ['Glasses'], ['glasses '], ['glasses\n'],
+    [null], [undefined], [{ id: 'glasses' }], [['glasses']],
+    ['glasses', 'glasses'], ['headphones', 'headphones'], ['glasses', 'headphones', 'glasses'],
+  ])('refuses malformed, unknown or duplicate stored accessory selections: %j', accessories => {
+    const avatarSkin = { skin: 'christmas', shape: 'snowman', accessories };
+    expect(characterAppearanceSchema.safeParse(avatarSkin).success).toBe(false);
+    expect(() => parseIdentityDocument({ ...document, avatarSkin })).toThrow(IdentityError);
+  });
+
   it('refuses known kinds from any other family instead of repairing stored selectors', () => {
     const catalog = getCharacterSkins();
     for (const skin of catalog) {
@@ -175,7 +214,8 @@ describe('stored character appearance', () => {
   });
 
   it('refuses root rendering and live-state fields on identity documents', () => {
-    for (const rendering of [{ view: 'full' }, { size: 128 }, { state: { status: 'success' } }, { status: 'working' }]) {
+    for (const rendering of [{ view: 'full' }, { size: 128 }, { state: { status: 'success' } }, { status: 'working' },
+      { accessories: ['glasses'] }, { avatarAccessories: ['glasses'] }]) {
       expect(() => parseIdentityDocument({ ...document, ...rendering })).toThrow(IdentityError);
     }
   });

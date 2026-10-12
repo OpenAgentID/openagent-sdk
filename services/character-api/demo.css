@@ -37,6 +37,9 @@ output { font-weight: 400; font-variant-numeric: tabular-nums; color: #69736b; }
 .bottom-controls { align-items: center; }
 .toggle { font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .toggle input { accent-color: #26764f; width: 17px; height: 17px; }
+.accessories { border: 0; padding: 0; margin: 0 0 18px; min-width: 0; }
+.accessories legend { padding: 0; margin-bottom: 10px; font-size: 14px; font-weight: 600; }
+#accessories { display: flex; gap: 18px; flex-wrap: wrap; }
 .small { margin-bottom: 0; }
 .hint { color: #69736b; font-size: 12px; line-height: 1.5; }
 button { border: 1px solid #ced8ce; border-radius: 8px; padding: 9px 12px; background: #f4f7f2; color: inherit; cursor: pointer; font: inherit; font-size: 13px; }

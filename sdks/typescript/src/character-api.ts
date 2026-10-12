@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import { generateCharacter, getCharacterExpressions, getCharacterSkins, getCharacterStatuses, isAgentAvatarDid, type CharacterOptions } from './characters.js';
+import { getCharacterAccessories, parseCharacterAccessories } from './character-accessories.js';
 
 export interface CharacterApiHandlerOptions {
   /** The complete mount path, without a trailing slash. Default: /v1/characters. */
@@ -11,8 +12,8 @@ const DEFAULT_BASE_PATH = '/v1/characters';
 const MAX_BODY_BYTES = 16_384;
 const MAX_URL_LENGTH = 8192;
 const encoder = new TextEncoder();
-const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
-const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'expression', 'size', 'animated', 'state']);
+const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'accessories', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
+const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'accessories', 'expression', 'size', 'animated', 'state']);
 const numericQuery = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 class CharacterRequestError extends Error {
@@ -65,6 +66,7 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
     result.shape = member(value.shape, getCharacterSkins().find(entry => entry.id === skin)!.shapes);
   }
   if ('view' in value) result.view = member(value.view, ['avatar', 'full'] as const);
+  if ('accessories' in value) result.accessories = parseCharacterAccessories(value.accessories);
   if ('expression' in value) result.expression = member(value.expression, getCharacterExpressions());
   if ('size' in value) result.size = boundedNumber(value.size, 32, 2048, true);
   if ('animated' in value) {
@@ -100,6 +102,10 @@ function queryOptions(query: URLSearchParams): CharacterOptions {
   const input: Record<string, unknown> = {};
   for (const key of ['skin', 'eyeStyle', 'shape', 'view', 'expression']) {
     if (key in values) input[key] = values[key];
+  }
+  if ('accessories' in values) {
+    if (typeof values.accessories !== 'string') invalid();
+    input.accessories = values.accessories === '' ? [] : values.accessories.split(',');
   }
   if ('skinVersion' in values) {
     if (values.skinVersion !== '1') invalid();
@@ -226,18 +232,19 @@ export function createCharacterApiHandler(
       const path = url.pathname.slice(basePath.length + 1);
       const generate = path === 'generate';
       const catalog = path === 'skins';
+      const accessories = path === 'accessories';
       const statuses = path === 'statuses';
       const schema = path === 'openapi.json';
       const svg = path.startsWith('svg/');
       const rawDid = svg ? path.slice(4) : path;
-      if (!generate && !catalog && !statuses && !schema && (rawDid.includes('/') || !rawDid)) {
+      if (!generate && !catalog && !accessories && !statuses && !schema && (rawDid.includes('/') || !rawDid)) {
         return errorResponse(request, 404, 'not_found', methods);
       }
       // Reserved routes are handled before the DID route. Every request is
       // still schema-checked before rendering or issuing cache validators.
       methods = generate ? 'POST, OPTIONS' : 'GET, HEAD, OPTIONS';
       if (request.method === 'OPTIONS') {
-        if (generate || catalog || statuses || schema) {
+        if (generate || catalog || accessories || statuses || schema) {
           if (url.search) invalid();
         } else {
           agentDid(decodeURIComponent(rawDid));
@@ -250,11 +257,12 @@ export function createCharacterApiHandler(
       if (generate ? request.method !== 'POST' : request.method !== 'GET' && request.method !== 'HEAD') {
         return errorResponse(request, 405, 'method_not_allowed', methods);
       }
-      if (generate || catalog || statuses || schema) {
+      if (generate || catalog || accessories || statuses || schema) {
         if (url.search) invalid();
       }
-      if (catalog || statuses || schema) {
-        const body = catalog ? JSON.stringify(getCharacterSkins()) : statuses ? JSON.stringify(getCharacterStatuses()) : openapi;
+      if (catalog || accessories || statuses || schema) {
+        const body = catalog ? JSON.stringify(getCharacterSkins()) : accessories ? JSON.stringify(getCharacterAccessories())
+          : statuses ? JSON.stringify(getCharacterStatuses()) : openapi;
         return representation(request, body, 'application/json; charset=utf-8', methods, true);
       }
       if (generate) {
@@ -285,8 +293,8 @@ export const characterApiOpenApi = {
   "openapi": "3.1.0",
   "info": {
     "title": "OpenAgentID Character API",
-    "version": "1.2.0",
-    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 17 families and 62 distinct character kinds, including Halloween, Thanksgiving and Christmas. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority."
+    "version": "0.6.0",
+    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 17 families and 62 distinct character kinds, including Halloween, Thanksgiving and Christmas. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused."
   },
   "servers": [
     {
@@ -831,6 +839,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/view"
+          },
+          {
+            "$ref": "#/components/parameters/accessories"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -950,6 +961,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/view"
+          },
+          {
+            "$ref": "#/components/parameters/accessories"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1107,6 +1121,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/view"
+          },
+          {
+            "$ref": "#/components/parameters/accessories"
           }
         ],
         "responses": {
@@ -1202,6 +1219,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/view"
+          },
+          {
+            "$ref": "#/components/parameters/accessories"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1315,6 +1335,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/view"
+          },
+          {
+            "$ref": "#/components/parameters/accessories"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1466,6 +1489,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/view"
+          },
+          {
+            "$ref": "#/components/parameters/accessories"
           }
         ],
         "responses": {
@@ -1866,6 +1892,250 @@ export const characterApiOpenApi = {
           }
         }
       }
+    },
+    "/accessories": {
+      "get": {
+        "summary": "List combinable character accessories",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CharacterAccessoryDescriptionV1"
+                  }
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      },
+      "head": {
+        "summary": "Headers for the character accessory catalog",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "x-reject-unknown-query-parameters": true,
+        "x-reject-duplicate-query-parameters": true,
+        "description": "Same status, headers and Content-Length as GET, no response body.",
+        "responses": {
+          "200": {
+            "description": "Deterministic representation; public max-age=3600, must-revalidate.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "304": {
+            "description": "Matching validator, no body. CORS, ETag and SVG security headers are preserved.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Content-Length": {
+                "$ref": "#/components/headers/ContentLength"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "405": {
+            "description": "Not allowed, no body.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "summary": "Preflight for the character accessory catalog",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No body; schema-valid requests can be made cross-origin without credentials.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "$ref": "#/components/headers/CorsOrigin"
+              },
+              "Access-Control-Expose-Headers": {
+                "$ref": "#/components/headers/CorsExpose"
+              },
+              "X-Content-Type-Options": {
+                "$ref": "#/components/headers/NoSniff"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              },
+              "Access-Control-Allow-Methods": {
+                "schema": {
+                  "type": "string",
+                  "const": "GET, HEAD, OPTIONS"
+                }
+              },
+              "Access-Control-Allow-Headers": {
+                "schema": {
+                  "type": "string",
+                  "const": "Content-Type, If-None-Match"
+                }
+              },
+              "Access-Control-Max-Age": {
+                "schema": {
+                  "type": "integer",
+                  "const": 86400
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "405": {
+            "$ref": "#/components/responses/MethodNotAllowed"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1972,6 +2242,9 @@ export const characterApiOpenApi = {
               "gift"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          },
+          "accessories": {
+            "$ref": "#/components/schemas/CharacterAccessoriesV1"
           }
         },
         "allOf": [
@@ -2563,6 +2836,9 @@ export const characterApiOpenApi = {
             ],
             "default": "avatar",
             "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
+          },
+          "accessories": {
+            "$ref": "#/components/schemas/CharacterAccessoriesV1"
           }
         },
         "allOf": [
@@ -3114,6 +3390,9 @@ export const characterApiOpenApi = {
             ],
             "default": "avatar",
             "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
+          },
+          "accessories": {
+            "$ref": "#/components/schemas/CharacterAccessoriesV1"
           }
         },
         "allOf": [
@@ -3533,7 +3812,8 @@ export const characterApiOpenApi = {
           "state",
           "svg",
           "expression",
-          "view"
+          "view",
+          "accessories"
         ],
         "properties": {
           "did": {
@@ -3707,6 +3987,9 @@ export const characterApiOpenApi = {
             ],
             "default": "avatar",
             "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
+          },
+          "accessories": {
+            "$ref": "#/components/schemas/CharacterAccessoriesV1"
           }
         },
         "allOf": [
@@ -4803,7 +5086,7 @@ export const characterApiOpenApi = {
           "blocked",
           "error"
         ],
-        "description": "Expressions map to themselves. Aliases: idle→neutral, listening→attentive, reasoning→thoughtful, working→attentive, speaking/success→happy, blocked/error→concerned. Presentation only; not evidence of actual agent activity."
+        "description": "Expressions map to themselves. Aliases: idle\u2192neutral, listening\u2192attentive, reasoning\u2192thoughtful, working\u2192attentive, speaking/success\u2192happy, blocked/error\u2192concerned. Presentation only; not evidence of actual agent activity."
       },
       "CharacterStatusV1": {
         "type": "object",
@@ -4818,6 +5101,46 @@ export const characterApiOpenApi = {
           },
           "expression": {
             "$ref": "#/components/schemas/AvatarExpression"
+          }
+        }
+      },
+      "CharacterAccessory": {
+        "type": "string",
+        "enum": [
+          "glasses",
+          "headphones"
+        ],
+        "description": "Closed package-owned accessory identifier; independent of character family."
+      },
+      "CharacterAccessoriesV1": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/CharacterAccessory"
+        },
+        "maxItems": 2,
+        "uniqueItems": true,
+        "default": [],
+        "description": "Optional independent accessories, canonicalized to glasses then headphones. Omitted selection resolves to []; no null, unknown identifier or duplicate is accepted."
+      },
+      "CharacterAccessoryDescriptionV1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CharacterAccessory"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
           }
         }
       }
@@ -5051,6 +5374,18 @@ export const characterApiOpenApi = {
           "default": "avatar",
           "description": "Face crop for avatars by default; full shows the complete body. Rendering only, independent of stored appearance and runtime eye state."
         }
+      },
+      "accessories": {
+        "name": "accessories",
+        "in": "query",
+        "required": false,
+        "style": "form",
+        "explode": false,
+        "allowEmptyValue": true,
+        "schema": {
+          "$ref": "#/components/schemas/CharacterAccessoriesV1"
+        },
+        "description": "One comma-separated selection, for example glasses,headphones. Empty string means []; either input order normalizes to catalog order. Repeated query parameters, duplicates, unknown IDs, whitespace and empty elements are refused."
       }
     },
     "headers": {

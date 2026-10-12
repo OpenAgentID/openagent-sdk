@@ -9,7 +9,7 @@ export function generateStarterTemplate(projectName: string): TemplateFile[] {
       type: 'module', engines: { node: '>=20' }, scripts: {
         dev: 'node src/server.mjs', agent: 'node src/agent.mjs', identity: 'node src/identity.mjs',
         test: 'node --test test/*.test.mjs',
-      }, dependencies: { '@openagentid/sdk': '0.5.0' } }, null, 2) + '\n' },
+      }, dependencies: { '@openagentid/sdk': '0.6.0' } }, null, 2) + '\n' },
     { path: '.gitignore', content: 'node_modules/\n.openagent/\ncoverage/\n.env\n' },
     { path: 'src/workspaces.mjs', content: workspaces },
     { path: 'src/server.mjs', content: server },
@@ -291,17 +291,25 @@ const html = String.raw`<!doctype html>
 <p id="identity"></p><div class="controls"><label>Family <select id="skin"></select></label>
 <label>Kind <select id="shape"></select></label>
 <label>Expression <select id="expression"><option value="">Follow actual status</option></select></label></div>
+<fieldset><legend>Accessories</legend><div id="accessories" class="controls"></div></fieldset>
 <p>In another terminal, run:</p><pre>npm run agent -- "Hello from my agent"</pre>
 <p>This viewer is read-only. A completed request appears after the receiver verifies a fresh signed proof.</p>
 <p>Keys stay on this computer. No account or identity service is required.</p></main></body></html>
 `;
-const css = String.raw`:root{font-family:system-ui,sans-serif;color:#ecf0f5;background:#10151c;color-scheme:dark}body{margin:0}main{max-width:760px;margin:0 auto;padding:48px 24px}h1{font-size:clamp(2rem,6vw,3.8rem);letter-spacing:-.05em;margin:12px 0}p{line-height:1.6;color:#bdc8d6}.eyebrow{font-size:.85rem;letter-spacing:.1em;text-transform:uppercase}#avatar{height:300px;display:flex;align-items:center;justify-content:center;margin:12px 0}#avatar svg{max-width:100%;height:280px;border-radius:50%;overflow:hidden}#identity{font-family:monospace;font-size:.85rem;overflow-wrap:anywhere}.controls{display:flex;gap:24px;flex-wrap:wrap}label{display:flex;gap:10px;align-items:center}select{appearance:none;padding:8px 38px 8px 12px;border-radius:8px;background-color:#222d3b;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:right 17px center,right 12px center;background-size:5px 5px;background-repeat:no-repeat;color:inherit;border:1px solid #516176}@media(forced-colors:active){select{appearance:auto;background-image:none}}pre{padding:18px;white-space:pre-wrap;background:#1b2532;border-radius:12px;border:1px solid #344458}#status{font-weight:600;color:#fff}
+const css = String.raw`:root{font-family:system-ui,sans-serif;color:#ecf0f5;background:#10151c;color-scheme:dark}body{margin:0}main{max-width:760px;margin:0 auto;padding:48px 24px}h1{font-size:clamp(2rem,6vw,3.8rem);letter-spacing:-.05em;margin:12px 0}p{line-height:1.6;color:#bdc8d6}.eyebrow{font-size:.85rem;letter-spacing:.1em;text-transform:uppercase}#avatar{height:300px;display:flex;align-items:center;justify-content:center;margin:12px 0}#avatar svg{max-width:100%;height:280px;border-radius:50%;overflow:hidden}#identity{font-family:monospace;font-size:.85rem;overflow-wrap:anywhere}.controls{display:flex;gap:24px;flex-wrap:wrap}label{display:flex;gap:10px;align-items:center}fieldset{border:0;margin:24px 0;padding:0;min-width:0}legend{padding:0;margin-bottom:12px}input[type=checkbox]{width:18px;height:18px;accent-color:#1687ff}select{appearance:none;padding:8px 38px 8px 12px;border-radius:8px;background-color:#222d3b;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:right 17px center,right 12px center;background-size:5px 5px;background-repeat:no-repeat;color:inherit;border:1px solid #516176}@media(forced-colors:active){select{appearance:auto;background-image:none}}pre{padding:18px;white-space:pre-wrap;background:#1b2532;border-radius:12px;border:1px solid #344458}#status{font-weight:600;color:#fff}
 `;
-const viewer = String.raw`import { mountCharacter, getCharacterExpressions, getCharacterSkins } from '/character-player.js';
+const viewer = String.raw`import { mountCharacter, getCharacterExpressions, getCharacterSkins, getCharacterAccessories } from '/character-player.js';
 
 const skin = document.querySelector('#skin');
 const shape = document.querySelector('#shape');
 const catalog = getCharacterSkins();
+const accessories = document.querySelector('#accessories');
+const selectedAccessories = () => Array.from(accessories.querySelectorAll('input:checked'), input => input.value);
+for (const accessory of getCharacterAccessories()) {
+  const label = document.createElement('label');
+  const input = document.createElement('input'); input.type = 'checkbox'; input.value = accessory.id;
+  label.append(input, document.createTextNode(accessory.label)); accessories.append(label);
+}
 const display = value => value.replaceAll('-', ' ').replace(/^./, letter => letter.toUpperCase());
 skin.replaceChildren(...catalog.map(entry => new Option(entry.label, entry.id)));
 skin.value = 'autos';
@@ -319,6 +327,7 @@ for (const value of getCharacterExpressions()) {
 let player, did, revision = -1, latestStatus = 'idle', stopped = false, timer;
 skin.addEventListener('change', () => { kinds(); player?.setAppearance({ skin: skin.value }); });
 shape.addEventListener('change', () => player?.setAppearance({ shape: shape.value || null }));
+accessories.addEventListener('change', () => player?.setAppearance({ accessories: selectedAccessories() }));
 expression.addEventListener('change', () => player?.update({ status: latestStatus, expression: expression.value || null }));
 async function refresh() {
   try {
@@ -330,7 +339,7 @@ async function refresh() {
         !['idle', 'working', 'success'].includes(state.status) || !Number.isSafeInteger(state.completedRequests) || state.completedRequests < 0) throw new Error('Invalid receiver state.');
     if (!player || state.did !== did) {
       player?.dispose(); document.querySelector('#avatar').replaceChildren();
-      did = state.did; player = mountCharacter(document.querySelector('#avatar'), did, { skin: skin.value, ...(shape.value ? { shape: shape.value } : {}), size: 280, reducedMotion: 'system' });
+      did = state.did; player = mountCharacter(document.querySelector('#avatar'), did, { skin: skin.value, accessories: selectedAccessories(), ...(shape.value ? { shape: shape.value } : {}), size: 280, reducedMotion: 'system' });
       identity.textContent = did; revision = -1;
     }
     if (state.revision !== revision) {
@@ -352,7 +361,7 @@ Requires Node 20+. Run npm install, then npm run dev. Open the numeric loopback 
 
     npm run agent -- "Hello from my agent"
 
-The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, 16 optional families (including SpaceX and seasonal characters), distinct kinds, face framing and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
+The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, 16 optional families (including SpaceX and seasonal characters), distinct kinds, face framing, combinable glasses/headphones and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
 
 On first setup, src/workspaces.mjs creates two separate local authorities, persists a unique receiver audience and explicitly imports the signer's public DID/key document into the receiver with trustIdentity. The receiver has no signing key for that agent. The public export is .openagent/identity.json. Private keys, challenge and replay state remain under .openagent/ and are excluded from git. Inspect public identity with npm run identity -- export. Never publish .openagent/ or serve it as static assets.
 
