@@ -12,7 +12,7 @@
 - Read the receiver clock on every ACT verification; keep compatibility with
   crypto-wasm 0.1.1 and fix the WASM default clock in crypto-wasm 0.1.2.
 - Preserve native Request method, headers, body and cancellation in credential
-  proxy calls; align the exported SDK VERSION with its package version.
+  proxy calls; share the shipped SDK VERSION with CLI version output and help.
 - Add explicit adapters for the shipped OAS, Arsenal, AEGIS and skills-policy
   contracts, with real-package integration examples and required trust context.
 - Release HTTP, MCP, Claude hooks, SCIM and EAS 0.2.0 integrations with current
