@@ -6,7 +6,7 @@ hosted resolver or private package. Keys and trust stay on your infrastructure.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.3.0 my-agent-app --yes
+npx create-openagent@0.4.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -27,7 +27,7 @@ your HTTPS transport and storage/authorization policy deliberately.
 ## Add identity to an existing Node application
 
 ```sh
-npm install @openagentid/sdk@0.5.0
+npm install @openagentid/sdk@0.6.0
 ```
 
 This complete first-run example uses two separate persistent workspaces. Run it

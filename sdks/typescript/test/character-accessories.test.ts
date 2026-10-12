@@ -121,7 +121,8 @@ describe('independent character accessories', () => {
     expect(points.length).toBeGreaterThan(100);
     for (const point of points) {
       expect(Number.isFinite(point.x) && Number.isFinite(point.y)).toBe(true);
-      expect(Math.hypot(point.x - 256, point.y - 264) + point.stroke).toBeLessThanOrEqual(100);
+      expect(Math.hypot(point.x - 256, point.y - 264) + point.stroke,
+        `outline at (${point.x},${point.y}), half-stroke ${point.stroke}`).toBeLessThanOrEqual(100);
     }
     for (const family of getCharacterSkins()) for (const shape of family.shapes) {
       const framing = characterFraming(family.id, shape, 'avatar');

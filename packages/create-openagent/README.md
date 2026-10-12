@@ -5,7 +5,7 @@ explicit receiver trust, authenticated HTTP requests and animated avatars run
 locally without a Life account or a hosted identity service.
 
 ```sh
-npx create-openagent@0.3.0 my-agent-app --yes
+npx create-openagent@0.4.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev

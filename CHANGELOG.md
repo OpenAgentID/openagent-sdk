@@ -9,6 +9,8 @@
 - Carry strict accessory choices through SDK/profile validation, SVG/JSON API,
   CLI, browser player, hosted demo and the generated starter; reject unknown or
   duplicate choices. Appearance choices never grant identity permissions.
+- Align recommended installation and starter commands with SDK 0.6.0 and
+  create-openagent 0.4.0 so the first-run flow includes accessories.
 - Verify all kinds, face crops, real signed starter status and additive/removal
   behavior. Production Orbit adoption is tracked separately.
 

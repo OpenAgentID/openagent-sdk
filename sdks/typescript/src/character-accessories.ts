@@ -71,9 +71,9 @@ const glasses = node('g', { 'data-character-accessory': 'glasses', 'aria-hidden'
 ]);
 
 const headphones = node('g', { 'data-character-accessory': 'headphones', 'aria-hidden': 'true' }, [
-  node('path', { d: 'M175 246Q175 180 224 180H288Q337 180 337 246',
+  node('path', { d: 'M175 246Q175 184 224 184H288Q337 184 337 246',
     fill: 'none', stroke: '#243247', 'stroke-width': '8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
-  node('path', { d: 'M180 240Q180 188 224 188H288Q332 188 332 240',
+  node('path', { d: 'M180 240Q180 192 224 192H288Q332 192 332 240',
     fill: 'none', stroke: '#8291A8', 'stroke-width': '2', 'stroke-linecap': 'round' }),
   node('rect', { x: '164', y: '238', width: '22', height: '62', rx: '11', fill: '#243247' }),
   node('rect', { x: '326', y: '238', width: '22', height: '62', rx: '11', fill: '#243247' }),
