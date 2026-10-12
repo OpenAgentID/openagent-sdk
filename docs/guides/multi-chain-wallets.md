@@ -1,6 +1,6 @@
 # Wallet Integration Boundaries
 
-The public TypeScript SDK 0.7.2 does not expose `agent.wallet()`, wallet address,
+The public TypeScript SDK 0.7.3 does not expose `agent.wallet()`, wallet address,
 balance/history, transaction signing/broadcast or a hosted wallet service.
 Creating a local OAS identity does not create an account on a blockchain or
 provide funds, RPC credentials or spending permission.
@@ -14,7 +14,7 @@ transaction serializer, indexer, RPC/broadcast route or deployed service.
 
 The Rust facade can re-export its configured AEGIS SDK with the real `aegis`
 Cargo feature. That does not add a `wallet` method to the unified agent or make
-TypeScript 0.7.2's local workspace a wallet provider. Consult the exact
+TypeScript 0.7.3's local workspace a wallet provider. Consult the exact
 component source and dependency version used by your wallet integration.
 [SDK feature guide](../getting-started/quickstart-rust.md).
 

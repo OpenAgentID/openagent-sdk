@@ -1,18 +1,23 @@
 {
-  "name": "openagent-cloudflare-worker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
   },
-  "dependencies": {
-    "@openagentid/sdk": "^0.1.0"
+  "name": "openagent-cloudflare-worker",
+  "scripts": {
+    "prepare": "node prepare-wasm.mjs",
+    "build": "node prepare-wasm.mjs && wrangler deploy --dry-run --outdir dist",
+    "typecheck": "node prepare-wasm.mjs && tsc --noEmit",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250101.0",
-    "typescript": "^5.4.5",
-    "wrangler": "^3.60.0"
+    "@cloudflare/workers-types": "4.20260702.1",
+    "wrangler": "^4.42.0"
+  },
+  "dependencies": {
+    "@openagentid/sdk": "^0.7.2",
+    "@openagentid/crypto-wasm": "^0.1.1"
   }
 }

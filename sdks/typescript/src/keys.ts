@@ -27,6 +27,7 @@ export interface KeyCryptoBinding {
   ed25519_public_from_private(signingKey: Uint8Array): Uint8Array;
   x25519_generate_keypair(): { secret_key: Uint8Array; public_key: Uint8Array };
   x25519_public_from_secret?(secretKey: Uint8Array): Uint8Array;
+  x25519_diffie_hellman?(secretKey: Uint8Array, publicKey: Uint8Array): Uint8Array;
   blake3_derive_key(context: string, keyMaterial: Uint8Array): Uint8Array;
 }
 
@@ -41,7 +42,7 @@ function binding(): KeyCryptoBinding {
   if (!cryptoBinding) {
     throw new OpenAgentError(
       'key custody requires the @openagentid/crypto-wasm binding: call ' +
-        'setKeyCryptoBinding(await cryptoWasmInit()) at startup.',
+        "setKeyCryptoBinding(await import('@openagentid/crypto-wasm')) at startup.",
       { code: ErrorCode.INVALID_CONFIG },
     );
   }
@@ -80,16 +81,20 @@ function deriveFromSeed(seed: Uint8Array): AgentKeys {
   // The encryption keypair is derived, deterministically, so it restores
   // across restarts without persisting additional key material.
   const derived = b.blake3_derive_key(ENCRYPTION_DERIVE_CONTEXT, seed);
-  let encryptionSecretKey: Uint8Array;
+  const encryptionSecretKey = derived;
   let encryptionPublicKey: Uint8Array;
   if (b.x25519_public_from_secret) {
-    encryptionSecretKey = derived;
     encryptionPublicKey = b.x25519_public_from_secret(derived);
+  } else if (b.x25519_diffie_hellman) {
+    // RFC 7748: X25519(secret, base point 9) is the public key. This keeps
+    // seed recovery deterministic with the published crypto-wasm 0.1.1 API.
+    const basePoint = new Uint8Array(32);
+    basePoint[0] = 9;
+    encryptionPublicKey = b.x25519_diffie_hellman(derived, basePoint);
   } else {
-    // Bindings without public-from-secret regenerate from the derived seed.
-    const kp = b.x25519_generate_keypair();
-    encryptionSecretKey = kp.secret_key;
-    encryptionPublicKey = kp.public_key;
+    throw new OpenAgentError('The crypto binding must support deterministic X25519 public-key derivation', {
+      code: ErrorCode.INVALID_CONFIG,
+    });
   }
 
   return {

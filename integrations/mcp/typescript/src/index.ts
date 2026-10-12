@@ -75,3 +75,6 @@ export type {
 } from './types.js';
 
 export { defaultRequireScopes, defaultScopeFormat } from './types.js';
+
+export { createWorkspaceMcpServer, createWorkspaceMcpClient } from './workspace.js';
+export type { McpChallengeRequest } from './workspace.js';

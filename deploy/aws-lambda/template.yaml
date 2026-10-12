@@ -1,84 +1,50 @@
-# OpenAgent AWS Lambda — SAM template
-# Deploy: sam build && sam deploy --guided
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: OpenAgent Auth Gateway — serverless authentication for autonomous agents.
-
-Globals:
-  Function:
-    Timeout: 30
-    Runtime: nodejs20.x
-    MemorySize: 256
-    Environment:
-      Variables:
-        OPENAGENT_PARENT_DID: !Ref ParentDid
-        OPENAGENT_AGENT_NAME: !Ref AgentName
-        OAS_RESOLVER_URL: !Ref OasResolverUrl
-        ARSENAL_BROKER_URL: !Ref ArsenalBrokerUrl
-        AEGIS_VERIFIER_URL: !Ref AegisVerifierUrl
-
+Description: OpenAgent ACT receiver with explicit broker trust.
 Parameters:
-  ParentDid:
+  Issuer:
     Type: String
-    Default: 'did:oas:l1fe:hmr:your-human-root'
-    Description: Parent DID of this Lambda's agent identity.
-  AgentName:
+  Audience:
     Type: String
-    Default: 'lambda-agent'
-    Description: Agent name registered in OAS.
-  OasResolverUrl:
+  Tenant:
     Type: String
-    Default: ''
-    Description: OAS resolver endpoint URL.
-  ArsenalBrokerUrl:
+  PublicKeys:
     Type: String
-    Default: ''
-    Description: Arsenal broker endpoint URL.
-  AegisVerifierUrl:
+    Description: JSON array of base64url Ed25519 broker public keys.
+  RequiredScope:
     Type: String
-    Default: ''
-    Description: AEGIS verifier endpoint URL.
-
+  RevokedTokenIds:
+    Type: String
+    Default: '[]'
+  RevokedSubjects:
+    Type: String
+    Default: '[]'
 Resources:
-  OpenAgentFunction:
+  Receiver:
     Type: AWS::Serverless::Function
     Properties:
+      Runtime: nodejs22.x
       Handler: dist/handler.handler
       CodeUri: .
-      Description: OpenAgent auth gateway function
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          OPENAGENT_ISSUER: !Ref Issuer
+          OPENAGENT_AUDIENCE: !Ref Audience
+          OPENAGENT_TENANT: !Ref Tenant
+          OPENAGENT_PUBLIC_KEYS: !Ref PublicKeys
+          OPENAGENT_REQUIRED_SCOPE: !Ref RequiredScope
+          OPENAGENT_REVOKED_TOKEN_IDS: !Ref RevokedTokenIds
+          OPENAGENT_REVOKED_SUBJECTS: !Ref RevokedSubjects
       Events:
+        Agent:
+          Type: Api
+          Properties:
+            Path: /api/agent
+            Method: any
         Health:
           Type: Api
           Properties:
             Path: /health
             Method: get
-        AgentJson:
-          Type: Api
-          Properties:
-            Path: /.well-known/openagent/agent.json
-            Method: get
-        Auth:
-          Type: Api
-          Properties:
-            Path: /.well-known/openagent/auth
-            Method: post
-        Challenge:
-          Type: Api
-          Properties:
-            Path: /.well-known/openagent/challenge
-            Method: post
-        ChallengeVerify:
-          Type: Api
-          Properties:
-            Path: /.well-known/openagent/challenge/verify
-            Method: post
-        OAuthToken:
-          Type: Api
-          Properties:
-            Path: /oauth/token
-            Method: post
-
-Outputs:
-  OpenAgentApiUrl:
-    Description: API Gateway URL for OpenAgent auth endpoints
-    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'

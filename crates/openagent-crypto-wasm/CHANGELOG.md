@@ -5,6 +5,18 @@ All notable changes to `openagent-crypto-wasm` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-10-12
+
+- Restore deterministic X25519 public keys from seeds with real WASM bindings;
+  expose public-from-secret and retain recovery compatibility with 0.1.1's
+  RFC 7748 base-point operation. Remove the random-key recovery fallback.
+
+- Resolve the ACT zero-time sentinel through the JavaScript host clock on each
+  WASM invocation instead of trapping in Rust SystemTime on wasm32.
+- Verify the built package with a canonical Rust-minted signed token, including
+  default-clock acceptance and expiry after the host clock advances.
+- Preserve the ACT format, signature and issuer/audience/scope checks.
+
 ## [Unreleased] - 2026-08-01
 
 ### Fixed

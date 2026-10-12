@@ -233,6 +233,7 @@ export async function onMessage(
   let signature: string | undefined;
   if (ctx.signMessages && input.direction === 'out') {
     try {
+      if (!ctx.identity.sign) throw new Error('Message signing requires an identity signer');
       const sigBytes = await Promise.resolve(ctx.identity.sign(bytes));
       signature = bytesToHex(sigBytes);
     } catch (err) {

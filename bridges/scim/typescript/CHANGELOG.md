@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 — 2026-10-12
+
+- Require actual identity provisioning and authority-backed scope changes. Fail closed on missing authentication/revocation callbacks, retain inactive records for retry and revoke on deactivation. Remove placeholder DIDs/key fingerprints and add current SDK Ed25519 lifecycle tests.
+- Atomically reserve usernames before minting identities, enforce uniqueness on store writes and retain ambiguous operations for reconciliation. Add real-key concurrent-router and failed-creation/commit recovery tests; custom stores must implement the reservation contract.
+- Validate creation inputs against the installed SDK before invoking its authority; invalid scopes return 400 and release the unused reservation so corrected requests can retry.
+
 ## Unreleased
 
 - **Breaking:** package renamed from `@openagent/scim` to `@openagentid/scim`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.

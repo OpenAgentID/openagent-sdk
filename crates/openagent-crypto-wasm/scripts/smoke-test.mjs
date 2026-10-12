@@ -9,6 +9,7 @@
 // Usage: node scripts/smoke-test.mjs
 
 import { createRequire } from 'node:module';
+import assert from 'node:assert/strict';
 
 const require = createRequire(import.meta.url);
 const wasm = require('../pkg/node/openagent_crypto_wasm.js');
@@ -78,6 +79,13 @@ check('public key derives from private', () => {
   }
 });
 
+check('X25519 public-key recovery matches RFC 7748', () => {
+  const secret = Buffer.from('77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a', 'hex');
+  const expected = '8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a';
+  assert.equal(Buffer.from(wasm.x25519_public_from_secret(secret)).toString('hex'), expected);
+  assert.throws(() => wasm.x25519_public_from_secret(new Uint8Array(31)));
+});
+
 // ---------------------------------------------------------------------------
 // ACT verification - the canonical format, verified by the Rust crate through
 // WASM. The fixture is minted by `cargo run --example mint_act`.
@@ -105,6 +113,25 @@ check('act_verify accepts a valid token and returns claims', () => {
   const claims = JSON.parse(json);
   if (claims.sub !== 'did:oas:l1fe:agent:smoke') throw new Error(`sub mismatch: ${claims.sub}`);
   if (claims.tenant_id !== 'tenant-a') throw new Error('tenant mismatch');
+});
+
+check('act_verify default clock uses fresh host time without a WASM trap', () => {
+  const originalNow = Date.now;
+  try {
+    Date.now = () => Number(AT_VALID) * 1000;
+    const verify = () => wasm.act_verify(envelope, trustedKey,
+      'arsenal:broker:test-1', 'omerta', ['tools:calendar:invoke'], 0n, 0n);
+    if (JSON.parse(verify()).tenant_id !== 'tenant-a') throw new Error('tenant mismatch');
+    Date.now = () => 1800000601 * 1000;
+    let rejected = false;
+    try { verify(); } catch (error) {
+      if (!/expired/.test(error.message)) throw error;
+      rejected = true;
+    }
+    if (!rejected) throw new Error('reused default clock accepted an expired token');
+  } finally {
+    Date.now = originalNow;
+  }
 });
 
 check('act_verify wildcard grant covers the required scope', () => {

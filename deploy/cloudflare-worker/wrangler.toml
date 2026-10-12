@@ -1,31 +1,15 @@
-# OpenAgent Cloudflare Worker — wrangler configuration
-# Docs: https://developers.cloudflare.com/workers/wrangler/configuration/
-
-name = "openagent-auth"
+name = "openagent-receiver"
 main = "worker.ts"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-07-01"
+[build]
+command = "node prepare-wasm.mjs"
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
 
-# KV namespace for session state (challenge tokens, session IDs)
-[[kv_namespaces]]
-binding = "OPENAGENT_SESSIONS"
-id = ""           # Run: wrangler kv namespace create "OPENAGENT_SESSIONS"
-preview_id = ""   # Run: wrangler kv namespace create "OPENAGENT_SESSIONS" --preview
-
-# Optional: D1 database for agent DID storage
-# Uncomment and configure if you need persistent DID storage.
-# [[d1_databases]]
-# binding = "OPENAGENT_DB"
-# database_name = "openagent-agents"
-# database_id = ""  # Run: wrangler d1 create openagent-agents
-
-[vars]
-OPENAGENT_PARENT_DID = "did:oas:l1fe:hmr:your-human-root"
-OPENAGENT_AGENT_NAME = "my-worker-agent"
-
-# Set these via `wrangler secret put <KEY>`:
-# OIDC_CLIENT_SECRET
-# ARSENAL_BROKER_URL
-# AEGIS_VERIFIER_URL
-
-# Optional upstream origin for proxy mode
-# UPSTREAM_ORIGIN = "https://api.your-service.com"
+# Configure the explicit public receiver policy via wrangler secret put:
+# OPENAGENT_ISSUER, OPENAGENT_AUDIENCE, OPENAGENT_TENANT,
+# OPENAGENT_PUBLIC_KEYS, OPENAGENT_REQUIRED_SCOPE,
+# OPENAGENT_REVOKED_TOKEN_IDS, OPENAGENT_REVOKED_SUBJECTS.
+# No default trust, fake DID, provisioned KV, or fallback authentication.

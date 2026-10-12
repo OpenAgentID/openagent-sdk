@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.wrangler
+**/.generated
+.receiver-example
+.env*
+**/.env*
+test-results
+*.log
+*.pem

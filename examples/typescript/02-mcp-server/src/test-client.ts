@@ -1,50 +1,43 @@
-import { OpenAgent } from '@openagentid/sdk';
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { OpenAgentWorkspace, type LocalChallenge } from '@openagentid/sdk/local';
+import { createWorkspaceMcpClient, withOpenAgentClient } from '@openagentid/mcp';
 
-OpenAgent.configure({
-  brokerUrl: process.env.OPENAGENT_BROKER_URL ?? 'fake://in-memory',
-  aegisUrl: process.env.OPENAGENT_AEGIS_URL ?? 'fake://in-memory',
-  namespace: process.env.OPENAGENT_NAMESPACE ?? 'example',
+// Every invocation uses a new durable directory; private keys stay there.
+const directory = resolve('.openagent-example', new Date().toISOString().replaceAll(':', '-'));
+await mkdir(directory, { recursive: true });
+const audience = 'https://mcp.example.test';
+const signer = await OpenAgentWorkspace.initialize(join(directory, 'signer'), { audience: 'https://signer.example.test' });
+const receiver = await OpenAgentWorkspace.initialize(join(directory, 'receiver'), { audience });
+const agent = await signer.createAgent('MCP example');
+await receiver.trustIdentity(await signer.exportIdentity(agent.did));
+const raw = new Client({ name: 'openagent-example-client', version: '1.0.0' });
+const transport = new StdioClientTransport({ command: process.execPath,
+  args: ['--import', 'tsx', fileURLToPath(new URL('./server.ts', import.meta.url)), join(directory, 'receiver'), agent.did],
 });
-
-async function main() {
-  const parent = process.env.OPENAGENT_PARENT_DID ?? 'did:oas:example:hmr:local-dev';
-
-  const agent = await OpenAgent.createAgent({
-    parent,
-    name: 'mcp-test-client',
-    scopes: ['tavily:search:invoke'],
+try {
+  await raw.connect(transport);
+  const identity = createWorkspaceMcpClient({ workspace: signer, did: agent.did, audience,
+    async issueChallenge(request) {
+      const result = await raw.callTool({ name: 'openagent_challenge', arguments: { ...request } });
+      const content = result.content;
+      if (result.isError || !Array.isArray(content) || content[0]?.type !== 'text') throw new Error('Receiver refused challenge');
+      return JSON.parse(content[0].text) as LocalChallenge;
+    },
   });
-
-  console.log(`client agent: ${agent.did}`);
-
-  const url = process.env.MCP_URL ?? 'http://localhost:3000/mcp';
-
-  async function call(method: string, params?: Record<string, unknown>) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `OpenAgent ${agent.actCompactString}`,
-      },
-      body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
-    });
-    return res.json() as Promise<{ result?: unknown; error?: unknown }>;
-  }
-
-  const init = await call('initialize');
-  console.log('initialize:', init);
-
-  const list = await call('tools/list');
-  console.log('tools/list:', list);
-
-  const callResult = await call('tools/call', {
-    name: 'summarize_url',
-    arguments: { url: 'https://example.com' },
-  });
-  console.log('tools/call:', callResult);
-}
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+  const client = withOpenAgentClient(raw, { agent: identity });
+  const result = await client.callTool({ name: 'echo', arguments: { text: 'A real signed MCP call.' } });
+  assert.deepEqual(result.content, [{ type: 'text', text: 'A real signed MCP call.' }]);
+  assert.equal(result.isError, undefined);
+  assert.equal((result._meta?.openagent as { verified_did: string }).verified_did, agent.did);
+  const unsigned = await raw.callTool({ name: 'echo', arguments: { text: 'Unsigned call' } });
+  assert.equal(unsigned.isError, true);
+  await receiver.revoke(agent.did);
+  await assert.rejects(client.callTool({ name: 'echo', arguments: { text: 'Revoked call' } }));
+  console.log(`Verified authenticated MCP call, unsigned rejection and revocation for ${agent.did}`);
+  console.log(`Private signer and receiver state: ${directory}`);
+} finally { await raw.close(); await transport.close(); }

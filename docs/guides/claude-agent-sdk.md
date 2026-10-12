@@ -1,67 +1,91 @@
-# Agent Harness Integration
+# Claude Agent SDK Integration
 
-OpenAgentID identity, capabilities and skill policy can be attached to a host
-agent loop. The repository includes the separate Claude Agent SDK integration
-source under `integrations/claude-agent-sdk`; the public unified SDK has no
-`@openagentid/sdk/claude-agent` subpath. The public starter does not require
-this harness or integration package.
+OpenAgentID identity, tool/skill policy and audit hooks for the Claude Agent SDK.
+Compatible with OpenAgentID SDK `^0.7.2`; the native hook adapter is qualified
+against `@anthropic-ai/claude-agent-sdk@0.3.296` and supports that `0.3` line.
 
-## Actual source contract
+```sh
+npm install @openagentid/sdk@^0.7.2 @openagentid/claude-agent@0.2.0 @anthropic-ai/claude-agent-sdk@^0.3.296
+```
 
-The TypeScript integration entry exports `openAgentPlugin` plus lifecycle/tool/
-skill hooks, capability and skills-policy interfaces, and component audit
-primitives. Its actual `OpenAgentPluginOptions` requires:
+## Run without a model account
 
-- `agent: OpenAgentIdentity`, supplied by the host's real identity custody.
-- `capabilities: CapabilityChecker`, implementing the chosen authoritative
-  permission contract.
-- Optional `skillsPolicy`, `audit`, `signMessages` and `denyMode`.
+The [complete example](https://github.com/OpenAgentID/openagent-sdk/tree/main/examples/typescript/03-claude-agent-plugin)
+creates separate signer/receiver workspaces and drives actual SDK-typed hook
+inputs. Each permission check verifies a real signature and current receiver
+trust. It proves allowed Read, denied Bash and rejection after revocation.
 
-`openAgentPlugin` returns the component's own hook object. The host must wire
-those hooks into its exact installed harness API before operations occur.
-Placing an arbitrary object into a host's `plugins` array is not proof its
-callbacks are called or refusals block execution. Package names in the source
-manifest do not establish current public availability or compatibility with a
-particular external harness release.
+```sh
+git clone https://github.com/OpenAgentID/openagent-sdk.git
+cd openagent-sdk/examples/typescript/03-claude-agent-plugin
+npm install
+npm start
+```
 
-The hooks include `onSessionStart`, `preToolUse`, `postToolUse`, `onMessage`,
-`onSkillInvoke` and `onSessionEnd`, with typed context/input/result structures.
-Use the actual source types; the integration `OpenAgentIdentity` and checker
-are not automatically a unified `OpenAgentInstance` or an authenticated human
-owner. A static capability checker is configured policy data, not proof that a
-broker authorized the caller.
+Use its `options.hooks` with the real harness:
 
-## Wire real authority and controls
+```ts
+import { query } from '@anthropic-ai/claude-agent-sdk';
+// `options` is the configured hooks object from the complete example.
+for await (const message of query({ prompt: 'Read README.md', options })) {
+  if (message.type === 'result') console.log(message);
+}
+```
 
-Before granting tools, verify the accepted proof/root/revocation/replay under
-[current identity authority](../identity-verification.md). Adapt the result and
-application permission to the component's identity/checker interfaces. Keep
-trusted keys, audience, tenant and requested scopes under host control.
+Calling `query` needs your normal model authentication and can incur model usage.
+The offline example runs hooks and real cryptography without calling a model.
 
-Call the pre-tool/skill guard before side effects and honor its denial result or
-exception; invoke post-tool hooks only after the actual outcome. Validate
-arguments and outbound targets separately. The source has no automatic parent
-`.delegate()` or human-approval UI, subagent high-risk-scope filter, paused-run
-consent workflow or unified credential injection. Provision child identity and
-permissions through the actual signer/issuer contracts.
+## Native hooks
 
-## Audit and message signing
+`createOpenAgentHooks({ agent, capabilities, skillsPolicy?, audit? })` returns:
 
-`audit: true` selects memory plus console sinks; it does not provision durable
-storage. A custom `AuditSink` must use the host's actual custody/failure policy.
-Component audit chains swallow sink failures, so hook success cannot certify
-compliance delivery. There is no `OpenAgent.audit(...).forRun()` query DSL.
-[Audit responsibilities](audit-and-compliance.md).
+- `hooks`: assign directly to `query({ options: { hooks } })`.
+- `inspectAudit(sessionId)`: inspect the current session's audit buffer.
 
-Optional message signing uses the real supplied identity signer and its exact
-message contract. The host/receiver still validates the signed content,
-recipient and accepted key policy; a signature callback is not a registered
-Messages transport or proof that an agent profile can reply.
+Actual `SessionStart`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure` and
+`SessionEnd` hooks are wired. Each session has its own lifecycle and audit chain.
+`Skill` tool calls require both `sdkToolScope('Skill')` and the configured skill
+policy (`sdkSkillScope(name)` by default). Native hooks use these scope helpers
+to encode uppercase or punctuated names into the SDK scope grammar without
+colliding with differently spelled tools. Use the helpers when granting scopes;
+simple lowercase names retain their readable form. Exceptions and cancelled preflight
+checks return an explicit native deny decision. Successful checks return `{}`,
+so the host's normal permission rules still apply.
 
-Source: [`plugin.ts`](../../integrations/claude-agent-sdk/typescript/src/plugin.ts),
-[`hooks.ts`](../../integrations/claude-agent-sdk/typescript/src/hooks.ts),
-[`types.ts`](../../integrations/claude-agent-sdk/typescript/src/types.ts) and
-[`index.ts`](../../integrations/claude-agent-sdk/typescript/src/index.ts).
-Use the [public starter and CLI](../developer-tooling.md) for a complete
-account-free first-run application; adopt a harness integration only with its
-real dependency, adapter and custody contracts.
+## Identity custody
+
+Use `createSdkAgentIdentity(openAgentInstance)` to adapt a current SDK facade
+agent. Pass a raw signer explicitly when message signing is needed:
+
+```ts
+const identity = createSdkAgentIdentity(agent, {
+  publicKey: agent.document.publicKeyMultibase,
+  sign: payload => oasProvider.signBytes(agent.did, payload),
+});
+```
+
+Here `oasProvider` is the `createOasIdentityProvider` returned by
+`@openagentid/sdk/integrations/oas`. Its real raw signing operation retains key
+custody. The one-argument adapter does not expose a signer: an identity
+provider's `signChallenge` result signs an assertion envelope, not raw message
+bytes, and cannot be substituted for it. For workspace-only policy, use its exported public document
+and verify possession/current trust in the capability checker, as the example does.
+A DID string or public key alone does not establish identity trust.
+
+Message signing is an explicit framework-independent feature of
+`openAgentPlugin({ signMessages: true, ... })` and requires `agent.sign`.
+The Claude SDK has no generic outbound `onMessage` signing hook; the adapter does
+not pretend one exists. `openAgentPlugin` remains available for applications that
+own their lifecycle and call its handlers directly.
+
+## Migration from 0.1
+
+Remove `options.plugins: [openAgentPlugin(...)]`. Claude's plugins option loads
+plugin directories; it never accepted this lifecycle object. Replace it with
+`options.hooks: createOpenAgentHooks(...).hooks`. Adapt SDK facade identities with
+`createSdkAgentIdentity`, and recheck authoritative identity/scope state in the
+capability checker rather than relying on mutable request claims.
+
+`StaticCapabilityChecker` is an explicit application allowlist. Audit records
+form a hash chain; persist them in your audit sink and anchor retained heads
+externally when you need protection against wholesale history replacement.

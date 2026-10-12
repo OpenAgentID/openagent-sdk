@@ -1,12 +1,8 @@
 /**
  * Shared types for the OpenAgent x Claude Agent SDK plugin.
  *
- * These mirror the public surface of `@openagentid/sdk` but are duplicated
- * here so the plugin can run in environments where the SDK is not yet
- * resolved (e.g., bun's optional peer dep handling, dev installs).
- *
- * When `@openagentid/sdk` is present, the runtime objects passed by the
- * caller are structurally compatible with the interfaces below.
+ * These are adapter contracts. Use createSdkAgentIdentity to adapt a current
+ * SDK OpenAgentInstance without exporting its private signing key.
  */
 
 /** A verified OpenAgent identity, anchored on a `did:oas:*` string. */
@@ -17,7 +13,7 @@ export interface OpenAgentIdentity {
   kind: string;
   /** Optional human-readable display name (not authoritative). */
   displayName?: string;
-  /** Public Ed25519 verification key, hex-encoded (32 bytes). */
+  /** Public Ed25519 verification key (SDK multibase, or application-specific encoding). */
   publicKey: string;
   /**
    * Sign a payload with the agent's Ed25519 secret key.
@@ -25,7 +21,7 @@ export interface OpenAgentIdentity {
    * The signing key MUST live behind this function — it is never
    * exposed to plugin code directly.
    */
-  sign(payload: Uint8Array): Promise<Uint8Array> | Uint8Array;
+  sign?(payload: Uint8Array): Promise<Uint8Array> | Uint8Array;
   /** Optional lineage chain (HMR -> ... -> this agent). */
   lineage?: readonly string[];
 }

@@ -1,166 +1,94 @@
-# Integration Notes
+# Published component integrations
 
-This file tracks the APIs the OpenAgent TypeScript SDK expects from its
-peer packages. Until those packages ship, the SDK provides safe stub
-implementations and duck-typed adapters.
+The current SDK integrates with these real published APIs through explicit,
+typed adapters. Import only the needed component from
+`@openagentid/sdk/integrations/oas`, `/integrations/arsenal`, `/integrations/aegis`
+or `/integrations/skills-policy`; each entry's types need only its own component.
+The aggregate `@openagentid/sdk/integrations` entry is for applications with all
+four components installed. Importing the SDK alone never loads an optional
+component or constructs trust, a broker, or private signing keys.
 
-When a wrapped SDK finalizes, **replace the relevant interface import with a
-direct package import and delete the corresponding stub**. No source changes
-should be required outside the file listed for each gap.
+| Published component | SDK adapter | Actual supported workflow |
+| --- | --- | --- |
+| OAS SDK 1.0.2 | `createOasIdentityProvider` | Signed OAS root/child documents, portable lineage verification and challenge signatures, with application-owned scope authorization and signer storage. |
+| Arsenal SDK 0.1.1 | `createArsenalCapabilityFetch` | Real issued capabilities and broker `proxyRequest` with explicit DID/agent/tenant/audience binding and destination policy. |
+| AEGIS SDK 0.1.1 | `createAegisRequestAuthenticator` | `authenticate(AuthCredential, 'agent')`, then application-owned lineage/scope authorization bound to the resulting session. |
+| Skills Policy 0.1.1 | `createSkillsPolicyInvoker` | `recordInvocation(skill, InvocationContext)` preserving arguments, consent, session, quota enforcement and audit receipts. |
+| Crypto WASM 0.1.1+ | `setActCryptoBinding`, `setKeyCryptoBinding` | Actual cryptographic functions; ACT verification passes fresh host time. |
 
-## Status matrix
+## OAS and the identity facade
 
-| Package                   | Status                | Gap owner file                  |
-|---------------------------|-----------------------|---------------------------------|
-| `@openagentid/oas-sdk`                | Not yet published     | `src/identity.ts`               |
-| `@openagentid/arsenal-sdk`            | Not yet published     | `src/credentials.ts`            |
-| `@openagentid/aegis-sdk`              | Not yet published     | `src/verification.ts`           |
-| `@openagentid/crypto-wasm`  | Rust crate exists; wasm-pack build pending | `src/identity.ts` (signChallenge) |
+Inject the actual OAS module, an `OasIdentityStore`, creation authority and a
+service audience into `createOasIdentityProvider`. Pass its result to
+`new OpenAgentRuntime({ clients: { identity } })`. The adapter calls the real
+`deriveChild`, `verifyChain`, `verifyDocumentProof` and `OasKeyPair.sign` APIs.
+`OpenAgentRuntime.createAgent` and `loadAgent` then use the same provider contract.
 
-## `@openagentid/oas-sdk` — identity provider
+The store owns authoritative registrations and key custody. `put` must atomically
+reject duplicate DIDs, and `resolve` supplies the current documents for lineage
+verification. A required creation-policy callback decides scopes; no scope field
+is fabricated on an OAS document. Reading a DID or verifying portable lineage
+does not authenticate an HTTP request or establish a public owner registration.
+The complete local flow is `examples/typescript/04-delegated-agent`.
 
-The SDK expects an exported class (or factory) matching `IdentityProvider`
-in `src/identity.ts`:
+`signChallenge` produces a real audience-bound `oaid-challenge+jwt` assertion
+containing the challenge bytes and a 60-second lifetime. This is distinct from
+the `oaid-proof+jwt` possession protocol consumed by `IdentityVerifier`. Use the
+appropriate protocol verifier, including issuer/key binding, audience, expiry
+and an issued one-use challenge. Never accept a decoded JWT as authentication.
+`signBytes(did, payload)` is the separate exact-byte signing operation for
+integrations such as Claude's `createSdkAgentIdentity` raw signer seam. An
+assertion envelope's signature is not a signature over its raw challenge bytes.
 
-```ts
-interface IdentityProvider {
-  createAgentIdentity(input: CreateAgentInput): Promise<IdentityDocument>;
-  resolve(did: Did): Promise<IdentityDocument>;
-  signChallenge(did: Did, challenge: Uint8Array): Promise<SignedAssertion>;
-  publicKey(did: Did): Promise<string>;
-}
-```
+## Arsenal capability transport
 
-Things the OAS SDK must supply that are currently stubbed:
+The published Arsenal client does not implement the older `requestCredential`
+facade and does not mint proxy URLs. Use `startSession`,
+`requestCapabilityForScopes` or `requestCapability`, and pass the resulting
+`CapabilityHandle` into `createArsenalCapabilityFetch`.
 
-1. **Key generation** — real Ed25519 keypairs via `@openagentid/crypto-wasm`
-   rather than the deterministic-string placeholder in
-   `StubIdentityProvider.createAgentIdentity`.
-2. **DID assembly** — use the canonical `did:oas:<namespace>:<kind>:<id>`
-   algorithm from the OAS v1.1.0 spec, not the `stub-*` suffix.
-3. **Document persistence** — the OAS SDK owns resolver caching,
-   pinning, and revocation checks. The stub keeps an in-memory map.
-4. **`signChallenge` signature format** — the stub returns a
-   `stub.<did>.<b64>` string. The real SDK should return a JWS or COSE
-   envelope as specified in OAS §5.
+The adapter checks the capability's agent, tenant, audience and lifetime,
+revalidates an explicit server-owned DID binding and limits destinations. The
+actual broker still verifies the signature and applies its policies. Requests
+use `BrokerClient.proxyRequest` and include the client's fingerprint; the
+published high-level `proxyHttp` omits that fingerprint argument. Response
+metadata must confirm both destination and fingerprint verification.
 
-Replace plan:
+The published wire protocol buffers request/response bytes. It is not an SSE
+transport. Requests have a configurable size bound and broker timeout. Abort
+signals are checked around processing; the published broker API cannot abort
+its already dispatched call. `examples/typescript/06-credential-proxy` executes
+an actual local signed-capability broker and a separately listening protected
+upstream. Production applications use their own real broker and secret custody.
 
-- Delete `StubIdentityProvider` once `@openagentid/oas-sdk` ships a conforming class.
-- In `agent.ts#buildSubsystems`, replace the `new StubIdentityProvider(...)`
-  fallback with `new OasIdentityClient(...)`.
-- Keep `toIdentityProvider()` — it remains useful for user-supplied
-  wrappers and mocks.
+## AEGIS request authentication
 
-## `@openagentid/arsenal-sdk` — credential broker client
+`createAegisRequestAuthenticator` takes the actual AEGIS client, a credential
+extractor and an authorization callback. AEGIS validates the credential first.
+The callback receives that authenticated session and returns receiver-owned
+lineage/scopes. The adapter enforces DID/session binding, lifetime and requested
+scopes/ancestor, then releases the request's temporary session.
 
-The SDK expects `@openagentid/arsenal-sdk` to export a class matching `ArsenalClient`
-in `src/credentials.ts`:
+`verifyIdentity(did)` is identity lookup/verification, not request authentication.
+It is never substituted for possession. The standalone request authenticator
+does not invent `issueChallenge` or other methods on the published client.
+Privileged authority must be checked through the dedicated
+`PrivilegedAuthorityVerificationClient`; this adapter rejects that requirement.
 
-```ts
-interface ArsenalClient {
-  requestCredential(params: {
-    agentDid: Did;
-    provider: string;
-    scopes?: readonly string[];
-  }): Promise<IssuedCredential>;
+## Skills policy
 
-  release?(credentialProxyUrl: string): Promise<void>;
-}
+The lightweight SDK `SkillsPolicy` is a boolean allowlist. The published policy
+engine requires an `InvocationContext`; casting one to the other drops arguments,
+rate accounting and consent. `createSkillsPolicyInvoker` instead checks agent,
+session and argument binding, records authorization, then invokes the operation.
+A receipt records authorization/invocation; it does not assert operation success.
+Use `examples/typescript/05-skills-governance` for YAML loading, invalid-argument
+and unknown-skill denial, quota enforcement and hash-chain verification.
 
-interface IssuedCredential {
-  provider: string;
-  proxyUrl: string;
-  expiresAt: number;
-  remainingCalls?: number;
-  metadata?: Record<string, unknown>;
-}
-```
+## Verification
 
-Things to confirm with the Arsenal team:
-
-1. **Proxy URL format** — the current stub uses
-   `https://stub.arsenal.invalid/proxy?...`. The real broker should return
-   an HTTPS URL with whatever auth material Arsenal bakes into headers or
-   path params. The OpenAgent SDK passes through `X-Arsenal-Target` and
-   `X-Arsenal-Agent` headers; Arsenal must document whether these are the
-   final names.
-2. **Scope denial error** — when a requested scope is not granted by the
-   broker, `requestCredential` should throw an error that the OpenAgent
-   SDK can map to `ErrorCode.CREDENTIAL_SCOPE_DENIED`. A stable error
-   class or `code` field on the thrown error is required.
-3. **Release semantics** — `release()` is currently optional. If Arsenal
-   requires explicit release for per-call quota accounting, make it
-   mandatory; the SDK already calls it during `handle.release()`.
-4. **Refresh** — the SDK calls `requestCredential` again when the
-   credential is within 30 seconds of expiry. Arsenal must tolerate this
-   "silent rotation" without rate-limiting legitimate re-issue.
-
-Replace plan:
-
-- In `agent.ts#buildSubsystems`, replace `stubArsenalClient()` with
-  `new ArsenalBrokerClient({ endpoint: resolved.endpoints.arsenalBroker, ... })`.
-
-## `@openagentid/aegis-sdk` — verification client
-
-The SDK expects `@openagentid/aegis-sdk` to export a class matching `VerificationClient`
-in `src/verification.ts`:
-
-```ts
-interface VerificationClient {
-  verifyRequest(req: Request, options?: VerifyRequestOptions): Promise<AuthContext>;
-  issueChallenge(): Promise<{ challenge: Uint8Array; challengeId: string }>;
-  verifyChallengeResponse(params: {
-    challengeId: string;
-    agentDid: Did;
-    signatureBase64: string;
-  }): Promise<AuthContext>;
-}
-```
-
-Things to confirm:
-
-1. **`verifyRequest` input** — the SDK passes a standard WHATWG `Request`.
-   AEGIS must accept this directly (reading `Authorization`, method, path,
-   and body as needed). Framework-specific adapters (Express, Next, Hono)
-   stay outside the core SDK.
-2. **`AuthContext` shape** — lineage, scopes, and expiry must match the
-   structure in `src/verification.ts`. If AEGIS returns richer claims,
-   they can go into the optional `claims` field.
-3. **Clock skew** — `VerifyRequestOptions.clockSkewSeconds` is currently
-   a hint. AEGIS should document its own skew tolerance.
-
-Replace plan:
-
-- In `agent.ts#buildSubsystems`, replace `new StubVerificationClient()`
-  with `new AegisVerifier({ endpoint: resolved.endpoints.aegisVerifier, ... })`.
-
-## `@openagentid/crypto-wasm`
-
-The Rust crate exists at
-`/Volumes/L1feAI/l1feosx/openagent-sdk/crates/openagent-crypto-wasm/` but
-has not yet been published as a wasm-pack NPM package. Once built:
-
-1. Wire `StubIdentityProvider` (or its OAS replacement) to use
-   `ed25519_generate_keypair()` and `ed25519_sign()` from the wasm bindings.
-2. Gate the import behind a try/catch so the SDK still works in runtimes
-   where loading WASM synchronously is awkward (e.g. Workers cold start).
-
-Until then: the SDK's crypto-dependent surfaces live inside `signChallenge`
-and are only reachable through the `IdentityProvider` interface, so they
-can be swapped without touching public API.
-
-## Parallel Rust SDK alignment
-
-The Rust version of this SDK is being built in parallel at
-`/Volumes/L1feAI/l1feosx/openagent-sdk/crates/openagent-sdk/` (not yet
-present). When it lands, verify:
-
-- Function names match: `create_agent` ↔ `createAgent`,
-  `credentials_for` ↔ `credentialsFor`, etc.
-- Error codes match the `ErrorCode` enum in `src/errors.ts`.
-- `SkillsPolicy` supports the same wildcard matching semantics.
-- `AuthContext` fields are identical across languages.
-
-Conformance tests should live in `openagent-sdk/conformance/` and exercise
-both SDKs against the same fixtures.
+`test/components-real.test.ts` exercises the installed published packages,
+actual OAS Ed25519 signatures and lineage, actual AEGIS credential validation,
+policy quotas and receipts, and the real Arsenal HTTP/CBOR client with a
+cryptographically validating loopback broker. No component method is replaced
+with a fabricated facade or an always-successful verifier.

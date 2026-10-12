@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",
@@ -103,6 +103,31 @@
       "types": "./sdks/typescript/dist/local-workspace.d.ts",
       "import": "./sdks/typescript/dist/local-workspace.js",
       "require": "./sdks/typescript/dist/local-workspace.cjs"
+    },
+    "./integrations": {
+      "types": "./sdks/typescript/dist/integrations.d.ts",
+      "import": "./sdks/typescript/dist/integrations.js",
+      "require": "./sdks/typescript/dist/integrations.cjs"
+    },
+    "./integrations/oas": {
+      "types": "./sdks/typescript/dist/integrations/oas.d.ts",
+      "import": "./sdks/typescript/dist/integrations/oas.js",
+      "require": "./sdks/typescript/dist/integrations/oas.cjs"
+    },
+    "./integrations/aegis": {
+      "types": "./sdks/typescript/dist/integrations/aegis.d.ts",
+      "import": "./sdks/typescript/dist/integrations/aegis.js",
+      "require": "./sdks/typescript/dist/integrations/aegis.cjs"
+    },
+    "./integrations/arsenal": {
+      "types": "./sdks/typescript/dist/integrations/arsenal.d.ts",
+      "import": "./sdks/typescript/dist/integrations/arsenal.js",
+      "require": "./sdks/typescript/dist/integrations/arsenal.cjs"
+    },
+    "./integrations/skills-policy": {
+      "types": "./sdks/typescript/dist/integrations/skills-policy.d.ts",
+      "import": "./sdks/typescript/dist/integrations/skills-policy.js",
+      "require": "./sdks/typescript/dist/integrations/skills-policy.cjs"
     }
   },
   "files": [
@@ -114,7 +139,7 @@
   ],
   "sideEffects": false,
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "build": "npm --prefix sdks/typescript ci --ignore-scripts --no-audit --no-fund && npm --prefix sdks/typescript run build",
@@ -134,7 +159,8 @@
     "@openagentid/aegis-sdk": "^0.1.0",
     "@openagentid/arsenal-sdk": "^0.1.0",
     "@openagentid/oas-sdk": "^1.0.2",
-    "@openagentid/crypto-wasm": "^0.1.0"
+    "@openagentid/crypto-wasm": "^0.1.0",
+    "@openagentid/skills-policy": "^0.1.1"
   },
   "peerDependenciesMeta": {
     "@openagentid/aegis-sdk": {
@@ -147,6 +173,9 @@
       "optional": true
     },
     "@openagentid/crypto-wasm": {
+      "optional": true
+    },
+    "@openagentid/skills-policy": {
       "optional": true
     }
   },

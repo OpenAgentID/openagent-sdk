@@ -2,9 +2,11 @@
  * SCIM bridge test suite — full CRUD + deprovisioning cascade + filtering + pagination.
  */
 
+import { signingAuthority } from './sdk-fixture.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createScimRouter,
+  createSdkScimProvisioner,
   type ScimRouter,
   InMemoryAgentStore,
   SCIM_USER_SCHEMA,
@@ -64,9 +66,11 @@ let revokedDids: string[];
 let cascadedDids: string[];
 let invalidatedDids: string[];
 let router: ScimRouter;
+let authority: ReturnType<typeof signingAuthority>;
 
 beforeEach(() => {
   store = new InMemoryAgentStore();
+  authority = signingAuthority();
   auditEvents = [];
   revokedDids = [];
   cascadedDids = [];
@@ -74,6 +78,8 @@ beforeEach(() => {
 
   router = createScimRouter({
     namespace: 'l1fe',
+    provisionIdentity: createSdkScimProvisioner(authority.runtime),
+    updateIdentityScopes: authority.updateScopes,
     bearerTokens: [BEARER_TOKEN],
     baseUrl: BASE_URL,
     maxPageSize: 50,
@@ -164,7 +170,7 @@ describe('POST /Users — Create agent', () => {
     expect(body.userName).toBe('test-bot');
     expect(body.displayName).toBe('Test Bot Agent');
     expect(body.active).toBe(true);
-    expect(body.id).toMatch(/^did:oas:l1fe:agent:test-bot$/);
+    expect(body.id).toMatch(/^did:oas:test:agent:test-bot$/);
 
     const ext = body[OPENAGENT_AGENT_SCHEMA];
     expect(ext.parentDid).toBe('did:oas:l1fe:hmr:alice');
@@ -172,7 +178,7 @@ describe('POST /Users — Create agent', () => {
     expect(ext.scopes).toEqual(['openai:chat:completions', 'github:repo:read']);
     expect(ext.lineageDepth).toBe(1);
     expect(ext.createdVia).toBe('scim');
-    expect(ext.keypairFingerprint).toMatch(/^z6Mk/);
+    expect(ext.keypairFingerprint).toMatch(/^u/);
   });
 
   it('emits audit event on creation', async () => {
@@ -243,7 +249,7 @@ describe('POST /Users — Create agent', () => {
     const childPayload = validAgentPayload({
       userName: 'child-bot',
       [OPENAGENT_AGENT_SCHEMA]: {
-        parentDid: 'did:oas:l1fe:agent:parent-bot',
+        parentDid: 'did:oas:test:agent:parent-bot',
         conformanceLevel: 'L1',
         scopes: ['github:repo:read'],
       },
@@ -629,6 +635,8 @@ describe('DELETE /Users/:id — Deprovisioning cascade', () => {
   it('continues cascade even if DID revocation fails', async () => {
     const failRouter = createScimRouter({
       namespace: 'l1fe',
+    provisionIdentity: createSdkScimProvisioner(authority.runtime),
+    updateIdentityScopes: authority.updateScopes,
       bearerTokens: [BEARER_TOKEN],
       baseUrl: BASE_URL,
       store,
@@ -647,7 +655,8 @@ describe('DELETE /Users/:id — Deprovisioning cascade', () => {
       method: 'DELETE',
     }));
 
-    expect(res.status).toBe(204);
+    expect(res.status).toBe(503);
+    expect((await store.findByDid(created.id))?.active).toBe(false);
     // Cascade and invalidation still ran
     expect(cascadedDids).toContain(created.id);
     expect(invalidatedDids).toContain(created.id);
@@ -658,6 +667,8 @@ describe('DELETE /Users/:id — Deprovisioning cascade', () => {
 
     const orderRouter = createScimRouter({
       namespace: 'l1fe',
+    provisionIdentity: createSdkScimProvisioner(authority.runtime),
+    updateIdentityScopes: authority.updateScopes,
       bearerTokens: [BEARER_TOKEN],
       baseUrl: BASE_URL,
       store,

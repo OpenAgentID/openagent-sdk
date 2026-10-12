@@ -47,6 +47,7 @@ import {
   VerifiedIdentity,
   defaultRequireScopes,
 } from './types.js';
+import { installRequestBoundary } from './request-boundary.js';
 
 /**
  * Minimal McpServer surface used by the middleware. We avoid importing
@@ -58,6 +59,8 @@ import {
 export interface McpServerLike {
   tool(...args: unknown[]): unknown;
   registerTool(...args: unknown[]): unknown;
+  connect?(transport: unknown, ...options: unknown[]): Promise<void>;
+  readonly server?: { readonly transport?: unknown };
 }
 
 /**
@@ -94,7 +97,7 @@ export function withOpenAgent<T extends McpServerLike>(
   config: OpenAgentMcpConfig,
 ): T {
   validateConfig(config);
-  const middleware = new ToolMiddleware(config);
+  const middleware = new ToolMiddleware(config, installRequestBoundary(server));
 
   return new Proxy(server, {
     get(target, property, receiver) {
@@ -188,7 +191,7 @@ function findCallbackIndex(args: ReadonlyArray<unknown>): number {
  * Holds the middleware configuration and wraps individual tool callbacks.
  */
 class ToolMiddleware {
-  private readonly agent: Agent;
+  private readonly agent: Pick<Agent, 'did' | 'verifier'>;
   private readonly requireScopes: ScopeDeriver;
   private readonly requireIdentity: boolean;
   private readonly skillsPolicy: SkillsPolicyHook | undefined;
@@ -196,9 +199,9 @@ class ToolMiddleware {
   private readonly postCall: PostCallHook | undefined;
   private readonly onError: ErrorHook | undefined;
 
-  constructor(config: OpenAgentMcpConfig) {
+  constructor(config: OpenAgentMcpConfig, private readonly requests: ReturnType<typeof installRequestBoundary>) {
     this.agent = config.agent;
-    this.requireScopes = config.requireScopes ?? defaultRequireScopes;
+    this.requireScopes = config.requireScopes ?? (config.scopeFormat ? tool => [config.scopeFormat!(tool)] : defaultRequireScopes);
     this.requireIdentity = config.requireIdentity ?? true;
     this.skillsPolicy = config.skillsPolicy;
     this.preCall = config.preCall;
@@ -280,9 +283,14 @@ class ToolMiddleware {
     const requiredScopes = this.requireScopes(toolName, args);
     let identity: VerifiedIdentity;
     try {
+      // Identity binds the original transmitted request. Authorization policies
+      // and tool callbacks intentionally use the SDK's parsed/effective arguments.
+      const inbound = this.requests.getStore();
+      if (inbound && inbound.toolName !== toolName) throw new Error('MCP request/tool binding mismatch');
       identity = await this.agent.verifier.verify(
         identityEnvelope,
         requiredScopes,
+        inbound ?? { toolName, args },
       );
     } catch (cause: unknown) {
       throw new IdentityVerificationError(toolName, cause);

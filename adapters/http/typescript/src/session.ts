@@ -53,17 +53,18 @@ export class AuthenticatedSession {
   /**
    * Send an authenticated fetch request.
    *
-   * Attaches `Authorization: OAS <token>`, `X-OpenAgent-DID`,
+   * Attaches `Authorization: OpenAgent <token>`, `X-OpenAgent-DID`,
    * and `X-OpenAgent-Session` headers automatically.
    */
   async fetch(path: string, init?: RequestInit): Promise<Response> {
+    if (this.isExpired()) throw new TransportError('Session expired; authenticate again');
     const url = this.resolveUrl(path);
     const headers = new Headers(init?.headers);
     headers.set('authorization', buildOpenAgentHeader(this.sessionToken));
     headers.set(HEADER_OPENAGENT_DID, this.peerDid);
     headers.set(HEADER_OPENAGENT_SESSION, this.sessionId);
 
-    const resp = await fetch(url, { ...init, headers }).catch((err: unknown) => {
+    const resp = await fetch(url, { ...init, headers, redirect: 'error' }).catch((err: unknown) => {
       const message = err instanceof Error ? err.message : 'unknown error';
       throw new TransportError(`Fetch ${url} failed: ${message}`);
     });

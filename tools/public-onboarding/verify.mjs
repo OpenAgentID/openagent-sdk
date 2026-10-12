@@ -31,6 +31,26 @@ function awaitlessLog(name, value) {
 const logWrites = [];
 
 async function pack(directory, expectedName, expectedVersion, label) {
+  if (process.env.OAID_RELEASE_PACKAGE_MANIFEST) {
+    const manifest = JSON.parse(await readFile(process.env.OAID_RELEASE_PACKAGE_MANIFEST, 'utf8'));
+    assert.equal(manifest.sourceSha, source, 'Prepacked archives must belong to this exact commit');
+    const entry = manifest.packages.find(value => value.name === expectedName);
+    assert(entry, `Missing reviewed archive: ${expectedName}`);
+    assert.equal(entry.version, expectedVersion);
+    const file = resolve(dirname(process.env.OAID_RELEASE_PACKAGE_MANIFEST), entry.file);
+    const bytes = await readFile(file);
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), entry.sha256);
+    assert.equal('sha512-' + createHash('sha512').update(bytes).digest('base64'), entry.integrity);
+    assert.equal(file.split('/').at(-1), entry.filename);
+    const paths = run(label + '-contents', ['tar', '-tzf', file], root).trim().split('\n');
+    assert(paths.includes('package/LICENSE-MIT') && paths.includes('package/LICENSE-APACHE'));
+    assert(!paths.some(path => /(?:^|\/)(?:\.openagent(?:id)?|node_modules)(?:\/|$)|(?:^|\/)(?:node\.key|state\.json|private.*\.jwk)$/.test(path)));
+    const packedManifest = JSON.parse(run(label + '-metadata', ['tar', '-xOzf', file, 'package/package.json'], root));
+    assert.equal(packedManifest.name, expectedName);
+    assert.equal(packedManifest.version, expectedVersion);
+    checks.push({ name: label + '-exact-reviewed-archive', passed: true });
+    return { ...entry, file };
+  }
   const result = JSON.parse(run(label, ['npm', 'pack', '--json', '--ignore-scripts', '--pack-destination', out], directory))[0];
   assert.equal(result.name, expectedName);
   assert.equal(result.version, expectedVersion);
@@ -54,18 +74,18 @@ try {
   source = run('source-commit', ['git', 'rev-parse', 'HEAD'], root).trim();
   assert.match(source, /^[0-9a-f]{40}$/);
   if (process.env.OAID_SOURCE_SHA) assert.equal(source, process.env.OAID_SOURCE_SHA);
-  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.7.2', 'pack-sdk'),
-    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.5.2', 'pack-generator')];
+  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.7.3', 'pack-sdk'),
+    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.5.3', 'pack-generator')];
   const tooling = join(fixture, 'tools');
   await mkdir(tooling);
   await writeFile(join(tooling, 'package.json'), JSON.stringify({ name: 'public-generator-consumer', private: true }));
   run('install-generator-archive', ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund', packages[1].file], tooling);
   const generator = join(tooling, 'node_modules/.bin/create-openagent');
-  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.5.2');
+  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.5.3');
   run('generate-noninteractive-application', [generator, 'my-agent-app', '--yes'], fixture);
   const application = join(fixture, 'my-agent-app');
   const manifest = JSON.parse(await readFile(join(application, 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.7.2' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.7.3' });
   // Before publication the exact review artifact substitutes for the declared
   // registry release. No source or transitive dependency is replaced.
   run('install-sdk-archive-in-application', ['npm', 'install', '--ignore-scripts', '--save-exact', '--no-audit', '--no-fund', packages[0].file], application);
@@ -81,7 +101,7 @@ try {
   checks.push({ name: 'public-registry-dependency-closure', passed: true });
   run('generated-real-http-restart-replay-revocation-tests', ['npm', 'test'], application);
   const cli = join(application, 'node_modules/.bin/oaid');
-  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.7.2');
+  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.7.3');
   assert(run('installed-sdk-cli-help', [cli, '--help'], application).includes('oaid agent trust'));
 
   const hello = join(fixture, 'hello-agent');

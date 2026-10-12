@@ -12,6 +12,7 @@ import {
   HttpTransport,
   type IdentityProof,
   type KeyType,
+  TransportError,
 } from './transport.js';
 
 /** Client configuration. */
@@ -96,15 +97,29 @@ export class HttpAuthClient {
     // Step 1: fetch the challenge (validated by the transport before we sign).
     const challenge = await this.transport.fetchChallenge(authEndpoint);
 
+    if (challenge.origin !== new URL(baseUrl).origin) {
+      throw new TransportError('Challenge origin does not match the requested service');
+    }
+    const issuedAt = Date.parse(challenge.timestamp);
+    if (!Number.isFinite(issuedAt) || issuedAt > Date.now() + 30_000 || Date.now() - issuedAt > 300_000) {
+      throw new TransportError('Challenge timestamp is invalid or stale');
+    }
+
     // Step 2: sign the canonical challenge bytes and prove.
     const payload = canonicalChallengeBytes(challenge);
     const proof: IdentityProof = {
+      did: this.config.did,
       signature: await this.sign(payload),
       public_key: await this.publicKey(),
       key_type: this.config.keyType ?? 'ed25519',
       nonce: challenge.nonce,
     };
     const verified = await this.transport.prove(proveEndpoint, proof);
+
+    if (verified.did !== this.config.did || !Number.isFinite(Date.parse(verified.session_expires)) ||
+        Date.parse(verified.session_expires) <= Date.now()) {
+      throw new TransportError('Server returned a mismatched identity or invalid session lifetime');
+    }
 
     // Step 3: hold the session.
     return new AuthenticatedSession({

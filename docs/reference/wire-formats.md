@@ -3,7 +3,7 @@
 OpenAgentID has distinct signed formats. Use the exact implementation and
 version for the boundary you verify; do not reinterpret one token as another
 because both identify an agent. This page describes the public TypeScript
-SDK 0.7.2 and separate OIDC 0.2.0 integration.
+SDK 0.7.3 and separate OIDC 0.2.0 integration.
 
 | Surface | Wire representation | Verification authority |
 | --- | --- | --- |

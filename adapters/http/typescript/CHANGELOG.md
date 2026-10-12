@@ -1,3 +1,16 @@
+# 0.2.0 — 2026-10-12
+
+- Bind every proof and session to an authoritative DID authentication key; add
+  the SDK IdentityVerifier bridge and live revocation/rotation checks.
+- Require atomic SessionStore.take to prevent simultaneous challenge replay.
+- Provide real Node Ed25519 and secp256k1 verification, validate service origins
+  and returned identities, and refuse credential-bearing redirects.
+- Preserve Express JSON/query data and expose the verified request principal.
+- Remove the unpublished auth-protocol peer; support SDK ^0.7.2 with a runnable
+  local Express example and real cryptographic, replay and SDK integration tests.
+- Breaking: explicit origin/key resolver, DID in proofs and atomic store take
+  are now required. See README migration instructions.
+
 # Changelog — @openagent/http
 
 ## Unreleased

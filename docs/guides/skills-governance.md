@@ -1,68 +1,68 @@
-# Skills Governance
+# Skills governance
 
-The public SDK 0.7.2 has a small immutable skills allowlist. It is separate
-from the specialized `openagent-skills-policy` source component, service
-capability authorization and actual tool argument validation.
+Use `createSkillsPolicyInvoker` with the published `@openagentid/skills-policy`
+engine to keep authorization, arguments, consent, quotas and audit receipts on
+the actual execution path.
 
-## Public allowlist contract
+## Run the complete example
 
-`SkillsPolicy` exposes `canInvoke(skill): boolean`, `assertCanInvoke(skill)`,
-`listAllowed()`, `grant(skill)` and `revoke(skill)`. `InMemorySkillsPolicy`
-supports exact names and suffix wildcards. Grant/revoke return a new policy;
-missing matches deny. `assertCanInvoke` throws `SkillDeniedError` on refusal.
-
-```ts
-import { InMemorySkillsPolicy, type SkillsPolicy } from '@openagentid/sdk';
-
-export async function invokeAllowed<T>(
-  policy: SkillsPolicy,
-  skill: string,
-  invoke: () => Promise<T>,
-): Promise<T> {
-  policy.assertCanInvoke(skill);
-  return invoke();
-}
-
-export const repositoryPolicy = new InMemorySkillsPolicy(['read-file']);
+```sh
+cd examples/typescript/05-skills-governance
+npm install
+npm start
 ```
 
-The application approves the policy and authenticates/authorizes the caller
-before invoking the guard. This function permits no input validation, tenant
-access or capability budget merely from a skill name. Do not expose an
-unrestricted mutation of the allowlist as remote authorization.
+The [example](../../examples/typescript/05-skills-governance/src/index.ts) loads
+[policy.yaml](../../examples/typescript/05-skills-governance/policy.yaml), proves
+unknown-skill and invalid-argument denial, executes one permitted operation,
+refuses the next invocation after its quota, and verifies the receipt hash chain.
+Every assertion runs against the actual published policy package.
 
-`OpenAgentInstance.skillsPolicy()` returns the configured policy;
-`withSkillsPolicy(policy)` returns a new instance. `OpenAgentRuntime.loadAgent`
-accepts a DID and optional skill-name array, not `{skillsPolicyPath}`. Creation
-accepts optional `skills`; absent skills default to deny-all.
+## Bind policy to invocation context
 
-## Specialized policy source
+```ts
+import { Did, InvocationContext, SkillsPolicy } from '@openagentid/skills-policy';
+import { createSkillsPolicyInvoker } from '@openagentid/sdk/integrations/skills-policy';
 
-`crates/openagent-skills-policy/typescript` separately exports `SkillsPolicy`,
-`InvocationContext`, `SkillsManifest`, `RateLimiter`, typed rule/constraint
-errors and invocation receipt `AuditChain`. Its
-[`engine.ts`](../../crates/openagent-skills-policy/typescript/src/engine.ts),
-[`schema.ts`](../../crates/openagent-skills-policy/typescript/src/schema.ts) and
-[`skillsMd.ts`](../../crates/openagent-skills-policy/typescript/src/skillsMd.ts)
-define the actual versioned YAML/Markdown and consent/time/rate/argument
-contracts. A source manifest is not a current public package-release promise.
+export function bindPolicy(policy: SkillsPolicy, agentDid: string, sessionId: string) {
+  return createSkillsPolicyInvoker({
+    policy,
+    agentDid,
+    context: ({ arguments: args }) => new InvocationContext({
+      agentDid: Did.parse(agentDid), sessionId, arguments: args,
+    }),
+  });
+}
+```
 
-That specialized class does not have the same boolean interface as the small
-unified facade. Write an explicit adapter for the exact source API and wire it
-before actual execution. Real consent, clock and rate state belong to the
-selected deployment; there is no automatic human approval UI, broker spend
-oracle or universal expression DSL in the public allowlist.
+The host authenticates the agent and session before calling this helper. Invoke
+`await invoker.invoke(skill, args, () => actualOperation(args))`; successful
+results include `{ result, receipt }`. The adapter requires the policy's agent,
+context's agent, actual argument object and a nonempty session to agree. It calls
+`recordInvocation` before executing the operation, so denial never runs the
+callback and an accepted invocation consumes its quota.
 
-## Audit and enforcement
+Policy YAML uses actual fields such as `arg_constraints`, `rate_limit`,
+`time_windows`, `require_consent` and `audit_level`. Supply consent through the
+trusted context factory only after the application's real approval flow.
+A receipt records authorization/invocation; operation success/failure belongs
+in the host's result log. Persist audit receipts and trusted heads where durable
+history is required; an in-memory chain alone is not a durable audit service.
 
-Record actual permission decisions at the application boundary and preserve a
-real durable sink when needed. Specialized invocation receipts are component
-records, not proof every denied/allowed tool call was captured. The public
-allowlist has no automatic hash-chain audit, compliance profiles or `oaid
-skills test` command. [Audit responsibilities](audit-and-compliance.md).
+## Lightweight allowlists
 
-Keep arguments, environment/sandbox controls, provider scope and tenant
-permission checks at their corresponding action boundaries. A local allowlist
-is not a tamper-proof remote permission store. See
-[request authentication](authenticating-requests.md) and
-[developer tooling](../developer-tooling.md).
+For simple local checks, the SDK root still exports `InMemorySkillsPolicy`.
+It implements `canInvoke(skill): boolean`, `assertCanInvoke(skill)`,
+`listAllowed()`, `grant(skill)` and `revoke(skill)`. Grant/revoke return a new
+immutable policy; exact names and suffix wildcards are supported. Agent creation
+accepts `skills`, and `withSkillsPolicy(policy)` returns a new agent instance.
+
+The contextual policy engine and the boolean allowlist have different
+contracts. The new adapter preserves the full contextual workflow instead of
+casting away arguments or quota accounting. `SKILLS.md` discovery manifests
+remain separate from authorization YAML.
+
+Keep tenant permission, provider capabilities and environment/sandbox controls
+at their action boundaries. See [request authentication](authenticating-requests.md),
+[credential transport](managing-credentials.md) and the
+[component integration contracts](../../sdks/typescript/INTEGRATION_NOTES.md).

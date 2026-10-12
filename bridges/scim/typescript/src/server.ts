@@ -6,20 +6,13 @@
  * Workers, and any framework that exposes the standard Web API.
  *
  * Usage with a framework:
- * ```ts
- * import { createScimRouter } from '@openagentid/scim';
- *
- * const scim = createScimRouter({ namespace: 'acme', bearerTokens: ['secret'] });
- *
- * // Express: app.all('/scim/v2/*', (req, res) => ...)
- * // Hono:    app.all('/scim/v2/*', (c) => scim.handle(c.req.raw))
- * // Bun:     Bun.serve({ fetch: scim.handle })
- * ```
+ * Supply a real identity provisioner and authority revocation callbacks.
+ * See README.md for the current SDK wiring and migration contract.
  */
 
 import { type ResolvedScimConfig, resolveScimConfig, type ScimBridgeConfig } from './config.js';
 import { type AgentStore, InMemoryAgentStore, StoreError } from './store.js';
-import { AgentProvisioner, type AuditSink, type DidRevoker, type DelegationCascadeRevoker, type ArsenalSessionInvalidator, ProvisionerError } from './provisioner.js';
+import { AgentProvisioner, type IdentityProvisioner, type AuditSink, type DidRevoker, type DelegationCascadeRevoker, type ArsenalSessionInvalidator, ProvisionerError } from './provisioner.js';
 import { agentToScimResource, parseCreateInput, parseReplaceInput, type CreateAgentFromScimInput, type AgentRecord } from './resources.js';
 import { OPENAGENT_AGENT_SCHEMA, SCIM_ERROR_SCHEMA, buildServiceProviderConfig, buildSchemas, buildResourceTypes } from './schemas.js';
 import { parseFilter, matchesFilter, ScimFilterError } from './filtering.js';
@@ -29,6 +22,9 @@ import { parsePatchRequest, applyPatchOperations, ScimPatchError } from './opera
 // ── Router configuration ──────────────────────────────────────────────────
 
 export interface ScimRouterConfig extends ScimBridgeConfig {
+  /** Real identity creation through the current SDK or your identity authority. */
+  readonly provisionIdentity?: IdentityProvisioner;
+  readonly updateIdentityScopes?: (did: string, scopes: readonly string[]) => Promise<void>;
   /** Custom agent store. Defaults to in-memory. */
   readonly store?: AgentStore;
   /** Audit event sink. */
@@ -55,6 +51,8 @@ export function createScimRouter(routerConfig: ScimRouterConfig = {}): ScimRoute
 
   const provisioner = new AgentProvisioner({
     store,
+    provisionIdentity: routerConfig.provisionIdentity,
+    updateIdentityScopes: routerConfig.updateIdentityScopes,
     namespace: config.namespace,
     logger: config.logger,
     auditSink: routerConfig.auditSink,
@@ -121,6 +119,11 @@ async function routeRequest(
 
     return scimError(404, 'invalidPath', `Unknown SCIM endpoint: ${subPath}`);
   } catch (err) {
+    if (err instanceof ProvisionerError && err.code === 'VALIDATION') return scimError(400, 'mutability', err.message);
+    if (err instanceof ProvisionerError && err.code === 'INVALID_INPUT') return scimError(400, 'invalidValue', err.message);
+    if (err instanceof ProvisionerError && err.code === 'UNAVAILABLE') return scimError(503, 'invalidValue', 'Identity authority operation incomplete');
+    if (err instanceof StoreError && err.code === 'CONFLICT') return scimError(409, 'uniqueness', err.message);
+    if (err instanceof ProvisionerError && err.code === 'CONFLICT') return scimError(409, 'uniqueness', err.message);
     config.logger.error('Unhandled SCIM error', { error: String(err), path: subPath, method });
     return scimError(500, 'invalidValue', 'Internal server error');
   }
@@ -226,6 +229,7 @@ async function handleCreateUser(
   try {
     const agent = await provisioner.createAgent({
       userName: input.userName,
+      active: input.active,
       displayName: input.displayName,
       parentDid: ext.parentDid,
       conformanceLevel: ext.conformanceLevel ?? 'L1',
@@ -273,6 +277,7 @@ async function handleReplaceUser(
   try {
     const agent = await provisioner.replaceAgent(userId, {
       userName: input.userName,
+      active: input.active,
       displayName: input.displayName,
       parentDid: ext.parentDid,
       conformanceLevel: ext.conformanceLevel ?? 'L1',

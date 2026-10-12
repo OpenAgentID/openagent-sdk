@@ -1,46 +1,13 @@
-# OpenAgent Auth Server — Docker Compose
-# Usage: docker compose up
-
 services:
-  openagent-auth:
-    build: .
+  receiver:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     ports:
-      - '3100:3100'
-    environment:
-      PORT: '3100'
-      OPENAGENT_PARENT_DID: 'did:oas:l1fe:hmr:your-human-root'
-      OPENAGENT_AGENT_NAME: 'docker-agent'
-      # OAS_RESOLVER_URL: 'https://resolver.openagent.id'
-      # ARSENAL_BROKER_URL: 'https://broker.arsenal.id'
-      # AEGIS_VERIFIER_URL: 'https://verify.aegis.id'
-      # OIDC_ISSUER_URL: 'https://your-idp.example.com'
-      # OIDC_CLIENT_ID: 'your-client-id'
-      # OIDC_CLIENT_SECRET: 'your-client-secret'
-    healthcheck:
-      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3100/health']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - "127.0.0.1:3100:3100"
+    env_file:
+      - ../.receiver-example/receiver.env
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     restart: unless-stopped
-
-  # Optional: PostgreSQL for persistent agent DID storage
-  # Uncomment when you need stateful agent identity management.
-  # postgres:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_DB: openagent
-  #     POSTGRES_USER: openagent
-  #     POSTGRES_PASSWORD: changeme
-  #   ports:
-  #     - '5432:5432'
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ['CMD-SHELL', 'pg_isready -U openagent']
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-
-# volumes:
-#   pgdata:

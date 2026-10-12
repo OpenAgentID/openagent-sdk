@@ -39,10 +39,10 @@ export interface AgentRecord {
 // ── Zod schemas for SCIM input validation ─────────────────────────────────
 
 const DID_REGEX =
-  /^did:oas:[a-z0-9][a-z0-9-]{0,63}:(hmr|mhr|enr|agent|tool|skill|workflow|model|dataset|service|agent:instance):[A-Za-z0-9._-]+$/;
+  /^did:(?:oas:[a-z0-9][a-z0-9-]{0,63}|l1fe):(hmr|mhr|ao|enr|agent|tool|skill|workflow|model|dataset|service|agent:instance):[A-Za-z0-9._-]+$/;
 
 const agentExtensionInputSchema = z.object({
-  parentDid: z.string().regex(DID_REGEX, 'parentDid must be a valid did:oas identifier'),
+  parentDid: z.string().regex(DID_REGEX, 'parentDid must be a valid OAS or legacy identifier'),
   conformanceLevel: z.enum(['L0', 'L1', 'L2']).default('L1'),
   scopes: z.array(z.string().min(1)).min(1, 'At least one scope is required'),
   lineageDepth: z.number().int().min(0).optional(),

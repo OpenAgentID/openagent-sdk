@@ -7,11 +7,11 @@ Runnable example projects for the OpenAgent SDK. Each subdirectory is a self-con
 ```
 examples/
 ├── typescript/
-│   ├── 01-hello-agent/           # Minimal 3-line agent auth demo
+│   ├── 01-hello-agent/           # Separate signer/receiver and replay refusal
 │   ├── 02-mcp-server/            # MCP server with OpenAgent auth
-│   ├── 03-claude-agent-plugin/   # Claude Agent SDK plugin integration
-│   ├── 04-delegated-agent/       # Parent delegating to a child worker
-│   ├── 05-skills-governance/     # SKILLS.md policy in action
+│   ├── 03-claude-agent-plugin/   # Native Claude hooks and verified permissions
+│   ├── 04-delegated-agent/       # OAS parent/child identities and scope authority
+│   ├── 05-skills-governance/     # Contextual YAML skill policy and signed receipts
 │   └── 06-credential-proxy/      # Using the Arsenal broker for API calls
 └── rust/
     ├── 01-hello-agent/
@@ -23,14 +23,20 @@ examples/
 ## Start here
 
 The updated [Hello Agent](typescript/01-hello-agent/) uses Node 20+ and the public
-SDK 0.4 local authority with actual signing keys and replay refusal. For a full
+current SDK local authority with actual signing keys and replay refusal. For a full
 HTTP application and animated UI, use the [generated starter](../docs/getting-started/quickstart-typescript.md).
 
-Other examples predate the current public onboarding path. They require their
-specific subsystem integrations and are not qualified by the new starter tests.
-Do not use historical `fake://in-memory` configuration as a production authority;
-the SDK has no implicit fake-broker fallback. The public local identity path
-needs no OAS/Arsenal/AEGIS private source checkout or Life-hosted service.
+The six TypeScript projects are exercised by the packed-package compatibility
+runner. Each contains a complete program: `npm install` followed by `npm start`.
+MCP starts a real stdio server; the Claude example invokes the official typed
+hooks without paid model calls; OAS creates signed parent/child documents;
+Skills Policy enforces contextual grants; the credential example runs a real
+signed-capability broker and protected upstream on loopback. Their READMEs
+identify the production custody and transport configuration you supply.
+
+The Rust projects use their own Cargo manifests and feature contracts; they do
+not consume the TypeScript npm SDK. The generated starter remains the shortest
+path to a complete identity, authenticated HTTP and live avatar application.
 
 ## License
 
