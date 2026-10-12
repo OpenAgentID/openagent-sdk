@@ -1,82 +1,58 @@
 # Installation
 
-OpenAgent ships in TypeScript (Node 20+, Bun, Deno, edge runtimes) and Rust (stable, MSRV 1.78). Both SDKs share the same public facade and the same underlying WASM crypto core, so identity material minted by one is trivially verifiable by the other. Pick whichever matches your stack; mixing is fine.
+For a complete first application, follow the [public quickstart](quickstart-typescript.md).
+This guide covers SDK 0.4.0 and create-openagent 0.2.0. The independent OIDC
+provider remains at 0.2.0.
 
-## TypeScript
+## JavaScript and TypeScript
 
-```bash
-npm install @openagentid/sdk
-# or
-pnpm add @openagentid/sdk
-# or
-bun add @openagentid/sdk
-# or
-yarn add @openagentid/sdk
+```sh
+npm install @openagentid/sdk@0.4.0
 ```
 
-The package ships as ES modules with TypeScript declarations built in. There is no `@types/openagent` — you already have types. The package has a single runtime dependency: `@openagentid/crypto-wasm`, the shared Rust-compiled crypto core. On most platforms npm will pull down the prebuilt binary; on unusual platforms it falls back to the pure-JS fallback and emits a warning.
+The package includes TypeScript declarations and ESM/CommonJS exports. Its public
+runtime dependencies are jose, Zod, @noble/hashes and @scure/base. OAS, Arsenal,
+AEGIS and crypto-wasm are optional peers for their corresponding integrations;
+they are not needed by the local workspace or avatar APIs.
 
-Minimum runtimes:
+- `@openagentid/sdk/local` and the `oaid` CLI require Node 20+ and persistent
+  private filesystem storage. The local workspace is a single-host authority.
+- `@openagentid/sdk/character-player` is the DOM player; `@openagentid/sdk/browser`
+  is its self-contained browser ESM bundle.
+- Portable verification and Fetch handlers require WebCrypto/native Fetch APIs.
+  The separate `@openagentid/oidc@0.2.0` provider requires Node 20.19+.
 
-- Node.js 20.0 or later (ESM required; CommonJS consumers can use dynamic `import()`).
-- Bun 1.1 or later.
-- Deno 1.40 or later (import from `npm:@openagentid/sdk`).
-- Cloudflare Workers, Vercel Edge, Deno Deploy — all supported. The WASM core is under 120 KB gzipped.
+## Verify your setup
 
-## Rust
-
-```bash
-cargo add openagent-sdk
+```sh
+npx oaid --version
+npx oaid init --audience https://my-app.example/agents
+npx oaid agent create --name researcher
+npx oaid doctor
 ```
 
-Or, in `Cargo.toml`:
+`init` refuses to overwrite existing state. `doctor` opens and validates the
+workspace and reports public metadata, not private keys. It does not assert that
+an external login or permission check succeeded. Use the quickstart's actual
+challenge/proof/verify flow to test identity authentication.
 
-```toml
-[dependencies]
-openagent-sdk = "0.1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-```
+## Bring your own services
 
-The Rust SDK is the reference implementation; the TypeScript SDK calls into the same crypto core via `wasm-bindgen`. You get native Ed25519, HKDF, and BLAKE3 with zero C dependencies (rustls, no OpenSSL).
+The `OpenAgent` facade requires concrete `clients.identity`,
+`clients.credentials` and `clients.verification` for the respective operations.
+Setting endpoint strings or environment variables alone does not instantiate
+these clients. Missing clients fail closed with a configuration error naming
+the required subsystem. There is no automatic fake broker or crypto fallback.
 
-Feature flags:
+Local workspaces instead use their explicit directory, audience and namespace
+configuration. They make no implicit service discovery calls or telemetry
+requests. Keep keys on your own host; exchange only public identity documents.
+Your application controls trust, scopes and tenant access.
 
-- `default = ["rustls-tls"]` — TLS via rustls. If you prefer native-tls, disable default features and enable `native-tls`.
-- `wallet` — pulls in AEGIS multi-chain wallet support (Bitcoin, Ethereum, Solana, Cosmos, and 8 more chains).
-- `mcp` — MCP server helpers (the `OpenAgent::mcp` module).
-- `claude-agent` — helpers for embedding into the Claude Agent SDK.
+## Other languages
 
-Minimum Rust version is 1.78. The SDK is `no_std`-friendly for the core identity types but the default build assumes `std` and `tokio`.
-
-## Verifying the install
-
-Both SDKs expose a `healthCheck()` / `health_check()` that runs a self-test on the crypto core (generates a DID, signs a nonce, verifies the signature). It's a good first smoke test:
-
-```ts
-import { OpenAgent } from '@openagentid/sdk';
-console.log(await OpenAgent.healthCheck());
-// { ok: true, version: '0.1.0', cryptoCore: 'wasm', did: 'did:oas:test:...' }
-```
-
-```rust
-use openagent_sdk::OpenAgent;
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    println!("{:#?}", OpenAgent::health_check().await?);
-    Ok(())
-}
-```
-
-If either call returns `ok: false`, file an issue with the platform details — something is wrong with the WASM loader or native build on your platform.
-
-## Environment variables
-
-OpenAgent reads optional configuration from the environment. None of these are required for the quickstarts, but you will want them for production:
-
-- `OPENAGENT_BROKER_URL` — base URL of your Arsenal broker. Defaults to `http://localhost:7878` for local dev.
-- `OPENAGENT_AEGIS_URL` — base URL of your AEGIS verification service. Defaults to local dev.
-- `OPENAGENT_NAMESPACE` — DID namespace for agents minted by this process. Defaults to `local`.
-- `OPENAGENT_ROOT_KEY_PATH` — path to the private key for the root human identity (HMR) that this process is acting on behalf of. In managed deployments this is provided by a secret manager and never touches disk.
-
-Next: [TypeScript quickstart](quickstart-typescript.md) or [Rust quickstart](quickstart-rust.md).
+See each [language module](../../README.md#languages) for its actual package,
+features and runtime requirements. The Rust SDK currently references private
+OAS, Arsenal and AEGIS repositories; that dependency path remains a public
+adoption gap. The standalone TypeScript local identity/character path requires
+only public registry dependencies.

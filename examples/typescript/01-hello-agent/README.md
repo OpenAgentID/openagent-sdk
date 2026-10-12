@@ -1,42 +1,22 @@
-# 01 — Hello Agent
+# Hello Agent
 
-The minimal OpenAgent demo. Creates an agent under a parent DID, prints its identity, authenticates a fake request that carries the agent's ACT, and issues a credentialed API call through the broker proxy.
+Run real Ed25519 identity verification locally with no hosted service or private
+repository. Node 20+ is required; this example targets SDK 0.4.0.
 
-## What it shows
-
-- `OpenAgent.createAgent` — the three-line agent minting path.
-- Reading the resulting DID, scopes, and compact ACT string.
-- `OpenAgent.authenticate` on a synthetic request to prove round-trip works.
-- `agent.credentialsFor('openai')` returning a credential-injected fetch proxy.
-
-## Run it
-
-```bash
-bun install
-bun run start
+```sh
+npm install
+npm start
 ```
 
-Expected output (values will differ):
+The example creates separate signer and receiving-application workspaces on the
+first run, explicitly trusts the public identity, signs a real issued challenge,
+verifies it and proves replay is refused. Subsequent runs preserve keys and
+trust. No fake broker, human owner or remote credential is involved. Private
+workspace directories contain their own Git ignore rules; preserve and protect
+them rather than committing or serving their contents.
 
-```
-minted did:oas:example:agent:8hT3k4Pq2mXrY9vWbCdEfGh1JkLmNo
-scopes: ["openai:chat:invoke"]
-expires: 2026-04-11T09:14:22.431Z
-auth context did: did:oas:example:agent:8hT3k4Pq2mXrY9vWbCdEfGh1JkLmNo
-auth context lineage: ["did:oas:example:hmr:local-dev","did:oas:example:agent:8hT..."]
-credential proxy ready for service=openai
-```
+This program exercises the SDK directly. For a complete HTTP application and
+live browser avatars, follow the [starter quickstart](../../../../docs/getting-started/quickstart-typescript.md).
+The verified identity does not itself grant application permissions.
 
-The example runs against `fake://in-memory` by default, so no external broker is needed.
-
-## Try this next
-
-- Change `scopes` to include multiple services and observe them on the printed context.
-- Set `OPENAGENT_BROKER_URL` to a real broker (see the [installation docs](../../../docs/getting-started/installation.md)).
-- Move on to [02-mcp-server](../02-mcp-server) to see OpenAgent in a real HTTP server.
-
-## License
-
-Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
-
-Licensed under either of [Apache License 2.0](../../../LICENSE-APACHE) or [MIT license](../../../LICENSE-MIT), at your option.
+Licensed under Apache-2.0 OR MIT.

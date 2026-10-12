@@ -98,17 +98,17 @@ export interface OpenAgentClients {
 /**
  * Global SDK configuration.
  *
- * All fields are optional; sensible defaults are applied by
- * {@link OpenAgent.configure}. The SDK works with zero configuration for
- * local development and test environments.
+ * All fields are optional at construction. Identity, credentials and request
+ * verification each require their configured client when used. For a complete
+ * file-backed Node identity authority, use the separate SDK `./local` export.
  */
 export interface OpenAgentConfig {
   /** Override the default namespace (`openagent`). */
   namespace?: string;
   /**
-   * Transport endpoints. If omitted, the SDK assumes it is running in-process
-   * with the underlying libraries (useful for tests) or that the wrapped
-   * SDKs will read their own env vars.
+   * Endpoint metadata retained on the resolved config. These values do not
+   * instantiate clients. Configure the appropriate clients with their transport
+   * endpoints before supplying them below.
    */
   endpoints?: {
     oasResolver?: string;
@@ -125,8 +125,8 @@ export interface OpenAgentConfig {
   /** Override the abort timeout (ms) for HTTP calls. Default: 30000. */
   requestTimeoutMs?: number;
   /**
-   * Pre-constructed subsystem clients (advanced). When provided, the SDK
-   * uses them directly instead of constructing its own.
+   * Pre-constructed subsystem clients. Each subsystem is required at use;
+   * the facade does not construct clients from endpoint strings.
    */
   clients?: OpenAgentClients;
 }

@@ -1,60 +1,37 @@
-/**
- * Project scaffolding — writes template files to disk.
- */
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
+import { validateProjectName, type ProjectOptions } from './prompts.js';
+import { generateStarterTemplate } from './templates/starter.js';
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { spinner } from '@clack/prompts';
-import type { ProjectOptions } from './prompts.js';
-import { generateAgentTemplate } from './templates/agent.js';
-import { generateMcpServerTemplate } from './templates/mcp-server.js';
-import { generateWebDashboardTemplate } from './templates/web-dashboard.js';
-import { generateFullStackTemplate } from './templates/full-stack.js';
-import { generateSharedFiles } from './templates/shared.js';
+export interface TemplateFile { path: string; content: string }
 
-export interface TemplateFile {
-  path: string;
-  content: string;
-}
-
-export async function scaffold(options: ProjectOptions): Promise<void> {
-  const s = spinner();
-  s.start('Scaffolding project...');
-
-  const root = join(process.cwd(), options.projectName);
-
-  if (existsSync(root)) {
-    s.stop('Directory already exists.');
-    throw new Error(`Directory "${options.projectName}" already exists.`);
+/** The destination must be absent, including symlinks and empty directories. */
+export async function scaffold(options: ProjectOptions, cwd = process.cwd()): Promise<void> {
+  const name = validateProjectName(options.projectName);
+  if (options.template !== 'starter' || options.adapters.length !== 0 || options.bridge !== 'none' ||
+      options.deploy !== 'local' || options.bioagentic !== false || options.fabrics !== false) {
+    throw new Error('Only the local starter is supported in 0.2; historical template options require migration.');
   }
-
-  // Collect template files
-  const files: TemplateFile[] = [];
-
-  switch (options.template) {
-    case 'agent':
-      files.push(...generateAgentTemplate(options));
-      break;
-    case 'mcp-server':
-      files.push(...generateMcpServerTemplate(options));
-      break;
-    case 'web-dashboard':
-      files.push(...generateWebDashboardTemplate(options));
-      break;
-    case 'full-stack':
-      files.push(...generateFullStackTemplate(options));
-      break;
-  }
-
-  files.push(...generateSharedFiles(options));
-
-  // Write all files
+  const files = generateStarterTemplate(name);
+  const names = new Set<string>();
   for (const file of files) {
-    const fullPath = join(root, file.path);
-    const dir = dirname(fullPath);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(fullPath, file.content, 'utf-8');
+    if (!/^(?:[a-zA-Z0-9._-]+\/)*[a-zA-Z0-9._-]+$/.test(file.path) ||
+        file.path.split('/').some(part => part === '.' || part === '..') || names.has(file.path)) {
+      throw new Error('Invalid starter file path.');
+    }
+    names.add(file.path);
   }
-
-  s.stop(`Created ${files.length} files in ${options.projectName}/`);
+  const root = resolve(cwd, name);
+  try { mkdirSync(root, { recursive: false }); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new Error('Destination already exists: ' + name + '. Choose a new directory.');
+    throw error;
+  }
+  // Exclusive creation prevents accidental overwrites even if another process
+  // starts writing into the newly created directory. Preserve partial work on error.
+  for (const file of files) {
+    const destination = join(root, file.path);
+    mkdirSync(dirname(destination), { recursive: true });
+    writeFileSync(destination, file.content, { encoding: 'utf8', flag: 'wx' });
+  }
 }

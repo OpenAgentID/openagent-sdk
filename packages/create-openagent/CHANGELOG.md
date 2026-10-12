@@ -1,5 +1,15 @@
 # Changelog — create-openagent
 
+## [0.2.0] - 2026-10-11
+
+- Generate a complete local identity and animated-avatar application using SDK
+  0.4.0, real signing keys and issued-challenge verification.
+- Add strict CLI parsing, true noninteractive `--yes`, help/version and tests
+  of the generated application.
+- Breaking pre-1.0 change: replace the incomplete 0.1.x template/deployment
+  selectors with the supported default `starter`. Refuse obsolete flags
+  explicitly; preserve existing generated projects and legacy template source.
+
 ## [0.1.1] - 2026-07-31
 
 ### Fixed

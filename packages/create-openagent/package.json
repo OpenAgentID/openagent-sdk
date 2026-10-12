@@ -1,7 +1,7 @@
 {
   "name": "create-openagent",
-  "version": "0.1.1",
-  "description": "Scaffold an OpenAgent project — agent, MCP server, web dashboard, or full-stack.",
+  "version": "0.2.0",
+  "description": "Create a working OpenAgentID app with local identity, real verification and live avatars.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
@@ -28,7 +28,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",

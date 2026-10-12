@@ -1,6 +1,25 @@
 # Changelog
 
-## 0.3.0 — live expression state, 2026-10-11 (unreleased)
+## 0.4.0 — public developer tooling, 2026-10-11
+
+- Add a Node-only persistent local identity authority with real Ed25519 keys,
+  explicit receiver-controlled public identity trust, bounded issued challenges,
+  signature verification, durable replay prevention and local revocation.
+  Reuse the existing identity verifier without a mandatory Life service or
+  private repository dependency.
+- Expand `oaid` with workspace initialization, agent creation/export/trust/revoke,
+  challenge/proof commands, local verification, diagnostics and character SVGs.
+- Add the working create-openagent 0.2 starter and public-package qualification;
+  retire unsupported generator selectors with explicit migration errors.
+- Qualify exact source commits and exercise hostile Host headers over native
+  HTTP, without relying on Fetch's forbidden-header normalization.
+- Correct first-run documentation and facade configuration guidance. The new
+  local authority uses private persistent single-host storage; it does not claim
+  distributed storage or grant access outside the receiving application's policy.
+- Put the working starter first in the public README and identify Life-hosted
+  integrations as optional for standalone applications.
+
+## 0.3.0 — live expression state, 2026-10-11
 
 - Add portable status snapshots and incremental updates for all eighteen
   expressions. Reasoning selects thoughtful; blocked/error selects concerned.

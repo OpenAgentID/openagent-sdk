@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",
@@ -98,6 +98,11 @@
     "./browser": {
       "types": "./sdks/typescript/dist/browser/character-player.d.ts",
       "import": "./sdks/typescript/dist/browser/character-player.js"
+    },
+    "./local": {
+      "types": "./sdks/typescript/dist/local-workspace.d.ts",
+      "import": "./sdks/typescript/dist/local-workspace.js",
+      "require": "./sdks/typescript/dist/local-workspace.cjs"
     }
   },
   "files": [

@@ -1,9 +1,36 @@
 # OpenAgent SDK
 
 OpenAgentID is a free, open [Open Software](https://open.software) core project
-alongside Henry, Weave, Flocks and Fleets. Life sells hosted services around
-this core. Human owners authenticate with LifeID; Blinds brokers agent
-credentials and Genesis KMS stores customer secrets.
+alongside Henry, Weave, Flocks and Fleets. Create an agent identity, verify its
+signed requests and give it an animated avatar without an account or hosted
+identity service. Your application controls keys, trust and access.
+
+## Start a working application
+
+```sh
+npx create-openagent@0.2.0 my-agent-app --yes
+cd my-agent-app
+npm install
+npm run dev
+```
+
+Open the local URL, then run `npm run agent` in a second terminal. The receiver
+verifies a real signed request; its status updates the agent's live eyes. Autos
+is the default skin and SpaceX is selectable. Keys and trust survive restarts.
+The starter uses SDK 0.4.0 and public npm dependencies only.
+
+For an existing application, install `@openagentid/sdk@0.4.0` and follow the
+[TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
+The included `oaid` CLI creates identities, exchanges public trust documents,
+issues challenges, signs and verifies proofs, revokes local trust and renders
+avatars. No command requires a Life service. See the
+[0.4.0 shipment contents](docs/release-0.4.0.md).
+
+Life sells optional hosted services around this core. Inside the Life ecosystem,
+LifeID authenticates humans, Blinds brokers credentials and Genesis KMS stores
+customer secrets. Those integrations are independent of the standalone path.
+
+## Identity and avatar releases
 
 The **0.2.0 release** adds a signing [OIDC provider](bridges/oidc/typescript/),
 [identity verification API/SDK/CLI](docs/identity-verification.md),
@@ -23,14 +50,24 @@ the body/face; the avatar expression chooses its eye state. Identity stays stabl
 agent-instance ULIDs and exports `isAgentAvatarDid` for consumer display
 selection. The assigned DID stays unchanged; authentication admission does too.
 
-The next **SDK 0.3.0** release adds [live expression state](docs/characters.md):
+**SDK 0.3.0**, now published, adds [live expression state](docs/characters.md):
 update an agent's status to smoothly change its eyes in place. Reasoning selects
 thoughtful; blocked or error selects concerned. Autos and SpaceX share all
 eighteen expressions, ongoing blinks and gaze, and system reduced-motion support.
 The clock-driven animator works without a DOM; the browser player mounts inline
 SVG once and accepts updates from the host's authorized state channel.
 
-**Agent auth in 3 lines.** One SDK for identity, credentials, and verification — built on [OAS](https://github.com/OpenAgentID/oas) (W3C DID identity), [Arsenal](https://github.com/OpenAgentID/arsenal) (scoped capability tokens), and [AEGIS](https://github.com/OpenAgentID/aegis) (verification and policy).
+## Start with public developer tooling
+
+SDK 0.4 adds a local-first CLI and working application
+starter. Generate and retain real Ed25519 identities, explicitly trust a public
+identity at your receiving application, verify issued challenges and revoke
+trust without a Life account or centralized service. See the
+[TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
+
+The existing `OpenAgent` facade wraps configured OAS, Arsenal and AEGIS clients.
+Those clients must be supplied; endpoint strings alone do not initialize them.
+The standalone local identity and live-avatar APIs need only this public SDK.
 
 Every language implementation is gated by the same conformance suite — the canonical ACT verification vectors in [`conformance/`](conformance/) — so a token that verifies in one language verifies in all of them.
 
@@ -45,7 +82,10 @@ Every language implementation is gated by the same conformance suite — the can
 | Swift | [`OpenAgentSDK`](sdks/swift/) | SwiftPM — this repo as a package dependency | [sdks/swift](sdks/swift/) |
 | Kotlin | [`id.openagent:sdk`](sdks/kotlin/) | Gradle — see the module README | [sdks/kotlin](sdks/kotlin/) |
 
-Registry publishes beyond npm are rolling out now; every SDK can also be consumed directly from this repository in the meantime.
+The npm SDK is published. Check each language module before selecting it: Rust
+currently references private OAS, Arsenal and AEGIS repositories. That path is not
+yet a public clean-clone onboarding experience. The TypeScript local identity
+and avatar path has no private repository requirement.
 
 ## What's in the box
 
