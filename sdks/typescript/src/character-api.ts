@@ -12,8 +12,8 @@ const DEFAULT_BASE_PATH = '/v1/characters';
 const MAX_BODY_BYTES = 16_384;
 const MAX_URL_LENGTH = 8192;
 const encoder = new TextEncoder();
-const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'accessories', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
-const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'shape', 'view', 'accessories', 'expression', 'size', 'animated', 'state']);
+const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
+const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'size', 'animated', 'state']);
 const numericQuery = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 class CharacterRequestError extends Error {
@@ -65,6 +65,8 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
   if ('shape' in value) {
     result.shape = member(value.shape, getCharacterSkins().find(entry => entry.id === skin)!.shapes);
   }
+  if ('finish' in value) result.finish = member(value.finish, ['plush', 'flat'] as const);
+  if ('eyePlacement' in value) result.eyePlacement = member(value.eyePlacement, ['face', 'raised'] as const);
   if ('view' in value) result.view = member(value.view, ['avatar', 'full'] as const);
   if ('accessories' in value) result.accessories = parseCharacterAccessories(value.accessories);
   if ('expression' in value) result.expression = member(value.expression, getCharacterExpressions());
@@ -100,7 +102,7 @@ function queryOptions(query: URLSearchParams): CharacterOptions {
     values[key] = value;
   }
   const input: Record<string, unknown> = {};
-  for (const key of ['skin', 'eyeStyle', 'shape', 'view', 'expression']) {
+  for (const key of ['skin', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'expression']) {
     if (key in values) input[key] = values[key];
   }
   if ('accessories' in values) {
@@ -293,8 +295,8 @@ export const characterApiOpenApi = {
   "openapi": "3.1.0",
   "info": {
     "title": "OpenAgentID Character API",
-    "version": "0.6.0",
-    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 17 families and 62 distinct character kinds, including Halloween, Thanksgiving and Christmas. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused."
+    "version": "0.7.0",
+    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 17 families and 62 distinct character kinds, including Halloween, Thanksgiving and Christmas. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused. Every family supports shared finish (plush default, flat optional) and eyePlacement (face default, raised optional). These strictly closed appearance selectors do not change identity-derived shape/color or runtime state. Descriptors include both resolved values."
   },
   "servers": [
     {
@@ -842,6 +844,12 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/accessories"
+          },
+          {
+            "$ref": "#/components/parameters/finish"
+          },
+          {
+            "$ref": "#/components/parameters/eyePlacement"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -964,6 +972,12 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/accessories"
+          },
+          {
+            "$ref": "#/components/parameters/finish"
+          },
+          {
+            "$ref": "#/components/parameters/eyePlacement"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1124,6 +1138,12 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/accessories"
+          },
+          {
+            "$ref": "#/components/parameters/finish"
+          },
+          {
+            "$ref": "#/components/parameters/eyePlacement"
           }
         ],
         "responses": {
@@ -1222,6 +1242,12 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/accessories"
+          },
+          {
+            "$ref": "#/components/parameters/finish"
+          },
+          {
+            "$ref": "#/components/parameters/eyePlacement"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1338,6 +1364,12 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/accessories"
+          },
+          {
+            "$ref": "#/components/parameters/finish"
+          },
+          {
+            "$ref": "#/components/parameters/eyePlacement"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1492,6 +1524,12 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/accessories"
+          },
+          {
+            "$ref": "#/components/parameters/finish"
+          },
+          {
+            "$ref": "#/components/parameters/eyePlacement"
           }
         ],
         "responses": {
@@ -2245,6 +2283,12 @@ export const characterApiOpenApi = {
           },
           "accessories": {
             "$ref": "#/components/schemas/CharacterAccessoriesV1"
+          },
+          "finish": {
+            "$ref": "#/components/schemas/CharacterFinish"
+          },
+          "eyePlacement": {
+            "$ref": "#/components/schemas/CharacterEyePlacement"
           }
         },
         "allOf": [
@@ -2839,6 +2883,12 @@ export const characterApiOpenApi = {
           },
           "accessories": {
             "$ref": "#/components/schemas/CharacterAccessoriesV1"
+          },
+          "finish": {
+            "$ref": "#/components/schemas/CharacterFinish"
+          },
+          "eyePlacement": {
+            "$ref": "#/components/schemas/CharacterEyePlacement"
           }
         },
         "allOf": [
@@ -3393,6 +3443,12 @@ export const characterApiOpenApi = {
           },
           "accessories": {
             "$ref": "#/components/schemas/CharacterAccessoriesV1"
+          },
+          "finish": {
+            "$ref": "#/components/schemas/CharacterFinish"
+          },
+          "eyePlacement": {
+            "$ref": "#/components/schemas/CharacterEyePlacement"
           }
         },
         "allOf": [
@@ -3813,7 +3869,9 @@ export const characterApiOpenApi = {
           "svg",
           "expression",
           "view",
-          "accessories"
+          "accessories",
+          "finish",
+          "eyePlacement"
         ],
         "properties": {
           "did": {
@@ -3990,6 +4048,12 @@ export const characterApiOpenApi = {
           },
           "accessories": {
             "$ref": "#/components/schemas/CharacterAccessoriesV1"
+          },
+          "finish": {
+            "$ref": "#/components/schemas/CharacterFinish"
+          },
+          "eyePlacement": {
+            "$ref": "#/components/schemas/CharacterEyePlacement"
           }
         },
         "allOf": [
@@ -5143,6 +5207,24 @@ export const characterApiOpenApi = {
             "minLength": 1
           }
         }
+      },
+      "CharacterFinish": {
+        "type": "string",
+        "enum": [
+          "plush",
+          "flat"
+        ],
+        "default": "plush",
+        "description": "Shared body finish on every family: plush by default, flat for the vector material. Appearance only; identity and live state stay independent."
+      },
+      "CharacterEyePlacement": {
+        "type": "string",
+        "enum": [
+          "face",
+          "raised"
+        ],
+        "default": "face",
+        "description": "Shared live-v1 eye placement on every family: on the face by default, or raised above the head. Appearance only; all eighteen expressions remain available."
       }
     },
     "parameters": {
@@ -5386,6 +5468,20 @@ export const characterApiOpenApi = {
           "$ref": "#/components/schemas/CharacterAccessoriesV1"
         },
         "description": "One comma-separated selection, for example glasses,headphones. Empty string means []; either input order normalizes to catalog order. Repeated query parameters, duplicates, unknown IDs, whitespace and empty elements are refused."
+      },
+      "finish": {
+        "name": "finish",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/CharacterFinish"
+        }
+      },
+      "eyePlacement": {
+        "name": "eyePlacement",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/CharacterEyePlacement"
+        }
       }
     },
     "headers": {

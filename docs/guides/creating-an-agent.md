@@ -1,6 +1,6 @@
 # Creating an Agent
 
-SDK 0.5.0 provides a complete local identity path on Node 20+: generate a real
+SDK 0.7.0 provides a complete local identity path on Node 20+: generate a real
 Ed25519 keypair, persist its OAS DID, and prove possession to an application that
 explicitly trusts that public identity. No Life account, hosted resolver or
 private package is required.
@@ -15,7 +15,7 @@ agent worker or grant access to an external service.
 Install the public SDK:
 
 ```sh
-npm install @openagentid/sdk@0.5.0
+npm install @openagentid/sdk@0.7.0
 ```
 
 Run this first-run example in a new directory. The two workspace directories

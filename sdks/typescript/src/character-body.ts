@@ -1,5 +1,7 @@
 /** Closed, validated character geometry shared by text and DOM renderers. */
-import type { CharacterSkin, CharacterShape, CharacterView } from './characters.js';
+import type { CharacterSkin, CharacterShape, CharacterView, CharacterEyePlacement } from './characters.js';
+import type { CharacterAccessory, CharacterHeadAnchor } from './character-accessories.js';
+import { characterHead } from './character-head.js';
 import type { CharacterArtNode, CharacterArtFamily } from './character-art-types.js';
 import { yearRoundArt } from './character-art-year-round.js';
 import { seasonalArt } from './character-art-seasonal.js';
@@ -20,8 +22,17 @@ function instanceNode(node: CharacterArtNode, instance: string): CharacterArtNod
     ...(node.children ? { children: node.children.map(child => instanceNode(child, instance)) } : {}) };
 }
 
-/** One geometry contract for SVG, browser player, and profile fallbacks. */
-export function characterFraming(skin: CharacterSkin, shape: CharacterShape, view: CharacterView): { viewBox: string; faceTransform: string } {
+export interface CharacterFraming {
+  readonly viewBox: string;
+  readonly faceTransform: string;
+  /** Head edges expressed in the shared eye coordinate system. */
+  readonly head: CharacterHeadAnchor;
+  readonly eyeOffset: number;
+}
+
+/** One stable crop for every possible gaze/blink; wearing accessories never causes breathing. */
+export function characterFraming(skin: CharacterSkin, shape: CharacterShape, view: CharacterView,
+  options: { readonly accessories?: readonly CharacterAccessory[]; readonly eyePlacement?: CharacterEyePlacement } = {}): CharacterFraming {
   const art = characterArt[skin]?.shapes[shape];
   let x = 256, y = 264, scale = 1;
   let crop = { x: 96, y: 104, size: 320 };
@@ -33,7 +44,53 @@ export function characterFraming(skin: CharacterSkin, shape: CharacterShape, vie
     y = face[0]!; scale = face[1]!;
     crop = { x: x - face[2]! / 2, y: y - face[2]! / 2, size: face[2]! };
   }
-  return { viewBox: view === 'full' ? '0 0 512 512' : [crop.x, crop.y, crop.size, crop.size].map(number).join(' '),
+  const worldHead = characterHead(skin, shape);
+  const raised = options.eyePlacement === 'raised';
+  const eyeOffset = raised ? 12 : 0;
+  if (raised) {
+    y = worldHead.top - 70 * scale;
+    crop.y = worldHead.top - 10 * scale - crop.size / 2;
+  }
+  const head = {
+    left: 256 + (worldHead.left - x) / scale, right: 256 + (worldHead.right - x) / scale,
+    top: 264 + (worldHead.top - y) / scale, sideY: 264 + (worldHead.sideY - y) / scale,
+  };
+  const points: [number, number][] = [];
+  const add = (px: number, py: number) => points.push([x + (px - 256) * scale, y + (py - 264) * scale]);
+  if (raised) {
+    // Reserve complete raised pods at maximum gaze, including their soft rim.
+    for (const px of [145, 367]) for (const py of [188, 340]) add(px, py);
+  }
+  if (options.accessories?.includes('glasses')) {
+    for (const px of [166 - eyeOffset, 346 + eyeOffset]) for (const py of [169, 359]) add(px, py);
+    add(head.left, head.sideY); add(head.right, head.sideY);
+  }
+  if (options.accessories?.includes('headphones')) {
+    for (const px of [head.left - 32, head.left + 2, head.right - 2, head.right + 32]) {
+      for (const py of [head.sideY - 35, head.sideY + 35]) add(px, py);
+    }
+    const mid = (head.left + head.right) / 2;
+    for (let step = 0; step <= 24; step++) {
+      const t = step / 24, u = 1 - t;
+      for (const edge of [head.left - 9, head.right + 9]) {
+        add(u * u * edge + 2 * u * t * edge + t * t * mid,
+          u * u * (head.sideY - 9) + (2 * u * t + t * t) * (head.top - 22));
+      }
+    }
+  }
+  let viewBox: string;
+  if (view === 'full') {
+    const xs = [0, 512, ...points.map(p => p[0] - 8 * scale), ...points.map(p => p[0] + 8 * scale)];
+    const ys = [0, 512, ...points.map(p => p[1] - 8 * scale), ...points.map(p => p[1] + 8 * scale)];
+    const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+    const size = Math.max(right - left, bottom - top);
+    viewBox = [(left + right - size) / 2, (top + bottom - size) / 2, size, size].map(number).join(' ');
+  } else {
+    const cx = crop.x + crop.size / 2, cy = crop.y + crop.size / 2;
+    const radius = Math.max(crop.size / 2, ...points.map(([px, py]) => Math.hypot(px - cx, py - cy) + 8 * scale));
+    viewBox = [cx - radius, cy - radius, radius * 2, radius * 2].map(number).join(' ');
+  }
+  return { viewBox, head, eyeOffset,
     faceTransform: `translate(${number(x)} ${number(y)}) scale(${number(scale)}) translate(-256 -264)` };
 }
 

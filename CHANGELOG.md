@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.0 — shared character material and head-fitted accessories, 2026-10-12
+
+- Default all 17 families and 62 kinds to soft plush material; keep flat vector
+  material selectable and add optional raised live-eye placement.
+- Fit headphones outside each actual head, reserve their avatar framing, and keep
+  glasses at fixed dimensions while their gaze-following lenses connect to head
+  sides. Preserve the mounted live eyes, expression state and animation timeline.
+- Carry strict finish/eyePlacement choices through stored profiles, SVG/JSON API,
+  CLI, browser exports, hosted demo and the generated starter; keep accessories
+  independent and reject malformed or misplaced appearance selectors.
+- Recommend SDK 0.7.0 and create-openagent 0.5.0. Identity/authentication contracts
+  and OIDC 0.2.0 stay unchanged. Exact-source remote qualification, npm publication
+  and hosted/Orbit acceptance remain separate delivery evidence.
+
 ## 0.6.0 — independent character accessories, 2026-10-12
 
 - Add transparent glasses and headphones as independent, combinable accessories

@@ -135,6 +135,41 @@ describe('stored character appearance', () => {
     expect(custom.avatarExpression).toBe('thoughtful');
   });
 
+  it('persists material and eye placement as optional appearance selectors on every family, independently of preferred expression', () => {
+    for (const skin of getCharacterSkins()) {
+      for (const finish of ['plush', 'flat'] as const) {
+        for (const eyePlacement of ['face', 'raised'] as const) {
+          const avatarSkin = { skin: skin.id, shape: skin.shapes[0]!, finish, eyePlacement,
+            accessories: ['headphones', 'glasses'] };
+          const parsed = parseIdentityDocument({ ...document, avatarSkin, avatarExpression: 'thoughtful' });
+          expect(parsed.avatarSkin).toEqual({ ...avatarSkin, accessories: ['glasses', 'headphones'] });
+          expect(parsed.avatarExpression).toBe('thoughtful');
+          expect(parsed.did).toBe(document.did);
+          expect(parsed.parent).toBe(document.parent);
+          expect(parsed).not.toHaveProperty('finish');
+          expect(parsed).not.toHaveProperty('eyePlacement');
+        }
+      }
+    }
+    const minimal = characterAppearanceSchema.parse({ skin: 'autos' });
+    expect(minimal).toEqual({ skin: 'autos' });
+    expect(minimal).not.toHaveProperty('finish');
+    expect(minimal).not.toHaveProperty('eyePlacement');
+  });
+
+  it.each([
+    { finish: null }, { finish: '' }, { finish: 'unknown' }, { finish: 'Plush' },
+    { finish: 'plush ' }, { finish: true }, { finish: [] }, { finish: {} },
+    { eyePlacement: null }, { eyePlacement: '' }, { eyePlacement: 'unknown' },
+    { eyePlacement: 'Face' }, { eyePlacement: 'raised\n' }, { eyePlacement: 1 },
+    { eyePlacement: [] }, { eyePlacement: {} }, { 'eye-placement': 'raised' },
+    { state: { finish: 'flat' } }, { state: { eyePlacement: 'raised' } },
+  ])('refuses invalid material or eye placement in stored profiles: %j', selectors => {
+    const avatarSkin = { skin: 'christmas', shape: 'snowman', ...selectors };
+    expect(characterAppearanceSchema.safeParse(avatarSkin).success).toBe(false);
+    expect(() => parseIdentityDocument({ ...document, avatarSkin })).toThrow(IdentityError);
+  });
+
   it('stores canonical accessory selections on every family kind without changing identity or expression', () => {
     const selections = [[], ['glasses'], ['headphones'], ['headphones', 'glasses']] as const;
     for (const skin of getCharacterSkins()) {
@@ -215,7 +250,8 @@ describe('stored character appearance', () => {
 
   it('refuses root rendering and live-state fields on identity documents', () => {
     for (const rendering of [{ view: 'full' }, { size: 128 }, { state: { status: 'success' } }, { status: 'working' },
-      { accessories: ['glasses'] }, { avatarAccessories: ['glasses'] }]) {
+      { accessories: ['glasses'] }, { avatarAccessories: ['glasses'] },
+      { finish: 'plush' }, { eyePlacement: 'raised' }]) {
       expect(() => parseIdentityDocument({ ...document, ...rendering })).toThrow(IdentityError);
     }
   });

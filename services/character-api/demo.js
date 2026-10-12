@@ -4,6 +4,8 @@ const element = id => document.getElementById(id);
 const skin = element('skin');
 const shape = element('shape');
 const view = element('view');
+const finish = element('finish');
+const eyePlacement = element('eye-placement');
 const activity = element('activity');
 const expression = element('expression');
 const animated = element('animated');
@@ -78,6 +80,7 @@ function codeExample() {
     'document.body.append(avatar);',
     `const player = mountCharacter(avatar, ${JSON.stringify(mountedDid ?? element('did').value)}, {`,
     `  skin: ${JSON.stringify(skin.value)}, view: ${JSON.stringify(view.value)},${shape.value ? ` shape: ${JSON.stringify(shape.value)},` : ''}`,
+    `  finish: ${JSON.stringify(finish.value)}, eyePlacement: ${JSON.stringify(eyePlacement.value)},`,
     `  accessories: ${JSON.stringify(selectedAccessories())}, reducedMotion: 'system'`,
     '});',
     '',
@@ -95,7 +98,7 @@ function refresh() {
   codeExample();
   if (!player) return;
   const state = player.getState();
-  const query = new URLSearchParams({ skin: skin.value, view: view.value, skinVersion: '1', eyeStyle: 'live-v1',
+  const query = new URLSearchParams({ skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, skinVersion: '1', eyeStyle: 'live-v1',
     expression: state.expression, size: element('size').value,
     animated: String(animated.checked && !motion.matches),
     blink: String(state.blink), gazeX: String(state.gaze.x), gazeY: String(state.gaze.y) });
@@ -105,7 +108,7 @@ function refresh() {
   element('svg-link').href = `/v1/characters/svg/${identity}?${query}`;
   element('json-link').href = `/v1/characters/${identity}?${query}`;
   element('descriptor').textContent = JSON.stringify({ did: mountedDid,
-    appearance: { skin: skin.value, view: view.value, shape: shape.value || 'from identity', accessories: selectedAccessories(), size: Number(element('size').value) },
+    appearance: { skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, shape: shape.value || 'from identity', accessories: selectedAccessories(), size: Number(element('size').value) },
     state, reducedMotion: !animated.checked || motion.matches, activity: 'local demo fixture' }, null, 2);
   preview.setAttribute('aria-label', `${label(state.expression)} ${label(skin.value)} demonstration character fixture`);
   element('status').classList.remove('error');
@@ -137,7 +140,7 @@ function remount() {
   element('descriptor').textContent = '';
   try {
     const did = element('did').value;
-    player = mountCharacter(preview, did, { skin: skin.value, view: view.value, accessories: selectedAccessories(),
+    player = mountCharacter(preview, did, { skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, accessories: selectedAccessories(),
       ...(shape.value ? { shape: shape.value } : {}), size: Number(element('size').value),
       animated: true, state: pose(), reducedMotion: animated.checked ? 'system' : true, transitionMs: 420 });
     mountedDid = did;
@@ -190,6 +193,14 @@ skin.addEventListener('change', () => {
 view.addEventListener('change', () => {
   if (!player) return;
   try { player.setAppearance({ view: view.value }); refresh(); } catch (error) { showError(error); }
+});
+finish.addEventListener('change', () => {
+  if (!player) return;
+  try { player.setAppearance({ finish: finish.value }); refresh(); } catch (error) { showError(error); }
+});
+eyePlacement.addEventListener('change', () => {
+  if (!player) return;
+  try { player.setAppearance({ eyePlacement: eyePlacement.value }); refresh(); } catch (error) { showError(error); }
 });
 element('accessories').addEventListener('change', () => {
   if (!player) return;

@@ -43,9 +43,11 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.match(html, /Local demo fixture/);
   assert.match(html, /State changes stay in this page/);
   assert.match(html, /value="did:oas:openagent:agent:preview"/);
-  for (const id of ['skin', 'shape', 'view', 'activity', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated', 'replay', 'timeline', 'code-example']) {
+  for (const id of ['skin', 'shape', 'view', 'finish', 'eye-placement', 'accessories', 'activity', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated', 'replay', 'timeline', 'code-example']) {
     assert.ok(html.includes(`id="${id}"`));
   }
+  assert.match(html, /id="finish"[^>]*><option value="plush">Soft plush<\/option><option value="flat">Flat vector<\/option>/);
+  assert.match(html, /id="eye-placement"[^>]*><option value="face">On face<\/option><option value="raised">Raised<\/option>/);
   assert.ok(!/https?:\/\//.test(html));
   const script = await fetch(endpoint('/demo.js'));
   assert.equal(script.status, 200);
@@ -55,6 +57,9 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.ok(javascript.includes('mountCharacter(preview, did'));
   assert.ok(javascript.includes('player.update('));
   assert.ok(javascript.includes('player.setAppearance('));
+  assert.ok(javascript.includes('player.setAppearance({ finish: finish.value })'));
+  assert.ok(javascript.includes('player.setAppearance({ eyePlacement: eyePlacement.value })'));
+  assert.ok(javascript.includes('finish: finish.value, eyePlacement: eyePlacement.value'));
   assert.ok(javascript.includes("animated.checked ? 'system' : true"));
   assert.ok(!javascript.includes('fetch('));
   assert.ok(javascript.includes('prefers-reduced-motion'));
@@ -121,6 +126,32 @@ test('completes HTTP catalog, descriptor, SVG and POST generation using the real
   assert.equal(generated.headers.get('etag'), null);
   cors(generated);
   assert.deepEqual(await generated.json(), descriptor);
+});
+
+test('serves strict shared finish and eye placement through the actual HTTP adapter', async () => {
+  for (const finish of ['plush', 'flat']) {
+    for (const eyePlacement of ['face', 'raised']) {
+      const options = { skin: 'christmas', shape: 'snowman', finish, eyePlacement,
+        accessories: ['glasses', 'headphones'], animated: false, state: { status: 'reasoning' } };
+      const expected = generateCharacter(did, options);
+      const query = '?skin=christmas&shape=snowman&finish=' + finish + '&eyePlacement=' + eyePlacement +
+        '&accessories=glasses,headphones&animated=false&status=reasoning';
+      const response = await fetch(endpoint(didPath + query));
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), expected);
+      assert.equal(await (await fetch(endpoint(svgPath + query))).text(), expected.svg);
+      const generated = await fetch(endpoint('/v1/characters/generate'), {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ did, ...options }),
+      });
+      assert.equal(generated.status, 200);
+      assert.deepEqual(await generated.json(), expected);
+    }
+  }
+  for (const query of ['?finish=Plush', '?finish=plush&finish=flat', '?eyePlacement=unknown', '?eyePlacement=face&eyePlacement=raised']) {
+    const response = await fetch(endpoint(didPath + query), { headers: { 'if-none-match': '*' } });
+    assert.equal(response.status, 400); assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await response.json(), { error: 'invalid_request' });
+  }
 });
 
 test('serves the default Autos character with native live-v1 animation over HTTP', async () => {

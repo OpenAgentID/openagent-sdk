@@ -1,12 +1,12 @@
 # Quickstart — TypeScript and JavaScript
 
-The SDK 0.4 developer path runs on Node 20+ without a Life account, API key,
+The SDK 0.7 developer path runs on Node 20+ without a Life account, API key,
 hosted resolver or private package. Keys and trust stay on your infrastructure.
 
 ## Start a working application
 
 ```sh
-npx create-openagent@0.4.0 my-agent-app --yes
+npx create-openagent@0.5.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -14,7 +14,9 @@ npm run dev
 
 The starter starts a local HTTP application with an animated agent. In another
 terminal, run `npm run agent` to authenticate an actual request. Autos is the
-default skin; SpaceX uses the same expression state and live eyes.
+default skin, with soft plush and on-face eyes. Every family can instead use
+flat material or raised eyes while retaining the same expression state and
+selected glasses/headphones.
 The starter keeps the signer and receiving application's trust store separate.
 The application explicitly imports the signer's public identity during initial
 setup. Restarting preserves the identity, consumed challenges and revocations.
@@ -27,7 +29,7 @@ your HTTPS transport and storage/authorization policy deliberately.
 ## Add identity to an existing Node application
 
 ```sh
-npm install @openagentid/sdk@0.6.0
+npm install @openagentid/sdk@0.7.0
 ```
 
 This complete first-run example uses two separate persistent workspaces. Run it
@@ -79,6 +81,7 @@ avatar.update({ status: 'reasoning' }); // thoughtful
 avatar.update({ status: 'working' });   // attentive
 avatar.update({ status: 'success' });   // happy
 avatar.setAppearance({ skin: 'spacex' });
+avatar.setAppearance({ finish: 'flat', eyePlacement: 'raised' });
 // Dispose when the component unmounts.
 avatar.dispose();
 ```

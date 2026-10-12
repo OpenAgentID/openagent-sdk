@@ -132,6 +132,41 @@ describe('public local CLI integration', () => {
       .toBe((await command(['avatar', did, '--accessories', 'headphones,glasses'])).out);
   });
 
+  it('renders both finishes and eye placements on every family while retaining selected wearables and actual state', async () => {
+    const did = 'did:oas:openagent:agent:cli-fidelity';
+    for (const skin of getCharacterSkins()) {
+      for (const finish of ['plush', 'flat'] as const) {
+        for (const eyePlacement of ['face', 'raised'] as const) {
+          const result = await command(['avatar', did, '--skin', skin.id, '--finish', finish,
+            '--eye-placement', eyePlacement, '--accessories', 'glasses,headphones', '--status', 'reasoning']);
+          expect(result.code, result.err).toBe(0);
+          expect(result.out).toBe(generateCharacter(did, { skin: skin.id, finish, eyePlacement,
+            accessories: ['glasses', 'headphones'], state: { status: 'reasoning', expression: 'thoughtful', blink: 0, gaze: { x: 0, y: 0 } } }).svg + '\n');
+          expect(result.out).toContain('data-character-expression="thoughtful"');
+        }
+      }
+    }
+    expect((await command(['avatar', did])).out)
+      .toBe((await command(['avatar', did, '--finish', 'plush', '--eye-placement', 'face'])).out);
+  });
+
+  it('refuses invalid or ambiguous material and eye placement flags before touching an output file', async () => {
+    const root = await directory();
+    const output = join(root, 'untouched-fidelity.svg');
+    const did = 'did:oas:openagent:agent:cli-fidelity-refusal';
+    for (const flag of ['--finish', '--eye-placement']) {
+      for (const value of ['', 'unknown', 'null', 'Plush', 'face ', 'raised\n']) {
+        const result = await command(['avatar', did, flag, value, '--output', output]);
+        expect(result.code).toBe(1);
+        expect(result.out).toBe('');
+      }
+      expect((await command(['avatar', did, flag])).code).toBe(1);
+      expect((await command(['avatar', did, flag, 'flat', flag, 'plush'])).code).toBe(1);
+    }
+    await expect(readFile(output, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    expect((await command(['avatar', did, '--eyePlacement', 'raised'])).code).toBe(1);
+  });
+
   it('refuses malformed, duplicate and unknown accessory flags before writing output', async () => {
     const did = 'did:oas:openagent:agent:cli-accessory-refusal';
     for (const selection of ['unknown', 'Glasses', ' glasses', 'glasses ', 'glasses\n',
@@ -186,9 +221,11 @@ describe('public local CLI integration', () => {
       ['doctor', '--unknown', 'value'], ['agent', 'unknown'], ['--version', 'extra'],
     ]) expect((await command(args)).code).toBe(1);
     const version = await command(['--version']);
-    expect(version.out).toBe('0.6.0\n');
+    expect(version.out).toBe('0.7.0\n');
     expect((await command(['--help'])).out).toContain('oaid agent trust');
     expect((await command(['--help'])).out).toContain('oaid avatar accessories');
     expect((await command(['--help'])).out).toContain('--accessories glasses,headphones');
+    expect((await command(['--help'])).out).toContain('--finish plush|flat');
+    expect((await command(['--help'])).out).toContain('--eye-placement face|raised');
   });
 });

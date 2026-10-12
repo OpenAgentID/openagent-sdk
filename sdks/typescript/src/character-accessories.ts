@@ -15,7 +15,7 @@ const catalog: readonly CharacterAccessoryDescription[] = Object.freeze([
   Object.freeze({ id: 'glasses' as const, label: 'Glasses',
     description: 'Thin rounded frames with transparent lenses; the shared live eyes remain visible.' }),
   Object.freeze({ id: 'headphones' as const, label: 'Headphones',
-    description: 'A compact headband and padded ear cups, independent of the character family.' }),
+    description: 'An external headband and padded ear cups fitted to the head, with room reserved in the avatar crop.' }),
 ]);
 
 /** Immutable catalog. Accessories can be combined and default to none. */
@@ -37,53 +37,70 @@ export function parseCharacterAccessories(value: unknown): readonly CharacterAcc
   return selected.size === 0 ? empty : Object.freeze(order.filter(item => selected.has(item)));
 }
 
-type Tag = 'g' | 'path' | 'rect';
-const node = (tag: Tag, attributes: Readonly<Record<string, string>>,
+export interface CharacterHeadAnchor { readonly left: number; readonly right: number; readonly top: number; readonly sideY: number }
+export interface CharacterGaze { readonly x: number; readonly y: number }
+export interface AccessoryMotion { readonly poses: readonly CharacterGaze[]; readonly duration: number }
+const number = (value: number): string => String(Number(value.toFixed(4)));
+const node = (tag: string, attributes: Readonly<Record<string, string>>,
   children?: readonly CharacterArtNode[]): CharacterArtNode => Object.freeze({
   tag, attributes: Object.freeze({ ...attributes }),
   ...(children ? { children: Object.freeze([...children]) } : {}),
 });
+const defaultHead: CharacterHeadAnchor = { left: 100, right: 412, top: 96, sideY: 264 };
+const timing = (motion: AccessoryMotion): Record<string, string> => ({
+  keyTimes: '0;0.35;0.7;1', calcMode: 'spline', keySplines: '0.4 0 0.2 1;0.4 0 0.2 1;0.4 0 0.2 1',
+  dur: `${number(motion.duration)}s`, begin: '0s', repeatCount: 'indefinite',
+});
 
-// The common face center is (256,264). All painted geometry, including strokes,
-// fits within radius 100, inside every current circular avatar crop. The renderer
-// places this stationary layer before the live eyes, preserving extreme poses.
-const glasses = node('g', { 'data-character-accessory': 'glasses', 'aria-hidden': 'true' }, [
-  // A light keyline around the dark rim stays readable on both dark and pale
-  // bodies. Both strokes are hollow; the lens interiors remain transparent.
-  node('path', { d: 'M191 242H180M321 242H332', fill: 'none', stroke: '#BBC4D1',
-    'stroke-width': '8', 'stroke-linecap': 'round' }),
-  node('rect', { x: '191', y: '220', width: '62', height: '86', rx: '23',
-    fill: 'none', stroke: '#BBC4D1', 'stroke-width': '10' }),
-  node('rect', { x: '259', y: '220', width: '62', height: '86', rx: '23',
-    fill: 'none', stroke: '#BBC4D1', 'stroke-width': '10' }),
-  node('path', { d: 'M253 245Q256 241 259 245', fill: 'none', stroke: '#BBC4D1',
-    'stroke-width': '8', 'stroke-linecap': 'round' }),
-  node('path', { d: 'M191 242H180M321 242H332', fill: 'none', stroke: '#243247',
-    'stroke-width': '5', 'stroke-linecap': 'round' }),
-  node('rect', { x: '191', y: '220', width: '62', height: '86', rx: '23',
-    fill: 'none', stroke: '#243247', 'stroke-width': '6' }),
-  node('rect', { x: '259', y: '220', width: '62', height: '86', rx: '23',
-    fill: 'none', stroke: '#243247', 'stroke-width': '6' }),
-  node('path', { d: 'M253 245Q256 241 259 245', fill: 'none', stroke: '#243247',
-    'stroke-width': '5', 'stroke-linecap': 'round' }),
-  node('path', { d: 'M199 232Q202 224 211 224M267 232Q270 224 279 224', fill: 'none',
-    stroke: '#8291A8', 'stroke-width': '2', 'stroke-linecap': 'round' }),
-]);
+/** Glasses use the very same gaze sample as the eyes; expression/blink never resize the frame. */
+export function characterGlassesPose(head: CharacterHeadAnchor, gaze: CharacterGaze, eyeOffset = 0, eyeCenterY = 264): { transform: string; temples: string } {
+  const x = gaze.x * 20, y = gaze.y * 14 + eyeCenterY - 264;
+  const left = 191 - eyeOffset + x, right = 321 + eyeOffset + x, hingeY = 246 + y;
+  return {
+    transform: `translate(${number(x)} ${number(y)})`,
+    temples: `M${number(head.left)} ${number(head.sideY)}Q${number((head.left + left) / 2)} ${number(hingeY - 9)} ${number(left)} ${number(hingeY)}M${number(head.right)} ${number(head.sideY)}Q${number((head.right + right) / 2)} ${number(hingeY - 9)} ${number(right)} ${number(hingeY)}`,
+  };
+}
 
-const headphones = node('g', { 'data-character-accessory': 'headphones', 'aria-hidden': 'true' }, [
-  node('path', { d: 'M175 246Q175 184 224 184H288Q337 184 337 246',
-    fill: 'none', stroke: '#243247', 'stroke-width': '8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
-  node('path', { d: 'M180 240Q180 192 224 192H288Q332 192 332 240',
-    fill: 'none', stroke: '#8291A8', 'stroke-width': '2', 'stroke-linecap': 'round' }),
-  node('rect', { x: '164', y: '238', width: '22', height: '62', rx: '11', fill: '#243247' }),
-  node('rect', { x: '326', y: '238', width: '22', height: '62', rx: '11', fill: '#243247' }),
-  node('rect', { x: '169', y: '245', width: '11', height: '48', rx: '5.5', fill: '#63788F' }),
-  node('rect', { x: '332', y: '245', width: '11', height: '48', rx: '5.5', fill: '#63788F' }),
-]);
-const art: Readonly<Record<CharacterAccessory, CharacterArtNode>> = Object.freeze({ glasses, headphones });
+function glasses(head: CharacterHeadAnchor, gaze: CharacterGaze, eyeOffset: number, motion: AccessoryMotion | undefined, eyeCenterY: number): CharacterArtNode {
+  const pose = characterGlassesPose(head, gaze, eyeOffset, eyeCenterY);
+  const frames: CharacterArtNode[] = [];
+  for (const [stroke, width] of [['#BBC4D1', '9'], ['#243247', '5']] as const) {
+    for (const x of [191 - eyeOffset, 259 + eyeOffset]) frames.push(node('rect', {
+      x: number(x), y: '206', width: '62', height: '116', rx: '28', fill: 'none', stroke, 'stroke-width': width,
+    }));
+    frames.push(node('path', { d: `M${253 - eyeOffset} 246Q256 240 ${259 + eyeOffset} 246`, fill: 'none', stroke, 'stroke-width': width, 'stroke-linecap': 'round' }));
+  }
+  frames.push(node('path', { d: `M${199 - eyeOffset} 224Q${202 - eyeOffset} 214 ${213 - eyeOffset} 212M${267 + eyeOffset} 224Q${270 + eyeOffset} 214 ${281 + eyeOffset} 212`, fill: 'none', stroke: '#e2e8f0', 'stroke-width': '1.5', 'stroke-linecap': 'round' }));
+  const animated = motion ? [node('animateTransform', { attributeName: 'transform', type: 'translate',
+    values: motion.poses.map(p => `${number(p.x * 20)} ${number(p.y * 14 + eyeCenterY - 264)}`).join(';'), ...timing(motion) })] : [];
+  return node('g', { 'data-character-accessory': 'glasses', 'aria-hidden': 'true' }, [
+    ...(['#BBC4D1', '#243247'] as const).map((stroke, index) => node('path', {
+      'data-glasses-temples': 'true', d: pose.temples, fill: 'none', stroke, 'stroke-width': index ? '4' : '7', 'stroke-linecap': 'round',
+    }, motion ? [node('animate', { attributeName: 'd', values: motion.poses.map(p => characterGlassesPose(head, p, eyeOffset, eyeCenterY).temples).join(';'), ...timing(motion) })] : undefined)),
+    node('g', { 'data-glasses-frames': 'true', transform: pose.transform }, [...animated, ...frames]),
+  ]);
+}
 
-/** Closed SVG art only; no caller markup, external resources, IDs or eye geometry. */
-export function characterAccessories(accessories: readonly CharacterAccessory[]): CharacterArtNode {
+function headphones(head: CharacterHeadAnchor): CharacterArtNode {
+  const { left, right, top, sideY } = head;
+  const middle = (left + right) / 2;
+  const band = `M${number(left - 9)} ${number(sideY - 9)}Q${number(left - 9)} ${number(top - 22)} ${number(middle)} ${number(top - 22)}Q${number(right + 9)} ${number(top - 22)} ${number(right + 9)} ${number(sideY - 9)}`;
+  return node('g', { 'data-character-accessory': 'headphones', 'aria-hidden': 'true' }, [
+    node('path', { d: band, fill: 'none', stroke: '#141c2a', 'stroke-width': '13', 'stroke-linecap': 'round' }),
+    node('path', { d: band, fill: 'none', stroke: '#66788f', 'stroke-width': '6', 'stroke-linecap': 'round' }),
+    ...[left - 29, right + 2].flatMap(x => [
+      node('rect', { x: number(x), y: number(sideY - 33), width: '27', height: '66', rx: '12', fill: '#182231', stroke: '#92a2b8', 'stroke-width': '1.5' }),
+      node('rect', { x: number(x + 6), y: number(sideY - 25), width: '14', height: '50', rx: '7', fill: '#41556e' }),
+      node('path', { d: `M${number(x + 10)} ${number(sideY - 18)}Q${number(x + 8)} ${number(sideY)} ${number(x + 10)} ${number(sideY + 18)}`, fill: 'none', stroke: '#94a5bb', 'stroke-width': '2', 'stroke-linecap': 'round' }),
+    ]),
+  ]);
+}
+
+/** Closed SVG art only; head anchors are package geometry, never caller markup. */
+export function characterAccessories(accessories: readonly CharacterAccessory[], head: CharacterHeadAnchor = defaultHead,
+  gaze: CharacterGaze = { x: 0, y: 0 }, eyeOffset = 0, motion?: AccessoryMotion, eyeCenterY = 264): CharacterArtNode {
   const selected = parseCharacterAccessories(accessories);
-  return node('g', { 'data-character-accessories': 'true' }, selected.map(item => art[item]));
+  return node('g', { 'data-character-accessories': 'true' }, selected.map(item =>
+    item === 'glasses' ? glasses(head, gaze, eyeOffset, motion, eyeCenterY) : headphones(head)));
 }

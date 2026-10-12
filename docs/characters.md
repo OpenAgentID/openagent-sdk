@@ -43,6 +43,30 @@ a stable kind from the DID within the selected family. The twelve crafted
 families and three holiday families use curated material palettes. Autos and
 SpaceX preserve their original DID-selected shapes and colors.
 
+## Finish, eye placement and wearables
+
+All 17 families and 62 kinds share `finish: 'plush' | 'flat'` and
+`eyePlacement: 'face' | 'raised'`. Defaults are soft plush and on-face eyes.
+The plush finish adds bounded SVG material shading and texture; flat uses the
+vector material. Raised placement puts the same two live-v1 bars on soft pods
+above the head. Both placements support all eighteen expressions, shared gaze
+and height-based blinking. These choices do not change the literal DID,
+identity-selected shape/color, preferred expression or current activity state.
+
+Glasses and headphones remain optional, independent and combinable through
+`accessories: ['glasses', 'headphones']`. Fixed-size transparent glass lenses
+follow the live gaze, with temples connecting to the sides of the head; blinking
+and expression changes never resize the lenses. Headphones sit outside the actual
+head. Avatar framing reserves room for the selected wearables and raised eyes
+at every allowed gaze, so the crop does not change during animation. Removing
+headphones or changing eye placement may change the framing once.
+
+Unknown or malformed selectors, null values, duplicate query parameters and
+unrecognized fields are refused. `finish` and `eyePlacement` belong in appearance
+options or `avatarSkin`, never in `state`. Omitted stored fields remain omitted;
+the renderer resolves them to plush/face. The descriptor always includes their
+resolved values.
+
 ## Face framing
 
 Every renderer defaults to `view: 'avatar'`, a square crop around the eyes and
@@ -62,10 +86,10 @@ import {
 } from '@openagentid/sdk';
 
 const did = 'did:oas:openagent:agent:preview';
-const autos = generateCharacter(did); // Autos face crop, neutral, animated, size 512
+const autos = generateCharacter(did); // Autos, plush, on-face eyes, face crop, neutral, animated, size 512
 const spacex = generateCharacter(did, {
   skin: 'spacex', skinVersion: 1, eyeStyle: 'live-v1',
-  shape: 'cloud', expression: 'curious', size: 256,
+  shape: 'cloud', finish: 'flat', eyePlacement: 'raised', expression: 'curious', size: 256,
 });
 const staticSvg = renderCharacterSvg(did, {
   skin: 'autos', expression: 'happy', animated: false,
@@ -80,8 +104,9 @@ const current = parseCharacterState({ status: 'blocked' });
 // Immutable full state: status blocked, expression concerned, blink 0, gaze 0/0.
 ```
 
-`generateCharacter` returns the DID, skin, skinVersion, eyeStyle, selected shape,
-expression, color, view, size, animation choice, normalized eye state and SVG.
+`generateCharacter` returns the DID, skin, skinVersion, eyeStyle, finish,
+eyePlacement, selected shape, accessories, expression, color, view, size,
+animation choice, normalized eye state and SVG.
 `getCharacterSkins()` returns the immutable versioned catalog with each skin's
 supported shapes and expressions. `getCharacterExpressions()` lists shared IDs.
 `getCharacterStatuses()` returns immutable `{status,expression}` mappings:
@@ -125,8 +150,8 @@ producer's literal DID; never derive one from a handle or a separate agent ID.
 Validation refuses other entity kinds, malformed ULIDs and normalization. Deterministic
 body/color selection uses BLAKE3 over the exact UTF-8 string
 `oaid-character-v1\0${skin}\0${did}`; the DID is never rewritten. Shape overrides
-must belong to their skin. Expression, size, gaze and blink do not affect the
-identity-derived body/color seed. Full illustrations use a 512 by 512 viewBox;
+must belong to their skin. Expression, finish, eye placement, accessories, size, gaze and blink do not
+affect the identity-derived body/color seed. Full illustrations use a 512 by 512 viewBox;
 avatar viewBoxes frame each kind's face without changing its geometry.
 
 ## Profiles and Orbit
@@ -135,14 +160,14 @@ Persist body/face appearance separately from preferred expression:
 
 ```json
 {
-  "avatarSkin": { "skin": "autos", "skinVersion": 1, "eyeStyle": "live-v1" },
+  "avatarSkin": { "skin": "autos", "skinVersion": 1, "eyeStyle": "live-v1", "finish": "plush", "eyePlacement": "face", "accessories": ["glasses"] },
   "avatarExpression": "curious",
   "avatarOverride": null
 }
 ```
 
-These optional fields are validated by `identityDocumentSchema`. Shape is an
-optional `avatarSkin` field; runtime status/expression/blink/gaze are presentation state, not
+These optional fields are validated by `identityDocumentSchema`. Shape, finish, eyePlacement and accessories are
+optional `avatarSkin` fields; runtime status/expression/blink/gaze are presentation state, not
 identity claims. Hosts authorize profile edits through their existing owner
 and agent policy. The open renderer cannot edit a profile.
 
@@ -179,6 +204,7 @@ player.update({ expression: 'curious' }); // overrides the current reasoning sta
 player.update({ expression: null }); // restores reasoning → thoughtful
 player.setAppearance({ skin: 'spacex' }); // same DID/state, new skin; clears old shape
 player.setAppearance({ skin: 'christmas', shape: 'snowman' }); // keep status and eye timeline
+player.setAppearance({ finish: 'flat', eyePlacement: 'raised' }); // same state and wearables
 player.setAppearance({ view: 'full' }); // illustration; use avatar for profile faces
 player.setAppearance({ shape: null }); // restore the identity-selected shape
 player.setReducedMotion(true);
@@ -190,7 +216,7 @@ player.dispose();
 Player options extend `CharacterOptions` with `reducedMotion:boolean|'system'`
 (default `'system'`) and `transitionMs` (default 420ms). The controller also
 supports `setReducedMotion(boolean|'system')` and
-`setAppearance({skin?,shape?:Shape|null,size?,view?:'avatar'|'full'})`. Changing skin without an
+`setAppearance({skin?,shape?:Shape|null,size?,view?,finish?,eyePlacement?,accessories?})`. Changing skin without an
 explicit shape clears the prior shape; an explicit null shape restores the
 identity default. Updates preserve the literal DID and identity-derived color
 selection for the selected skin. `update({expression:null})` is a **controller
@@ -252,6 +278,7 @@ preview in `services/character-api` provide a deployable reference.
 | Method | Path | Result |
 | --- | --- | --- |
 | GET / HEAD | `/v1/characters/skins` | Versioned skin/shape/expression catalog |
+| GET / HEAD | `/v1/characters/accessories` | Independent glasses/headphones catalog |
 | GET / HEAD | `/v1/characters/statuses` | Shared runtime status-to-expression mappings |
 | GET / HEAD | `/v1/characters/:did` | Character descriptor and SVG |
 | GET / HEAD | `/v1/characters/svg/:did` | `image/svg+xml` |
@@ -276,7 +303,8 @@ curl "$OAID_CHARACTER_API/v1/characters/generate" \
   --data '{"did":"did:oas:openagent:agent:preview","skin":"autos","expression":"happy","state":{"status":"reasoning","expression":"curious"}}'
 ```
 
-GET options: `skin`, `skinVersion`, `eyeStyle`, `shape`, `view`, `expression`, `status`, `size`,
+GET options: `skin`, `skinVersion`, `eyeStyle`, `finish`, `eyePlacement`, `shape`,
+`view`, `accessories`, `expression`, `status`, `size`,
 `animated`, `blink`, `gazeX`, `gazeY`. POST takes the corresponding SDK options,
 with `state:{status?,expression?,blink?,gaze?:{x,y}}`. GET `status` is
 `state.status`; GET `expression` remains the outer preferred-expression
@@ -286,7 +314,9 @@ Gaze coordinates must be supplied together.
 Size is an integer 32–2048; blink is 0–1; each gaze coordinate is -1–1.
 Unknown fields, duplicate query parameters, unsupported versions, malformed
 JSON/DIDs and incompatible shape/skin combinations are refused.
-The `/skins`, `/statuses` and `/openapi.json` catalogs accept no query options.
+The `/skins`, `/accessories`, `/statuses` and `/openapi.json` catalogs accept no query options.
+GET accessories use comma-separated IDs; POST uses a unique array. Both normalize
+to catalog order; omitted or empty selections mean no accessories.
 They support GET, HEAD, validators, conditional 304 and public CORS preflight.
 
 The body limit is 16 KiB, the URL limit 8192 bytes and the DID limit 512
@@ -308,6 +338,7 @@ chain, revocation status, identity registration or authority. Use the separate
 
 ```sh
 oaid avatar skins
+oaid avatar accessories
 oaid avatar did:oas:openagent:agent:preview --skin halloween --shape pumpkin --status reasoning --output pumpkin.svg
 oaid avatar did:oas:openagent:agent:preview --skin christmas --shape tree --view full --output tree.svg
 ```
@@ -316,6 +347,16 @@ oaid avatar did:oas:openagent:agent:preview --skin christmas --shape tree --view
 No login, network service or API key is needed for character generation.
 
 ## Versioning and release
+
+SDK 0.7.0 makes plush the shared default material, refines gaze-following glasses
+and external headphones, and adds raised eye placement. This is an intentional
+pre-1.0 visual update: pass `finish:'flat'` for vector material. Framing now
+includes the selected exterior wearables and raised eyes. Stored appearance v1
+and live-v1 stay current, with two optional selectors; literal DIDs, the seed and
+identity authentication stay unchanged. Existing closed consumer profile schemas
+must admit the optional fields before saving them. See the
+[0.7.0 release contents](release-0.7.0.md).
+
 
 SDK 0.5.0 adds the expanded families and makes face framing the default across
 SVG generation, live players, HTTP, CLI and profile fallbacks. This is an

@@ -82,6 +82,8 @@ export const characterAppearanceSchema = z.object({
   skin: z.enum(getCharacterSkins().map(entry => entry.id) as [CharacterAppearance['skin'], ...CharacterAppearance['skin'][]]),
   skinVersion: z.literal(1).optional(),
   eyeStyle: z.literal('live-v1').optional(),
+  finish: z.enum(['plush', 'flat']).optional(),
+  eyePlacement: z.enum(['face', 'raised']).optional(),
   shape: z.enum([...new Set(getCharacterSkins().flatMap(entry => entry.shapes))] as [NonNullable<CharacterAppearance['shape']>, ...NonNullable<CharacterAppearance['shape']>[]]).optional(),
   accessories: z.array(z.enum(['glasses', 'headphones'])).max(2).transform((value, context) => {
     try { return parseCharacterAccessories(value); }

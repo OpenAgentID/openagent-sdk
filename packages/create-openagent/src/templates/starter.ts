@@ -9,7 +9,7 @@ export function generateStarterTemplate(projectName: string): TemplateFile[] {
       type: 'module', engines: { node: '>=20' }, scripts: {
         dev: 'node src/server.mjs', agent: 'node src/agent.mjs', identity: 'node src/identity.mjs',
         test: 'node --test test/*.test.mjs',
-      }, dependencies: { '@openagentid/sdk': '0.6.0' } }, null, 2) + '\n' },
+      }, dependencies: { '@openagentid/sdk': '0.7.0' } }, null, 2) + '\n' },
     { path: '.gitignore', content: 'node_modules/\n.openagent/\ncoverage/\n.env\n' },
     { path: 'src/workspaces.mjs', content: workspaces },
     { path: 'src/server.mjs', content: server },
@@ -291,6 +291,8 @@ const html = String.raw`<!doctype html>
 <p id="identity"></p><div class="controls"><label>Family <select id="skin"></select></label>
 <label>Kind <select id="shape"></select></label>
 <label>Expression <select id="expression"><option value="">Follow actual status</option></select></label></div>
+<div class="controls"><label>Finish <select id="finish"><option value="plush">Soft plush</option><option value="flat">Flat vector</option></select></label>
+<label>Eyes <select id="eye-placement"><option value="face">On face</option><option value="raised">Raised</option></select></label></div>
 <fieldset><legend>Accessories</legend><div id="accessories" class="controls"></div></fieldset>
 <p>In another terminal, run:</p><pre>npm run agent -- "Hello from my agent"</pre>
 <p>This viewer is read-only. A completed request appears after the receiver verifies a fresh signed proof.</p>
@@ -302,6 +304,8 @@ const viewer = String.raw`import { mountCharacter, getCharacterExpressions, getC
 
 const skin = document.querySelector('#skin');
 const shape = document.querySelector('#shape');
+const finish = document.querySelector('#finish');
+const eyePlacement = document.querySelector('#eye-placement');
 const catalog = getCharacterSkins();
 const accessories = document.querySelector('#accessories');
 const selectedAccessories = () => Array.from(accessories.querySelectorAll('input:checked'), input => input.value);
@@ -327,6 +331,8 @@ for (const value of getCharacterExpressions()) {
 let player, did, revision = -1, latestStatus = 'idle', stopped = false, timer;
 skin.addEventListener('change', () => { kinds(); player?.setAppearance({ skin: skin.value }); });
 shape.addEventListener('change', () => player?.setAppearance({ shape: shape.value || null }));
+finish.addEventListener('change', () => player?.setAppearance({ finish: finish.value }));
+eyePlacement.addEventListener('change', () => player?.setAppearance({ eyePlacement: eyePlacement.value }));
 accessories.addEventListener('change', () => player?.setAppearance({ accessories: selectedAccessories() }));
 expression.addEventListener('change', () => player?.update({ status: latestStatus, expression: expression.value || null }));
 async function refresh() {
@@ -339,7 +345,7 @@ async function refresh() {
         !['idle', 'working', 'success'].includes(state.status) || !Number.isSafeInteger(state.completedRequests) || state.completedRequests < 0) throw new Error('Invalid receiver state.');
     if (!player || state.did !== did) {
       player?.dispose(); document.querySelector('#avatar').replaceChildren();
-      did = state.did; player = mountCharacter(document.querySelector('#avatar'), did, { skin: skin.value, accessories: selectedAccessories(), ...(shape.value ? { shape: shape.value } : {}), size: 280, reducedMotion: 'system' });
+      did = state.did; player = mountCharacter(document.querySelector('#avatar'), did, { skin: skin.value, finish: finish.value, eyePlacement: eyePlacement.value, accessories: selectedAccessories(), ...(shape.value ? { shape: shape.value } : {}), size: 280, reducedMotion: 'system' });
       identity.textContent = did; revision = -1;
     }
     if (state.revision !== revision) {
@@ -361,7 +367,7 @@ Requires Node 20+. Run npm install, then npm run dev. Open the numeric loopback 
 
     npm run agent -- "Hello from my agent"
 
-The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, 16 optional families (including SpaceX and seasonal characters), distinct kinds, face framing, combinable glasses/headphones and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
+The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, 16 optional families (including SpaceX and seasonal characters), distinct kinds, face framing, combinable glasses/headphones, soft plush by default with a flat-vector option, on-face or raised eyes and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
 
 On first setup, src/workspaces.mjs creates two separate local authorities, persists a unique receiver audience and explicitly imports the signer's public DID/key document into the receiver with trustIdentity. The receiver has no signing key for that agent. The public export is .openagent/identity.json. Private keys, challenge and replay state remain under .openagent/ and are excluded from git. Inspect public identity with npm run identity -- export. Never publish .openagent/ or serve it as static assets.
 
@@ -506,6 +512,12 @@ test('host, browser-origin, closed-schema and private/static paths are refused',
   const markup = await viewer.text();
   assert.match(markup, /<select id="skin"><\/select>/);
   assert.match(markup, /<select id="shape"><\/select>/);
+  assert.match(markup, /<select id="finish"><option value="plush">Soft plush<\/option><option value="flat">Flat vector<\/option>/);
+  assert.match(markup, /<select id="eye-placement"><option value="face">On face<\/option><option value="raised">Raised<\/option>/);
+  const viewerScript = await (await fetch(f.app.url + '/viewer.js')).text();
+  assert.match(viewerScript, /setAppearance\(\{ finish: finish.value \}\)/);
+  assert.match(viewerScript, /setAppearance\(\{ eyePlacement: eyePlacement.value \}\)/);
+  assert.match(viewerScript, /skin: skin.value, finish: finish.value, eyePlacement: eyePlacement.value, accessories: selectedAccessories\(\)/);
   const script = await fetch(f.app.url + '/character-player.js');
   assert.equal(script.status, 200); assert.match(await script.text(), /mountCharacter/);
   const huge = await post(f.app, '/request', { value: 'x'.repeat(25000) }); assert.equal(huge.status, 413);
