@@ -2,17 +2,56 @@
 
 An agent has a stable DID, a body/face **skin**, a preferred **avatar expression**,
 and optional runtime **status/expression state**.
-Autos is the default skin: a simple vertical capsule character. SpaceX is the
-second skin: circle, pebble, squircle, capsule, triangle, hexagon, cloud or
-droplet. Changing skin preserves identity and the selected expression.
+Autos is the default family: a simple vertical capsule character. The catalog
+contains 17 families and 62 distinct kinds. Changing family or kind preserves
+identity, current status and expression. The API keeps the field names `skin`
+for family and `shape` for kind.
 
-Both skins share `live-v1` eyes: two white rounded pill bars. Blinking shrinks
+All families share `live-v1` eyes: two white rounded pill bars. Blinking shrinks
 each bar's height about its center; gaze moves both around the face. Eighteen
 expressions adjust the same bars: neutral, attentive, surprised, excited, happy,
 laughing, angry, sad, scared, suspicious, confused, curious, proud, shy,
 unimpressed, sleepy, thoughtful and concerned. Expressions never select a
 different body or color. Peeps are persistent agents, not an avatar skin;
-the skin names remain Autos and SpaceX.
+Autos and SpaceX retain their names.
+
+## Families and kinds
+
+| Family (`skin`) | Kinds (`shape`) |
+| --- | --- |
+| Autos (default) | standard, slender, wide |
+| SpaceX | circle, pebble, squircle, capsule, triangle, hexagon, cloud, droplet |
+| Fold | standard, kite, fan |
+| Sprig | standard, bud, leaf |
+| Ripple | standard, drop, wave |
+| Halo | standard, comet, satellite |
+| Purl | standard, mitt, hood |
+| Prism | standard, crystal, obelisk |
+| Coil | standard, spring, bellows |
+| Kiln | standard, vase, teapot |
+| Wisp | standard, flame, curl |
+| Relay | standard, radio, beacon |
+| Cairn | standard, tower, arch |
+| Tuft | standard, pom, bear |
+| Halloween | pumpkin, ghost, bat, witch-hat, candy-corn |
+| Thanksgiving | turkey, acorn, squash, pie, corn |
+| Christmas | light, tree, snowman, ornament, gift |
+
+These are distinct silhouettes with shared eyes. Holiday selection is explicit;
+there is no date-based switch of an agent's appearance. Omit `shape` to choose
+a stable kind from the DID within the selected family. The twelve crafted
+families and three holiday families use curated material palettes. Autos and
+SpaceX preserve their original DID-selected shapes and colors.
+
+## Face framing
+
+Every renderer defaults to `view: 'avatar'`, a square crop around the eyes and
+upper head. Tall Autos therefore show their face rather than shrinking their
+whole body into a profile circle. Clients can apply their usual circle or
+rounded-square mask. Choose `view: 'full'` for a full-character illustration.
+The face anchor and crop are package-owned per kind; clients never need to
+calculate eye offsets. `view` belongs to rendering options, not persisted
+`avatarSkin` or live state. `agentAvatar` uses the same crop as the live player.
 
 ## SDK
 
@@ -23,7 +62,7 @@ import {
 } from '@openagentid/sdk';
 
 const did = 'did:oas:openagent:agent:preview';
-const autos = generateCharacter(did); // Autos, neutral, animated, size 512
+const autos = generateCharacter(did); // Autos face crop, neutral, animated, size 512
 const spacex = generateCharacter(did, {
   skin: 'spacex', skinVersion: 1, eyeStyle: 'live-v1',
   shape: 'cloud', expression: 'curious', size: 256,
@@ -42,7 +81,7 @@ const current = parseCharacterState({ status: 'blocked' });
 ```
 
 `generateCharacter` returns the DID, skin, skinVersion, eyeStyle, selected shape,
-expression, color, size, animation choice, normalized eye state and SVG.
+expression, color, view, size, animation choice, normalized eye state and SVG.
 `getCharacterSkins()` returns the immutable versioned catalog with each skin's
 supported shapes and expressions. `getCharacterExpressions()` lists shared IDs.
 `getCharacterStatuses()` returns immutable `{status,expression}` mappings:
@@ -87,7 +126,8 @@ Validation refuses other entity kinds, malformed ULIDs and normalization. Determ
 body/color selection uses BLAKE3 over the exact UTF-8 string
 `oaid-character-v1\0${skin}\0${did}`; the DID is never rewritten. Shape overrides
 must belong to their skin. Expression, size, gaze and blink do not affect the
-identity-derived body/color seed. The viewBox is always 512 by 512.
+identity-derived body/color seed. Full illustrations use a 512 by 512 viewBox;
+avatar viewBoxes frame each kind's face without changing its geometry.
 
 ## Profiles and Orbit
 
@@ -138,6 +178,8 @@ player.update({ status: 'reasoning' }); // thoughtful; clears a prior explicit o
 player.update({ expression: 'curious' }); // overrides the current reasoning status
 player.update({ expression: null }); // restores reasoning → thoughtful
 player.setAppearance({ skin: 'spacex' }); // same DID/state, new skin; clears old shape
+player.setAppearance({ skin: 'christmas', shape: 'snowman' }); // keep status and eye timeline
+player.setAppearance({ view: 'full' }); // illustration; use avatar for profile faces
 player.setAppearance({ shape: null }); // restore the identity-selected shape
 player.setReducedMotion(true);
 const snapshot = player.getState(); // full immutable status/expression/blink/gaze
@@ -148,7 +190,7 @@ player.dispose();
 Player options extend `CharacterOptions` with `reducedMotion:boolean|'system'`
 (default `'system'`) and `transitionMs` (default 420ms). The controller also
 supports `setReducedMotion(boolean|'system')` and
-`setAppearance({skin?,shape?:Shape|null,size?})`. Changing skin without an
+`setAppearance({skin?,shape?:Shape|null,size?,view?:'avatar'|'full'})`. Changing skin without an
 explicit shape clears the prior shape; an explicit null shape restores the
 identity default. Updates preserve the literal DID and identity-derived color
 selection for the selected skin. `update({expression:null})` is a **controller
@@ -234,7 +276,7 @@ curl "$OAID_CHARACTER_API/v1/characters/generate" \
   --data '{"did":"did:oas:openagent:agent:preview","skin":"autos","expression":"happy","state":{"status":"reasoning","expression":"curious"}}'
 ```
 
-GET options: `skin`, `skinVersion`, `eyeStyle`, `shape`, `expression`, `status`, `size`,
+GET options: `skin`, `skinVersion`, `eyeStyle`, `shape`, `view`, `expression`, `status`, `size`,
 `animated`, `blink`, `gazeX`, `gazeY`. POST takes the corresponding SDK options,
 with `state:{status?,expression?,blink?,gaze?:{x,y}}`. GET `status` is
 `state.status`; GET `expression` remains the outer preferred-expression
@@ -262,7 +304,27 @@ Generation is free, public presentation. It proves no key possession, owner
 chain, revocation status, identity registration or authority. Use the separate
 [identity verifier](identity-verification.md) when authentication is required.
 
+## CLI
+
+```sh
+oaid avatar skins
+oaid avatar did:oas:openagent:agent:preview --skin halloween --shape pumpkin --status reasoning --output pumpkin.svg
+oaid avatar did:oas:openagent:agent:preview --skin christmas --shape tree --view full --output tree.svg
+```
+
+`oaid avatar skins` prints the same family/kind catalog as the SDK and open API.
+No login, network service or API key is needed for character generation.
+
 ## Versioning and release
+
+SDK 0.5.0 adds the expanded families and makes face framing the default across
+SVG generation, live players, HTTP, CLI and profile fallbacks. This is an
+intentional pre-1.0 visual change: existing calls now show the face. Pass
+`view:'full'` to keep full-body framing. Autos/SpaceX DID selection, stored
+appearance v1, live-v1 expression geometry and authentication behavior are
+unchanged; Autos eyes now sit at the top of the head in either view. See the
+[0.5.0 release contents](release-0.5.0.md).
+
 
 SDK 0.2.1 adds this character API after the separately reviewed 0.2.0 identity
 release. OIDC remains 0.2.0. Skin version 1 and eye style `live-v1` are explicit

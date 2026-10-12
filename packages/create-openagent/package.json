@@ -1,6 +1,6 @@
 {
   "name": "create-openagent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Create a working OpenAgentID app with local identity, real verification and live avatars.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",

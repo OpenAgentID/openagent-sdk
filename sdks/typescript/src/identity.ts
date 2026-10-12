@@ -78,10 +78,10 @@ export interface IdentityProvider {
 
 /** Versioned body/face selection. Runtime expression and gaze are independent. */
 export const characterAppearanceSchema = z.object({
-  skin: z.enum(['autos', 'spacex']),
+  skin: z.enum(getCharacterSkins().map(entry => entry.id) as [CharacterAppearance['skin'], ...CharacterAppearance['skin'][]]),
   skinVersion: z.literal(1).optional(),
   eyeStyle: z.literal('live-v1').optional(),
-  shape: z.enum(['standard', 'slender', 'wide', 'circle', 'pebble', 'squircle', 'capsule', 'triangle', 'hexagon', 'cloud', 'droplet']).optional(),
+  shape: z.enum([...new Set(getCharacterSkins().flatMap(entry => entry.shapes))] as [NonNullable<CharacterAppearance['shape']>, ...NonNullable<CharacterAppearance['shape']>[]]).optional(),
 }).strict().superRefine((value, context) => {
   const skin = getCharacterSkins().find(entry => entry.id === value.skin)!;
   if (value.shape !== undefined && !skin.shapes.includes(value.shape)) {

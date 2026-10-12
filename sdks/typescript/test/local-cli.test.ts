@@ -104,6 +104,30 @@ describe('public local CLI integration', () => {
     expect((await command(['avatar', did, '--status', 'made-up'])).code).toBe(1);
   });
 
+  it('discovers every family and renders a selected holiday kind in either framing', async () => {
+    const catalog = await command(['avatar', 'skins']);
+    expect(catalog.code, catalog.err).toBe(0);
+    const families = JSON.parse(catalog.out) as { id: string; shapes: string[] }[];
+    expect(families).toHaveLength(17);
+    expect(families.reduce((sum, family) => sum + family.shapes.length, 0)).toBe(62);
+    for (const family of families) {
+      const result = await command(['avatar', 'did:oas:openagent:agent:cli-family', '--skin', family.id,
+        '--shape', family.shapes[0]!, '--status', 'reasoning']);
+      expect(result.code, result.err).toBe(0);
+      expect(result.out).toContain('data-character-view="avatar"');
+      expect(result.out).toContain('data-character-expression="thoughtful"');
+    }
+    const full = await command(['avatar', 'did:oas:openagent:agent:cli-family', '--skin', 'christmas',
+      '--shape', 'snowman', '--view', 'full']);
+    expect(full.code, full.err).toBe(0);
+    expect(full.out).toContain('viewBox="0 0 512 512"');
+    expect(full.out).toContain('data-character-shape="snowman"');
+    for (const flags of [['--skin', 'halloween', '--shape', 'snowman'], ['--view', 'unknown'], ['--shape', 'tree']]) {
+      expect((await command(['avatar', 'did:oas:openagent:agent:cli-family', ...flags])).code).toBe(1);
+    }
+    expect((await command(['avatar', 'skins', '--skin', 'autos'])).code).toBe(1);
+  });
+
   it('rejects mixed authority modes and duplicate or unknown options', async () => {
     for (const args of [
       ['verify', '--local', '--local'],
@@ -112,7 +136,7 @@ describe('public local CLI integration', () => {
       ['doctor', '--unknown', 'value'], ['agent', 'unknown'], ['--version', 'extra'],
     ]) expect((await command(args)).code).toBe(1);
     const version = await command(['--version']);
-    expect(version.out).toBe('0.4.0\n');
+    expect(version.out).toBe('0.5.0\n');
     expect((await command(['--help'])).out).toContain('oaid agent trust');
   });
 });

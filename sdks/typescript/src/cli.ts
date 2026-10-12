@@ -4,12 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { importJWK, type JWK } from 'jose';
 import { verifyIdentityRemote } from './verification-api.js';
 import { oasGlyph } from './glyph.js';
-import { generateCharacter, type CharacterSkin } from './characters.js';
+import { generateCharacter, getCharacterSkins, type CharacterShape, type CharacterView, type CharacterSkin } from './characters.js';
 import { parseCharacterState } from './character-state.js';
 import { OpenAgentWorkspace, type LocalAgentDocument } from './local-workspace.js';
 import type { AgentIdentityProof } from './identity-verification.js';
 
-const usage = `OpenAgentID 0.4.0 — identity on infrastructure you control
+const usage = `OpenAgentID 0.5.0 — identity on infrastructure you control
 
 oaid init [--directory PATH] [--audience AUDIENCE] [--namespace NAME]
 oaid agent create --name NAME [--directory PATH]
@@ -21,7 +21,8 @@ oaid challenge --did DID [--directory PATH]
 oaid prove --did DID --nonce NONCE --audience AUDIENCE [--output FILE] [--directory PATH]
 oaid verify --local --proof FILE --nonce ISSUED_NONCE [--directory PATH]
 oaid doctor [--directory PATH]
-oaid avatar DID [--skin autos|spacex] [--status STATUS] [--expression EXPRESSION] [--size N] [--output FILE]
+oaid avatar skins
+oaid avatar DID [--skin FAMILY] [--shape KIND] [--view avatar|full] [--status STATUS] [--expression EXPRESSION] [--size N] [--output FILE]
 oaid verify --endpoint HTTPS_URL --proof FILE --nonce ISSUED_NONCE
 oaid glyph DID [--output FILE] [--size 32..2048]
 oaid oidc doctor --issuer HTTPS_ISSUER
@@ -141,7 +142,7 @@ export async function oidcDoctor(issuer: string, fetcher: typeof fetch = globalT
 export async function runCli(args: readonly string[], io: CliIO): Promise<number> {
   try {
     if (!args.length || args[0] === '--help' || args[0] === 'help') { io.stdout(usage); return 0; }
-    if (args[0] === '--version' && args.length === 1) { io.stdout('0.4.0\n'); return 0; }
+    if (args[0] === '--version' && args.length === 1) { io.stdout('0.5.0\n'); return 0; }
     if (args[0] === 'init') {
       const flags = options(args.slice(1), ['--directory', '--audience', '--namespace']);
       const created = await OpenAgentWorkspace.initialize(flags['--directory'] ?? '.openagentid', {
@@ -208,15 +209,21 @@ export async function runCli(args: readonly string[], io: CliIO): Promise<number
       io.stdout(JSON.stringify(identity, null, 2) + '\n');
       return 0;
     }
+    if (args[0] === 'avatar' && args[1] === 'skins') {
+      if (args.length !== 2) throw new Error('avatar skins takes no options');
+      await emit(getCharacterSkins(), io);
+      return 0;
+    }
     if (args[0] === 'avatar') {
       if (!args[1]) throw new Error('avatar requires a DID');
-      const flags = options(args.slice(2), ['--skin', '--status', '--expression', '--size', '--output']);
+      const flags = options(args.slice(2), ['--skin', '--shape', '--view', '--status', '--expression', '--size', '--output']);
       const state = parseCharacterState({
         ...(flags['--status'] === undefined ? {} : { status: flags['--status'] }),
         ...(flags['--expression'] === undefined ? {} : { expression: flags['--expression'] }),
       });
       const character = generateCharacter(args[1], {
         skin: (flags['--skin'] ?? 'autos') as CharacterSkin,
+        shape: flags['--shape'] as CharacterShape | undefined, view: flags['--view'] as CharacterView | undefined,
         size: flags['--size'] === undefined ? undefined : Number(flags['--size']), state,
       });
       await emit(character.svg, io, flags['--output']);

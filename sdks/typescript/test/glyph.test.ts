@@ -3,7 +3,7 @@ import { agentAvatar, glyphCodeword, glyphEndpoint, oasGlyph, parseAvatarOverrid
 import { didSchema, resolveConfig } from '../src/config.js';
 import { parseIdentityDocument } from '../src/identity.js';
 import { readFileSync } from 'node:fs';
-import { getCharacterExpressions, renderCharacterSvg } from '../src/characters.js';
+import { getCharacterExpressions, getCharacterSkins, renderCharacterSvg } from '../src/characters.js';
 
 interface ReferenceColor { hex: string; rgba: number[] }
 interface ReferenceVector {
@@ -100,6 +100,40 @@ describe('OAS Glyph avatars', () => {
     expect(() => parseIdentityDocument({ ...document, avatarExpression: 'unknown' })).toThrow();
     expect(() => agentAvatar(did, { avatarSkin: { skin: 'autos', size: 64 } as never })).toThrow();
     expect(() => agentAvatar(did, profile, { expression: null as never })).toThrow();
+  });
+  it('passes avatar/full framing through the profile wrapper for every family and kind', () => {
+    const decode = (url: string): string => decodeURIComponent(url.split(',')[1]!);
+    let kinds = 0;
+    for (const skin of getCharacterSkins()) for (const shape of skin.shapes) {
+      const profile = { avatarSkin: { skin: skin.id, shape }, avatarExpression: 'thoughtful' as const };
+      const cropped = decode(agentAvatar(did, profile, { animated: false, size: 32 }));
+      expect(cropped).toBe(renderCharacterSvg(did, { skin: skin.id, shape, expression: 'thoughtful', size: 32, animated: false }));
+      expect(cropped).toContain('data-character-view="avatar"');
+      const full = decode(agentAvatar(did, profile, { view: 'full', expression: 'concerned', animated: false, size: 128,
+        state: { blink: 0.5, gaze: { x: 1, y: -1 } } }));
+      expect(full).toBe(renderCharacterSvg(did, { skin: skin.id, shape, view: 'full', expression: 'concerned', size: 128,
+        animated: false, state: { blink: 0.5, gaze: { x: 1, y: -1 } } }));
+      expect(full).toContain('viewBox="0 0 512 512"');
+      expect(full).toContain('data-character-view="full"');
+      kinds++;
+    }
+    expect(kinds).toBe(62);
+    // Explicit Glyph and human profiles retain the original Glyph framing/bytes.
+    for (const view of ['avatar', 'full'] as const) {
+      expect(decode(agentAvatar(did, { avatarSkin: null }, { view }))).toBe(oasGlyph(did));
+      const human = did.replace(':agent:', ':hmr:');
+      expect(decode(agentAvatar(human, {}, { view }))).toBe(oasGlyph(human));
+    }
+  });
+  it('rejects invalid view and cross-family profile selectors before rendering a character', () => {
+    for (const view of [null, 'portrait', 'full\n', 1, true, {}]) {
+      expect(() => agentAvatar(did, {}, { view: view as never })).toThrow();
+    }
+    for (const avatarSkin of [
+      { skin: 'fold', shape: 'bud' }, { skin: 'purl', shape: 'teapot' },
+      { skin: 'halloween', shape: 'turkey' }, { skin: 'thanksgiving', shape: 'ornament' },
+      { skin: 'christmas', shape: 'ghost' },
+    ]) expect(() => agentAvatar(did, { avatarSkin: avatarSkin as never })).toThrow();
   });
   it('rejects markup, malformed identifiers, excessive payloads and invalid sizes', () => {
     for (const bad of ['<script/>', did + '"/>', did.replace('z6Mkha', 'z0OIl'), did.replace(/z[^:]+$/, 'z' + 'A'.repeat(80))]) {
