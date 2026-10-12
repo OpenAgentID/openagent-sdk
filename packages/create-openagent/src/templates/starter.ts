@@ -494,7 +494,9 @@ test('host, browser-origin, closed-schema and private/static paths are refused',
   const viewer = await fetch(f.app.url + '/');
   assert.equal(viewer.status, 200); assert.equal(viewer.headers.get('cache-control'), 'no-store');
   assert.match(viewer.headers.get('content-security-policy'), /frame-ancestors 'none'/);
-  assert.match(await viewer.text(), /Autos/);
+  const markup = await viewer.text();
+  assert.match(markup, /<select id="skin"><\/select>/);
+  assert.match(markup, /<select id="shape"><\/select>/);
   const script = await fetch(f.app.url + '/character-player.js');
   assert.equal(script.status, 200); assert.match(await script.text(), /mountCharacter/);
   const huge = await post(f.app, '/request', { value: 'x'.repeat(25000) }); assert.equal(huge.status, 413);

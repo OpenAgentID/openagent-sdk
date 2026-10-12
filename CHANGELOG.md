@@ -9,7 +9,8 @@
   CLI and profile fallback. Add strictly typed full-character rendering. Preserve
   Autos/SpaceX identity selection and eye animation continuity on appearance changes.
 - Expose the catalog and kind/framing controls through the CLI, starter and hosted
-  demo; extend strict profile validation and the public OpenAPI contract.
+  demo; extend strict profile validation and the public OpenAPI contract. Check
+  the starter's catalog-populated controls in its generated HTTP regression test.
 - Qualify family/kind rendering, circular face-mask bounds, live status continuity,
   isolated SVG paint references, reduced motion and real starter request status.
   This source change does not itself establish production Orbit rollout.
