@@ -1,5 +1,10 @@
 # Changelog — create-openagent
 
+## [0.5.1] - 2026-10-12
+
+- Pin SDK 0.7.1 for refined glasses and cushioned headphones; retain the existing
+  local signer, receiver, live status and appearance controls.
+
 ## [0.5.0] - 2026-10-12
 
 - Pin SDK 0.7.0 and expose soft plush/flat finish and on-face/raised eye controls

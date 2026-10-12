@@ -50,7 +50,7 @@ describe('public stateless character API', () => {
       new URL('../../../docs/character-api.openapi.json', import.meta.url), 'utf8',
     )));
     expect(characterApiOpenApi.openapi).toBe('3.1.0');
-    expect(characterApiOpenApi.info.version).toBe('0.7.0');
+    expect(characterApiOpenApi.info.version).toBe('0.7.1');
     expect(characterApiOpenApi.security).toEqual([]);
     expect(characterApiOpenApi.components.schemas.CharacterGenerateRequestV1.additionalProperties).toBe(false);
     expect(characterApiOpenApi.components.schemas.LiveEyeStateV1.additionalProperties).toBe(false);

@@ -54,18 +54,18 @@ try {
   source = run('source-commit', ['git', 'rev-parse', 'HEAD'], root).trim();
   assert.match(source, /^[0-9a-f]{40}$/);
   if (process.env.OAID_SOURCE_SHA) assert.equal(source, process.env.OAID_SOURCE_SHA);
-  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.7.0', 'pack-sdk'),
-    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.5.0', 'pack-generator')];
+  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.7.1', 'pack-sdk'),
+    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.5.1', 'pack-generator')];
   const tooling = join(fixture, 'tools');
   await mkdir(tooling);
   await writeFile(join(tooling, 'package.json'), JSON.stringify({ name: 'public-generator-consumer', private: true }));
   run('install-generator-archive', ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund', packages[1].file], tooling);
   const generator = join(tooling, 'node_modules/.bin/create-openagent');
-  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.5.0');
+  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.5.1');
   run('generate-noninteractive-application', [generator, 'my-agent-app', '--yes'], fixture);
   const application = join(fixture, 'my-agent-app');
   const manifest = JSON.parse(await readFile(join(application, 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.7.0' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.7.1' });
   // Before publication the exact review artifact substitutes for the declared
   // registry release. No source or transitive dependency is replaced.
   run('install-sdk-archive-in-application', ['npm', 'install', '--ignore-scripts', '--save-exact', '--no-audit', '--no-fund', packages[0].file], application);
@@ -81,7 +81,7 @@ try {
   checks.push({ name: 'public-registry-dependency-closure', passed: true });
   run('generated-real-http-restart-replay-revocation-tests', ['npm', 'test'], application);
   const cli = join(application, 'node_modules/.bin/oaid');
-  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.7.0');
+  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.7.1');
   assert(run('installed-sdk-cli-help', [cli, '--help'], application).includes('oaid agent trust'));
 
   const hello = join(fixture, 'hello-agent');
