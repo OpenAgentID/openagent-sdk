@@ -6,7 +6,7 @@
   each with multiple distinct character kinds: 17 families and 62 kinds total.
   Autos remains the default; every family uses the shared live-v1 eye expressions.
 - Frame the upper face by default in SDK SVGs, the browser player, HTTP API,
-  CLI and profile fallback. Add explicit full-character rendering. Preserve
+  CLI and profile fallback. Add strictly typed full-character rendering. Preserve
   Autos/SpaceX identity selection and eye animation continuity on appearance changes.
 - Expose the catalog and kind/framing controls through the CLI, starter and hosted
   demo; extend strict profile validation and the public OpenAPI contract.

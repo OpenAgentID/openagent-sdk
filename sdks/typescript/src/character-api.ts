@@ -64,7 +64,7 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
   if ('shape' in value) {
     result.shape = member(value.shape, getCharacterSkins().find(entry => entry.id === skin)!.shapes);
   }
-  if ('view' in value) result.view = member(value.view, ['avatar', 'full']);
+  if ('view' in value) result.view = member(value.view, ['avatar', 'full'] as const);
   if ('expression' in value) result.expression = member(value.expression, getCharacterExpressions());
   if ('size' in value) result.size = boundedNumber(value.size, 32, 2048, true);
   if ('animated' in value) {
