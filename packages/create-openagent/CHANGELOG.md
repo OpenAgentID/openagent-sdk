@@ -1,6 +1,6 @@
 # Changelog — create-openagent
 
-## [0.2.0] - 2026-10-11 (unreleased)
+## [0.2.0] - 2026-10-11
 
 - Generate a complete local identity and animated-avatar application using SDK
   0.4.0, real signing keys and issued-challenge verification.

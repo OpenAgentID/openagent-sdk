@@ -1,9 +1,36 @@
 # OpenAgent SDK
 
 OpenAgentID is a free, open [Open Software](https://open.software) core project
-alongside Henry, Weave, Flocks and Fleets. Life sells hosted services around
-this core. Human owners authenticate with LifeID; Blinds brokers agent
-credentials and Genesis KMS stores customer secrets.
+alongside Henry, Weave, Flocks and Fleets. Create an agent identity, verify its
+signed requests and give it an animated avatar without an account or hosted
+identity service. Your application controls keys, trust and access.
+
+## Start a working application
+
+```sh
+npx create-openagent@0.2.0 my-agent-app --yes
+cd my-agent-app
+npm install
+npm run dev
+```
+
+Open the local URL, then run `npm run agent` in a second terminal. The receiver
+verifies a real signed request; its status updates the agent's live eyes. Autos
+is the default skin and SpaceX is selectable. Keys and trust survive restarts.
+The starter uses SDK 0.4.0 and public npm dependencies only.
+
+For an existing application, install `@openagentid/sdk@0.4.0` and follow the
+[TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
+The included `oaid` CLI creates identities, exchanges public trust documents,
+issues challenges, signs and verifies proofs, revokes local trust and renders
+avatars. No command requires a Life service. See the
+[0.4.0 shipment contents](docs/release-0.4.0.md).
+
+Life sells optional hosted services around this core. Inside the Life ecosystem,
+LifeID authenticates humans, Blinds brokers credentials and Genesis KMS stores
+customer secrets. Those integrations are independent of the standalone path.
+
+## Identity and avatar releases
 
 The **0.2.0 release** adds a signing [OIDC provider](bridges/oidc/typescript/),
 [identity verification API/SDK/CLI](docs/identity-verification.md),
@@ -32,7 +59,7 @@ SVG once and accepts updates from the host's authorized state channel.
 
 ## Start with public developer tooling
 
-The SDK 0.4 release candidate adds a local-first CLI and working application
+SDK 0.4 adds a local-first CLI and working application
 starter. Generate and retain real Ed25519 identities, explicitly trust a public
 identity at your receiving application, verify issued challenges and revoke
 trust without a Life account or centralized service. See the

@@ -4,8 +4,6 @@ A working OpenAgentID application from public packages. Real Ed25519 identity,
 explicit receiver trust, authenticated HTTP requests and animated avatars run
 locally without a Life account or a hosted identity service.
 
-Version 0.2.0 is a release candidate until publication is confirmed.
-
 ```sh
 npx create-openagent@0.2.0 my-agent-app --yes
 cd my-agent-app

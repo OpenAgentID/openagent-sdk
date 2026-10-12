@@ -1,8 +1,8 @@
 # Installation
 
 For a complete first application, follow the [public quickstart](quickstart-typescript.md).
-SDK 0.4.0 and create-openagent 0.2.0 are release candidates until publication is
-confirmed. SDK 0.3.0 and OIDC 0.2.0 remain the published baseline during review.
+This guide covers SDK 0.4.0 and create-openagent 0.2.0. The independent OIDC
+provider remains at 0.2.0.
 
 ## JavaScript and TypeScript
 

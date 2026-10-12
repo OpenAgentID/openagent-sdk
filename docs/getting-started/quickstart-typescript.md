@@ -2,7 +2,6 @@
 
 The SDK 0.4 developer path runs on Node 20+ without a Life account, API key,
 hosted resolver or private package. Keys and trust stay on your infrastructure.
-Version 0.4.0 is a release candidate until its release receipt confirms publication.
 
 ## Start a working application
 

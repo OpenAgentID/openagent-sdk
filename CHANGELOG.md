@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 — public developer tooling, 2026-10-11 (unreleased)
+## 0.4.0 — public developer tooling, 2026-10-11
 
 - Add a Node-only persistent local identity authority with real Ed25519 keys,
   explicit receiver-controlled public identity trust, bounded issued challenges,
@@ -16,6 +16,8 @@
 - Correct first-run documentation and facade configuration guidance. The new
   local authority uses private persistent single-host storage; it does not claim
   distributed storage or grant access outside the receiving application's policy.
+- Put the working starter first in the public README and identify Life-hosted
+  integrations as optional for standalone applications.
 
 ## 0.3.0 — live expression state, 2026-10-11
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0 — public developer tooling, 2026-10-11 (unreleased)
+## 0.4.0 — public developer tooling, 2026-10-11
 
 - Add a Node-only persistent local identity authority with real Ed25519 keys,
   explicit receiver-controlled public identity trust, bounded issued challenges,

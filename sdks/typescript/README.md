@@ -1,14 +1,14 @@
 # @openagentid/sdk
 
 Open agent identity for the [Open Software](https://open.software) family.
-The core is free and open; Life operates hosted services around it. Humans
-authenticate with LifeID; agents may have a person/organization owner or be
-explicitly authorized self roots. Blinds brokers credentials, and Genesis KMS
-holds customer secrets. Approved self roots have no reduced access tier.
+The core is free and open, with no mandatory hosted service. Agents may have a
+person/organization owner or be explicitly authorized self roots. Life offers
+optional hosted integrations with LifeID, Blinds and Genesis KMS. Approved self
+roots have no reduced access tier; each application controls its permissions.
 
 ## Local identity, no hosted service required
 
-SDK 0.4.0 is a release candidate. Use the Node-only local module to keep identity
+Use the Node-only local module in SDK 0.4.0 to keep identity
 keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
