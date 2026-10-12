@@ -11,6 +11,8 @@
   challenge/proof commands, local verification, diagnostics and character SVGs.
 - Add the working create-openagent 0.2 starter and public-package qualification;
   retire unsupported generator selectors with explicit migration errors.
+- Qualify exact source commits and exercise hostile Host headers over native
+  HTTP, without relying on Fetch's forbidden-header normalization.
 - Correct first-run documentation and facade configuration guidance. The new
   local authority uses private persistent single-host storage; it does not claim
   distributed storage or grant access outside the receiving application's policy.

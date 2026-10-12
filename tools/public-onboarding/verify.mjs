@@ -49,7 +49,11 @@ async function browserCheck(name, operation) {
 
 let packages = [];
 let failure;
+let source = null;
 try {
+  source = run('source-commit', ['git', 'rev-parse', 'HEAD'], root).trim();
+  assert.match(source, /^[0-9a-f]{40}$/);
+  if (process.env.OAID_SOURCE_SHA) assert.equal(source, process.env.OAID_SOURCE_SHA);
   packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.4.0', 'pack-sdk'),
     await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.2.0', 'pack-generator')];
   const tooling = join(fixture, 'tools');
@@ -173,7 +177,7 @@ try {
   await app?.close();
   await Promise.all(logWrites);
   await writeFile(join(out, 'receipt.json'), JSON.stringify({ passed: !failure, node: process.version,
-    source: process.env.GITHUB_SHA ?? null, packages: packages.map(({ file, ...metadata }) => metadata),
+    source, workflowRef: process.env.GITHUB_SHA ?? null, packages: packages.map(({ file, ...metadata }) => metadata),
     checks, failure, externalIdentityServiceUsed: false, productionProfileAcceptance: false }, null, 2) + '\n');
   // Only disposable generated keys/workspaces are removed; source, package
   // archives, logs and screenshots remain in their persistent artifact lane.

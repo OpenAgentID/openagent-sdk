@@ -358,7 +358,7 @@ This starter deliberately has no cloud-deployment, MCP, enterprise bridge or opt
 
 const tests = String.raw`import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -369,7 +369,7 @@ import { startServer } from '../src/server.mjs';
 import { sendAgentRequest } from '../src/agent.mjs';
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), 'openagent-starter-test-'));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'openagent-starter-test-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   let app = await startServer({ root, port: 0 });
   t.after(async () => { if (app) await app.close(); });
@@ -454,7 +454,24 @@ test('altered signature, never-issued nonce and unknown generated key fail witho
 });
 test('host, browser-origin, closed-schema and private/static paths are refused', async t => {
   const f = await fixture(t);
-  assert.equal((await post(f.app, '/challenge', { did: f.app.did }, { host: 'attacker.example' })).status, 403);
+  // fetch may replace Host with its URL's authority. Native HTTP sends the
+  // adversarial wire header while retaining the real loopback destination.
+  const rogueHost = await new Promise((accept, reject) => {
+    const body = JSON.stringify({ did: f.app.did });
+    const req = httpRequest(f.app.url + '/challenge', { method: 'POST', headers: {
+      host: 'attacker.example', 'content-type': 'application/json', 'content-length': Buffer.byteLength(body),
+    } }, response => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.once('error', reject);
+      response.once('end', () => accept({ status: response.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    assert.equal(req.getHeader('host'), 'attacker.example');
+    req.once('error', reject); req.setTimeout(4500, () => req.destroy(new Error('Host refusal timed out.')));
+    req.end(body);
+  });
+  assert.equal(rogueHost.status, 403);
+  assert.deepEqual(JSON.parse(rogueHost.body), { error: 'loopback_only' });
   assert.equal((await post(f.app, '/challenge', { did: f.app.did }, { origin: 'https://attacker.example' })).status, 403);
   assert.equal((await post(f.app, '/challenge', { did: f.app.did }, { origin: f.app.url })).status, 403);
   assert.equal((await post(f.app, '/challenge', { did: f.app.did, owner: 'invented' })).status, 400);
