@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0 — 2026-10-12
+
+- Current SDK workspace adapters use real Ed25519 proofs with caller/tool/argument-bound challenges, receiver-owned scopes, replay and revocation checks. Raw wire requests are captured before schema parsing so defaults, transforms and stripped fields preserve binding. Client mutations run before signing; native MCP integration and stdio example cover the complete path.
+
 All notable changes to `@openagent/mcp` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

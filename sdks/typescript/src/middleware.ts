@@ -83,7 +83,9 @@ function defaultUnauthorized(_req: Request, reason: string): Response {
  * Returns a handler that takes `(request, claims)`. A request whose token is
  * missing, malformed, forged, expired, wrong-audience, or under-scoped gets
  * a 401 with the reason — the handler never runs, and unauthenticated claims
- * never reach the application.
+ * never reach the application. This is bearer-token middleware: a token with
+ * a confirmation key (`cnf`) is refused because its possession proof must be
+ * verified by a protocol-aware receiver before authorizing a request.
  */
 export function withAct(
   config: RequireActConfig,
@@ -93,13 +95,10 @@ export function withAct(
   const onUnauthorized = config.onUnauthorized ?? defaultUnauthorized;
 
   return async (req: Request): Promise<Response> => {
-    const token = extract(req);
-    if (!token) {
-      return onUnauthorized(req, 'missing or malformed capability token');
-    }
-
     let claims: ActClaims;
     try {
+      const token = extract(req);
+      if (!token) return onUnauthorized(req, 'missing or malformed capability token');
       claims = await act
         .verify(token)
         .issuer(config.issuer)
@@ -108,6 +107,7 @@ export function withAct(
         .withLeeway(config.leewaySeconds ?? 0)
         .requireScopes(config.scopes ?? [])
         .run();
+      if (claims.cnf !== undefined) return onUnauthorized(req, 'proof-of-possession token requires a bound proof');
     } catch (err) {
       const reason = err instanceof VerificationError ? err.message : 'verification failed';
       return onUnauthorized(req, reason);
@@ -138,14 +138,13 @@ export function requireActExpress(config: RequireActConfig) {
     if (header) headers.set('authorization', header);
     const request = new Request('http://localhost/', { headers });
 
-    const token = extract(request);
-    if (!token) {
-      const rejection = onUnauthorized(request, 'missing or malformed capability token');
-      res.status(rejection.status).json(await rejection.json());
-      return;
-    }
-
     try {
+      const token = extract(request);
+      if (!token) {
+        const rejection = onUnauthorized(request, 'missing or malformed capability token');
+        res.status(rejection.status).json(await rejection.json());
+        return;
+      }
       const claims = await act
         .verify(token)
         .issuer(config.issuer)
@@ -154,6 +153,11 @@ export function requireActExpress(config: RequireActConfig) {
         .withLeeway(config.leewaySeconds ?? 0)
         .requireScopes(config.scopes ?? [])
         .run();
+      if (claims.cnf !== undefined) {
+        const rejection = onUnauthorized(request, 'proof-of-possession token requires a bound proof');
+        res.status(rejection.status).json(await rejection.json());
+        return;
+      }
       req.actClaims = claims;
       next();
     } catch (err) {

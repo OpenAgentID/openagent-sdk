@@ -56,6 +56,7 @@ export async function fetchDiscovery(
       method: 'GET',
       headers: { accept: 'application/json' },
       signal: controller.signal,
+      redirect: 'error',
     });
 
     if (!resp.ok) {

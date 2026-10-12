@@ -1,22 +1,28 @@
 {
   "name": "@openagentid/anchor-eas",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Ethereum Attestation Service (EAS) adapter for the OAS lineage anchor seam: resolution via EAS GraphQL, publishing via the maintained EAS SDK.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "node": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE-APACHE",
     "LICENSE-MIT"
   ],
@@ -33,6 +39,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@ethereum-attestation-service/eas-contracts": "1.7.1",
+    "ethers": "^6.13.2",
+    "hardhat": "2.22.4",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^3.2.6"

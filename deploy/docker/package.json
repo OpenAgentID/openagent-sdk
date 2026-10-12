@@ -1,20 +1,18 @@
 {
-  "name": "openagent-docker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "name": "openagent-docker",
   "scripts": {
-    "build": "tsup server.ts --format cjs --out-dir dist --target node20",
-    "start": "node dist/server.cjs",
-    "dev": "tsx server.ts",
+    "build": "tsup server.ts --format esm --out-dir dist --target node20 --no-splitting",
+    "start": "node dist/server.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@openagentid/sdk": "^0.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.11.30",
-    "tsup": "^8.0.2",
-    "tsx": "^4.7.0",
-    "typescript": "^5.4.5"
+    "@openagentid/sdk": "^0.7.2",
+    "@openagentid/crypto-wasm": "^0.1.1"
   }
 }

@@ -1,14 +1,14 @@
 /**
  * OAS (Open Agent Specification) identity wrapper.
  *
- * This module defines the minimal surface the OpenAgent SDK needs from the
- * `@openagentid/oas-sdk` package: the {@link IdentityProvider} interface and
- * runtime validation for identity documents. Production identity comes from
- * `@openagentid/oas-sdk` via `clients.identity`; test identity comes from
- * `@openagentid/sdk-testing` — never from a silent fallback. If no provider is
- * configured, calls that need one fail closed with a `ConfigError`.
+ * This module defines the application's {@link IdentityProvider} facade and
+ * runtime validation for its projected identity documents. The published OAS
+ * SDK connects through `createOasIdentityProvider` in the optional
+ * `@openagentid/sdk/integrations` entry. Applications explicitly own the store,
+ * scope authority and signer custody. If no provider is configured, calls that
+ * need one fail closed with a `ConfigError`.
  *
- * INTEGRATION_NOTES.md tracks the exact shape we expect from `@openagentid/oas-sdk`.
+ * INTEGRATION_NOTES.md describes the actual supported component contracts.
  */
 
 import { z } from 'zod';
@@ -49,7 +49,7 @@ export interface IdentityDocument {
 export interface SignedAssertion {
   /** JWS / JWT / OAS assertion envelope (base64url). */
   token: string;
-  /** Raw signature bytes (base64). */
+  /** Envelope signature bytes (base64), not a raw-challenge signature. */
   signature: string;
   /** DID of the signer. */
   signer: Did;
@@ -60,8 +60,9 @@ export interface SignedAssertion {
 }
 
 /**
- * The OAS identity facade. Concrete providers come from `@openagentid/oas-sdk`
- * (production) or from {@link StubIdentityProvider} (test / offline dev).
+ * Application identity facade. Use the explicit OAS adapter for the published
+ * component, or supply a provider implementing this contract. Test fixtures
+ * belong only in tests and never establish production authority.
  */
 export interface IdentityProvider {
   /** Create a new OAS identity descended from `input.parent`. */
@@ -70,7 +71,7 @@ export interface IdentityProvider {
   /** Resolve an existing DID to its identity document. */
   resolve(did: Did): Promise<IdentityDocument>;
 
-  /** Sign a challenge (e.g. from AEGIS) with the agent's private key. */
+  /** Sign an assertion envelope containing a receiver-issued challenge. */
   signChallenge(did: Did, challenge: Uint8Array): Promise<SignedAssertion>;
 
   /** Return the public key for a DID (multibase). */

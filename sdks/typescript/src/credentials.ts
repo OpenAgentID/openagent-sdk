@@ -1,7 +1,7 @@
 /**
  * Arsenal credentials wrapper.
  *
- * Wraps the `@openagentid/arsenal-sdk` broker client with a developer-friendly surface
+ * Wraps an application's credential-proxy facade with a developer-friendly surface
  * centered on a single method: {@link CredentialHandle.fetch}. The returned
  * `fetch` is a drop-in replacement for the global `fetch` that transparently
  * injects the right Authorization / API-Key / OAuth bearer header for the
@@ -44,8 +44,10 @@ export interface IssuedCredential {
 }
 
 /**
- * Arsenal broker client facade. The real client lives in `@openagentid/arsenal-sdk`
- * and is injected by the application; see `INTEGRATION_NOTES.md`.
+ * Application-defined credential-proxy facade, injected by the application.
+ * The published `@openagentid/arsenal-sdk` uses capabilities instead; connect it
+ * with `createArsenalCapabilityFetch` from `@openagentid/sdk/integrations/arsenal`.
+ * See `INTEGRATION_NOTES.md` for the two explicit protocols.
  */
 export interface ArsenalClient {
   /** Request a scoped credential for `provider` on behalf of `agentDid`. */
@@ -182,29 +184,23 @@ interface ArsenalProxiedFetchParams {
  *    query string (kept opaque to this client).
  */
 async function arsenalProxiedFetch(params: ArsenalProxiedFetchParams): Promise<Response> {
-  const targetUrl = resolveTargetUrl(params.input);
-  const headers = new Headers(params.init?.headers as HeadersInit | undefined);
+  // Normalize exactly as fetch does, including Request input and init overrides.
+  // A streaming Request body stays a stream; nothing is buffered or re-encoded.
+  const original = new Request(params.input, params.init);
+  const targetUrl = original.url;
+  const headers = new Headers(original.headers);
   headers.set('X-Arsenal-Target', targetUrl);
   headers.set('X-Arsenal-Agent', params.credential.provider);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), params.requestTimeoutMs);
+  // Native signal composition preserves caller cancellation after headers,
+  // including while the caller consumes an SSE/chunked response body.
+  const signal = AbortSignal.any([original.signal, controller.signal]);
 
   try {
-    const upstreamSignal = params.init?.signal ?? undefined;
-    if (upstreamSignal) {
-      if (upstreamSignal.aborted) controller.abort();
-      else
-        upstreamSignal.addEventListener('abort', () => controller.abort(), {
-          once: true,
-        });
-    }
-
-    const response = await params.fetchImpl(params.credential.proxyUrl, {
-      ...params.init,
-      headers,
-      signal: controller.signal,
-    });
+    const proxied = new Request(params.credential.proxyUrl, original);
+    const response = await params.fetchImpl(proxied, { headers, signal });
     return response;
   } catch (err) {
     throw new CredentialError('Arsenal proxy request failed', {
@@ -215,11 +211,4 @@ async function arsenalProxiedFetch(params: ArsenalProxiedFetchParams): Promise<R
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function resolveTargetUrl(input: Parameters<typeof fetch>[0]): string {
-  if (typeof input === 'string') return input;
-  if (input instanceof URL) return input.toString();
-  // `Request`-like object with a `url` property.
-  return (input as { url: string }).url;
 }

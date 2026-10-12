@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.7.3 — current package compatibility, 2026-10-12
+
+- Restore deterministic X25519 public keys from seeds with real WASM bindings;
+  expose public-from-secret and retain recovery compatibility with 0.1.1's
+  RFC 7748 base-point operation. Remove the random-key recovery fallback.
+
+- Align runtime metadata and current setup guides with Node 20.19+; replace
+  obsolete error-code, automatic-retry and universal HTTP-status documentation.
+
+- Read the receiver clock on every ACT verification; keep compatibility with
+  crypto-wasm 0.1.1 and fix the WASM default clock in crypto-wasm 0.1.2.
+- Preserve native Request method, headers, body and cancellation in credential
+  proxy calls; share the shipped SDK VERSION with CLI version output and help.
+- Add explicit adapters for the shipped OAS, Arsenal, AEGIS and skills-policy
+  contracts, with real-package integration examples and required trust context.
+- Release HTTP, MCP, Claude hooks, SCIM and EAS 0.2.0 integrations with current
+  SDK support, authenticated flows and fail-closed revocation/replay behavior.
+  HTTP now requires authoritative key resolution and atomic nonce admission;
+  EAS supports native Node imports/requires and requires trusted attesters; SCIM requires actual identity provisioning.
+- Update sdk-testing 0.1.2 and create-openagent 0.5.3; preserve Autos as the
+  default, SpaceX and all existing families, colors, accessories and live state.
+- Replace placeholder deployment handlers with complete ACT receivers and
+  executable examples; add packed-package checks against SDK 0.7.2 and 0.7.3.
+  OIDC 0.2.0 keeps its API and gains a full current-SDK authentication test.
+
 ## Unreleased — current developer documentation, 2026-10-12
 
 - Refresh the documentation entry, core concepts, architecture and API/HTTP

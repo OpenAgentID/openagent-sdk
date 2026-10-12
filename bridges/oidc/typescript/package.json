@@ -68,7 +68,8 @@
     "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "@openagentid/sdk": "0.7.2"
   },
   "keywords": [
     "openagent",

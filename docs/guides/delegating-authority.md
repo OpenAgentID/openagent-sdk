@@ -1,9 +1,41 @@
 # Delegating Authority
 
 Identity delegation and application capability delegation are different
-contracts. SDK 0.7.2's `IdentityVerifier` verifies signed identity paths; the
+contracts. SDK 0.7.3's `IdentityVerifier` verifies signed identity paths; the
 configured issuer/broker authorizes and signs capability grants. Neither the
 local identity module nor `OpenAgentInstance` exposes a `delegate()` method.
+
+## Run real OAS descendants
+
+```sh
+cd examples/typescript/04-delegated-agent
+npm install
+npm start
+```
+
+The [complete example](../../examples/typescript/04-delegated-agent/src/index.ts)
+uses the published OAS SDK to create and sign a root and two descendants.
+`createOasIdentityProvider` from `@openagentid/sdk/integrations/oas` connects its
+actual `deriveChild`, document verification and signer APIs to
+`OpenAgentRuntime.createAgent` and `loadAgent`. The example verifies the real
+root/child chain and rejects a scope-amplification attempt.
+
+Applications supply an `OasIdentityStore`, a creation authorization callback and
+a service audience. The store owns current registrations, durable signer custody
+and atomic duplicate-DID refusal. The creation callback explicitly authorizes
+the requested scope set; scopes are not invented fields on an OAS document.
+Names and metadata are included in the child's freshly signed document.
+
+The provider's `signBytes(did, payload)` signs exact bytes for integrations that
+require a raw signature. `signChallenge(did, challenge)` separately signs an
+audience-bound `oaid-challenge+jwt` envelope with a 60-second lifetime. An
+envelope signature cannot be treated as a signature over the raw challenge.
+Neither operation creates a capability token or bypasses receiver trust.
+
+Portable OAS lineage establishes signed derivation. Your owner/root authority
+still establishes who can act for a person or organization. The local example
+makes no claim to public registration or LifeID authentication. For possession
+and current owner/self-root trust, use the verification protocol below.
 
 ## Signed identity path
 
@@ -50,9 +82,7 @@ distribution and failure handling. `OpenAgentWorkspace.revoke(did)` persists
 only that receiver's trust withdrawal; it neither deletes the signer nor
 changes independent receivers.
 
-There are no unified `OpenAgent.loadHuman`, `OpenAgent.revoke`,
-`agent.actCompactString`, `rootHuman` or `actingAs` APIs. Use the actual verified
-`did`, `owner`, explicit `root`, `lineage` and expiry, then apply the receiving
-application's permission policy. See [creating an agent](creating-an-agent.md),
+Use the verified `did`, `owner`, explicit `root`, `lineage` and expiry, then apply
+the receiving application's permission policy. See [creating an agent](creating-an-agent.md),
 [credential clients](managing-credentials.md) and
 [wire boundaries](../reference/wire-formats.md).

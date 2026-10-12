@@ -1,83 +1,50 @@
-import { OpenAgent } from '@openagentid/sdk';
-import { ClaudeAgent, openagentPlugin } from './mock-claude-agent.js';
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import type { HookInput, Options } from '@anthropic-ai/claude-agent-sdk';
+import { OpenAgentWorkspace } from '@openagentid/sdk/local';
+import { createOpenAgentHooks, sdkToolScope, sdkSkillScope, InMemoryAuditSink, StaticCapabilityChecker, verifyChain } from '@openagentid/claude-agent';
 
-async function main() {
-  OpenAgent.configure({
-    brokerUrl: process.env.OPENAGENT_BROKER_URL ?? 'fake://in-memory',
-    aegisUrl: process.env.OPENAGENT_AEGIS_URL ?? 'fake://in-memory',
-    namespace: process.env.OPENAGENT_NAMESPACE ?? 'example',
-  });
-
-  const parent = process.env.OPENAGENT_PARENT_DID ?? 'did:oas:example:hmr:local-dev';
-
-  // Mint the agent the Claude harness will act as.
-  const openagent = await OpenAgent.createAgent({
-    parent,
-    name: 'pr-review-bot',
-    scopes: ['github:pulls:read', 'github:pulls:comment', 'openai:chat:invoke'],
-    // NB: no github:pulls:merge — merging is denied structurally.
-  });
-
-  // Load the skills policy from SKILLS.md beside this file.
-  const skillsAgent = await OpenAgent.loadAgent(openagent.did, {
-    skillsPolicyPath: new URL('../SKILLS.md', import.meta.url).pathname,
-  });
-
-  const claude = new ClaudeAgent({
-    model: 'claude-sonnet-4-6',
-    plugins: [openagentPlugin({ agentDid: skillsAgent.did, skillsPolicyPath: 'SKILLS.md' })],
-  });
-
-  claude.setOpenAgent(skillsAgent);
-
-  claude.on('openagent:decision', (evt) => {
-    console.log(`[audit] decision tool=${evt.tool} allowed=${evt.allowed} reason=${evt.reason ?? ''}`);
-  });
-
-  claude.on('openagent:needs-approval', (evt) => {
-    console.log(`[audit] needs-approval skill=${evt.skill} reason=${evt.reason}`);
-  });
-
-  // Allowed: has the scope, skill policy allows.
-  claude.defineTool({
-    name: 'draft_pr_comment',
-    description: 'Draft a comment on a pull request.',
-    parameters: {},
-    metadata: {
-      openagent: {
-        scopes: ['github:pulls:comment', 'openai:chat:invoke'],
-        skill: 'draft-pr-comment',
-      },
+const directory = resolve('.openagent-example', new Date().toISOString().replaceAll(':', '-'));
+await mkdir(directory, { recursive: true });
+const audience = 'https://harness.example.test';
+const signer = await OpenAgentWorkspace.initialize(join(directory, 'signer'), { audience: 'https://signer.example.test' });
+const receiver = await OpenAgentWorkspace.initialize(join(directory, 'receiver'), { audience });
+const agent = await signer.createAgent('Policy example');
+const document = await signer.exportIdentity(agent.did);
+await receiver.trustIdentity(document);
+const policy = new StaticCapabilityChecker([sdkToolScope('Read'), sdkToolScope('Skill'), sdkSkillScope('read-notes')]);
+const audit = new InMemoryAuditSink();
+const adapter = createOpenAgentHooks({
+  agent: { did: agent.did, kind: 'agent', publicKey: document.publicKeyJwk.x },
+  audit,
+  capabilities: {
+    async check(scope) {
+      // Recheck actual possession, receiver trust and revocation on every invocation.
+      const challenge = await receiver.issueChallenge(agent.did);
+      const proof = await signer.prove(agent.did, challenge);
+      const verified = await receiver.verify(proof, challenge);
+      assert.equal(verified.did, agent.did);
+      return policy.check(scope);
     },
-    handler: async (_args, ctx) => {
-      const openai = await ctx.openagent.credentialsFor('openai');
-      void openai; // in a real run, call the chat endpoint here
-      return { drafted: 'LGTM — minor nit on the null-check in line 42.' };
-    },
-  });
-
-  // Denied by missing scope.
-  claude.defineTool({
-    name: 'merge_pr',
-    description: 'Merge a pull request.',
-    parameters: {},
-    metadata: {
-      openagent: {
-        scopes: ['github:pulls:merge'],
-        skill: 'merge-pr',
-      },
-    },
-    handler: async () => {
-      throw new Error('should never reach here');
-    },
-  });
-
-  await claude.run('Review PR #42 and post a comment. Merge if safe.');
-
-  console.log(`\ndemo complete. audit trail printed above.`);
-}
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+  },
 });
+// This is the actual query({ options }) contract, not a custom plugins array.
+const options: Pick<Options, 'hooks'> = { hooks: adapter.hooks };
+const base = { session_id: 'example', transcript_path: join(directory, 'transcript.jsonl'), cwd: process.cwd() };
+const run = async (input: HookInput) => options.hooks![input.hook_event_name]![0]!.hooks[0]!(input, 'example-call', { signal: new AbortController().signal });
+await run({ ...base, hook_event_name: 'SessionStart', source: 'startup' });
+const read: HookInput = { ...base, hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: 'README.md' }, tool_use_id: 'read-1' };
+assert.deepEqual(await run(read), {});
+const denied = { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' } };
+const bash = await run({ ...read, tool_name: 'Bash', tool_input: { command: 'deploy' } });
+assert.ok('hookSpecificOutput' in bash && bash.hookSpecificOutput?.hookEventName === 'PreToolUse');
+assert.equal(bash.hookSpecificOutput.permissionDecision, denied.hookSpecificOutput.permissionDecision);
+await receiver.revoke(agent.did);
+const revoked = await run(read);
+assert.ok('hookSpecificOutput' in revoked && revoked.hookSpecificOutput?.hookEventName === 'PreToolUse');
+assert.equal(revoked.hookSpecificOutput.permissionDecision, 'deny');
+await run({ ...base, hook_event_name: 'SessionEnd', reason: 'other' });
+assert.equal(verifyChain(audit.records).valid, true);
+console.log(`Verified real SDK possession, allowed Read, denied Bash and denied revoked agent ${agent.did}`);
+console.log(`Use the same options.hooks with Claude Agent SDK query(). Private workspace: ${directory}`);

@@ -1,6 +1,6 @@
 # Scope Validation and Matching
 
-Scope strings belong to the API that consumes them. SDK 0.7.2's provider
+Scope strings belong to the API that consumes them. SDK 0.7.3's provider
 creation input, canonical ACT grants, facade checks, OIDC identity scopes and
 skills allowlists have distinct validation/matching contracts. This page does
 not define a new universal grammar or permission policy.

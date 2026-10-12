@@ -6,10 +6,10 @@ export function generateStarterTemplate(projectName: string): TemplateFile[] {
   const name = validateProjectName(projectName);
   return [
     { path: 'package.json', content: JSON.stringify({ name, version: '0.1.0', private: true,
-      type: 'module', engines: { node: '>=20' }, scripts: {
+      type: 'module', engines: { node: '>=20.19.0' }, scripts: {
         dev: 'node src/server.mjs', agent: 'node src/agent.mjs', identity: 'node src/identity.mjs',
         test: 'node --test test/*.test.mjs',
-      }, dependencies: { '@openagentid/sdk': '0.7.2' } }, null, 2) + '\n' },
+      }, dependencies: { '@openagentid/sdk': '0.7.3' } }, null, 2) + '\n' },
     { path: '.gitignore', content: 'node_modules/\n.openagent/\ncoverage/\n.env\n' },
     { path: 'src/workspaces.mjs', content: workspaces },
     { path: 'src/server.mjs', content: server },
@@ -363,7 +363,7 @@ refresh();
 
 const readme = String.raw`# Your OpenAgent starter
 
-Requires Node 20+. Run npm install, then npm run dev. Open the numeric loopback URL printed by the server. In another terminal run:
+Requires Node 20.19+. Run npm install, then npm run dev. Open the numeric loopback URL printed by the server. In another terminal run:
 
     npm run agent -- "Hello from my agent"
 

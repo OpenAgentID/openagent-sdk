@@ -10,6 +10,8 @@ export default defineConfig({
     'src/transport.ts',
     'src/headers.ts',
     'src/session.ts',
+    'src/node.ts',
+    'src/sdk.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
@@ -21,7 +23,7 @@ export default defineConfig({
   target: 'es2022',
   platform: 'neutral',
   external: [
-    '@openagentid/auth-protocol',
+    '@openagentid/sdk',
     'node:crypto',
     'node:buffer',
   ],

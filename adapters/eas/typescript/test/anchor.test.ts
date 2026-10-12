@@ -8,6 +8,10 @@ import {
 import { SchemaEncoder } from '@ethereum-attestation-service/eas-sdk';
 
 const DID = 'did:oas:l1fe:hmr:alice';
+const ATTESTER = '0x' + '12'.repeat(20);
+const row = (data: string, revocationTime: number | string = 0) => ({
+  id: '0x' + '34'.repeat(32), data, attester: ATTESTER, revocationTime, expirationTime: 0,
+});
 
 function fixtureData(status = 'active') {
   return {
@@ -72,7 +76,8 @@ describe('encodeAnchorData', () => {
 
 describe('EasAnchorResolver', () => {
   const config = {
-    schemaUid: '0xschema',
+    schemaUid: '0x' + '56'.repeat(32),
+    trustedAttesters: [ATTESTER],
     graphqlUrl: 'http://mock/graphql',
     rpcUrl: 'http://mock/rpc',
   };
@@ -81,7 +86,7 @@ describe('EasAnchorResolver', () => {
     const fetchImpl = mockFetch({
       'http://mock/graphql': () => ({
         data: {
-          attestations: [{ id: '0xuid1', data: encodedFixture(), revocationTime: 0 }],
+          attestations: [row(encodedFixture())],
         },
       }),
     });
@@ -97,7 +102,7 @@ describe('EasAnchorResolver', () => {
     const fetchImpl = mockFetch({
       'http://mock/graphql': () => ({
         data: {
-          attestations: [{ id: '0xuid1', data: encodedFixture(), revocationTime: 0 }],
+          attestations: [row(encodedFixture())],
         },
       }),
     });
@@ -109,7 +114,7 @@ describe('EasAnchorResolver', () => {
     const fetchImpl = mockFetch({
       'http://mock/graphql': () => ({
         data: {
-          attestations: [{ id: '0xuid2', data: encodedFixture('revoked'), revocationTime: 0 }],
+          attestations: [row(encodedFixture('revoked'))],
         },
       }),
     });
@@ -124,8 +129,8 @@ describe('EasAnchorResolver', () => {
       'http://mock/graphql': () => ({
         data: {
           attestations: [
-            { id: '0xuid2', data: encodedFixture('active'), revocationTime: 0 },
-            { id: '0xuid1', data: encodedFixture('revoked'), revocationTime: 0 },
+            row(encodedFixture('active')),
+            row(encodedFixture('revoked')),
           ],
         },
       }),
@@ -150,5 +155,39 @@ describe('EasAnchorResolver', () => {
       fetch: mockFetch({}) as typeof fetch,
     });
     await expect(resolver.checkRevocation(DID)).rejects.toThrow();
+  });
+
+  it('recognizes native EAS revocation without rewriting the signed data', async () => {
+    const resolver = new EasAnchorResolver({ ...config, fetch: mockFetch({
+      'http://mock/graphql': () => ({ data: { attestations: [row(encodedFixture('active'), '1770000000')] } }),
+    }) as typeof fetch });
+    expect((await resolver.checkRevocation(DID)).revoked).toBe(true);
+    expect((await resolver.getRoot(DID, 'hmr'))?.status).toBe('revoked');
+  });
+
+  it('refuses untrusted attesters and mismatched subjects even if GraphQL returns them', async () => {
+    for (const record of [
+      { ...row(encodedFixture()), attester: '0x' + 'aa'.repeat(20) },
+      row('0x' + Array.from(encodeAnchorData({ ...fixtureData(), did: 'did:oas:example:hmr:other' }), byte => byte.toString(16).padStart(2, '0')).join('')),
+    ]) {
+      const resolver = new EasAnchorResolver({ ...config, fetch: mockFetch({
+        'http://mock/graphql': () => ({ data: { attestations: [record] } }),
+      }) as typeof fetch });
+      await expect(resolver.getRoot(DID, 'hmr')).rejects.toThrow();
+      await expect(resolver.checkRevocation(DID)).rejects.toThrow();
+    }
+  });
+
+  it('requires trust configuration and rejects invalid block/clock inputs', async () => {
+    expect(() => new EasAnchorResolver({ ...config, trustedAttesters: [] })).toThrow();
+    for (const confirmationDepth of [-1, NaN, 1.5]) {
+      expect(() => new EasAnchorResolver({ ...config, confirmationDepth })).toThrow();
+    }
+    for (const result of ['garbage', '0x1garbage', '0x20000000000000']) {
+      const resolver = new EasAnchorResolver({ ...config, fetch: mockFetch({
+        'http://mock/rpc': () => ({ result }),
+      }) as typeof fetch });
+      await expect(resolver.currentFinalizedBlock()).rejects.toThrow();
+    }
   });
 });

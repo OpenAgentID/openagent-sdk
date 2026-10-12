@@ -1,6 +1,6 @@
 # Audit and Compliance
 
-The public SDK 0.7.2 does not provide a universal automatic audit store, query
+The public SDK 0.7.3 does not provide a universal automatic audit store, query
 DSL or compliance profile. Your application and configured identity/broker
 services own event capture, persistence, access policy, retention and recovery.
 A successful signature check or hash-chain check is not a compliance

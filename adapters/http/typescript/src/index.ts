@@ -55,6 +55,7 @@ export {
   type StoredSession,
   type SessionStore,
   type VerifySignatureFn,
+  type ResolveIdentityKeyFn,
   type AuthResult,
   InMemorySessionStore,
   CoreAuthError,
@@ -83,4 +84,6 @@ export {
 export { AuthenticatedSession } from './session.js';
 
 /** SDK version — kept in sync with `package.json`. */
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
+
+export { createSdkIdentityKeyResolver } from './sdk.js';

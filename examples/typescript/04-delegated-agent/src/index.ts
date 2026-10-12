@@ -1,67 +1,34 @@
-import { OpenAgent, OpenAgentError } from '@openagentid/sdk';
+import assert from 'node:assert/strict';
+import * as oas from '@openagentid/oas-sdk';
+import { OpenAgentRuntime } from '@openagentid/sdk';
+import { createOasIdentityProvider, type OasIdentityRegistration, type OasIdentityStore } from '@openagentid/sdk/integrations/oas';
 
-async function main() {
-  OpenAgent.configure({
-    brokerUrl: process.env.OPENAGENT_BROKER_URL ?? 'fake://in-memory',
-    aegisUrl: process.env.OPENAGENT_AEGIS_URL ?? 'fake://in-memory',
-    namespace: process.env.OPENAGENT_NAMESPACE ?? 'example',
-  });
-
-  const parentDid = process.env.OPENAGENT_PARENT_DID ?? 'did:oas:example:hmr:local-dev';
-
-  // === Parent agent with broad scopes ===
-  const parent = await OpenAgent.createAgent({
-    parent: parentDid,
-    name: 'RootBot',
-    scopes: ['github:*:*', 'openai:chat:invoke', 'tavily:search:invoke'],
-  });
-  console.log(`parent did=${parent.did}`);
-  console.log(`parent scopes=${JSON.stringify(parent.scopes)}\n`);
-
-  // === Child delegation — strict subset ===
-  const child = await parent.delegate({
-    name: 'Worker',
-    scopes: ['github:pulls:read', 'openai:chat:invoke'],
-    expiresInMinutes: 30,
-  });
-  console.log(`child did=${child.did}`);
-  console.log(`child scopes=${JSON.stringify(child.scopes)}`);
-  console.log(`child lineage=${JSON.stringify(child.lineage)}\n`);
-
-  // === Grandchild delegation — narrower still ===
-  const grandchild = await child.delegate({
-    name: 'Shard1',
-    scopes: ['github:pulls:read'],
-    expiresInMinutes: 10,
-  });
-  console.log(`grandchild did=${grandchild.did}`);
-  console.log(`grandchild scopes=${JSON.stringify(grandchild.scopes)}`);
-  console.log(`grandchild lineage=${JSON.stringify(grandchild.lineage)}\n`);
-
-  // === Attempt to amplify — should fail ===
-  console.log(`attempting amplification: grandchild trying to add github:pulls:write...`);
-  try {
-    await grandchild.delegate({
-      name: 'BadShard',
-      scopes: ['github:pulls:write'], // not held by any ancestor
-    });
-    console.log(`ERROR: amplification was NOT blocked — this is a bug!`);
-  } catch (err) {
-    if (err instanceof OpenAgentError && err.code === 'SCOPE_AMPLIFICATION') {
-      console.log(`denied: ${err.code}: ${err.message}`);
-    } else {
-      throw err;
-    }
-  }
-
-  console.log(`\n=== handing the child ACT to a worker ===`);
-  console.log(`export AGENT_DID='${child.did}'`);
-  console.log(`export AGENT_ACT='${child.actCompactString}'`);
-  console.log(`the worker process calls OpenAgent.loadAgent(AGENT_DID, { act: AGENT_ACT })`);
-  console.log(`and inherits exactly the child's scopes, lineage, and expiration.`);
-}
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
+// Explicit local signer custody and registration. Persist these through your
+// own durable store in production; never log or serialize keypair private bytes.
+const registrations = new Map<string, OasIdentityRegistration>();
+const store: OasIdentityStore = {
+  get: async did => registrations.get(did),
+  resolve: async did => registrations.get(did)?.document,
+  put: async identity => {
+    if (registrations.has(identity.document.id)) throw new Error('DID already exists');
+    registrations.set(identity.document.id, identity);
+  },
+};
+const root = await oas.createHmr('example', 'local-owner', new Date().toISOString());
+await store.put({ ...root, scopes: ['github:pulls:read', 'github:pulls:write'] });
+const identity = createOasIdentityProvider({ oas, store, audience: 'local-example',
+  authorizeCreation: async (input, parent) => {
+    if (input.scopes.some(scope => !parent.scopes.includes(scope))) throw new Error('Requested scopes exceed this local parent grant');
+    return input.scopes;
+  },
 });
+const runtime = new OpenAgentRuntime({ namespace: 'example', clients: { identity } });
+const child = await runtime.createAgent({ parent: root.document.id, name: 'Worker', scopes: ['github:pulls:read'] });
+const grandchild = await runtime.createAgent({ parent: child.did, name: 'Reader', scopes: ['github:pulls:read'] });
+assert.equal(grandchild.document.parent, child.did);
+await assert.rejects(runtime.createAgent({ parent: child.did, name: 'Denied', scopes: ['github:pulls:write'] }));
+const chain = await oas.verifyChain(registrations.get(grandchild.did)!.document, store);
+assert.equal(chain.humanRootDid, root.document.id);
+console.log({ child: child.did, grandchild: grandchild.did, verifiedRoot: chain.humanRootDid, amplificationDenied: true });
+// Portable signed lineage + an explicit local scope policy. A production root
+// needs its own owner authority; this does not create a LifeID account or ACT.

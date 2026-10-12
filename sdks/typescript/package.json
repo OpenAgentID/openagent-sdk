@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Open agent identity, local trust and verification, and live animated avatars. No hosted service required.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
@@ -103,6 +103,31 @@
       "types": "./dist/local-workspace.d.ts",
       "import": "./dist/local-workspace.js",
       "require": "./dist/local-workspace.cjs"
+    },
+    "./integrations": {
+      "types": "./dist/integrations.d.ts",
+      "import": "./dist/integrations.js",
+      "require": "./dist/integrations.cjs"
+    },
+    "./integrations/oas": {
+      "types": "./dist/integrations/oas.d.ts",
+      "import": "./dist/integrations/oas.js",
+      "require": "./dist/integrations/oas.cjs"
+    },
+    "./integrations/aegis": {
+      "types": "./dist/integrations/aegis.d.ts",
+      "import": "./dist/integrations/aegis.js",
+      "require": "./dist/integrations/aegis.cjs"
+    },
+    "./integrations/arsenal": {
+      "types": "./dist/integrations/arsenal.d.ts",
+      "import": "./dist/integrations/arsenal.js",
+      "require": "./dist/integrations/arsenal.cjs"
+    },
+    "./integrations/skills-policy": {
+      "types": "./dist/integrations/skills-policy.d.ts",
+      "import": "./dist/integrations/skills-policy.js",
+      "require": "./dist/integrations/skills-policy.cjs"
     }
   },
   "files": [
@@ -117,7 +142,7 @@
   },
   "sideEffects": false,
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "build": "tsup && tsup --config tsup.browser.config.ts",
@@ -139,7 +164,8 @@
     "@openagentid/aegis-sdk": "^0.1.0",
     "@openagentid/arsenal-sdk": "^0.1.0",
     "@openagentid/crypto-wasm": "^0.1.0",
-    "@openagentid/oas-sdk": "^1.0.2"
+    "@openagentid/oas-sdk": "^1.0.2",
+    "@openagentid/skills-policy": "^0.1.1"
   },
   "peerDependenciesMeta": {
     "@openagentid/aegis-sdk": {
@@ -153,6 +179,9 @@
     },
     "@openagentid/crypto-wasm": {
       "optional": true
+    },
+    "@openagentid/skills-policy": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -160,7 +189,14 @@
     "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "@openagentid/crypto-wasm": "0.1.1",
+    "cborg": "6.1.3",
+    "express": "^5.1.0",
+    "@openagentid/oas-sdk": "1.0.2",
+    "@openagentid/arsenal-sdk": "0.1.1",
+    "@openagentid/aegis-sdk": "0.1.1",
+    "@openagentid/skills-policy": "0.1.1"
   },
   "keywords": [
     "openagent",

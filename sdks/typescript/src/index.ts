@@ -1,23 +1,15 @@
 /**
- * @openagentid/sdk — Clerk for autonomous agents.
+ * Open agent identities, verified requests and living avatars.
  *
- * Three-line happy path:
+ * Configure real identity/credential/verification authorities before using
+ * OpenAgentRuntime. Published component packages connect through the explicit
+ * `@openagentid/sdk/integrations` entry; importing a package alone never creates
+ * a trusted identity.
+ * For a complete no-account local application, run:
+ * `npx create-openagent my-agent-app --yes`.
  *
- * ```ts
- * import { OpenAgent } from '@openagentid/sdk';
- *
- * const agent = await OpenAgent.createAgent({
- *   parent: 'did:oas:l1fe:hmr:alice',
- *   name: 'my-bot',
- *   scopes: ['openai:chat:completions', 'github:repo:read'],
- * });
- *
- * const creds = await agent.credentialsFor('openai');
- * const res   = await creds.fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', body });
- * ```
- *
- * See the module re-exports below for every escape hatch and for direct
- * access to the underlying OAS / Arsenal / AEGIS facades.
+ * See INTEGRATION_NOTES.md and examples/typescript/04–06 for executable
+ * published-component workflows and their trust/storage contracts.
  */
 
 // Top-level façade
@@ -127,7 +119,7 @@ export {
 } from './errors.js';
 
 /** SDK version — kept in sync with `package.json`. */
-export const VERSION = '0.6.0';
+export { VERSION } from './version.js';
 
 // OpenAgentID 0.2 identity, avatars and verified trust evidence.
 export * from './glyph.js';

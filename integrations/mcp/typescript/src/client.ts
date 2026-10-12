@@ -40,7 +40,7 @@ export interface McpClientLike {
 
 export interface OpenAgentClientConfig {
   /** The agent doing the calling — used to sign each request. */
-  agent: Agent;
+  agent: Pick<Agent, 'did' | 'signRequest'>;
   /**
    * Optional audience DID. When set, it is passed to
    * {@link Agent.signRequest} so the proof can be bound to a specific
@@ -101,7 +101,7 @@ export function withOpenAgentClient<T extends McpClientLike>(
 }
 
 class ClientInterceptor {
-  private readonly agent: Agent;
+  private readonly agent: Pick<Agent, 'did' | 'signRequest'>;
   private readonly audience: string | undefined;
   private readonly beforeCall: OpenAgentClientConfig['beforeCall'];
 
@@ -125,24 +125,9 @@ class ClientInterceptor {
       },
       ...rest: unknown[]
     ): Promise<unknown> {
-      const signed = await interceptor.signParams(params);
-      let toSend: {
-        name: string;
-        arguments?: Record<string, unknown>;
-        _meta: Record<string, unknown>;
-      } = signed;
-      if (interceptor.beforeCall !== undefined) {
-        const replacement = await Promise.resolve(
-          interceptor.beforeCall(signed),
-        );
-        if (replacement !== undefined) {
-          // Re-attach the signed _meta if the hook stripped it.
-          toSend = {
-            ...replacement,
-            _meta: replacement._meta ?? signed._meta,
-          };
-        }
-      }
+      // Mutate first; the signature must cover the actual transmitted call.
+      const replacement = await interceptor.beforeCall?.(params);
+      const toSend = await interceptor.signParams(replacement ?? params);
       return original.call(thisArg, toSend, ...rest);
     };
   }
@@ -156,7 +141,7 @@ class ClientInterceptor {
     arguments?: Record<string, unknown>;
     _meta: Record<string, unknown>;
   }> {
-    const identity = await this.agent.signRequest(params.name, this.audience);
+    const identity = await this.agent.signRequest(params.name, this.audience, params.arguments);
     const existingMeta = params._meta ?? {};
     const existingOpenAgent =
       typeof existingMeta['openagent'] === 'object' &&

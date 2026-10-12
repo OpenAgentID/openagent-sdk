@@ -8,7 +8,7 @@ identity service. Your application controls keys, trust and access.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.5.2 my-agent-app --yes
+npx create-openagent@0.5.3 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -19,18 +19,18 @@ verifies a real signed request; its status updates the agent's live eyes. Autos
 is the default skin with a soft plush finish and on-face eyes. SpaceX, original
 crafted families and holiday characters are selectable; every family also offers
 flat material, raised eyes and glasses/headphones. Keys and trust survive restarts.
-The starter uses SDK 0.7.2 and public npm dependencies only.
+The starter uses SDK 0.7.3 and public npm dependencies only.
 Every character family shares a brighter color direction and soft plush finish;
 distinct silhouettes and signature details keep each family recognizable.
 
-For an existing application, install `@openagentid/sdk@0.7.2` and follow the
+For an existing application, install `@openagentid/sdk@0.7.3` and follow the
 [TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
 The [developer-tooling guide](docs/developer-tooling.md) covers the current CLI,
 receiver trust/storage, portable verification, OIDC/OATS and browser state APIs.
 The included `oaid` CLI creates identities, exchanges public trust documents,
 issues challenges, signs and verifies proofs, revokes local trust and renders
 avatars. No command requires a Life service. See the
-[0.7.2 release contents](docs/release-0.7.2.md).
+[0.7.3 release contents](docs/release-0.7.3.md).
 
 Life sells optional hosted services around this core. Inside the Life ecosystem,
 LifeID authenticates humans, Blinds brokers credentials and Genesis KMS stores
@@ -88,7 +88,7 @@ compatibility beyond the qualified formats and cases.
 
 | Language | Distribution | Current integration |
 |---|---|---|
-| TypeScript | npm `@openagentid/sdk` 0.7.2 | `npm install @openagentid/sdk@0.7.2`; [current guide](docs/developer-tooling.md) |
+| TypeScript | npm `@openagentid/sdk` 0.7.3 | `npm install @openagentid/sdk@0.7.3`; [current guide](docs/developer-tooling.md) |
 | Python | PyPI `openagentid-sdk` 0.1.0 | `pip install openagentid-sdk==0.1.0`; [module](sdks/python/) |
 | Rust | Unified facade is source-only | [sdks/rust](sdks/rust/); optional OAS/Arsenal/AEGIS Git dependencies may require separate access |
 | Go | Source module | [sdks/go](sdks/go/); Go 1.26.4+, use the checkout's module |
@@ -97,7 +97,7 @@ compatibility beyond the qualified formats and cases.
 
 Registry availability was checked on 12 October 2026. Each language has its own
 API and release track. The TypeScript local workspace and browser player need
-no private repository. The starter is `create-openagent` 0.5.2; the separate
+no private repository. The starter is `create-openagent` 0.5.3; the separate
 OIDC provider is `@openagentid/oidc` 0.2.0.
 
 ## What's in the box
@@ -147,4 +147,4 @@ its live eyes. See the [accessory release guide](docs/release-0.6.0.md) for prof
 All 17 character families default to `finish: 'plush'` and `eyePlacement: 'face'`.
 Select `finish: 'flat'` or `eyePlacement: 'raised'` when rendering, saving an
 appearance or calling `player.setAppearance`. Accessories and the live eye
-state persist across those changes. See the [0.7.2 release guide](docs/release-0.7.2.md).
+state persist across those changes. See the [0.7.3 release guide](docs/release-0.7.3.md).

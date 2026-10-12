@@ -1,29 +1,5 @@
-/**
- * Plugin factory for the Claude Agent SDK.
- *
- * Usage:
- * ```ts
- * import { query } from '@anthropic-ai/claude-agent-sdk';
- * import { openAgentPlugin } from '@openagentid/claude-agent';
- *
- * const result = query({
- *   prompt: 'Help me refactor this code',
- *   options: {
- *     plugins: [openAgentPlugin({ agent, skillsPolicy, audit: true })],
- *   },
- * });
- * ```
- *
- * The factory returns a plain JS object with the four lifecycle handlers
- * the Claude Agent SDK calls:
- *   - `onSessionStart`
- *   - `preToolUse`
- *   - `postToolUse`
- *   - `onMessage`
- *
- * Plus an `onSkillInvoke` handler that the SDK invokes when loading a
- * skill from a SKILLS.md file. If the host SDK exposes the hook under a
- * different name, the adapter at the bottom of this file maps it.
+/** Framework-independent identity, policy and audit lifecycle controller.
+ * Use createOpenAgentHooks for the Claude Agent SDK options.hooks adapter.
  */
 
 import type {
@@ -125,7 +101,7 @@ export interface HookDecision {
   inputHash?: string;
 }
 
-const PLUGIN_VERSION = '0.1.1';
+const PLUGIN_VERSION = '0.2.0';
 
 /**
  * Build a Claude Agent SDK plugin that wires OpenAgent identity,
@@ -139,6 +115,8 @@ export function openAgentPlugin(opts: OpenAgentPluginOptions): OpenAgentPlugin {
   if (!opts.capabilities || typeof opts.capabilities.check !== 'function') {
     throw new ConfigError('openAgentPlugin: `capabilities.check` is required');
   }
+
+  if (opts.signMessages && typeof opts.agent.sign !== 'function') throw new ConfigError('Message signing requires agent.sign');
 
   const inMemory = new InMemoryAuditSink();
   const sink: AuditSink = resolveSink(opts.audit, inMemory);
@@ -243,10 +221,3 @@ function resolveSink(
   // Custom sink — fan out so callers can still inspectAudit() in dev.
   return new FanOutAuditSink([inMemory, audit]);
 }
-
-// ---------------------------------------------------------------------------
-// Adapter seam: the Claude Agent SDK currently exposes hooks via a `plugins`
-// option that accepts plain JS objects. If the SDK switches to a class-based
-// or middleware shape, only this file needs to change — `hooks.ts` is
-// framework-agnostic and continues to work unchanged.
-// ---------------------------------------------------------------------------

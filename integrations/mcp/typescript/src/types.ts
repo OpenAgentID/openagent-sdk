@@ -7,8 +7,8 @@
  * tests, in CI, and in environments where the host application brings its own
  * verifier implementation.
  *
- * The real `@openagentid/sdk` exports types that are structurally compatible
- * with these — there is no runtime dependency.
+ * Use the workspace adapters for the current SDK. These interfaces also
+ * support applications that supply their own signing and verification authority.
  */
 
 /**
@@ -57,8 +57,8 @@ export interface VerifiedIdentity {
 }
 
 /**
- * The verifier interface — implemented by `@openagentid/sdk` (production) and
- * by the in-memory test agent shipped here.
+ * Verifier adapter contract — supplied by createWorkspaceMcpServer or an
+ * application-owned identity authority.
  *
  * Implementations MUST be deterministic for a given input and MUST NOT
  * mutate the request identity object.
@@ -67,6 +67,8 @@ export interface IdentityVerifier {
   verify(
     identity: OpenAgentRequestIdentity,
     requiredScopes: ReadonlyArray<string>,
+    /** Original wire arguments before tool schema defaults/transforms; scopes are derived from parsed arguments. */
+    request?: { toolName: string; args: unknown },
   ): Promise<VerifiedIdentity>;
 }
 
@@ -84,6 +86,7 @@ export interface Agent {
   signRequest(
     toolName: string,
     audience?: Did,
+    args?: Record<string, unknown>,
   ): Promise<OpenAgentRequestIdentity>;
 }
 
@@ -160,7 +163,7 @@ export type ErrorHook = (input: {
  */
 export interface OpenAgentMcpConfig {
   /** The agent that owns this MCP server (used for outbound signing). */
-  agent: Agent;
+  agent: Pick<Agent, 'did' | 'verifier'>;
   /**
    * Per-tool required scope set. Defaults to
    * `(toolName) => [`mcp:${toolName}:invoke`]`.

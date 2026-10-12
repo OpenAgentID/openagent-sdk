@@ -144,6 +144,14 @@ pub fn x25519_generate_keypair() -> WasmX25519Keypair {
     }
 }
 
+/// Restores the X25519 public key from an existing 32-byte secret.
+#[wasm_bindgen]
+pub fn x25519_public_from_secret(secret_key: &[u8]) -> Result<Vec<u8>, JsError> {
+    x25519::public_from_secret(secret_key)
+        .map(|pk| pk.to_vec())
+        .map_err(js_err)
+}
+
 /// Computes the X25519 raw shared secret. Callers MUST run this through HKDF
 /// before using it as keying material.
 #[wasm_bindgen]
@@ -426,7 +434,7 @@ pub fn version() -> String {
 ///   the token must grant; wildcards in the GRANT expand, in the REQUEST are
 ///   literal.
 /// - `leeway_seconds`: symmetric clock-skew allowance on temporal checks.
-/// - `now_unix_seconds`: 0 for the system clock, or a pinned time for tests
+/// - `now_unix_seconds`: 0 for the current host clock, or a pinned time for tests
 ///   and for replaying a decision at a known instant.
 ///
 /// Errors (thrown on the JS side) are the canonical `ActError` reasons, so a
@@ -466,9 +474,29 @@ pub fn act_verify(
             .map_err(js_err)?
             .with_leeway_seconds(leeway_seconds);
 
-    if now_unix_seconds != 0 {
-        verifier = verifier.with_clock(now_unix_seconds);
-    }
+    // Rust SystemTime is unavailable on wasm32-unknown-unknown. Resolve the
+    // documented zero sentinel through the JS host on each verification.
+    let now = if now_unix_seconds == 0 {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let seconds = (js_sys::Date::now() / 1000.0).floor();
+            if !seconds.is_finite() || !(0.0..=9_007_199_254_740_991.0).contains(&seconds) {
+                return Err(JsError::new("host clock must return valid Unix seconds"));
+            }
+            seconds as i64
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let seconds = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(js_err)?
+                .as_secs();
+            i64::try_from(seconds).map_err(js_err)?
+        }
+    } else {
+        now_unix_seconds
+    };
+    verifier = verifier.with_clock(now);
 
     let scopes: Result<Vec<_>, _> = required_scopes
         .iter()

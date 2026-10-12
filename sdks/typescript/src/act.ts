@@ -65,7 +65,7 @@ export interface ActVerifyOptions {
   trustedKeys?: Uint8Array[];
   /** Symmetric clock-skew allowance in seconds. Default: 0. */
   leewaySeconds?: number;
-  /** Pinned verification time (tests and decision replay). Default: system clock. */
+  /** Pinned verification time (tests and decision replay). Default: fresh receiver clock on every run. */
   nowUnixSeconds?: number;
 }
 
@@ -107,12 +107,12 @@ function binding(): ActVerifyBinding {
 /** Fluent ACT verifier, built by {@link act.verify}. */
 export class ActVerifierBuilder {
   private readonly token: Uint8Array;
-  private opts: Required<Pick<ActVerifyOptions, 'scopes' | 'leewaySeconds' | 'nowUnixSeconds'>> &
+  private opts: Required<Pick<ActVerifyOptions, 'scopes' | 'leewaySeconds'>> &
     ActVerifyOptions;
 
   constructor(token: Uint8Array) {
     this.token = token;
-    this.opts = { scopes: [], leewaySeconds: 0, nowUnixSeconds: 0 };
+    this.opts = { scopes: [], leewaySeconds: 0 };
   }
 
   /** Bind the expected issuer. Required: a verifier that does not name the issuer accepts anyone's tokens. */
@@ -177,6 +177,21 @@ export class ActVerifierBuilder {
       });
     }
 
+    // Supply the JavaScript host clock explicitly. Older crypto-wasm builds
+    // route their zero sentinel to Rust SystemTime, which traps on wasm32.
+    // Resolve at run time, not builder/middleware creation, so reused verifiers
+    // still enforce expiry as time advances. Preserve 0 as the clock sentinel.
+    const verificationTime = nowUnixSeconds === undefined || nowUnixSeconds === 0
+      ? Math.floor(Date.now() / 1000)
+      : nowUnixSeconds;
+    for (const [name, value] of [['leewaySeconds', leewaySeconds], ['nowUnixSeconds', verificationTime]] as const) {
+      if (!Number.isSafeInteger(value) || value < 0) {
+        throw new OpenAgentError(`act.verify(): ${name} must be a non-negative safe integer`, {
+          code: ErrorCode.INVALID_CONFIG,
+        });
+      }
+    }
+
     const concatenated = new Uint8Array(trustedKeys.length * 32);
     trustedKeys.forEach((k, i) => {
       if (k.length !== 32) {
@@ -196,7 +211,7 @@ export class ActVerifierBuilder {
         audience,
         scopes,
         BigInt(leewaySeconds),
-        BigInt(nowUnixSeconds),
+        BigInt(verificationTime),
       );
     } catch (err) {
       // The canonical verifier's error message is the reason: signature,

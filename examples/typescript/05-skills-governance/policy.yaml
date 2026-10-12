@@ -1,0 +1,14 @@
+version: 1
+agent: did:oas:example:agent:governed
+skills:
+  read-file:
+    allow: true
+    rate_limit: { window: 1h, max: 1 }
+    arg_constraints:
+      type: object
+      required: [path]
+      properties: { path: { type: string } }
+      additionalProperties: false
+    audit_level: hash
+default:
+  allow: false

@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk-testing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "In-memory test backends for @openagentid/sdk. NOT cryptographically sound - never load in production.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
@@ -18,7 +18,8 @@
     "dist",
     "README.md",
     "LICENSE-APACHE",
-    "LICENSE-MIT"
+    "LICENSE-MIT",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -30,13 +31,14 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openagentid/sdk": "^0.1.0"
+    "@openagentid/sdk": "^0.7.2"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "@openagentid/sdk": "0.7.2"
   },
   "publishConfig": {
     "access": "public"

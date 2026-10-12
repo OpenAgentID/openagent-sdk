@@ -8,7 +8,7 @@ roots have no reduced access tier; each application controls its permissions.
 
 ## Local identity, no hosted service required
 
-Use the Node-only local module in SDK 0.7.2 to keep identity
+Use the Node-only local module in SDK 0.7.3 to keep identity
 keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
@@ -30,7 +30,7 @@ key. Use `open` after the first run; initialization refuses to overwrite state.
 The [complete quickstart](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/getting-started/quickstart-typescript.md)
 shows separate signer/receiver workspaces and the generated application.
 
-The local module needs Node 20+ and private persistent storage on one host.
+The local module needs Node 20.19+ and private persistent storage on one host.
 Keep its directory out of Git. No Life account, remote authority, private SDK or
 telemetry is required. Existing `IdentityVerifier` callbacks support applications
 that bring distributed storage or different trust authorities.
@@ -38,6 +38,21 @@ that bring distributed storage or different trust authorities.
 The `OpenAgent` facade still wraps separately configured OAS identity, Arsenal
 credentials and AEGIS verification clients. It fails closed if a required client
 is missing. Its endpoint options do not create those clients automatically.
+
+## Version 0.7.3
+
+The supported integrations now target the current SDK with real signature,
+request, replay and revocation coverage. Use HTTP/MCP/Claude/SCIM/EAS 0.2.0,
+sdk-testing 0.1.2 and crypto-wasm 0.1.2. OIDC remains 0.2.0.
+
+ACT verification reads the trusted receiver clock on every call; an explicit
+`.atTime()` is only needed for controlled replay or tests. Native `Request`
+objects retain their method, headers, body and cancellation when passed to a
+credential handle. Published component adapters require explicit trust and
+application context rather than silently inventing authority clients.
+
+See the [compatibility release and migration guide](../../docs/release-0.7.3.md)
+and [runnable examples](../../examples/typescript).
 
 ## Version 0.7.2
 
