@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.2 — brighter character collection, 2026-10-12
+
+- Repaint all 17 families / 62 kinds with brighter curated pigments and coordinated
+  accents; preserve each family's silhouette, seasonal meaning and live eyes.
+- Restore 35% of original pigment after plush lighting for clearer color on bodies
+  and raised eye pods. Flat rendering uses the same updated family paints.
+- Intentionally update rendered RGB values while retaining DID seeds, shape
+  selection, geometry, expression state, accessories and avatar overrides.
+- Pin create-openagent 0.5.2 to SDK 0.7.2; document the shared visual language and
+  future person/mascot design direction. OIDC remains 0.2.0.
+
 ## 0.7.1 — refined character accessories, 2026-10-12
 
 - Lighten glasses rims and temples, add subtle hinges, and give headphones a

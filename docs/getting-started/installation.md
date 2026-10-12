@@ -1,13 +1,13 @@
 # Installation
 
 For a complete first application, follow the [public quickstart](quickstart-typescript.md).
-This guide covers SDK 0.7.1 and create-openagent 0.5.1. The independent OIDC
+This guide covers SDK 0.7.2 and create-openagent 0.5.2. The independent OIDC
 provider remains at 0.2.0.
 
 ## JavaScript and TypeScript
 
 ```sh
-npm install @openagentid/sdk@0.7.1
+npm install @openagentid/sdk@0.7.2
 ```
 
 The package includes TypeScript declarations and ESM/CommonJS exports. Its public

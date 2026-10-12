@@ -25,12 +25,15 @@ export function characterMaterial(body: CharacterArtNode, finish: CharacterFinis
       ]),
       node('feComposite', { in: 'volume-light', in2: 'SourceAlpha', operator: 'in', result: 'volume-mask' }),
       node('feBlend', { in: 'fibrous', in2: 'volume-mask', mode: 'multiply', result: 'textured' }),
+      // Keep pigment visible beneath the fibers and volume shading, including on raised pods.
+      node('feComposite', { in: 'textured', in2: 'SourceGraphic', operator: 'arithmetic',
+        k1: '0', k2: '.65', k3: '.35', k4: '0', result: 'pigment' }),
       node('feGaussianBlur', { in: 'SourceAlpha', stdDeviation: '5', result: 'soft-shape' }),
       node('feSpecularLighting', { in: 'soft-shape', surfaceScale: '8', specularConstant: '.18', specularExponent: '9', 'lighting-color': '#ffffff', result: 'rim-light' }, [
         node('feDistantLight', { azimuth: '225', elevation: '48' }),
       ]),
       node('feComposite', { in: 'rim-light', in2: 'SourceAlpha', operator: 'in', result: 'rim-mask' }),
-      node('feBlend', { in: 'textured', in2: 'rim-mask', mode: 'screen', result: 'plush' }),
+      node('feBlend', { in: 'pigment', in2: 'rim-mask', mode: 'screen', result: 'plush' }),
       node('feComposite', { in: 'plush', in2: 'SourceAlpha', operator: 'in' }),
     ])]),
     node('g', { filter: `url(#${id})` }, [body]),

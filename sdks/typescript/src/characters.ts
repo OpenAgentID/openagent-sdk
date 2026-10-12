@@ -96,7 +96,8 @@ const catalog: readonly CharacterSkinDescription[] = Object.freeze([
     label: family.label, version: 1 as const, eyeStyles,
     shapes: Object.freeze(Object.keys(family.shapes) as CharacterShape[]), expressions })),
 ]);
-const palette = Object.freeze(['#757575', '#1687ff', '#ff6a00', '#161616', '#00c875', '#96663c', '#7656d6', '#e84770']);
+// Eight stable seed slots in the shared bright collection; colors are decoration, not identity.
+const palette = Object.freeze(['#3478ed', '#169acb', '#f07825', '#ea493f', '#18a260', '#c58d12', '#8157dc', '#e44887']);
 
 /** Immutable versioned body/face skins. Eye expression is independent of skin. */
 export function getCharacterSkins(): readonly CharacterSkinDescription[] {

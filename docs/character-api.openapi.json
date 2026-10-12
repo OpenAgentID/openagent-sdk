@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OpenAgentID Character API",
-    "version": "0.7.1",
+    "version": "0.7.2",
     "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 17 families and 62 distinct character kinds, including Halloween, Thanksgiving and Christmas. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused. Every family supports shared finish (plush default, flat optional) and eyePlacement (face default, raised optional). These strictly closed appearance selectors do not change identity-derived shape/color or runtime state. Descriptors include both resolved values."
   },
   "servers": [

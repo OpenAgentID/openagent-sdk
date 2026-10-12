@@ -11,7 +11,7 @@ import {
 } from '../src/characters.js';
 
 const did = 'did:oas:openagent:agent:character-vector';
-const colors = ['#757575', '#1687ff', '#ff6a00', '#161616', '#00c875', '#96663c', '#7656d6', '#e84770'];
+const colors = ['#3478ed', '#169acb', '#f07825', '#ea493f', '#18a260', '#c58d12', '#8157dc', '#e44887'];
 const expressions = ['neutral', 'attentive', 'surprised', 'excited', 'happy', 'laughing', 'angry', 'sad',
   'scared', 'suspicious', 'confused', 'curious', 'proud', 'shy', 'unimpressed', 'sleepy', 'thoughtful', 'concerned'] as const;
 const familyKinds = {
@@ -68,11 +68,12 @@ function assertLocalGradients(svg: string): void {
 describe('OpenAgent character profile v1', () => {
   // Independently generated with hash-pinned Python blake3 1.0.11 on Depot:
   // golden-seeds/golden02, build z3hnww3bvq. No renderer or noble dependency.
+  // Seed and shape vectors are unchanged; RGB values use the 0.7.2 collection palette.
   it.each([
     { skin: 'autos' as const, digest: 'df1f10e82423a8b87280b0593d66115a0243ca2ff1d6636b28c5de53cd72fbb1',
-      shape: 'slender', color: '#e84770', geometry: 'x="168" y="48" width="176" height="416" rx="88"' },
+      shape: 'slender', color: '#e44887', geometry: 'x="168" y="48" width="176" height="416" rx="88"' },
     { skin: 'spacex' as const, digest: 'b2bc833af9bb8e8b8bbbe012072217cb3c682b77f4f57a1de106ace283b03e48',
-      shape: 'squircle', color: '#00c875', geometry: 'x="104" y="104" width="304" height="304" rx="88"' },
+      shape: 'squircle', color: '#18a260', geometry: 'x="104" y="104" width="304" height="304" rx="88"' },
   ])('matches the independent full-DID $skin profile vector', ({ skin, digest, shape, color, geometry }) => {
     const character = generateCharacter(did, { skin, animated: false, view: 'full' });
     expect(character).toMatchObject({ did, skin, skinVersion: 1, eyeStyle: 'live-v1', shape, expression: 'neutral',
