@@ -26,6 +26,14 @@ describe('shared plush finish and raised live eyes', () => {
     }
   });
 
+  it('centers rigid frames on the expression without making blink change them', () => {
+    const selection = { accessories: ['glasses'] as const, animated: false, expression: 'scared' as const };
+    const open = generateCharacter(did, selection), closed = generateCharacter(did, { ...selection, state: { blink: 1 } });
+    const frame = (svg: string) => svg.match(/data-glasses-frames="true" transform="([^"]+)"/)![1];
+    expect(frame(open.svg)).toBe('translate(0 16)');
+    expect(frame(closed.svg)).toBe(frame(open.svg));
+  });
+
   it.each([null, '', 'Plush', 'fur', 1, {}, [], '<script>'])('refuses malformed finish or placement %j', value => {
     expect(() => generateCharacter(did, { finish: value } as CharacterOptions)).toThrow();
     expect(() => generateCharacter(did, { eyePlacement: value } as CharacterOptions)).toThrow();

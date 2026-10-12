@@ -14,6 +14,8 @@
   and OIDC 0.2.0 stay unchanged. Exact-source remote qualification, npm publication
   and hosted/Orbit acceptance remain separate delivery evidence.
 
+- Qualification correction: reserve interrupted eye-center motion and additional circular-mask stroke clearance for tall headwear; fixed-frame centering is covered through full blinks.
+
 ## 0.6.0 — independent character accessories, 2026-10-12
 
 - Add transparent glasses and headphones as independent, combinable accessories
@@ -163,3 +165,4 @@
   canonical repository and document the free Open Software core versus Life's
   hosted integration boundaries. Production authorities, hosted acceptance,
   exact-head CI/review and npm publication remain release gates.
+

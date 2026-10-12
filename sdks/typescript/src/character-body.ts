@@ -62,7 +62,7 @@ export function characterFraming(skin: CharacterSkin, shape: CharacterShape, vie
     for (const px of [145, 367]) for (const py of [188, 340]) add(px, py);
   }
   if (options.accessories?.includes('glasses')) {
-    for (const px of [166 - eyeOffset, 346 + eyeOffset]) for (const py of [169, 359]) add(px, py);
+    for (const px of [166 - eyeOffset, 346 + eyeOffset]) for (const py of [153, 377]) add(px, py);
     add(head.left, head.sideY); add(head.right, head.sideY);
   }
   if (options.accessories?.includes('headphones')) {
@@ -87,7 +87,7 @@ export function characterFraming(skin: CharacterSkin, shape: CharacterShape, vie
     viewBox = [(left + right - size) / 2, (top + bottom - size) / 2, size, size].map(number).join(' ');
   } else {
     const cx = crop.x + crop.size / 2, cy = crop.y + crop.size / 2;
-    const radius = Math.max(crop.size / 2, ...points.map(([px, py]) => Math.hypot(px - cx, py - cy) + 8 * scale));
+    const radius = Math.max(crop.size / 2, ...points.map(([px, py]) => Math.hypot(px - cx, py - cy) + 12 * scale));
     viewBox = [cx - radius, cy - radius, radius * 2, radius * 2].map(number).join(' ');
   }
   return { viewBox, head, eyeOffset,
