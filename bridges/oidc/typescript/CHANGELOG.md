@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased — eyes-only Continue as Agent window, 2026-10-13
+
+- Replace the random character in the button's 32px window with a pair of
+  bright live eyes in the dark: the real `@openagentid/sdk` player renders one
+  fixed plain character whose body the stylesheet never paints, so no body,
+  face silhouette, accessory or colored skin is visible. The random seed now
+  only varies eye timing.
+- Add idle choreography on a slow timer: the eyes glance around the window,
+  tilt and squint through SDK expressions, with bounded wrapper translation
+  and tilt so the movement reads at actual size, and natural pauses. They look
+  at the viewer on hover or keyboard focus (tracked separately), think while
+  `onContinue` runs, and react to success or failure. Idle glances stop under
+  reduced motion, in hidden tabs and on dispose; SDK eye-group transforms are
+  never overridden.
+- Drop the `skin`, `shape`, `finish`, `eyePlacement` and `accessories`
+  appearance options and the family-selection exports; `appearance.did` remains.
+  The unpublished 0.3.0 version is kept. Review page, verifier and docs updated.
+
 ## 0.3.0 — Continue as Agent button and standalone self-hosting, 2026-10-13
 
 - Add `@openagentid/oidc/button`, a framework-neutral browser entry that mounts
