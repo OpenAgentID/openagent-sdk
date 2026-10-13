@@ -202,7 +202,8 @@ try {
       const window = svg.closest('.oaid-continue__avatar').getBoundingClientRect();
       return { body: body ? getComputedStyle(body).display : 'missing', bodyBox: body ? body.getBoundingClientRect().width : -1,
         eyeFill: getComputedStyle(svg.querySelector('[data-character-eyes]')).fill,
-        eyesVisible: eyes.every(box => box.width > 1 && box.height > 1 && box.left >= window.left - 1 && box.right <= window.right + 1 && box.top >= window.top - 1 && box.bottom <= window.bottom + 1),
+        // A mid-blink eye is legitimately well under 1px tall; it must still be painted and inside the window.
+        eyesVisible: eyes.every(box => box.width > 1 && box.height > 0 && box.left >= window.left - 1 && box.right <= window.right + 1 && box.top >= window.top - 1 && box.bottom <= window.bottom + 1),
         windowBackground: getComputedStyle(svg.closest('.oaid-continue__avatar')).backgroundColor };
     }));
     assert.equal(painted.length, 12);
@@ -216,16 +217,19 @@ try {
     const metrics = await page.evaluate(() => Object.fromEntries(Object.entries(window.oaidContinueDemo.handles).map(([variant, handle]) => {
       const box = handle.button.getBoundingClientRect(), style = getComputedStyle(handle.button);
       const avatar = handle.button.querySelector('.oaid-continue__avatar').getBoundingClientRect();
-      const eyes = handle.button.querySelector('.oaid-continue__eyes').getBoundingClientRect();
+      const wrapper = handle.button.querySelector('.oaid-continue__eyes');
+      const matrix = getComputedStyle(wrapper).transform.match(/matrix\(([^)]+)\)/);
+      const [a, b] = matrix ? matrix[1].split(',').map(Number) : [0, 0];
       const mark = handle.button.querySelector('.oaid-continue__mark').getBoundingClientRect();
       return [variant, { width: Math.round(box.width), height: Math.round(box.height), radius: style.borderTopLeftRadius, font: style.fontSize + '/' + style.fontWeight,
-        avatar: Math.round(avatar.width) + 'x' + Math.round(avatar.height), eyesWindow: Math.round(eyes.width), mark: Math.round(mark.height), background: style.backgroundColor, color: style.color }];
+        avatar: Math.round(avatar.width) + 'x' + Math.round(avatar.height), eyesLayout: wrapper.offsetWidth + 'x' + wrapper.offsetHeight,
+        eyesScale: Math.round(Math.hypot(a, b) * 100) / 100, mark: Math.round(mark.height), background: style.backgroundColor, color: style.color }];
     })));
     const medium = ['light-1', 'light-2', 'light-3', 'dark-1', 'dark-2', 'dark-3', 'disabled', 'loading', 'error', 'selected'];
     for (const variant of medium) {
       assert.equal(metrics[variant].height, 44, variant); assert.equal(metrics[variant].width, metrics['light-1'].width, variant);
       assert.equal(metrics[variant].font, metrics['light-1'].font); assert.equal(metrics[variant].avatar, '32x32'); assert.equal(metrics[variant].mark, 18);
-      assert.equal(metrics[variant].eyesWindow, 43);
+      assert.equal(metrics[variant].eyesLayout, '32x32'); assert.equal(metrics[variant].eyesScale, 1.35);
     }
     assert.equal(metrics.large.height, 52); assert.equal(metrics.large.avatar, '32x32');
     assert(metrics['full-width'].width > metrics['light-1'].width * 2);
@@ -266,37 +270,57 @@ try {
     // Ambient idle motion, sampled across the SDK's full bounded gaze cycle (at most ~3.1 s).
     assert(await eyeFrames(page, '[data-variant="light-1"] svg[data-character-player]', 3600) > 3, 'Expected ambient live eyes over a full cycle');
   });
-  await check('idle-eyes-glance-tilt-squint-and-pause-within-the-window', async () => {
-    // Idle choreography fires every 1.8-4.2 s; an 18 s window sees at least four glances with pauses between them.
+  await check('idle-eyes-glance-tilt-and-pause-within-the-window', async () => {
+    // Deterministic: page randomness is replaced for one probe button so every idle tick
+    // (about every 1.8 s) picks a glance that moves and tilts; holds are sampled in between.
     const idle = await page.evaluate(async () => {
-      const handle = window.oaidContinueDemo.handles['light-2'];
-      const wrapper = handle.root.querySelector('.oaid-continue__eyes'), svg = wrapper.querySelector('svg');
-      const window_ = handle.root.querySelector('.oaid-continue__avatar').getBoundingClientRect();
-      const expressions = new Set(), looks = new Set(), tilts = new Set();
-      let maxOverflow = 0, holds = 0, previous = null;
-      const start = performance.now();
-      while (performance.now() - start < 18_000) {
-        await new Promise(resolve => setTimeout(resolve, 120));
-        expressions.add(svg.getAttribute('data-character-expression'));
-        const look = [wrapper.style.getPropertyValue('--oaid-eyes-x'), wrapper.style.getPropertyValue('--oaid-eyes-y')].join(',');
-        const tilt = wrapper.style.getPropertyValue('--oaid-eyes-tilt');
-        looks.add(look); tilts.add(tilt);
-        if (previous === look + tilt) holds += 1; previous = look + tilt;
-        for (const eye of svg.querySelectorAll('[data-character-eye]')) {
-          const box = eye.getBoundingClientRect();
-          maxOverflow = Math.max(maxOverflow, window_.left - box.left, box.right - window_.right, window_.top - box.top, box.bottom - window_.bottom);
+      const original = crypto.getRandomValues.bind(crypto);
+      let draw = 0;
+      // Low byte 1 or 2 alternately: never a hold, always a non-zero offset and tilt, two expressions.
+      crypto.getRandomValues = array => {
+        const view = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+        for (let index = 0; index < view.length; index++) view[index] = index % 2 === 0 ? 0 : 1 + (draw++ % 2);
+        return array;
+      };
+      const host = document.createElement('div'); host.id = 'idle-probe'; document.body.append(host);
+      let handle;
+      try {
+        handle = window.oaidContinueDemo.mountContinueAsAgent(host, { theme: 'light', onContinue: () => {} });
+        const wrapper = handle.root.querySelector('.oaid-continue__eyes'), svg = wrapper.querySelector('svg');
+        const window_ = handle.root.querySelector('.oaid-continue__avatar').getBoundingClientRect();
+        const expressions = new Set(), looks = new Set(), tilts = new Set();
+        let maxOverflow = 0, holds = 0, previous = null;
+        const start = performance.now();
+        while (performance.now() - start < 8_000) {
+          await new Promise(resolve => setTimeout(resolve, 120));
+          const computed = getComputedStyle(wrapper);
+          expressions.add(svg.getAttribute('data-character-expression'));
+          const look = [computed.getPropertyValue('--oaid-eyes-x'), computed.getPropertyValue('--oaid-eyes-y')].join(',');
+          const tilt = computed.getPropertyValue('--oaid-eyes-tilt');
+          looks.add(look); tilts.add(tilt);
+          if (previous === look + tilt) holds += 1; previous = look + tilt;
+          for (const eye of svg.querySelectorAll('[data-character-eye]')) {
+            const box = eye.getBoundingClientRect();
+            maxOverflow = Math.max(maxOverflow, window_.left - box.left, box.right - window_.right, window_.top - box.top, box.bottom - window_.bottom);
+          }
         }
+        const sdkEyes = svg.querySelector('[data-character-eyes]');
+        return { expressions: [...expressions], looks: [...looks], tilts: [...tilts], holds, maxOverflow,
+          sdkTransformIntact: /^translate\(/.test(sdkEyes.getAttribute('transform')) && getComputedStyle(sdkEyes).rotate === 'none' && sdkEyes.style.transform === '',
+          wrapperTransform: getComputedStyle(wrapper).transform, transition: getComputedStyle(wrapper).transitionDuration };
+      } finally {
+        crypto.getRandomValues = original;
+        handle?.dispose(); host.remove();
       }
-      const sdkEyes = svg.querySelector('[data-character-eyes]');
-      return { expressions: [...expressions], looks: looks.size, tilts: tilts.size, holds, maxOverflow,
-        sdkTransformIntact: /^translate\(/.test(sdkEyes.getAttribute('transform')) && getComputedStyle(sdkEyes).rotate === 'none' && sdkEyes.style.transform === '',
-        wrapperTransform: getComputedStyle(wrapper).transform, transition: getComputedStyle(wrapper).transitionDuration };
     });
-    assert(idle.expressions.length >= 2, 'Expected changing idle expressions, saw ' + idle.expressions.join(','));
-    assert(idle.looks >= 2, 'Expected the eyes to move to another spot in the window'); assert(idle.tilts >= 2, 'Expected the eyes to tilt');
-    assert(idle.holds > 60, 'Expected natural pauses between glances, saw ' + idle.holds);
+    assert(idle.expressions.includes('neutral') && idle.expressions.some(value => value === 'curious' || value === 'attentive'), 'Expected changing idle expressions, saw ' + idle.expressions.join(','));
+    // x and y are drawn separately, so each is -1px or -2px in any combination.
+    assert(idle.looks.includes('0px,0px') && idle.looks.some(value => /^-[12]px,-[12]px$/.test(value)), 'Expected the eyes to move within the window, saw ' + idle.looks.join(' '));
+    assert(idle.tilts.includes('0deg') && idle.tilts.some(value => value === '-6deg' || value === '-5deg'), 'Expected the eyes to tilt, saw ' + idle.tilts.join(' '));
+    assert(idle.holds > 40, 'Expected natural pauses between glances, saw ' + idle.holds);
     assert(idle.maxOverflow <= 1, 'Eyes left the window by ' + idle.maxOverflow + 'px');
     assert.equal(idle.sdkTransformIntact, true); assert.notEqual(idle.wrapperTransform, 'none'); assert.equal(idle.transition, '0.72s');
+    assert.equal(await page.locator('#idle-probe').count(), 0);
   });
   await check('hover-and-focus-draw-the-eyes-to-the-viewer-and-are-tracked-separately', async () => {
     const svg = page.locator('[data-variant="light-3"] svg[data-character-player]');
@@ -304,7 +328,8 @@ try {
     await page.locator('[data-variant="light-3"] .oaid-continue__button').hover();
     assert.equal(await svg.getAttribute('data-character-status'), 'listening');
     assert.equal(await svg.getAttribute('data-character-expression'), 'attentive');
-    assert.equal(await wrapper.evaluate(node => [node.style.getPropertyValue('--oaid-eyes-x'), node.style.getPropertyValue('--oaid-eyes-y'), node.style.getPropertyValue('--oaid-eyes-tilt')].join(' ')), '0px 0px 0deg');
+    assert.equal(await wrapper.evaluate(node => { const computed = getComputedStyle(node);
+      return ['--oaid-eyes-x', '--oaid-eyes-y', '--oaid-eyes-tilt'].map(name => computed.getPropertyValue(name).trim()).join(' '); }), '0px 0px 0deg');
     await page.evaluate(() => window.oaidContinueDemo.handles['light-3'].button.focus());
     await page.mouse.move(4, 4);
     await page.waitForTimeout(5000);
@@ -463,9 +488,11 @@ try {
     assert.equal(await reducedPage.locator('.oaid-continue__eyes > svg[data-character-player]').count(), 12);
     assert.equal(await eyeFrames(reducedPage, '[data-variant="light-1"] svg[data-character-player]', 3600), 1);
     await reducedPage.waitForTimeout(5000);
-    const still = await reducedPage.evaluate(() => [...document.querySelectorAll('.oaid-continue__eyes')].map(wrapper => [
-      wrapper.querySelector('svg').getAttribute('data-character-expression'), wrapper.style.getPropertyValue('--oaid-eyes-x'),
-      wrapper.style.getPropertyValue('--oaid-eyes-tilt'), getComputedStyle(wrapper).transitionDuration].join(' ')));
+    const still = await reducedPage.evaluate(() => [...document.querySelectorAll('.oaid-continue__eyes')].map(wrapper => {
+      const computed = getComputedStyle(wrapper);
+      return [wrapper.querySelector('svg').getAttribute('data-character-expression'), computed.getPropertyValue('--oaid-eyes-x').trim(),
+        computed.getPropertyValue('--oaid-eyes-tilt').trim(), computed.transitionDuration].join(' ');
+    }));
     for (const entry of still) assert.equal(entry, 'neutral 0px 0deg 0s');
     await reducedPage.evaluate(() => window.oaidContinueDemo.handles.loading.button.click());
     assert.equal(await reducedPage.evaluate(() => getComputedStyle(document.querySelector('[data-variant="loading"] .oaid-continue__mark')).animationName), 'none');
