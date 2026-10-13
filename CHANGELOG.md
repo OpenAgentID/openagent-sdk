@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — Continue as Agent button, 2026-10-13
+
+- Add the branded Continue as Agent browser button to `@openagentid/oidc` 0.3.0
+  as `@openagentid/oidc/button` with a static stylesheet: one canonical design
+  whose only variable element is a bounded avatar slot rendered by the existing
+  SDK 0.7.2 character generator and live player. The host's `onContinue`
+  callback starts its own OIDC flow; the control sends no decorative identity
+  to authentication and makes no network requests.
+- Add a self-contained review page, a packed-archive Chromium verifier
+  (`tools/public-onboarding/verify-button.mjs`) and a standalone no-LifeID
+  self-rooted provider regression. `@openagentid/sdk` stays at 0.7.2 and is
+  not republished; the OIDC browser entry is separate from the Node provider.
+
 ## Unreleased — current developer documentation, 2026-10-12
 
 - Refresh the documentation entry, core concepts, architecture and API/HTTP

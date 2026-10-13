@@ -1,7 +1,7 @@
 {
   "name": "@openagentid/oidc",
-  "version": "0.2.0",
-  "description": "Verified agent OpenID Connect provider and LifeID federation adapter",
+  "version": "0.3.0",
+  "description": "Self-hosted agent OpenID Connect provider with the branded Continue as Agent button; LifeID federation optional",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
@@ -19,10 +19,16 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    }
+    },
+    "./button": {
+      "types": "./dist/button.d.ts",
+      "import": "./dist/button.js"
+    },
+    "./button.css": "./styles/button.css"
   },
   "files": [
     "dist",
+    "styles",
     "README.md",
     "CHANGELOG.md",
     "LICENSE-APACHE",
@@ -31,12 +37,14 @@
   "publishConfig": {
     "access": "public"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./styles/button.css"
+  ],
   "engines": {
     "node": ">=20.19.0"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsup --config tsup.button.config.ts",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -53,7 +61,8 @@
   },
   "peerDependencies": {
     "@openagentid/arsenal-sdk": "^0.1.0",
-    "@openagentid/oas-sdk": "^1.0.2"
+    "@openagentid/oas-sdk": "^1.0.2",
+    "@openagentid/sdk": "^0.7.2"
   },
   "peerDependenciesMeta": {
     "@openagentid/oas-sdk": {
@@ -61,9 +70,13 @@
     },
     "@openagentid/arsenal-sdk": {
       "optional": true
+    },
+    "@openagentid/sdk": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@openagentid/sdk": "0.7.2",
     "@types/node": "^20.11.30",
     "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.2",
@@ -78,7 +91,10 @@
     "did",
     "identity",
     "token-exchange",
-    "rfc8693"
+    "rfc8693",
+    "continue-as-agent",
+    "button",
+    "browser"
   ],
   "overrides": {
     "esbuild": "^0.28.1"

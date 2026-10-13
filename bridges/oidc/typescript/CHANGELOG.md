@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.0 — Continue as Agent button and standalone self-hosting, 2026-10-13
+
+- Add `@openagentid/oidc/button`, a framework-neutral browser entry that mounts
+  the canonical Continue as Agent control: fixed silhouette, typography, exact
+  label and official OpenAgentID mark, with a bounded 32px avatar slot rendered
+  by the real `@openagentid/sdk` character generator and live player. Each mount
+  draws one random decorative seed and year-round family that stay stable; a
+  host may show an already chosen agent without implying authentication.
+- The required `onContinue` callback is the only action; it receives the button
+  only, never the decorative seed, and the control invents no issuer, redirect,
+  state or nonce and makes no network requests. Async callbacks set `aria-busy`,
+  ignore duplicate activation, keep the label and dimensions fixed, recover from
+  rejection with an accessible status and `onError`, and dispose safely while
+  pending. Motion follows the system reduced-motion preference.
+- Ship a static `@openagentid/oidc/button.css` with light/dark/auto themes,
+  medium/large sizes, full-width, visible focus and a forced-colors outline.
+  Declare `@openagentid/sdk` as an optional peer; the browser entry is separate
+  from the Node provider graph and is not re-exported through the core entry.
+- Add a self-contained review page under `examples/continue-as-agent` and the
+  packed-archive Chromium verifier `tools/public-onboarding/verify-button.mjs`.
+- Add a regression proving a standalone server with no `lifeId`/`requireLifeId`
+  configuration completes the real-key self-rooted PKCE, token, ID token and
+  UserInfo flow with zero federation requests; document that configuration.
+  Lead the package description with self-hosted agent OIDC; LifeID is optional.
+  Provider protocol behavior is unchanged.
+
 ### 0.2.0 self-rooted identity support — 2026-10-11
 
 - Add explicit server opt-in for authoritative self-rooted agent authentication, preserving LifeID authentication for owned identities.

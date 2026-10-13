@@ -1,0 +1,407 @@
+/**
+ * Packed-package browser verification for the Continue as Agent button.
+ *
+ * Installs the exact @openagentid/sdk and @openagentid/oidc archives into a
+ * disposable consumer, serves the bundled review page over loopback HTTP and
+ * drives real Chromium. Evidence goes to OAID_BUTTON_ARTIFACT_DIR:
+ * receipt.json (passed, source), PNG screenshots and preview-files.json holding
+ * the served HTML/CSS/JS for direct review. Exit status is non-zero on failure.
+ *
+ * Environment: OAID_SDK_TARBALL / OAID_OIDC_TARBALL (defaults: pack from the
+ * built source packages), OAID_SOURCE_SHA (defaults: git HEAD),
+ * OAID_BUTTON_ARTIFACT_DIR (default: .public-tooling-artifacts/button).
+ */
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { createReadStream } from 'node:fs';
+import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { basename, dirname, extname, join, normalize, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright-core';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const artifacts = resolve(process.env.OAID_BUTTON_ARTIFACT_DIR ?? join(root, '.public-tooling-artifacts/button'));
+await mkdir(artifacts, { recursive: true });
+const fixture = await mkdtemp(join(root, '.public-button-'));
+const checks = [];
+const logs = [];
+const screenshots = [];
+const SEASONAL = new Set(['halloween', 'thanksgiving', 'christmas']);
+const LABEL = 'Continue as Agent';
+let server, browser, failure, source = null;
+
+function run(name, command, cwd, timeout = 240_000) {
+  const result = spawnSync(command[0], command.slice(1), {
+    cwd, encoding: 'utf8', timeout, maxBuffer: 16 * 1024 * 1024,
+    env: { ...process.env, CI: 'true', npm_config_audit: 'false', npm_config_fund: 'false' },
+  });
+  logs.push(writeFile(join(artifacts, name + '.log'), (result.stdout ?? '') + (result.stderr ?? '')));
+  assert.equal(result.status, 0, `${name} failed; inspect ${name}.log`);
+  checks.push({ name, passed: true });
+  return result.stdout;
+}
+async function check(name, operation) {
+  await operation();
+  checks.push({ name, passed: true });
+}
+async function tarball(envName, directory, expectedName) {
+  const configured = process.env[envName];
+  if (configured) {
+    await stat(configured);
+    return resolve(configured);
+  }
+  const destination = join(fixture, 'packages');
+  await mkdir(destination, { recursive: true });
+  const result = JSON.parse(run('pack-' + basename(expectedName), ['npm', 'pack', '--json', '--ignore-scripts', '--pack-destination', destination], directory))[0];
+  assert.equal(result.name, expectedName);
+  return join(destination, result.filename);
+}
+const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.map': 'application/json', '.svg': 'image/svg+xml' };
+function serve(directory) {
+  return createServer((req, res) => {
+    const path = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname);
+    const target = normalize(join(directory, path === '/' ? '/index.html' : path));
+    if (!target.startsWith(directory + '/') || path.includes('..')) { res.statusCode = 403; res.end(); return; }
+    stat(target).then(info => {
+      if (!info.isFile()) throw new Error('not a file');
+      res.setHeader('content-type', mime[extname(target)] ?? 'application/octet-stream');
+      createReadStream(target).pipe(res);
+    }).catch(() => { res.statusCode = 404; res.end('not found'); });
+  });
+}
+async function listen(httpServer) {
+  httpServer.listen(0, '127.0.0.1');
+  await new Promise(done => httpServer.once('listening', done));
+  return `http://127.0.0.1:${httpServer.address().port}`;
+}
+async function eyeFrames(page, selector, samples) {
+  return page.evaluate(async ({ selector, samples }) => {
+    const svg = document.querySelector(selector);
+    const frames = new Set();
+    for (let index = 0; index < samples; index++) {
+      await new Promise(requestAnimationFrame);
+      frames.add(svg.querySelector('[data-character-eyes]').getAttribute('transform') + '|' +
+        [...svg.querySelectorAll('[data-character-eye]')].map(eye => eye.getAttribute('height')).join(','));
+    }
+    return frames.size;
+  }, { selector, samples });
+}
+async function openPage(context, url, errors, external) {
+  const page = await context.newPage();
+  page.on('pageerror', error => errors.push(error.message));
+  await context.route('**/*', async route => {
+    if (new URL(route.request().url()).origin !== new URL(url).origin) { external.push(route.request().url()); await route.abort(); }
+    else await route.continue();
+  });
+  await page.goto(url + '/index.html');
+  await page.waitForSelector('[data-variant="selected"] .oaid-continue__button');
+  return page;
+}
+async function shot(page, selector, name) {
+  const path = join(artifacts, name);
+  if (selector) await page.locator(selector).screenshot({ path });
+  else await page.screenshot({ path, fullPage: true });
+  screenshots.push(name);
+}
+
+try {
+  source = process.env.OAID_SOURCE_SHA ?? spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+  assert.match(source, /^[0-9a-f]{40}$/);
+  const oidcManifest = JSON.parse(await readFile(join(root, 'bridges/oidc/typescript/package.json'), 'utf8'));
+  const sdkManifest = JSON.parse(await readFile(join(root, 'sdks/typescript/package.json'), 'utf8'));
+  const sdkArchive = await tarball('OAID_SDK_TARBALL', join(root, 'sdks/typescript'), '@openagentid/sdk');
+  const oidcArchive = await tarball('OAID_OIDC_TARBALL', join(root, 'bridges/oidc/typescript'), '@openagentid/oidc');
+
+  // A plain consumer: both exact archives, every other dependency from the public registry.
+  const consumer = join(fixture, 'consumer');
+  await mkdir(consumer);
+  await writeFile(join(consumer, 'package.json'), JSON.stringify({ name: 'continue-as-agent-consumer', private: true, type: 'module' }));
+  run('install-packed-sdk-and-oidc', ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund', '--save-exact', sdkArchive, oidcArchive], consumer);
+  const lock = JSON.parse(await readFile(join(consumer, 'package-lock.json'), 'utf8'));
+  await check('consumer-resolves-only-public-registry-or-exact-archives', async () => {
+    for (const [name, entry] of Object.entries(lock.packages)) {
+      if (!entry.resolved) continue;
+      assert(entry.resolved.startsWith('https://registry.npmjs.org/') || entry.resolved.endsWith(basename(sdkArchive)) ||
+        entry.resolved.endsWith(basename(oidcArchive)), 'Non-public resolution for ' + name);
+    }
+    assert.equal(lock.packages['node_modules/@openagentid/sdk'].version, sdkManifest.version);
+    assert.equal(lock.packages['node_modules/@openagentid/oidc'].version, oidcManifest.version);
+  });
+
+  const installedOidc = join(consumer, 'node_modules/@openagentid/oidc');
+  const buttonBundle = await readFile(join(installedOidc, 'dist/button.js'), 'utf8');
+  const buttonCss = await readFile(join(installedOidc, 'styles/button.css'), 'utf8');
+  await check('packed-browser-entry-separate-from-node-provider-graph', async () => {
+    const installed = JSON.parse(await readFile(join(installedOidc, 'package.json'), 'utf8'));
+    assert.deepEqual(installed.exports['./button'], { types: './dist/button.d.ts', import: './dist/button.js' });
+    assert.equal(installed.exports['./button.css'], './styles/button.css');
+    assert.deepEqual(installed.peerDependenciesMeta['@openagentid/sdk'], { optional: true });
+    await stat(join(installedOidc, 'dist/button.d.ts'));
+    const specifiers = [...buttonBundle.matchAll(/\bfrom\s*["']([^"']+)["']/g)].map(match => match[1]);
+    assert(specifiers.length > 0, 'Button bundle has no imports');
+    for (const specifier of specifiers) assert.match(specifier, /^@openagentid\/sdk\/(?:character-player|characters)$/);
+    assert.doesNotMatch(buttonBundle, /oidc-provider|["']node:|["']jose["']|["']zod["']|XMLHttpRequest|fetch\(/);
+    const provider = await readFile(join(installedOidc, 'dist/index.js'), 'utf8');
+    assert.match(provider, /oidc-provider/);
+    assert.doesNotMatch(provider, /mountContinueAsAgent/);
+    await stat(join(consumer, 'node_modules/@openagentid/sdk/dist/browser/character-player.js'));
+  });
+
+  // The committed review page, served exactly as a developer would run it.
+  const example = join(root, 'bridges/oidc/typescript/examples/continue-as-agent');
+  for (const file of ['index.html', 'demo.js']) await cp(join(example, file), join(consumer, file));
+  server = serve(consumer);
+  const url = await listen(server);
+  browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  const errors = [], external = [];
+
+  // Light, animated context: brand consistency, interaction and lifecycle.
+  const light = await browser.newContext({ viewport: { width: 1120, height: 960 }, deviceScaleFactor: 2, colorScheme: 'light', reducedMotion: 'no-preference' });
+  const page = await openPage(light, url, errors, external);
+  const buttons = page.getByRole('button', { name: LABEL, exact: true });
+  await check('twelve-buttons-with-exact-accessible-name-and-label', async () => {
+    assert.equal(await buttons.count(), 12);
+    assert.equal(await page.locator('.oaid-continue__button').count(), 12);
+    for (const text of await page.locator('.oaid-continue__label').allTextContents()) assert.equal(text, LABEL);
+    assert.equal(await page.locator('.oaid-continue__avatar[aria-hidden="true"]').count(), 12);
+    assert.equal(await page.locator('.oaid-continue__mark[aria-hidden="true"]').count(), 12);
+  });
+  const appearances = await page.evaluate(() => Object.fromEntries(Object.entries(window.oaidContinueDemo.handles)
+    .map(([variant, handle]) => [variant, { ...handle.appearance, status: handle.button.querySelector('svg[data-character-player]').getAttribute('data-character-status') }])));
+  const catalog = await page.evaluate(() => window.oaidContinueDemo.catalog);
+  assert.equal(catalog.length, 17);
+  await check('real-generator-random-year-round-characters-with-unique-seeds', async () => {
+    const decorative = Object.entries(appearances).filter(([variant]) => variant !== 'selected');
+    assert.equal(decorative.length, 11);
+    for (const [, appearance] of decorative) {
+      assert.equal(appearance.decorative, true);
+      assert.match(appearance.did, /^did:oas:openagent:agent:decorative-[0-9a-f]{16}$/);
+      assert(catalog.includes(appearance.skin), 'Unknown family ' + appearance.skin);
+      assert(!SEASONAL.has(appearance.skin), 'Seasonal family chosen: ' + appearance.skin);
+    }
+    assert.equal(new Set(Object.values(appearances).map(appearance => appearance.did)).size, 12);
+    assert.equal(appearances.selected.decorative, false);
+    assert.equal(appearances.selected.did, 'did:oas:openagent:agent:review-selected-agent');
+    assert.equal(appearances.selected.skin, 'autos');
+    assert(await page.locator('[data-variant="selected"] [data-character-accessory]').count() >= 1);
+    assert.equal(await page.locator('.oaid-continue__avatar > svg[data-character-player="live-v1"]').count(), 12);
+    assert.equal(await page.locator('.oaid-continue__avatar [data-character-eye]').count(), 24);
+    assert.equal(await page.locator('.oaid-continue__avatar svg[width="32"][height="32"]').count(), 12);
+  });
+  await check('one-canonical-silhouette-across-variants', async () => {
+    const metrics = await page.evaluate(() => Object.fromEntries(Object.entries(window.oaidContinueDemo.handles).map(([variant, handle]) => {
+      const box = handle.button.getBoundingClientRect(), style = getComputedStyle(handle.button);
+      const avatar = handle.button.querySelector('.oaid-continue__avatar').getBoundingClientRect();
+      const mark = handle.button.querySelector('.oaid-continue__mark').getBoundingClientRect();
+      return [variant, { width: Math.round(box.width), height: Math.round(box.height), radius: style.borderTopLeftRadius, font: style.fontSize + '/' + style.fontWeight,
+        avatar: Math.round(avatar.width) + 'x' + Math.round(avatar.height), mark: Math.round(mark.height), background: style.backgroundColor, color: style.color }];
+    })));
+    const medium = ['light-1', 'light-2', 'light-3', 'dark-1', 'dark-2', 'dark-3', 'disabled', 'loading', 'error', 'selected'];
+    for (const variant of medium) {
+      assert.equal(metrics[variant].height, 44, variant); assert.equal(metrics[variant].width, metrics['light-1'].width, variant);
+      assert.equal(metrics[variant].font, metrics['light-1'].font); assert.equal(metrics[variant].avatar, '32x32'); assert.equal(metrics[variant].mark, 18);
+    }
+    assert.equal(metrics.large.height, 52); assert.equal(metrics.large.avatar, '32x32');
+    assert(metrics['full-width'].width > metrics['light-1'].width * 2);
+    assert.equal(metrics['light-1'].background, 'rgb(11, 11, 15)'); assert.equal(metrics['light-1'].color, 'rgb(255, 255, 255)');
+    assert.equal(metrics['dark-1'].background, 'rgb(255, 255, 255)'); assert.equal(metrics['dark-1'].color, 'rgb(11, 11, 15)');
+    assert.equal(metrics['light-1'].radius, '999px');
+  });
+  await check('avatar-slot-plays-live-sdk-animation', async () => {
+    assert(await eyeFrames(page, '[data-variant="light-1"] svg[data-character-player]', 40) > 3, 'Expected moving live eyes');
+  });
+  const before = await page.evaluate(() => { const svg = document.querySelector('[data-variant="light-1"] svg[data-character-player]');
+    window.oaidOriginalSvg = svg; return [svg.getAttribute('data-character-skin'), svg.getAttribute('data-character-shape')]; });
+  await check('keyboard-focus-ring-and-enter-space-activation', async () => {
+    await page.locator('body').click({ position: { x: 4, y: 4 } });
+    await page.keyboard.press('Tab');
+    assert(await page.evaluate(() => document.activeElement === window.oaidContinueDemo.handles['light-1'].button));
+    assert.notEqual(await page.evaluate(() => getComputedStyle(document.activeElement).boxShadow), 'none');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Space');
+    const lines = await page.evaluate(() => window.oaidContinueDemo.lines.filter(line => line.includes('light-1: onContinue called')));
+    assert.equal(lines.length, 2);
+    assert.equal(await page.locator('[data-variant="light-1"] .oaid-continue__button').getAttribute('data-state'), 'idle');
+  });
+  await check('seed-and-avatar-node-stable-across-interactions', async () => {
+    await page.locator('[data-variant="light-1"] .oaid-continue__button').click();
+    const after = await page.evaluate(() => { const svg = document.querySelector('[data-variant="light-1"] svg[data-character-player]');
+      return [svg.getAttribute('data-character-skin'), svg.getAttribute('data-character-shape'), svg === window.oaidOriginalSvg]; });
+    assert.deepEqual(after, [...before, true]);
+    assert.deepEqual(await page.evaluate(() => { const { did, skin, shape } = window.oaidContinueDemo.handles['light-1'].appearance; return { did, skin, shape }; }),
+      { did: appearances['light-1'].did, skin: appearances['light-1'].skin, shape: appearances['light-1'].shape });
+  });
+  await check('status-live-region-mounted-empty-before-any-failure', async () => {
+    const region = await page.evaluate(() => {
+      const status = document.querySelector('[data-variant="error"] .oaid-continue__status');
+      const style = getComputedStyle(status);
+      return { role: status.getAttribute('role'), live: status.getAttribute('aria-live'), text: status.textContent, hidden: status.hidden,
+        display: style.display, visibility: style.visibility, height: status.getBoundingClientRect().height, id: status.id.length > 0 };
+    });
+    assert.deepEqual(region, { role: 'status', live: 'polite', text: '', hidden: false, display: 'block', visibility: 'visible', height: 0, id: true });
+  });
+  await check('async-pending-ignores-duplicate-clicks-keeps-label-and-size', async () => {
+    const widthBefore = await page.locator('[data-variant="loading"] .oaid-continue__button').evaluate(node => node.getBoundingClientRect().width);
+    await page.evaluate(() => { const { button } = window.oaidContinueDemo.handles.loading; button.click(); button.click(); button.click(); });
+    const button = page.locator('[data-variant="loading"] .oaid-continue__button');
+    assert.equal(await button.getAttribute('aria-busy'), 'true');
+    assert.equal(await button.getAttribute('data-state'), 'loading');
+    assert.equal(await button.getAttribute('disabled'), null);
+    assert.equal(await page.locator('[data-variant="loading"] .oaid-continue__label').textContent(), LABEL);
+    assert.equal(await buttons.count(), 12);
+    assert.equal(await button.evaluate(node => node.getBoundingClientRect().width), widthBefore);
+    assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-status'), 'reasoning');
+    assert.equal(await page.evaluate(() => window.oaidContinueDemo.lines.filter(line => line.includes('loading: pending')).length), 1);
+    await page.locator('[data-variant="error"] .oaid-continue__button').click();
+    await page.waitForSelector('[data-variant="error"] .oaid-continue__button[data-state="error"]');
+    await shot(page, '#states', 'states-loading-and-error.png');
+    await page.evaluate(() => window.oaidContinueDemo.deferred.loading());
+    await page.waitForSelector('[data-variant="loading"] .oaid-continue__button[data-state="idle"]');
+    assert.equal(await button.getAttribute('aria-busy'), 'false');
+    assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-status'), 'success');
+  });
+  await check('async-rejection-recovers-with-accessible-status-and-onError', async () => {
+    const button = page.locator('[data-variant="error"] .oaid-continue__button');
+    const status = page.locator('[data-variant="error"] .oaid-continue__status');
+    assert.equal(await status.getAttribute('role'), 'status');
+    assert.equal((await status.textContent()).trim(), 'Could not continue as agent. Try again.');
+    assert.equal(await status.evaluate(node => !node.hidden && getComputedStyle(node).display === 'block' && node.getBoundingClientRect().height > 0), true);
+    assert.equal(await button.getAttribute('aria-describedby'), await status.getAttribute('id'));
+    assert.equal(await button.getAttribute('aria-busy'), 'false');
+    assert.equal(await page.locator('[data-variant="error"] svg[data-character-player]').getAttribute('data-character-status'), 'error');
+    assert.equal(await page.evaluate(() => window.oaidContinueDemo.lines.filter(line => line.includes('onError received')).length), 1);
+    // Retrying clears the message while pending, then announces the new failure.
+    const cleared = await page.evaluate(() => {
+      const handle = window.oaidContinueDemo.handles.error;
+      handle.button.click();
+      const status = handle.root.querySelector('.oaid-continue__status');
+      return { text: status.textContent, state: handle.getState(), described: handle.button.getAttribute('aria-describedby') };
+    });
+    assert.deepEqual(cleared, { text: '', state: 'loading', described: null });
+    await page.waitForFunction(() => window.oaidContinueDemo.lines.filter(line => line.includes('onError received')).length === 2);
+    assert.equal(await button.getAttribute('data-state'), 'error');
+    assert.equal((await status.textContent()).trim(), 'Could not continue as agent. Try again.');
+    assert.equal(await button.getAttribute('aria-describedby'), await status.getAttribute('id'));
+  });
+  await check('disabled-button-ignores-activation-until-enabled', async () => {
+    const button = page.locator('[data-variant="disabled"] .oaid-continue__button');
+    assert.equal(await button.isDisabled(), true);
+    await page.evaluate(() => window.oaidContinueDemo.handles.disabled.button.click());
+    assert.equal(await page.evaluate(() => window.oaidContinueDemo.lines.some(line => line.includes('disabled: onContinue'))), false);
+    await page.evaluate(() => window.oaidContinueDemo.handles.disabled.setDisabled(false));
+    await button.click();
+    assert.equal(await page.evaluate(() => window.oaidContinueDemo.lines.some(line => line.includes('disabled: onContinue'))), true);
+    await page.evaluate(() => window.oaidContinueDemo.handles.disabled.setDisabled(true));
+  });
+  await check('dispose-while-pending-and-after-rejection-is-safe', async () => {
+    const result = await page.evaluate(async () => {
+      const { mountContinueAsAgent } = window.oaidContinueDemo;
+      const host = document.createElement('div'); document.body.append(host);
+      let resolveLater, rejectLater, calls = 0, errors = 0;
+      const first = mountContinueAsAgent(host, { onContinue: () => { calls++; return new Promise(resolve => { resolveLater = resolve; }); } });
+      const second = mountContinueAsAgent(host, { onContinue: () => { calls++; return new Promise((_, reject) => { rejectLater = reject; }); }, onError: () => { errors++; } });
+      const children = host.children.length;
+      first.button.click(); second.button.click();
+      first.dispose(); second.dispose(); first.dispose();
+      const removed = host.children.length;
+      resolveLater(); rejectLater(new Error('late'));
+      await new Promise(resolve => setTimeout(resolve, 20));
+      let setAfterDispose = null;
+      try { first.setDisabled(true); } catch (error) { setAfterDispose = error.message; }
+      host.remove();
+      return { children, removed, calls, errors, setAfterDispose, states: [first.getState(), second.getState()] };
+    });
+    assert.deepEqual(result, { children: 2, removed: 0, calls: 2, errors: 0, setAfterDispose: 'Continue as Agent button is disposed', states: ['loading', 'loading'] });
+  });
+  await check('auto-theme-follows-light-color-scheme', async () => {
+    const background = await page.evaluate(() => {
+      const host = document.createElement('div'); document.body.append(host);
+      const handle = window.oaidContinueDemo.mountContinueAsAgent(host, { onContinue: () => {} });
+      const value = getComputedStyle(handle.button).backgroundColor; handle.dispose(); host.remove(); return value;
+    });
+    assert.equal(background, 'rgb(11, 11, 15)');
+  });
+  await check('invalid-options-rejected-before-mounting', async () => {
+    const messages = await page.evaluate(() => {
+      const { mountContinueAsAgent } = window.oaidContinueDemo;
+      const host = document.createElement('div'); document.body.append(host);
+      const attempts = [() => mountContinueAsAgent(host, {}), () => mountContinueAsAgent(host, { onContinue() {}, theme: 'neon' }),
+        () => mountContinueAsAgent(host, { onContinue() {}, appearance: { did: 'not-a-did' } }), () => mountContinueAsAgent(host, { onContinue() {}, issuer: 'https://x' })];
+      const result = attempts.map(attempt => { try { attempt(); return 'mounted'; } catch (error) { return error.constructor.name; } });
+      result.push(host.children.length); host.remove(); return result;
+    });
+    assert.deepEqual(messages, ['TypeError', 'TypeError', 'TypeError', 'TypeError', 0]);
+  });
+  await shot(page, '#light', 'light-random-characters.png');
+  await shot(page, '#dark', 'dark-random-characters.png');
+  await shot(page, '#sizes', 'sizes.png');
+  await shot(page, null, 'review-page.png');
+  await light.close();
+
+  // Dark system color scheme: theme auto flips to the white button.
+  const dark = await browser.newContext({ viewport: { width: 1120, height: 960 }, deviceScaleFactor: 2, colorScheme: 'dark', reducedMotion: 'no-preference' });
+  const darkPage = await openPage(dark, url, errors, external);
+  await check('auto-theme-follows-dark-color-scheme', async () => {
+    const background = await darkPage.evaluate(() => {
+      const host = document.createElement('div'); document.body.append(host);
+      const handle = window.oaidContinueDemo.mountContinueAsAgent(host, { onContinue: () => {} });
+      const value = getComputedStyle(handle.button).backgroundColor; handle.dispose(); host.remove(); return value;
+    });
+    assert.equal(background, 'rgb(255, 255, 255)');
+  });
+  await dark.close();
+
+  // Reduced motion: the real player renders a still character and never animates.
+  const reduced = await browser.newContext({ viewport: { width: 1120, height: 960 }, deviceScaleFactor: 2, colorScheme: 'light', reducedMotion: 'reduce' });
+  const reducedPage = await openPage(reduced, url, errors, external);
+  await check('reduced-motion-renders-still-characters', async () => {
+    assert.equal(await reducedPage.locator('.oaid-continue__avatar > svg[data-character-player]').count(), 12);
+    assert.equal(await eyeFrames(reducedPage, '[data-variant="light-1"] svg[data-character-player]', 30), 1);
+    await reducedPage.evaluate(() => window.oaidContinueDemo.handles.loading.button.click());
+    assert.equal(await reducedPage.evaluate(() => getComputedStyle(document.querySelector('[data-variant="loading"] .oaid-continue__mark')).animationName), 'none');
+  });
+  await shot(reducedPage, '#light', 'reduced-motion-light.png');
+  await reduced.close();
+
+  // Forced colors: a real outline replaces the box-shadow focus ring.
+  const forced = await browser.newContext({ viewport: { width: 1120, height: 960 }, deviceScaleFactor: 2, forcedColors: 'active', colorScheme: 'dark' });
+  const forcedPage = await openPage(forced, url, errors, external);
+  await check('forced-colors-keeps-visible-focus-outline', async () => {
+    await forcedPage.locator('body').click({ position: { x: 4, y: 4 } });
+    await forcedPage.keyboard.press('Tab');
+    const focus = await forcedPage.evaluate(() => { const style = getComputedStyle(document.activeElement);
+      return { button: document.activeElement.classList.contains('oaid-continue__button'), style: style.outlineStyle, width: style.outlineWidth }; });
+    assert.deepEqual(focus, { button: true, style: 'solid', width: '3px' });
+  });
+  await shot(forcedPage, '#light', 'forced-colors-focus.png');
+  await forced.close();
+
+  await check('no-browser-errors-or-external-network', async () => {
+    assert.deepEqual(errors, []);
+    assert.deepEqual(external, []);
+  });
+
+  // Served preview sources for direct review (JSON because the evidence lane accepts json/log/png/tgz/webm only).
+  await writeFile(join(artifacts, 'preview-files.json'), JSON.stringify({
+    note: 'Exact files served to Chromium from the packed consumer. Recreate by installing the two archives next to index.html and demo.js.',
+    files: {
+      'index.html': await readFile(join(consumer, 'index.html'), 'utf8'),
+      'demo.js': await readFile(join(consumer, 'demo.js'), 'utf8'),
+      'node_modules/@openagentid/oidc/styles/button.css': buttonCss,
+      'node_modules/@openagentid/oidc/dist/button.js': buttonBundle,
+    },
+  }, null, 2) + '\n');
+} catch (error) {
+  failure = error instanceof Error ? error.message : 'Button qualification failed';
+  process.exitCode = 1;
+} finally {
+  await browser?.close();
+  await new Promise(done => server ? server.close(done) : done());
+  await Promise.all(logs);
+  await writeFile(join(artifacts, 'receipt.json'), JSON.stringify({ passed: !failure, source, node: process.version,
+    checks, screenshots, failure: failure ?? null, demoCallbacksOnly: true, externalNetworkUsed: false,
+    authorizationFlowStarted: false }, null, 2) + '\n');
+  await rm(fixture, { recursive: true, force: true });
+}

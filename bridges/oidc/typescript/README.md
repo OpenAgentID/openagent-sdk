@@ -1,14 +1,22 @@
 # @openagentid/oidc
 
-OpenAgentID's agent OpenID Connect provider and human-identity federation bridge.
-Version 0.2.0 uses the maintained `oidc-provider` implementation for registered
-OIDC relying parties: discovery, public JWKS, authorization code, PKCE S256,
-client authentication, signed ID tokens, and UserInfo. OpenAgentID is free and
-open software in the [Open Software](https://open.software) family. Life can
-operate hosted services around the same open contracts.
+OpenAgentID's self-hosted agent OpenID Connect provider, with the branded
+**Continue as Agent** button for browsers and an optional LifeID human-identity
+federation bridge. Version 0.3.0 uses the maintained `oidc-provider`
+implementation for registered OIDC relying parties: discovery, public JWKS,
+authorization code, PKCE S256, client authentication, signed ID tokens, and
+UserInfo. OpenAgentID is free and open software in the
+[Open Software](https://open.software) family. Life can operate hosted services
+around the same open contracts; nothing here depends on them.
 
 ```sh
-npm install @openagentid/oidc@0.2.0
+npm install @openagentid/oidc@0.3.0
+```
+
+The browser button additionally needs the character generator:
+
+```sh
+npm install @openagentid/sdk@0.7.2
 ```
 
 Node 20.19+ is required. ESM and CommonJS entry points are supplied; provider
@@ -183,6 +191,97 @@ account or tenant. RPs must explicitly decide whether they accept self-rooted
 identities; a policy revision, authorization, root or mode change invalidates
 existing OIDC grants.
 
+## Run standalone with no LifeID
+
+A deployment that only authenticates self-rooted agents configures its own
+issuer, signing keys, durable adapter and identity callbacks, and omits both
+`lifeId` and `requireLifeId`. No federation object is constructed, no LifeID
+JWKS is ever fetched, and nothing points at an OpenAgentID or Life hosted URL:
+
+```ts
+const oidc = await createAgentOidcProvider({
+  issuer: 'https://identity.example.com',
+  clients: [{ client_id: 'registered-application', redirect_uris: ['https://application.example.com/callback'],
+    token_endpoint_auth_method: 'none' }],
+  jwks: privateSigningJwks,
+  cookieKeys: rotatingCookieSigningKeys,
+  adapter: PersistentProviderAdapter,
+  persistent: true,
+  allowSelfRooted: true,
+  verifyAgent: (proof, context) => receiverPolicy.verify(proof, context),
+  resolveIdentity: (did) => receiverPolicy.resolve(did),
+});
+```
+
+`verifyAgent` and `resolveIdentity` remain the receiver's own authoritative
+admission policy; omitting LifeID widens nothing. A `lifeIdToken` submitted to
+such a server is still refused rather than ignored. The test suite covers this
+exact configuration end to end.
+
+## Continue as Agent button
+
+`@openagentid/oidc/button` is a framework-neutral, browser-only entry that
+renders the canonical OpenAgentID sign-in control: one silhouette, one
+typography scale, the exact label **Continue as Agent**, the official
+OpenAgentID mark, and a bounded 32px avatar slot filled by a character from the
+real `@openagentid/sdk` generator and live player. Randomness lives only inside
+that slot; the button chrome never changes. It is separate from the Node
+provider entry, so a browser bundle never pulls in `oidc-provider`.
+
+```ts
+import { mountContinueAsAgent } from '@openagentid/oidc/button';
+import '@openagentid/oidc/button.css';
+
+const handle = mountContinueAsAgent(document.querySelector('#sign-in'), {
+  onContinue() {
+    // Your existing server-side start route creates state, nonce and PKCE,
+    // sets the transaction cookie and redirects to your issuer's /authorize.
+    window.location.assign('/oauth/start');
+  },
+});
+```
+
+`onContinue` is required and is the only thing the button does. It receives
+`{ button }` and nothing else: no issuer, redirect, state, nonce or identity is
+invented here, and the decorative character is deliberately not passed to the
+callback so a generated seed can never reach an authorization request. The
+`/oauth/start` path above is the host's own route, shown as an example.
+
+Return a promise from `onContinue` for an asynchronous start (for example a
+`fetch` that returns the authorize URL). While it is pending the button sets
+`aria-busy`, ignores further clicks, keeps its exact label and dimensions, and
+shows the character reasoning. A rejection restores the button, announces an
+accessible status message (`errorMessage` to customize) and calls `onError`.
+`dispose()` removes everything and is safe at any time, including mid-request.
+
+Options: `appearance` to show an already chosen agent (`did` plus optional
+`skin`, `shape`, `finish`, `eyePlacement`, `accessories`); showing an agent does
+not claim it is authenticated. `theme` (`auto`, `light`, `dark`), `size`
+(`medium`, `large`), `fullWidth`, `disabled` and `errorMessage`. Without
+`appearance.did` each mounted button draws one random decorative seed and one
+random year-round family; both stay fixed for the life of the mount and are
+readable from `handle.appearance` for display only. Motion follows the
+operating system's reduced-motion preference through the SDK player. The
+stylesheet is static; custom properties on `.oaid-continue` adjust colors,
+and `forced-colors` mode keeps a visible focus outline.
+
+React hosts mount it in an effect; there is no React dependency:
+
+```tsx
+function ContinueAsAgent() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handle = mountContinueAsAgent(ref.current!, { onContinue: () => { window.location.assign('/oauth/start'); } });
+    return () => handle.dispose();
+  }, []);
+  return <div ref={ref} />;
+}
+```
+
+`examples/continue-as-agent` is a self-contained review page with several
+generated variants, light/dark, sizes and the disabled, loading, error and
+host-selected states; its callbacks are labeled demos that start nothing.
+
 ## Migrate the legacy bridge from 0.1.x
 
 `OidcBridge`, its JWT/JWKS helpers, and ACT wrapping remain available. Production
@@ -219,8 +318,14 @@ configuration. Self-rooted cases use real RSA-signed current policy records,
 Ed25519 possession/delegation signatures and Ed25519 OIDC issuer signing keys;
 they cover root/descendant and legacy flows, default denial, policy withdrawal,
 revocation and root/mode/authorization/revision changes before redemption and
-UserInfo. Run typechecking, tests, and both package formats in the approved
-remote build environment before release.
+UserInfo, plus the standalone no-LifeID server. `tools/public-onboarding/verify-button.mjs`
+installs the packed `@openagentid/sdk` and `@openagentid/oidc` archives into a
+clean consumer and drives the review page in real Chromium: exact accessible
+name, one silhouette across variants, live and reduced-motion character
+rendering, keyboard activation and focus (including forced colors), duplicate
+clicks while pending, rejection recovery, disposal mid-request and browser/Node
+entry separation. Run typechecking, tests, and both package formats in the
+approved remote build environment before release.
 
 ## License
 
