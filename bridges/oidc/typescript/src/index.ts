@@ -97,7 +97,7 @@ export {
 } from './mapping.js';
 
 /** SDK version. */
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 export { AgentOidcProvider, createAgentOidcProvider, type AgentOidcProviderOptions, type AgentInteraction } from './provider.js';
 export { LifeIdFederation, ownerFromLifeIdClaims, type LifeIdFederationOptions } from './federation.js';

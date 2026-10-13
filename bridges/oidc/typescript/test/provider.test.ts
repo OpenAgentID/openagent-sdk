@@ -216,9 +216,10 @@ function redeem(f: Pick<AuthorizationFixture, 'issuer' | 'rpOrigin'>, code: stri
 }
 
 /** The server's authoritative policy record and every possession/delegation use real signing keys. */
-async function selfFixture(settings: { descendant?: boolean; legacy?: boolean; allowSelfRooted?: boolean } = {}) {
+async function selfFixture(settings: { descendant?: boolean; legacy?: boolean; allowSelfRooted?: boolean; standalone?: boolean } = {}) {
   let provider: AgentOidcProvider;
   let callbackQuery: URLSearchParams | undefined;
+  let federationRequests = 0;
   const rpOrigin = await listen(createServer((req, res) => {
     callbackQuery = new URL(req.url!, 'http://127.0.0.1').searchParams;
     res.end('OIDC callback received');
@@ -227,6 +228,7 @@ async function selfFixture(settings: { descendant?: boolean; legacy?: boolean; a
   const issuer = await listen(createServer((req, res) => {
     void (async () => {
       if (req.url === '/owner/jwks') {
+        federationRequests += 1;
         res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ keys: [ownerJwk] })); return;
       }
       if (req.url?.startsWith('/interaction/')) {
@@ -300,7 +302,8 @@ async function selfFixture(settings: { descendant?: boolean; legacy?: boolean; a
       token_endpoint_auth_method: 'none', id_token_signed_response_alg: 'EdDSA' }],
     cookieKeys: [randomBytes(32).toString('base64url')],
     jwks: { keys: [{ ...await exportJWK(ed.privateKey), kid: 'self-provider-ed25519', alg: 'EdDSA', use: 'sig' }] },
-    lifeId: { issuer, audience: 'owner-federation', jwksUri: `${issuer}/owner/jwks`, test: true }, requireLifeId: true,
+    // Standalone self-hosting configures no LifeID federation at all.
+    ...(settings.standalone ? {} : { lifeId: { issuer, audience: 'owner-federation', jwksUri: `${issuer}/owner/jwks`, test: true }, requireLifeId: true }),
     ...(settings.allowSelfRooted === false ? {} : { allowSelfRooted: true }), resolveIdentity,
     async verifyAgent(proof, context) {
       const expectedDelegations = owned ? [ownedDelegation] : delegation ? [delegation] : [];
@@ -321,6 +324,7 @@ async function selfFixture(settings: { descendant?: boolean; legacy?: boolean; a
   provider = await createAgentOidcProvider(options);
   return {
     issuer, rpOrigin, options, did, provider, callbackQuery: () => callbackQuery,
+    federationRequests: () => federationRequests,
     identity: () => resolveIdentity(did),
     proof: async (nonce: string, audience = issuer): Promise<AgentIdentityProof> => ({
       token: await new SignJWT({ nonce }).setProtectedHeader({ alg: 'EdDSA', kid: `${did}#signing`, typ: 'oaid-proof+jwt' })
@@ -448,6 +452,31 @@ describe('explicit self-rooted agent OIDC authentication', () => {
     expect(info.status).toBe(200);
     const claims = await info.json();
     expect(claims.owner).toBeNull(); expect(claims.root).toEqual(expected.root); expect(claims.lineage).toEqual(expected.lineage);
+  });
+
+  it('authenticates a self-rooted agent on a standalone server with no LifeID configuration or federation requests', async () => {
+    const f = await selfFixture({ standalone: true });
+    expect(f.options.lifeId).toBeUndefined(); expect(f.options.requireLifeId).toBeUndefined();
+    expect(f.options.allowSelfRooted).toBe(true);
+    const flow = await authorize(f);
+    expect(flow.completion.status).toBe(303);
+    const expected = await f.identity();
+    const jwks = await (await fetch(`${f.issuer}/jwks`)).json();
+    const response = await redeem(f, flow.code!, flow.verifier);
+    expect(response.status).toBe(200);
+    const tokens = await response.json();
+    const { payload } = await jwtVerify(tokens.id_token, createLocalJWKSet(jwks), {
+      issuer: f.issuer, audience: 'registered-rp', algorithms: ['EdDSA'],
+    });
+    expect(payload.sub).toBe(f.did); expect(payload.nonce).toBe(flow.nonce);
+    expect(payload.owner).toBeNull(); expect(payload.root).toEqual(expected.root);
+    expect(payload.lineage).toEqual([f.did]);
+    const info = await fetch(`${f.issuer}/userinfo`, { headers: { authorization: `Bearer ${tokens.access_token}` } });
+    expect(info.status).toBe(200);
+    expect((await info.json()).root).toEqual(expected.root);
+    // A human assertion is still refused rather than silently ignored without federation.
+    expect((await authorize(f, { lifeIdToken: await f.ownerAssertion() })).completion.status).toBe(403);
+    expect(f.federationRequests()).toBe(0);
   });
 
   it('denies self roots when the server option is absent', async () => {

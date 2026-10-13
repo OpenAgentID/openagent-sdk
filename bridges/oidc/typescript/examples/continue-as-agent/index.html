@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Continue as Agent · @openagentid/oidc/button review page</title>
+<!--
+  Self-contained review page for the canonical Continue as Agent button.
+  Run from this folder after:  npm install @openagentid/oidc @openagentid/sdk
+  then serve the folder over HTTP (for example `npx serve .`) and open index.html.
+  The import map below resolves the installed packages without a bundler.
+  Nothing here starts an OIDC flow; every callback is a labeled demo.
+-->
+<link rel="stylesheet" href="./node_modules/@openagentid/oidc/styles/button.css">
+<script type="importmap">
+{
+  "imports": {
+    "@openagentid/oidc/button": "./node_modules/@openagentid/oidc/dist/button.js",
+    "@openagentid/sdk/character-player": "./node_modules/@openagentid/sdk/dist/browser/character-player.js",
+    "@openagentid/sdk/characters": "./node_modules/@openagentid/sdk/dist/browser/character-player.js"
+  }
+}
+</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f4f4f6; color: #16161d; }
+  main { max-width: 1040px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 32px 0 12px; letter-spacing: .02em; text-transform: uppercase; color: #5d5e6c; }
+  p.note { margin: 0 0 8px; color: #5d5e6c; }
+  .panel { display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: flex-start; padding: 24px; border-radius: 20px; }
+  .panel.light { background: #ffffff; color: #16161d; }
+  .panel.dark { background: #0b0b0f; color: #f4f4f6; }
+  .panel.dark h2 { color: #a0a1ad; }
+  .card { display: grid; gap: 8px; min-width: 240px; }
+  .card.wide { flex: 1 1 100%; }
+  .card > small { color: inherit; opacity: .64; }
+  #log { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; background: #ffffff; border-radius: 12px; padding: 12px 16px; min-height: 48px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Continue as Agent</h1>
+  <p class="note">The canonical OpenAgentID sign-in entry. Every button below is the same control; only the bounded avatar slot changes, filled by a random character from the real OpenAgentID generator at mount time.</p>
+  <p class="note"><strong>Demo only:</strong> the callbacks on this page write to the log below. They do not call any server and no authorization flow starts.</p>
+
+  <section class="panel light" id="light">
+    <h2 style="flex-basis:100%;margin:0">Light · recommended primary</h2>
+    <div class="card" data-variant="light-1"></div>
+    <div class="card" data-variant="light-2"></div>
+    <div class="card" data-variant="light-3"></div>
+  </section>
+
+  <section class="panel dark" id="dark">
+    <h2 style="flex-basis:100%;margin:0">Dark</h2>
+    <div class="card" data-variant="dark-1"></div>
+    <div class="card" data-variant="dark-2"></div>
+    <div class="card" data-variant="dark-3"></div>
+  </section>
+
+  <section class="panel light" id="sizes">
+    <h2 style="flex-basis:100%;margin:0">Size and width</h2>
+    <div class="card" data-variant="large"></div>
+    <div class="card wide" data-variant="full-width"></div>
+  </section>
+
+  <section class="panel light" id="states">
+    <h2 style="flex-basis:100%;margin:0">States</h2>
+    <div class="card" data-variant="disabled"></div>
+    <div class="card" data-variant="loading"></div>
+    <div class="card" data-variant="error"></div>
+    <div class="card" data-variant="selected"></div>
+  </section>
+
+  <h2>Demo log</h2>
+  <div id="log" aria-live="polite"></div>
+</main>
+<script type="module" src="./demo.js"></script>
+</body>
+</html>

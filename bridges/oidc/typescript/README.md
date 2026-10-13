@@ -1,20 +1,32 @@
 # @openagentid/oidc
 
-OpenAgentID's agent OpenID Connect provider and human-identity federation bridge.
-Version 0.2.0 uses the maintained `oidc-provider` implementation for registered
-OIDC relying parties: discovery, public JWKS, authorization code, PKCE S256,
-client authentication, signed ID tokens, and UserInfo. OpenAgentID is free and
-open software in the [Open Software](https://open.software) family. Life can
-operate hosted services around the same open contracts.
+OpenAgentID's self-hosted agent OpenID Connect provider, with the branded
+**Continue as Agent** button for browsers and an optional LifeID human-identity
+federation bridge. Version 0.3.0 uses the maintained `oidc-provider`
+implementation for registered OIDC relying parties: discovery, public JWKS,
+authorization code, PKCE S256, client authentication, signed ID tokens, and
+UserInfo. OpenAgentID is free and open software in the
+[Open Software](https://open.software) family. Life can operate hosted services
+around the same open contracts; nothing here depends on them.
 
 ```sh
-npm install @openagentid/oidc@0.2.0
+npm install @openagentid/oidc@0.3.0
+```
+
+The browser button additionally needs the character generator:
+
+```sh
+npm install @openagentid/sdk@0.7.2
 ```
 
 Node 20.19+ is required. ESM and CommonJS entry points are supplied; provider
 creation is asynchronous because the underlying provider is ESM.
 
-## Configure the provider
+## Configure a standalone provider
+
+A self-hosted deployment authenticates self-rooted agents with its own issuer,
+signing keys, durable storage and admission policy. It needs no OpenAgentID or
+Life hosted service and no LifeID configuration:
 
 ```ts
 import { createAgentOidcProvider } from '@openagentid/oidc';
@@ -31,17 +43,20 @@ const oidc = await createAgentOidcProvider({
   cookieKeys: rotatingCookieSigningKeys,
   adapter: PersistentProviderAdapter,
   persistent: true,
+  allowSelfRooted: true,
   verifyAgent: (proof, context) => identityVerifier.verify(proof, context),
   resolveIdentity: (did) => identityVerifier.resolve(did, { audience: issuer }),
-  lifeId: {
-    issuer: 'https://auth.life.one',
-    audience: registeredLifeIdFederationClient,
-    jwksUri: 'https://auth.life.one/.well-known/jwks.json',
-  },
-  requireLifeId: true,
-  allowSelfRooted: false,
 });
 ```
+
+`allowSelfRooted: true` only enables the mode; the deployment's identity
+verifier still has to approve each self root through its own authoritative
+policy, as described under [Explicit self-rooted identities](#explicit-self-rooted-identities).
+With `lifeId` and `requireLifeId` omitted no federation object is constructed
+and no LifeID JWKS is ever fetched. A `lifeIdToken` submitted to such a server
+is refused rather than ignored. The test suite covers this exact configuration
+end to end with real keys and HTTP. Owned, human-rooted agents are an optional
+addition; see [Optional LifeID federation](#optional-lifeid-federation-for-owned-agents).
 
 The deployment supplies protected RSA/RS256 or Ed25519/EdDSA private JWKs with
 unique `kid` values. Public JWKS never includes private key material. RS256 is
@@ -85,26 +100,25 @@ call:
 
 ```ts
 await oidc.completeInteraction(req, res, {
-  proof: { token: agentPossessionJwt, delegations: signedOwnerDelegations },
+  proof: { token: agentPossessionJwt, delegations: signedAgentDelegations },
   consent: true,
-  lifeIdToken: validatedOwnerSessionIdToken,
 });
 ```
 
+For a self root, `signedAgentDelegations` is empty; descendants supply their
+signed root-first agent chain. Owned agents additionally pass a `lifeIdToken`,
+described under optional federation below.
+
 The mandatory server `verifyAgent` callback must cryptographically verify key
-possession, every signed owner delegation, authoritative owner identity,
+possession, every signed delegation, the authoritative root or owner,
 revocation and atomic proof replay prevention. Its structural contract matches
 `@openagentid/sdk`'s `IdentityVerifier`: it accepts `{ token, delegations }` and
 `{ audience, nonce }`, and returns `{ did, owner, root, lineage, expiresAt }` or throws.
-Owned identities have `owner: { issuer, subject, organizationId? }` and
-`root: { kind: 'lifeid', did: ownerRootDid }`. Historical owned callback results
-may omit `root`; the provider derives the explicit LifeID root from the validated
-first lineage DID. Owned lineages start at an HMR/MHR/AO/ENR person or organization
-root and contain at least two DIDs. Every lineage is root-first, has at most 17
-distinct valid DIDs of at most 512 characters, and ends at the authenticated
-agent DID. New identities use `did:oas`; existing `did:l1fe` identifiers
-remain literal when verifying signatures. A decoded JWT subject is never itself
-proof of agent identity.
+Self-rooted identities have `owner: null` and a `root` of kind `self`. Every
+lineage is root-first, has at most 17 distinct valid DIDs of at most 512
+characters, and ends at the authenticated agent DID. New identities use
+`did:oas`; existing `did:l1fe` identifiers remain literal when verifying
+signatures. A decoded JWT subject is never itself proof of agent identity.
 
 `resolveIdentity` must retrieve the current signed chain through authoritative
 sources and recheck current root authority and every revocation. It is invoked
@@ -115,16 +129,6 @@ Access-token and ID-token lifetimes cannot outlive that verified identity.
 Providers cannot substitute a stale cached successful possession result for
 this status check.
 
-LifeID federation verifies the human JWT signature against the configured public
-JWKS and validates its exact issuer, federation audience, expiry and issued-at.
-The verified subject and organization must exactly match the agent's proven
-owner. `organization_id`, `org_id` and legacy `oid` are supported; conflicting
-aliases are refused. Agent assertions and DID-shaped human subjects are
-refused. `requireLifeId` enforces owner authentication for each owned interaction;
-it does not change or deploy LifeID/WorkOS configuration. Hosted Life services
-must preserve Blinds credential brokering, Genesis KMS customer-secret custody
-and their existing tenant authorization boundaries.
-
 Only the identity scopes `openid` and `profile` are granted. This adapter does
 not issue inference, billing or other application capabilities from OIDC login.
 Register the provider issuer/client in each RP or LifeID federation policy; no
@@ -132,8 +136,8 @@ library can authenticate to an RP that has not trusted its issuer.
 
 ## Explicit self-rooted identities
 
-Self-rooted OIDC authentication is disabled by default. A deployment must set
-`allowSelfRooted: true` and configure its identity verifier's authoritative
+Self-rooted OIDC authentication is disabled unless the deployment sets
+`allowSelfRooted: true`, as the standalone configuration above does. It must also configure its identity verifier's authoritative
 `authorizeSelfRoot(did, { audience })` policy. The server must approve a current,
 bounded grant for the exact agent root and audience. Caller-provided unsigned
 root fields, a valid possession signature alone, and the OIDC opt-in flag cannot
@@ -159,21 +163,10 @@ The SDK verifier caps the identity lifetime by the current self-root grant and
 every signed credential. The OIDC provider additionally caps tokens by the
 identity's remaining lifetime and keeps the original grant binding.
 
-After enabling this mode in the provider configuration, complete a self-rooted
-interaction using the exact issued challenge and explicit consent:
-
-```ts
-await oidc.completeInteraction(req, res, {
-  proof: { token: agentPossessionJwt, delegations: signedAgentDelegations },
-  consent: true,
-});
-```
-
-For the self root, `signedAgentDelegations` is empty. Descendants supply their
-signed root-first agent chain. Self interactions omit `lifeIdToken`; the provider
-rejects attempts to attach a human owner assertion. `requireLifeId` continues to
-protect owned interactions on the same provider without fabricating a human
-owner for self identities.
+Self interactions are completed exactly as shown above and omit `lifeIdToken`;
+the provider rejects attempts to attach a human owner assertion. On a provider
+that also federates LifeID, `requireLifeId` continues to protect owned
+interactions without fabricating a human owner for self identities.
 
 Signed ID tokens and UserInfo publish `owner: null` and the explicit self `root`,
 including `authorizationId` and `revision`, so RPs can apply their own identity
@@ -182,6 +175,115 @@ These claims grant no application permission, organization membership, billing
 account or tenant. RPs must explicitly decide whether they accept self-rooted
 identities; a policy revision, authorization, root or mode change invalidates
 existing OIDC grants.
+
+## Optional LifeID federation for owned agents
+
+Agents owned by a human or organization identity are an optional addition on
+the same provider. Configure the LifeID federation and, to require owner
+authentication for every owned interaction, `requireLifeId`:
+
+```ts
+const oidc = await createAgentOidcProvider({
+  // ...the standalone configuration above...
+  lifeId: {
+    issuer: 'https://auth.life.one',
+    audience: registeredLifeIdFederationClient,
+    jwksUri: 'https://auth.life.one/.well-known/jwks.json',
+  },
+  requireLifeId: true,
+});
+```
+
+Owned interactions then pass the validated owner session token:
+
+```ts
+await oidc.completeInteraction(req, res, {
+  proof: { token: agentPossessionJwt, delegations: signedOwnerDelegations },
+  consent: true,
+  lifeIdToken: validatedOwnerSessionIdToken,
+});
+```
+
+Owned identities have `owner: { issuer, subject, organizationId? }` and
+`root: { kind: 'lifeid', did: ownerRootDid }`. Historical owned callback results
+may omit `root`; the provider derives the explicit LifeID root from the validated
+first lineage DID. Owned lineages start at an HMR/MHR/AO/ENR person or organization
+root and contain at least two DIDs.
+
+LifeID federation verifies the human JWT signature against the configured public
+JWKS and validates its exact issuer, federation audience, expiry and issued-at.
+The verified subject and organization must exactly match the agent's proven
+owner. `organization_id`, `org_id` and legacy `oid` are supported; conflicting
+aliases are refused. Agent assertions and DID-shaped human subjects are
+refused. `requireLifeId` enforces owner authentication for each owned interaction;
+it does not change or deploy LifeID/WorkOS configuration. Hosted Life services
+must preserve Blinds credential brokering, Genesis KMS customer-secret custody
+and their existing tenant authorization boundaries. Any LifeID issuer is a
+deployment choice; the library never contacts one unless configured.
+
+## Continue as Agent button
+
+`@openagentid/oidc/button` is a framework-neutral, browser-only entry that
+renders the canonical OpenAgentID sign-in control: one silhouette, one
+typography scale, the exact label **Continue as Agent**, the official
+OpenAgentID mark, and a bounded 32px avatar slot filled by a character from the
+real `@openagentid/sdk` generator and live player. Randomness lives only inside
+that slot; the button chrome never changes. It is separate from the Node
+provider entry, so a browser bundle never pulls in `oidc-provider`.
+
+```ts
+import { mountContinueAsAgent } from '@openagentid/oidc/button';
+import '@openagentid/oidc/button.css';
+
+const handle = mountContinueAsAgent(document.querySelector('#sign-in'), {
+  onContinue() {
+    // Your existing server-side start route creates state, nonce and PKCE,
+    // sets the transaction cookie and redirects to your issuer's /authorize.
+    window.location.assign('/oauth/start');
+  },
+});
+```
+
+`onContinue` is required and is the only thing the button does. It receives
+`{ button }` and nothing else: no issuer, redirect, state, nonce or identity is
+invented here, and the decorative character is deliberately not passed to the
+callback so a generated seed can never reach an authorization request. The
+`/oauth/start` path above is the host's own route, shown as an example.
+
+Return a promise from `onContinue` for an asynchronous start (for example a
+`fetch` that returns the authorize URL). While it is pending the button sets
+`aria-busy`, ignores further clicks, keeps its exact label and dimensions, and
+shows the character reasoning. A rejection restores the button, announces an
+accessible status message (`errorMessage` to customize) and calls `onError`.
+`dispose()` removes everything and is safe at any time, including mid-request.
+
+Options: `appearance` to show an already chosen agent (`did` plus optional
+`skin`, `shape`, `finish`, `eyePlacement`, `accessories`); showing an agent does
+not claim it is authenticated. `theme` (`auto`, `light`, `dark`), `size`
+(`medium`, `large`), `fullWidth`, `disabled` and `errorMessage`. Without
+`appearance.did` each mounted button draws one random decorative seed and one
+random year-round family; both stay fixed for the life of the mount and are
+readable from `handle.appearance` for display only. Motion follows the
+operating system's reduced-motion preference through the SDK player. The
+stylesheet is static; custom properties on `.oaid-continue` adjust colors,
+and `forced-colors` mode keeps a visible focus outline.
+
+React hosts mount it in an effect; there is no React dependency:
+
+```tsx
+function ContinueAsAgent() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handle = mountContinueAsAgent(ref.current!, { onContinue: () => { window.location.assign('/oauth/start'); } });
+    return () => handle.dispose();
+  }, []);
+  return <div ref={ref} />;
+}
+```
+
+`examples/continue-as-agent` is a self-contained review page with several
+generated variants, light/dark, sizes and the disabled, loading, error and
+host-selected states; its callbacks are labeled demos that start nothing.
 
 ## Migrate the legacy bridge from 0.1.x
 
@@ -219,8 +321,16 @@ configuration. Self-rooted cases use real RSA-signed current policy records,
 Ed25519 possession/delegation signatures and Ed25519 OIDC issuer signing keys;
 they cover root/descendant and legacy flows, default denial, policy withdrawal,
 revocation and root/mode/authorization/revision changes before redemption and
-UserInfo. Run typechecking, tests, and both package formats in the approved
-remote build environment before release.
+UserInfo, plus the standalone no-LifeID server. `tools/public-onboarding/verify-button.mjs`
+installs the packed `@openagentid/sdk` and `@openagentid/oidc` archives into a
+clean consumer and drives the review page in real Chromium: exact accessible
+name, one silhouette across variants, live and reduced-motion character
+rendering, keyboard activation and focus (including forced colors), duplicate
+clicks while pending, rejection recovery, disposal mid-request and browser/Node
+entry separation. It asserts the consumer resolved the source SDK version, or
+`OAID_EXPECTED_SDK_VERSION` when a registry run installs the supported minimum
+published SDK instead. Run typechecking, tests, and both package formats in
+the approved remote build environment before release.
 
 ## License
 
