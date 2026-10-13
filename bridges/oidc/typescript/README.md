@@ -327,8 +327,10 @@ clean consumer and drives the review page in real Chromium: exact accessible
 name, one silhouette across variants, live and reduced-motion character
 rendering, keyboard activation and focus (including forced colors), duplicate
 clicks while pending, rejection recovery, disposal mid-request and browser/Node
-entry separation. Run typechecking, tests, and both package formats in the
-approved remote build environment before release.
+entry separation. It asserts the consumer resolved the source SDK version, or
+`OAID_EXPECTED_SDK_VERSION` when a registry run installs the supported minimum
+published SDK instead. Run typechecking, tests, and both package formats in
+the approved remote build environment before release.
 
 ## License
 

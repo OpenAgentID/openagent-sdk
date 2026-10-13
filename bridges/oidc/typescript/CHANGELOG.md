@@ -29,6 +29,8 @@
 - The button verifier asserts the SDK player's public status/expression mapping
   (`neutral` until a host supplies a status; reasoning, success and error map to
   thoughtful, happy and concerned) and samples real expression transitions.
+  `OAID_EXPECTED_SDK_VERSION` lets a registry-consumer run assert the supported
+  minimum published SDK instead of the source version; verifier only.
 
 ### 0.2.0 self-rooted identity support — 2026-10-11
 

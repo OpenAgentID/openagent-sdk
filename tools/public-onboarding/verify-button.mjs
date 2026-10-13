@@ -9,7 +9,12 @@
  *
  * Environment: OAID_SDK_TARBALL / OAID_OIDC_TARBALL (defaults: pack from the
  * built source packages), OAID_SOURCE_SHA (defaults: git HEAD),
- * OAID_BUTTON_ARTIFACT_DIR (default: .public-tooling-artifacts/button).
+ * OAID_BUTTON_ARTIFACT_DIR (default: .public-tooling-artifacts/button), and
+ * OAID_EXPECTED_SDK_VERSION, the @openagentid/sdk version the consumer must
+ * resolve (default: the source sdks/typescript version). A registry-consumer
+ * run sets it to the supported minimum public SDK, for example 0.7.2, while
+ * installing that published archive; it is a verifier assertion only and never
+ * changes the package's runtime or its peer range.
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -113,6 +118,8 @@ try {
   assert.match(source, /^[0-9a-f]{40}$/);
   const oidcManifest = JSON.parse(await readFile(join(root, 'bridges/oidc/typescript/package.json'), 'utf8'));
   const sdkManifest = JSON.parse(await readFile(join(root, 'sdks/typescript/package.json'), 'utf8'));
+  const expectedSdkVersion = process.env.OAID_EXPECTED_SDK_VERSION ?? sdkManifest.version;
+  assert.match(expectedSdkVersion, /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/, 'OAID_EXPECTED_SDK_VERSION must be a semver version');
   const sdkArchive = await tarball('OAID_SDK_TARBALL', join(root, 'sdks/typescript'), '@openagentid/sdk');
   const oidcArchive = await tarball('OAID_OIDC_TARBALL', join(root, 'bridges/oidc/typescript'), '@openagentid/oidc');
 
@@ -128,7 +135,9 @@ try {
       assert(entry.resolved.startsWith('https://registry.npmjs.org/') || entry.resolved.endsWith(basename(sdkArchive)) ||
         entry.resolved.endsWith(basename(oidcArchive)), 'Non-public resolution for ' + name);
     }
-    assert.equal(lock.packages['node_modules/@openagentid/sdk'].version, sdkManifest.version);
+    assert.equal(lock.packages['node_modules/@openagentid/sdk'].version, expectedSdkVersion);
+    const installedSdk = JSON.parse(await readFile(join(consumer, 'node_modules/@openagentid/sdk/package.json'), 'utf8'));
+    assert.equal(installedSdk.version, expectedSdkVersion);
     assert.equal(lock.packages['node_modules/@openagentid/oidc'].version, oidcManifest.version);
   });
 
@@ -437,7 +446,7 @@ try {
   await new Promise(done => server ? server.close(done) : done());
   await Promise.all(logs);
   await writeFile(join(artifacts, 'receipt.json'), JSON.stringify({ passed: !failure, source, node: process.version,
-    checks, screenshots, failure: failure ?? null, demoCallbacksOnly: true, externalNetworkUsed: false,
+    expectedSdkVersion: process.env.OAID_EXPECTED_SDK_VERSION ?? null, checks, screenshots, failure: failure ?? null, demoCallbacksOnly: true, externalNetworkUsed: false,
     authorizationFlowStarted: false }, null, 2) + '\n');
   await rm(fixture, { recursive: true, force: true });
 }
