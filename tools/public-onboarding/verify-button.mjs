@@ -4,8 +4,8 @@
  * Installs the exact @openagentid/sdk and @openagentid/oidc archives into a
  * disposable consumer, serves the bundled review page over loopback HTTP and
  * drives real Chromium. Evidence goes to OAID_BUTTON_ARTIFACT_DIR:
- * receipt.json (passed, source), PNG screenshots and preview-files.json holding
- * the served HTML/CSS/JS for direct review. Exit status is non-zero on failure.
+ * receipt.json (passed, source), PNG screenshots, the served HTML/CSS/JS under
+ * preview/ and the same bytes in preview-files.json. Exit status is non-zero on failure.
  *
  * Environment: OAID_SDK_TARBALL / OAID_OIDC_TARBALL (defaults: pack from the
  * built source packages), OAID_SOURCE_SHA (defaults: git HEAD),
@@ -76,17 +76,19 @@ async function listen(httpServer) {
   await new Promise(done => httpServer.once('listening', done));
   return `http://127.0.0.1:${httpServer.address().port}`;
 }
-async function eyeFrames(page, selector, samples) {
-  return page.evaluate(async ({ selector, samples }) => {
+/** Distinct eye geometries painted by the SDK player over `durationMs` of animation frames. */
+async function eyeFrames(page, selector, durationMs) {
+  return page.evaluate(async ({ selector, durationMs }) => {
     const svg = document.querySelector(selector);
     const frames = new Set();
-    for (let index = 0; index < samples; index++) {
+    const start = performance.now();
+    do {
       await new Promise(requestAnimationFrame);
       frames.add(svg.querySelector('[data-character-eyes]').getAttribute('transform') + '|' +
-        [...svg.querySelectorAll('[data-character-eye]')].map(eye => eye.getAttribute('height')).join(','));
-    }
+        [...svg.querySelectorAll('[data-character-eye]')].map(eye => eye.getAttribute('height') + ':' + eye.getAttribute('width')).join(','));
+    } while (performance.now() - start < durationMs);
     return frames.size;
-  }, { selector, samples });
+  }, { selector, durationMs });
 }
 async function openPage(context, url, errors, external) {
   const page = await context.newPage();
@@ -210,7 +212,28 @@ try {
     assert.equal(metrics['light-1'].radius, '999px');
   });
   await check('avatar-slot-plays-live-sdk-animation', async () => {
-    assert(await eyeFrames(page, '[data-variant="light-1"] svg[data-character-player]', 40) > 3, 'Expected moving live eyes');
+    // Deterministic: a real status change drives the SDK expression spring, sampled through its transition.
+    const transition = await page.evaluate(async () => {
+      const host = document.createElement('div'); host.id = 'animation-probe'; document.body.append(host);
+      const handle = window.oaidContinueDemo.mountContinueAsAgent(host, { onContinue: () => new Promise(() => {}) });
+      const svg = host.querySelector('svg[data-character-player]');
+      const idle = svg.getAttribute('data-character-status');
+      handle.button.click();
+      const frames = new Set();
+      const start = performance.now();
+      do {
+        await new Promise(requestAnimationFrame);
+        frames.add(svg.querySelector('[data-character-eyes]').getAttribute('transform') + '|' +
+          [...svg.querySelectorAll('[data-character-eye]')].map(eye => eye.getAttribute('height') + ':' + eye.getAttribute('width')).join(','));
+      } while (performance.now() - start < 900);
+      const status = svg.getAttribute('data-character-status');
+      handle.dispose(); host.remove();
+      return { idle, status, frames: frames.size, removed: document.querySelector('#animation-probe') === null };
+    });
+    assert.equal(transition.idle, 'idle'); assert.equal(transition.status, 'reasoning'); assert.equal(transition.removed, true);
+    assert(transition.frames > 3, 'Expected the SDK expression transition to paint distinct frames, saw ' + transition.frames);
+    // Ambient idle motion, sampled across the SDK's full bounded gaze cycle (at most ~3.1 s).
+    assert(await eyeFrames(page, '[data-variant="light-1"] svg[data-character-player]', 3600) > 3, 'Expected ambient live eyes over a full cycle');
   });
   const before = await page.evaluate(() => { const svg = document.querySelector('[data-variant="light-1"] svg[data-character-player]');
     window.oaidOriginalSvg = svg; return [svg.getAttribute('data-character-skin'), svg.getAttribute('data-character-shape')]; });
@@ -358,7 +381,7 @@ try {
   const reducedPage = await openPage(reduced, url, errors, external);
   await check('reduced-motion-renders-still-characters', async () => {
     assert.equal(await reducedPage.locator('.oaid-continue__avatar > svg[data-character-player]').count(), 12);
-    assert.equal(await eyeFrames(reducedPage, '[data-variant="light-1"] svg[data-character-player]', 30), 1);
+    assert.equal(await eyeFrames(reducedPage, '[data-variant="light-1"] svg[data-character-player]', 3600), 1);
     await reducedPage.evaluate(() => window.oaidContinueDemo.handles.loading.button.click());
     assert.equal(await reducedPage.evaluate(() => getComputedStyle(document.querySelector('[data-variant="loading"] .oaid-continue__mark')).animationName), 'none');
   });
@@ -383,15 +406,22 @@ try {
     assert.deepEqual(external, []);
   });
 
-  // Served preview sources for direct review (JSON because the evidence lane accepts json/log/png/tgz/webm only).
+  // Served preview sources for direct review: loose files plus one JSON bundle of the same bytes.
+  const preview = {
+    'index.html': await readFile(join(consumer, 'index.html'), 'utf8'),
+    'demo.js': await readFile(join(consumer, 'demo.js'), 'utf8'),
+    'node_modules/@openagentid/oidc/styles/button.css': buttonCss,
+    'node_modules/@openagentid/oidc/dist/button.js': buttonBundle,
+    'node_modules/@openagentid/sdk/dist/browser/character-player.js': await readFile(join(consumer, 'node_modules/@openagentid/sdk/dist/browser/character-player.js'), 'utf8'),
+  };
+  for (const [relative, content] of Object.entries(preview)) {
+    const target = join(artifacts, 'preview', relative);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, content);
+  }
   await writeFile(join(artifacts, 'preview-files.json'), JSON.stringify({
-    note: 'Exact files served to Chromium from the packed consumer. Recreate by installing the two archives next to index.html and demo.js.',
-    files: {
-      'index.html': await readFile(join(consumer, 'index.html'), 'utf8'),
-      'demo.js': await readFile(join(consumer, 'demo.js'), 'utf8'),
-      'node_modules/@openagentid/oidc/styles/button.css': buttonCss,
-      'node_modules/@openagentid/oidc/dist/button.js': buttonBundle,
-    },
+    note: 'Exact files served to Chromium from the packed consumer; the same files are under preview/. Open preview/index.html over HTTP to review.',
+    files: preview,
   }, null, 2) + '\n');
 } catch (error) {
   failure = error instanceof Error ? error.message : 'Button qualification failed';
