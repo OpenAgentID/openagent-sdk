@@ -225,9 +225,10 @@ deployment choice; the library never contacts one unless configured.
 
 `@openagentid/oidc/button` is a framework-neutral, browser-only entry that
 renders the canonical OpenAgentID sign-in control: one silhouette, one
-typography scale, the exact label **Continue as Agent**, the official
-OpenAgentID mark, and a dark 32px window holding only a pair of bright eyes,
-like an agent in the dark whose face you never see. The eyes are the real
+typography scale, the exact label **Continue as Agent** and a dark 32px window
+holding only a pair of bright eyes, like an agent in the dark whose face you
+never see. There is no logo or trailing icon; the eyes and the label are the
+brand. The eyes are the real
 `@openagentid/sdk` live-eye player; the character body is never shown. They
 glance around the window, tilt, squint, blink and pause, look at the viewer on
 hover or focus, think while `onContinue` runs and react to success or failure.
@@ -257,7 +258,7 @@ callback so a generated seed can never reach an authorization request. The
 Return a promise from `onContinue` for an asynchronous start (for example a
 `fetch` that returns the authorize URL). While it is pending the button sets
 `aria-busy`, ignores further clicks, keeps its exact label and dimensions, and
-shows the character reasoning. A rejection restores the button, announces an
+shows the eyes thinking; nothing is added or resized. A rejection restores the button, announces an
 accessible status message (`errorMessage` to customize) and calls `onError`.
 `dispose()` removes everything and is safe at any time, including mid-request.
 

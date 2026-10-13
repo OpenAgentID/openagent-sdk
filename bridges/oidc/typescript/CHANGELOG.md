@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — eyes and label only, 2026-10-13
+
+- Remove the trailing OpenAgentID mark from the Continue as Agent button and
+  its stylesheet, including the loading pulse that lived in its space. The
+  button is now the dark eye window and the exact label with balanced padding;
+  loading remains discernible through `aria-busy`, the progress cursor and the
+  eyes thinking, with no dimension change on click. No public API change.
+
 ## Unreleased — eyes-only Continue as Agent window, 2026-10-13
 
 - Replace the random character in the button's 32px window with a pair of

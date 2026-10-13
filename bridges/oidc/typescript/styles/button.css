@@ -1,9 +1,9 @@
 /*
  * @openagentid/oidc/button.css -- the canonical Continue as Agent button.
  *
- * One silhouette, one typography scale, one label, one mark. The only living
- * element is the dark eye window: a pair of bright SDK live eyes and nothing
- * else of the character. Hosts customize theme (data-theme), size (data-size)
+ * One silhouette, one typography scale, one label, no decoration. The only
+ * living element is the dark eye window: a pair of bright SDK live eyes and
+ * nothing else of the character. Hosts customize theme (data-theme), size (data-size)
  * and width (data-full-width); colors may be tuned through the custom
  * properties below, never the structure.
  */
@@ -12,9 +12,9 @@
   --oaid-continue-radius: 999px;
   --oaid-continue-height: 44px;
   --oaid-continue-font-size: 15px;
-  --oaid-continue-padding-inline: 10px 18px;
+  /* Window inset on the left, matching optical space after the label on the right. */
+  --oaid-continue-padding-inline: 10px 20px;
   --oaid-continue-gap: 12px;
-  --oaid-continue-mark-size: 18px;
 
   /* Light theme defaults: confident black on white surfaces. */
   --oaid-continue-background: #0b0b0f;
@@ -29,7 +29,6 @@
   --oaid-continue-focus-halo: #ffffff;
   --oaid-continue-status: #b3261e;
   --oaid-continue-disabled-opacity: 0.42;
-  --oaid-continue-mark-opacity: 0.64;
 
   display: inline-flex;
   flex-direction: column;
@@ -67,9 +66,8 @@
 .oaid-continue[data-size="large"] {
   --oaid-continue-height: 52px;
   --oaid-continue-font-size: 17px;
-  --oaid-continue-padding-inline: 12px 22px;
+  --oaid-continue-padding-inline: 12px 24px;
   --oaid-continue-gap: 14px;
-  --oaid-continue-mark-size: 20px;
 }
 
 .oaid-continue[data-full-width="true"] {
@@ -172,22 +170,7 @@
   text-align: left;
 }
 
-/* Loading indicator lives in the fixed mark space: the mark pulses, nothing moves. */
-.oaid-continue__button[aria-busy="true"] .oaid-continue__mark {
-  animation: oaid-continue-pulse 1.1s ease-in-out infinite;
-}
-
-@keyframes oaid-continue-pulse {
-  0%, 100% { opacity: var(--oaid-continue-mark-opacity); }
-  50% { opacity: 0.18; }
-}
-
-.oaid-continue__mark {
-  flex: 0 0 auto;
-  width: auto;
-  height: var(--oaid-continue-mark-size);
-  opacity: var(--oaid-continue-mark-opacity);
-}
+/* Loading is shown by aria-busy, the cursor and the eyes thinking; nothing is added or resized. */
 
 /* Live region: always in the accessibility tree; takes no space while empty. */
 .oaid-continue__status {
@@ -211,11 +194,6 @@
   .oaid-continue__button,
   .oaid-continue__eyes {
     transition: none;
-  }
-
-  .oaid-continue__button[aria-busy="true"] .oaid-continue__mark {
-    animation: none;
-    opacity: 0.3;
   }
 }
 
