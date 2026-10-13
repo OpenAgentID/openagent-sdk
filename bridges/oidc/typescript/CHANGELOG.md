@@ -22,9 +22,13 @@
   packed-archive Chromium verifier `tools/public-onboarding/verify-button.mjs`.
 - Add a regression proving a standalone server with no `lifeId`/`requireLifeId`
   configuration completes the real-key self-rooted PKCE, token, ID token and
-  UserInfo flow with zero federation requests; document that configuration.
-  Lead the package description with self-hosted agent OIDC; LifeID is optional.
-  Provider protocol behavior is unchanged.
+  UserInfo flow with zero federation requests. The README now walks through
+  that standalone configuration and interaction first, with LifeID federation
+  for owned agents as a clearly optional section. Lead the package description
+  with self-hosted agent OIDC. Provider protocol behavior is unchanged.
+- The button verifier asserts the SDK player's public status/expression mapping
+  (`neutral` until a host supplies a status; reasoning, success and error map to
+  thoughtful, happy and concerned) and samples real expression transitions.
 
 ### 0.2.0 self-rooted identity support — 2026-10-11
 

@@ -217,7 +217,8 @@ try {
       const host = document.createElement('div'); host.id = 'animation-probe'; document.body.append(host);
       const handle = window.oaidContinueDemo.mountContinueAsAgent(host, { onContinue: () => new Promise(() => {}) });
       const svg = host.querySelector('svg[data-character-player]');
-      const idle = svg.getAttribute('data-character-status');
+      // The SDK player reports the default expression as its status until a host supplies one.
+      const idle = [svg.getAttribute('data-character-status'), svg.getAttribute('data-character-expression')];
       handle.button.click();
       const frames = new Set();
       const start = performance.now();
@@ -226,11 +227,13 @@ try {
         frames.add(svg.querySelector('[data-character-eyes]').getAttribute('transform') + '|' +
           [...svg.querySelectorAll('[data-character-eye]')].map(eye => eye.getAttribute('height') + ':' + eye.getAttribute('width')).join(','));
       } while (performance.now() - start < 900);
-      const status = svg.getAttribute('data-character-status');
+      const status = [svg.getAttribute('data-character-status'), svg.getAttribute('data-character-expression')];
       handle.dispose(); host.remove();
       return { idle, status, frames: frames.size, removed: document.querySelector('#animation-probe') === null };
     });
-    assert.equal(transition.idle, 'idle'); assert.equal(transition.status, 'reasoning'); assert.equal(transition.removed, true);
+    // Public SDK mapping: reasoning -> thoughtful, success -> happy, error -> concerned.
+    assert.deepEqual(transition.idle, ['neutral', 'neutral']); assert.deepEqual(transition.status, ['reasoning', 'thoughtful']);
+    assert.equal(transition.removed, true);
     assert(transition.frames > 3, 'Expected the SDK expression transition to paint distinct frames, saw ' + transition.frames);
     // Ambient idle motion, sampled across the SDK's full bounded gaze cycle (at most ~3.1 s).
     assert(await eyeFrames(page, '[data-variant="light-1"] svg[data-character-player]', 3600) > 3, 'Expected ambient live eyes over a full cycle');
@@ -276,6 +279,7 @@ try {
     assert.equal(await buttons.count(), 12);
     assert.equal(await button.evaluate(node => node.getBoundingClientRect().width), widthBefore);
     assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-status'), 'reasoning');
+    assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-expression'), 'thoughtful');
     assert.equal(await page.evaluate(() => window.oaidContinueDemo.lines.filter(line => line.includes('loading: pending')).length), 1);
     await page.locator('[data-variant="error"] .oaid-continue__button').click();
     await page.waitForSelector('[data-variant="error"] .oaid-continue__button[data-state="error"]');
@@ -284,6 +288,7 @@ try {
     await page.waitForSelector('[data-variant="loading"] .oaid-continue__button[data-state="idle"]');
     assert.equal(await button.getAttribute('aria-busy'), 'false');
     assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-status'), 'success');
+    assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-expression'), 'happy');
   });
   await check('async-rejection-recovers-with-accessible-status-and-onError', async () => {
     const button = page.locator('[data-variant="error"] .oaid-continue__button');
@@ -294,6 +299,7 @@ try {
     assert.equal(await button.getAttribute('aria-describedby'), await status.getAttribute('id'));
     assert.equal(await button.getAttribute('aria-busy'), 'false');
     assert.equal(await page.locator('[data-variant="error"] svg[data-character-player]').getAttribute('data-character-status'), 'error');
+    assert.equal(await page.locator('[data-variant="error"] svg[data-character-player]').getAttribute('data-character-expression'), 'concerned');
     assert.equal(await page.evaluate(() => window.oaidContinueDemo.lines.filter(line => line.includes('onError received')).length), 1);
     // Retrying clears the message while pending, then announces the new failure.
     const cleared = await page.evaluate(() => {
