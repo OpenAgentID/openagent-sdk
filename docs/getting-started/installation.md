@@ -1,13 +1,13 @@
 # Installation
 
 For a complete first application, follow the [public quickstart](quickstart-typescript.md).
-This guide covers SDK 0.7.2 and create-openagent 0.5.2. The independent OIDC
+This guide covers SDK 0.7.3 and create-openagent 0.5.3. The independent OIDC
 provider remains at 0.2.0.
 
 ## JavaScript and TypeScript
 
 ```sh
-npm install @openagentid/sdk@0.7.2
+npm install @openagentid/sdk@0.7.3
 ```
 
 The package includes TypeScript declarations and ESM/CommonJS exports. Its public
@@ -15,7 +15,7 @@ runtime dependencies are jose, Zod, @noble/hashes and @scure/base. OAS, Arsenal,
 AEGIS and crypto-wasm are optional peers for their corresponding integrations;
 they are not needed by the local workspace or avatar APIs.
 
-- `@openagentid/sdk/local` and the `oaid` CLI require Node 20+ and persistent
+- `@openagentid/sdk/local` and the `oaid` CLI require Node 20.19+ and persistent
   private filesystem storage. The local workspace is a single-host authority.
 - `@openagentid/sdk/character-player` is the DOM player; `@openagentid/sdk/browser`
   is its self-contained browser ESM bundle.

@@ -52,7 +52,7 @@ export class StubIdentityProvider implements IdentityProvider {
   private readonly store = new Map<Did, IdentityDocument>();
   private readonly namespace: string;
 
-  constructor(namespace = 'l1fe') {
+  constructor(namespace = 'openagent') {
     this.namespace = namespace;
   }
 
@@ -167,7 +167,7 @@ export class StubVerificationClient implements VerificationClient {
       assertAncestor(ctx, options.requiredAncestor);
     }
     if (options?.requirePrivilegedAuthority) {
-      throw new VerificationError('Privileged authority requires OAS + Sigil lineage', {
+      throw new VerificationError('Privileged authority requires a verified authority lineage', {
         code: ErrorCode.IDENTITY_LINEAGE_INVALID,
         context: {
           requiredAuthorityPath: options.requiredAuthorityPath,

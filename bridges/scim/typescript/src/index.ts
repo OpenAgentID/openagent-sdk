@@ -4,24 +4,8 @@
  * Enterprise agent lifecycle management via RFC 7644. Compatible with
  * Okta, Azure AD, OneLogin, JumpCloud, and any SCIM 2.0 client.
  *
- * ```ts
- * import { createScimRouter } from '@openagentid/scim';
- *
- * const scim = createScimRouter({
- *   namespace: 'acme',
- *   bearerTokens: [process.env.SCIM_TOKEN!],
- *   baseUrl: 'https://scim.acme.com/scim/v2',
- * });
- *
- * // Bun / Deno:
- * Bun.serve({ fetch: scim.handle });
- *
- * // Express:
- * app.all('/scim/v2/*', async (req, res) => {
- *   const response = await scim.handle(toWebRequest(req));
- *   sendWebResponse(res, response);
- * });
- * ```
+ * Supply a real identity provisioner and authority revocation callbacks.
+ * See README.md for the current SDK wiring and migration contract.
  */
 
 // Router
@@ -98,6 +82,9 @@ export {
 // Provisioner
 export {
   AgentProvisioner,
+  createSdkScimProvisioner,
+  IdentityNotCreatedError,
+  type IdentityProvisioner,
   type ProvisionerConfig,
   type CreateAgentParams,
   type AuditEvent,
@@ -111,10 +98,11 @@ export {
 // Store
 export {
   type AgentStore,
+  type UserNameReservation,
   InMemoryAgentStore,
   StoreError,
   type StoreErrorCode,
 } from './store.js';
 
 /** Package version. */
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';

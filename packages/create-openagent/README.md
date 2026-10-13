@@ -5,7 +5,7 @@ explicit receiver trust, authenticated HTTP requests and animated avatars run
 locally without a Life account or a hosted identity service.
 
 ```sh
-npx create-openagent@0.5.2 my-agent-app --yes
+npx create-openagent@0.5.3 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -21,7 +21,7 @@ keep the selected accessories and actual verified-request state intact. Glasses
 and headphones use refined metal frames and soft cushions. SDK 0.7.2 adds the
 brighter family palette and pigment-preserving plush finish.
 
-Node 20+ is required. Private keys and receiver state stay in the generated
+Node 20.19+ is required. Private keys and receiver state stay in the generated
 application's ignored local data directory. Preserve this directory across
 restarts; never commit or serve it. Only public identity documents are exchanged
 between the separate signer and receiver workspaces.

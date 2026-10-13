@@ -9,6 +9,7 @@
  * and delegates storage to {@link AgentStore}.
  */
 
+import type { OpenAgentRuntime } from '@openagentid/sdk';
 import type { AgentRecord } from './resources.js';
 import type { ConformanceLevel } from './schemas.js';
 import type { AgentStore } from './store.js';
@@ -32,8 +33,8 @@ export type AuditSink = (event: AuditEvent) => void | Promise<void>;
 /**
  * Hook invoked during deprovisioning to revoke the agent's DID document.
  *
- * Production: wires to OAS SDK's `revokeIdentity`.
- * Default: no-op (logs a warning).
+ * Production: persist revocation in the application's authoritative DID store.
+ * Missing configuration fails closed.
  */
 export type DidRevoker = (did: string) => Promise<void>;
 
@@ -41,8 +42,8 @@ export type DidRevoker = (did: string) => Promise<void>;
  * Hook invoked during deprovisioning to cascade-revoke all delegation
  * proofs issued by (or to) the deprovisioned agent.
  *
- * Production: wires to AEGIS SDK's delegation tree walker.
- * Default: no-op (logs a warning).
+ * Production: revoke descendant grants in the application's delegation authority.
+ * Missing configuration fails closed.
  */
 export type DelegationCascadeRevoker = (did: string) => Promise<void>;
 
@@ -50,8 +51,8 @@ export type DelegationCascadeRevoker = (did: string) => Promise<void>;
  * Hook invoked during deprovisioning to invalidate all active Arsenal
  * sessions for the deprovisioned agent.
  *
- * Production: wires to Arsenal SDK's session invalidation.
- * Default: no-op (logs a warning).
+ * Production: invalidate sessions through the application's configured Arsenal authority.
+ * Missing configuration fails closed.
  */
 export type ArsenalSessionInvalidator = (did: string) => Promise<void>;
 
@@ -60,6 +61,9 @@ export type ArsenalSessionInvalidator = (did: string) => Promise<void>;
 export interface ProvisionerConfig {
   readonly store: AgentStore;
   readonly namespace: string;
+  readonly provisionIdentity?: IdentityProvisioner;
+  /** Persist authoritative scope changes before updating the SCIM representation. */
+  readonly updateIdentityScopes?: (did: string, scopes: readonly string[]) => Promise<void>;
   readonly logger: Logger;
   readonly auditSink?: AuditSink;
   readonly revokeDidDocument?: DidRevoker;
@@ -76,13 +80,15 @@ export interface CreateAgentParams {
   readonly conformanceLevel: ConformanceLevel;
   readonly scopes: readonly string[];
   readonly externalId?: string;
+  readonly active?: boolean;
 }
 
 // ── Provisioner ───────────────────────────────────────────────────────────
 
 export class AgentProvisioner {
   private readonly store: AgentStore;
-  private readonly namespace: string;
+  private readonly provisionIdentity: IdentityProvisioner;
+  private readonly updateIdentityScopes: NonNullable<ProvisionerConfig['updateIdentityScopes']>;
   private readonly logger: Logger;
   private readonly auditSink: AuditSink;
   private readonly revokeDidDocument: DidRevoker;
@@ -91,28 +97,53 @@ export class AgentProvisioner {
 
   constructor(config: ProvisionerConfig) {
     this.store = config.store;
-    this.namespace = config.namespace;
+    this.provisionIdentity = config.provisionIdentity ?? (async () => {
+      throw new IdentityNotCreatedError('Identity provisioner is required');
+    });
     this.logger = config.logger;
+    this.updateIdentityScopes = config.updateIdentityScopes ?? (async () => {
+      throw new ProvisionerError('Scope authority updater is required', 'UNAVAILABLE');
+    });
 
     this.auditSink = config.auditSink ?? ((_e) => { /* no-op */ });
 
     this.revokeDidDocument = config.revokeDidDocument ?? (async (did) => {
-      this.logger.warn('No DidRevoker configured — skipping DID revocation', { did });
+      throw new ProvisionerError(`DID revoker is required for ${did}`, 'UNAVAILABLE');
     });
 
     this.cascadeRevokeDelegations = config.cascadeRevokeDelegations ?? (async (did) => {
-      this.logger.warn('No DelegationCascadeRevoker configured — skipping cascade', { did });
+      throw new ProvisionerError(`Delegation revoker is required for ${did}`, 'UNAVAILABLE');
     });
 
     this.invalidateArsenalSessions = config.invalidateArsenalSessions ?? (async (did) => {
-      this.logger.warn('No ArsenalSessionInvalidator configured — skipping session invalidation', { did });
+      throw new ProvisionerError(`Session invalidator is required for ${did}`, 'UNAVAILABLE');
     });
   }
 
   /** Create a new agent DID and store the record. */
   async createAgent(params: CreateAgentParams): Promise<AgentRecord> {
-    const did = deriveDid(this.namespace, params.userName);
-    const fingerprint = deriveKeypairFingerprint(did);
+    // This reservation must be atomic in the shared persistent store. Checking
+    // findByUserName before awaiting a remote authority cannot prevent a race.
+    const reservation = await this.store.reserveUserName(params.userName);
+    let identity: Awaited<ReturnType<IdentityProvisioner>>;
+    try {
+      identity = await this.provisionIdentity(params);
+    } catch (error) {
+      // An ordinary transport error may occur AFTER the authority minted keys.
+      // Retain the claim until that outcome is reconciled; never mint a second
+      // identity on an automatic retry. Only an explicit no-create result is safe.
+      if (error instanceof IdentityNotCreatedError) await this.store.releaseUserName(reservation);
+      this.logger.error('Identity provisioning failed', { userName: params.userName, reservationId: reservation.id, error: String(error) });
+      if (error instanceof IdentityNotCreatedError && error.reason === 'invalid-input') {
+        throw new ProvisionerError('Invalid identity creation input', 'INVALID_INPUT');
+      }
+      throw new ProvisionerError('Identity provisioning incomplete', 'UNAVAILABLE');
+    }
+    if (!/^did:(?:oas:[a-z0-9][a-z0-9-]{0,63}|l1fe):agent(?::instance)?:[A-Za-z0-9._-]+$/.test(identity.did) ||
+        !identity.keypairFingerprint || identity.parentDid !== params.parentDid) {
+      throw new ProvisionerError('Identity authority returned invalid identity or parent binding; reconcile its reservation', 'UNAVAILABLE');
+    }
+    const { did, keypairFingerprint: fingerprint } = identity;
     const now = new Date().toISOString();
     const version = generateVersion();
 
@@ -136,7 +167,14 @@ export class AgentProvisioner {
       ...(params.externalId !== undefined ? { externalId: params.externalId } : {}),
     };
 
-    const created = await this.store.create(record);
+    let created: AgentRecord;
+    try {
+      created = await this.store.create(record, reservation);
+    } catch (error) {
+      this.logger.error('Identity created but SCIM commit incomplete', { did, userName: params.userName, reservationId: reservation.id, error: String(error) });
+      throw new ProvisionerError('Identity created but SCIM commit incomplete; reconcile its reservation', 'UNAVAILABLE');
+    }
+    if (params.active === false) created = await this.updateAgent(did, { ...created, active: false });
 
     this.logger.info('Agent created via SCIM', { did, userName: params.userName, parentDid: params.parentDid });
     await this.auditSink({
@@ -171,21 +209,21 @@ export class AgentProvisioner {
       ...(params.externalId !== undefined ? { externalId: params.externalId } : {}),
     };
 
-    const result = await this.store.update(did, updated);
-
-    this.logger.info('Agent replaced via SCIM', { did });
-    await this.auditSink({
-      type: 'agent.updated',
-      did,
-      timestamp: now,
-      details: { userName: params.userName, scopes: params.scopes },
-    });
+    const result = await this.updateAgent(did, { ...updated, active: params.active ?? existing.active });
 
     return result;
   }
 
   /** Update an agent record with partial data (SCIM PATCH). */
   async updateAgent(did: string, record: AgentRecord): Promise<AgentRecord> {
+    const existing = await this.store.findByDid(did);
+    if (!existing) throw new ProvisionerError('Agent not found', 'NOT_FOUND');
+    if (existing.parentDid !== record.parentDid) throw new ProvisionerError('Changing identity parent requires a new provisioned identity', 'VALIDATION');
+    if (!existing.active && record.active) throw new ProvisionerError('Revoked identities cannot be reactivated; provision a new identity', 'VALIDATION');
+    if (JSON.stringify([...existing.scopes].sort()) !== JSON.stringify([...record.scopes].sort())) {
+      await this.updateIdentityScopes(did, record.scopes);
+    }
+    if (!record.active) await this.revokeAccess(did);
     const result = await this.store.update(did, record);
 
     this.logger.info('Agent updated via SCIM PATCH', { did });
@@ -199,26 +237,37 @@ export class AgentProvisioner {
     return result;
   }
 
-  /**
-   * Deprovision an agent — the killer feature.
-   *
-   * Execution order:
-   *   1. Revoke the agent's DID document
-   *   2. Cascade-revoke all delegation proofs issued by this agent
-   *   3. Invalidate all active Arsenal sessions for this agent
-   *   4. Delete the agent record from the store
-   *   5. Emit audit event
-   *
-   * Each step is executed even if a previous step fails (best-effort
-   * cascade). Errors are collected and logged; the store deletion
-   * proceeds regardless to ensure the SCIM client sees 204.
-   */
+  /** Revoke all authorities before deleting. Failure retains an inactive record
+   * so a SCIM client can retry; it never reports successful deprovisioning. */
   async deprovisionAgent(did: string): Promise<void> {
     const existing = await this.store.findByDid(did);
     if (!existing) {
       throw new ProvisionerError(`Agent "${did}" not found`, 'NOT_FOUND');
     }
 
+    await this.revokeAccess(did);
+
+    // Step 4: Delete from store
+    await this.store.delete(did);
+    this.logger.info('Agent deprovisioned via SCIM', { did });
+
+    // Step 5: Audit event
+    const now = new Date().toISOString();
+    await this.auditSink({
+      type: 'agent.deprovisioned',
+      did,
+      timestamp: now,
+      details: {
+        userName: existing.userName,
+        parentDid: existing.parentDid,
+      },
+    });
+  }
+
+  private async revokeAccess(did: string): Promise<void> {
+    const existing = await this.store.findByDid(did);
+    if (!existing) throw new ProvisionerError('Agent not found', 'NOT_FOUND');
+    await this.store.update(did, { ...existing, active: false, updatedAt: new Date().toISOString(), version: generateVersion() });
     const errors: Array<{ step: string; error: unknown }> = [];
 
     // Step 1: Revoke DID document
@@ -248,22 +297,7 @@ export class AgentProvisioner {
       this.logger.error('Failed to invalidate Arsenal sessions', { did, error: String(err) });
     }
 
-    // Step 4: Delete from store
-    await this.store.delete(did);
-    this.logger.info('Agent deprovisioned via SCIM', { did });
-
-    // Step 5: Audit event
-    const now = new Date().toISOString();
-    await this.auditSink({
-      type: 'agent.deprovisioned',
-      did,
-      timestamp: now,
-      details: {
-        userName: existing.userName,
-        parentDid: existing.parentDid,
-        cascadeErrors: errors.length > 0 ? errors.map((e) => e.step) : undefined,
-      },
-    });
+    if (errors.length) throw new ProvisionerError(`Revocation incomplete: ${errors.map(error => error.step).join(', ')}`, 'UNAVAILABLE');
   }
 
   /** Find agent by DID. */
@@ -298,45 +332,42 @@ export class AgentProvisioner {
 
 // ── Utility functions ─────────────────────────────────────────────────────
 
-/**
- * Derive a deterministic DID from namespace + userName.
- *
- * In production, this would use Ed25519 key generation from the OAS SDK.
- * Here we produce a valid `did:oas` identifier suitable for SCIM-based
- * provisioning. The actual keypair is generated server-side by OAS.
- */
-function deriveDid(namespace: string, userName: string): string {
-  // Sanitize userName for DID: only alphanumeric, dot, dash, underscore
-  const sanitized = userName
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+/** A real identity authority. It must create keys under its own custody and
+ * authorize the requested parent; the SCIM bridge never manufactures keys.
+ * Throw IdentityNotCreatedError only when creation definitely did not occur.
+ * Other errors retain the username reservation for authority reconciliation. */
+export type IdentityProvisioner = (params: CreateAgentParams) => Promise<{
+  did: string; keypairFingerprint: string; parentDid: string;
+}>;
 
-  return `did:oas:${namespace}:agent:${sanitized}`;
+/** Explicit authority confirmation that no identity/key was created. This is
+ * NOT appropriate for timeouts, lost replies, or unknown remote outcomes. */
+export class IdentityNotCreatedError extends Error {
+  constructor(message: string, public readonly reason: 'unavailable' | 'invalid-input' = 'unavailable') {
+    super(message);
+    this.name = 'IdentityNotCreatedError';
+  }
 }
 
-/**
- * Derive a keypair fingerprint for a newly provisioned agent.
- *
- * In production, this would generate a real Ed25519 keypair and return
- * the multibase-encoded public key. Here we produce a deterministic
- * placeholder that signals "SCIM-provisioned, keypair pending enrollment".
- */
-function deriveKeypairFingerprint(did: string): string {
-  // Produce a z-prefixed multibase-like fingerprint
-  let hash = 0;
-  for (let i = 0; i < did.length; i++) {
-    hash = ((hash << 5) - hash + did.charCodeAt(i)) | 0;
-  }
-  return `z6Mk${Math.abs(hash).toString(36).padStart(8, '0')}`;
+/** Adapt the configured current SDK runtime and its identity authority. */
+export function createSdkScimProvisioner(runtime: OpenAgentRuntime): IdentityProvisioner {
+  return async params => {
+    // Validate with the actual installed SDK before invoking its authority. A
+    // broad catch around createAgent would also catch lost replies AFTER minting
+    // and would wrongly release those uncertain reservations.
+    const { createAgentInputSchema } = await import('@openagentid/sdk');
+    const parsed = createAgentInputSchema.safeParse({ parent: params.parentDid, name: params.userName, scopes: [...params.scopes] });
+    if (!parsed.success) throw new IdentityNotCreatedError('Invalid SDK identity input', 'invalid-input');
+    const agent = await runtime.createAgent(parsed.data);
+    return { did: agent.did, keypairFingerprint: agent.document.publicKeyMultibase, parentDid: agent.document.parent };
+  };
 }
 
 function generateVersion(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export type ProvisionerErrorCode = 'NOT_FOUND' | 'CONFLICT' | 'VALIDATION';
+export type ProvisionerErrorCode = 'NOT_FOUND' | 'CONFLICT' | 'VALIDATION' | 'INVALID_INPUT' | 'UNAVAILABLE';
 
 export class ProvisionerError extends Error {
   public readonly code: ProvisionerErrorCode;

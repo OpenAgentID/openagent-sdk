@@ -22,8 +22,9 @@ import {
   type IdentityChallenge,
   type IdentityVerified,
   type TrustTier,
+  type KeyType,
 } from './transport.js';
-import { HEADER_OPENAGENT_SESSION, extractOpenAgentToken } from './headers.js';
+import { HEADER_OPENAGENT_DID, HEADER_OPENAGENT_SESSION, extractOpenAgentToken } from './headers.js';
 
 /** Default session TTL in seconds. */
 export const DEFAULT_SESSION_TTL_SECS = 300;
@@ -35,6 +36,10 @@ export const DEFAULT_CHALLENGE_TTL_SECS = 60;
 export interface ServerConfig {
   /** The server's origin per RFC 6454 (`scheme://host[:port]`). Bound into every challenge. */
   origin: string;
+  /** Optional server identity, distinct from the HTTP origin. */
+  serverDid?: string;
+  /** Authoritatively resolve the current authentication key for the claimed DID. */
+  resolveIdentityKey: ResolveIdentityKeyFn;
   /** Optional protection-space identifier. */
   realm?: string;
   /** The trust tier assigned to verified agents. Default: anonymous. */
@@ -48,14 +53,23 @@ export interface ServerConfig {
 }
 
 /** Create a server config with sensible defaults. */
-export function createServerConfig(origin: string, overrides?: Partial<ServerConfig>): Required<Pick<ServerConfig, 'origin' | 'trustTier' | 'sessionTtlSecs' | 'challengeTtlSecs' | 'requiredConformance'>> & ServerConfig {
+export function createServerConfig(origin: string, overrides: Pick<ServerConfig, 'resolveIdentityKey'> & Partial<ServerConfig>): Required<Pick<ServerConfig, 'origin' | 'trustTier' | 'sessionTtlSecs' | 'challengeTtlSecs' | 'requiredConformance'>> & ServerConfig {
+  const parsed = new URL(origin);
+  if (!['http:', 'https:'].includes(parsed.protocol) || parsed.origin !== origin ||
+      parsed.username || parsed.password || typeof overrides.resolveIdentityKey !== 'function') {
+    throw new TypeError('HTTP authentication requires a canonical HTTP origin and authoritative DID key resolver');
+  }
+  for (const ttl of [overrides.sessionTtlSecs ?? DEFAULT_SESSION_TTL_SECS,
+    overrides.challengeTtlSecs ?? DEFAULT_CHALLENGE_TTL_SECS]) {
+    if (!Number.isSafeInteger(ttl) || ttl <= 0) throw new TypeError('Session and challenge TTLs must be positive integer seconds');
+  }
   return {
-    origin,
     trustTier: 'anonymous',
     sessionTtlSecs: DEFAULT_SESSION_TTL_SECS,
     challengeTtlSecs: DEFAULT_CHALLENGE_TTL_SECS,
     requiredConformance: 'L2',
     ...overrides,
+    origin,
   };
 }
 
@@ -67,8 +81,12 @@ export interface StoredSession {
   id: string;
   state: SessionState;
   initiatorDid: string;
+  publicKeyBase64Url?: string;
+  keyType?: KeyType;
   responderDid: string;
   nonce: string;
+  /** The exact realm bound into the issued challenge. */
+  realm?: string;
   /** The exact challenge timestamp (spec format); needed to reconstruct the signed payload. */
   challengeTimestamp: string;
   createdAt: number;
@@ -81,6 +99,9 @@ export interface SessionStore {
   put(session: StoredSession): Promise<void>;
   get(sessionId: string): Promise<StoredSession | undefined>;
   remove(sessionId: string): Promise<void>;
+  /** Atomically retrieve and delete one record. Across all workers exactly one
+   * caller may receive it (for example Redis GETDEL or SQL DELETE RETURNING). */
+  take(sessionId: string): Promise<StoredSession | undefined>;
 }
 
 /** In-memory session store for development and testing. */
@@ -88,11 +109,18 @@ export class InMemorySessionStore implements SessionStore {
   private readonly sessions = new Map<string, StoredSession>();
 
   async put(session: StoredSession): Promise<void> {
-    this.sessions.set(session.id, session);
+    this.sessions.set(session.id, structuredClone(session));
   }
 
   async get(sessionId: string): Promise<StoredSession | undefined> {
-    return this.sessions.get(sessionId);
+    const value = this.sessions.get(sessionId);
+    return value ? structuredClone(value) : undefined;
+  }
+
+  async take(sessionId: string): Promise<StoredSession | undefined> {
+    const value = this.sessions.get(sessionId);
+    this.sessions.delete(sessionId);
+    return value ? structuredClone(value) : undefined;
   }
 
   async remove(sessionId: string): Promise<void> {
@@ -114,10 +142,11 @@ export class CoreAuthError extends Error {
 
 /** Zod schema for an inbound proof. */
 const identityProofSchema = z.object({
-  signature: z.string().min(1),
-  public_key: z.string().min(1),
+  did: z.string().max(512).regex(/^did:(?:oas|l1fe):[A-Za-z0-9._:-]+$/),
+  signature: z.string().min(1).max(256).regex(/^[A-Za-z0-9_-]+$/),
+  public_key: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
   key_type: z.enum(['ed25519', 'secp256k1']),
-  nonce: z.string().min(1),
+  nonce: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
 function generateHex(byteLength: number): string {
@@ -135,7 +164,7 @@ export function handleDiscovery(config: ServerConfig & { requiredConformance?: C
   return {
     auth_endpoint: AUTH_ENDPOINT_PATH,
     supported_versions: [1],
-    server_did: config.origin,
+    server_did: config.serverDid ?? config.origin,
     required_conformance_level: config.requiredConformance ?? 'L2',
   };
 }
@@ -170,6 +199,7 @@ export async function handleChallenge(
     responderDid: config.origin,
     nonce,
     challengeTimestamp: challenge.timestamp,
+    realm: challenge.realm,
     createdAt: Math.floor(now.getTime() / 1000),
     expiresAt: Math.floor(now.getTime() / 1000) + (config.challengeTtlSecs ?? DEFAULT_CHALLENGE_TTL_SECS),
     capabilities: [],
@@ -179,12 +209,14 @@ export async function handleChallenge(
   return challenge;
 }
 
-/**
- * Signature verifier function. The caller provides this (crypto-wasm,
- * libsodium, noble-ed25519, a KMS call) since Ed25519 verification is not in
- * every runtime's Web Crypto.
- */
+/** Return the current, trusted authentication key for this DID/algorithm.
+ * Null denies unknown, revoked or unauthorized identities. */
+export type ResolveIdentityKeyFn = (did: string, keyType: KeyType) => Promise<string | null>;
+
+/** Verify exactly the selected algorithm; a positive result proves possession. */
 export type VerifySignatureFn = (params: {
+  /** Select exactly this algorithm; never infer one from untrusted key bytes. */
+  keyType: KeyType;
   publicKeyBase64Url: string;
   payload: Uint8Array;
   signatureBase64Url: string;
@@ -205,17 +237,18 @@ export async function handleProve(
   body: unknown,
   verifySignature: VerifySignatureFn,
 ): Promise<IdentityVerified> {
-  const proof = identityProofSchema.parse(body);
-
-  // 1. Load the pending challenge by the echoed nonce.
-  const session = await store.get(proof.nonce);
-  if (!session) {
-    throw new CoreAuthError(`replay detected: nonce ${proof.nonce} has no pending challenge`, 401);
+  // Claim a syntactically valid correlation nonce before processing the rest
+  // of the answer, including malformed or unsupported proof fields.
+  const { nonce } = z.object({ nonce: z.string().regex(/^[0-9a-f]{64}$/) }).parse(body);
+  const session = await store.take(nonce);
+  if (!session || session.state !== 'awaiting_proof') {
+    throw new CoreAuthError(`replay detected: nonce ${nonce} has no pending challenge`, 401);
   }
 
+  const proof = identityProofSchema.parse(body);
+  if (session.responderDid !== config.origin) throw new CoreAuthError('challenge origin mismatch', 401);
   const now = Math.floor(Date.now() / 1000);
   if (now >= session.expiresAt) {
-    await store.remove(proof.nonce);
     throw new CoreAuthError('challenge expired', 401);
   }
 
@@ -225,46 +258,43 @@ export async function handleProve(
     nonce: session.nonce,
     timestamp: session.challengeTimestamp,
     origin: session.responderDid,
-    ...(config.realm !== undefined ? { realm: config.realm } : {}),
+    ...(session.realm !== undefined ? { realm: session.realm } : {}),
   };
   const payload = canonicalChallengeBytes(challenge);
 
-  // 3. This server verifies Ed25519 only; a secp256k1 proof is refused with
-  //    a named reason rather than misinterpreted.
-  if (proof.key_type !== 'ed25519') {
-    await store.remove(proof.nonce);
-    throw new CoreAuthError(`this server verifies ed25519 only; got ${proof.key_type}`, 401);
+  // The request's public key is never an authority. Resolve and bind the DID
+  // before verifying possession; unavailable/rotated/revoked keys fail closed.
+  const authorizedKey = await config.resolveIdentityKey(proof.did, proof.key_type).catch(() => null);
+  if (!authorizedKey || authorizedKey !== proof.public_key) {
+    throw new CoreAuthError('DID authentication key is unavailable or mismatched', 401);
   }
-
-  // 4. Verify; consume the nonce on success and failure alike.
   const valid = await verifySignature({
-    publicKeyBase64Url: proof.public_key,
+    keyType: proof.key_type,
+    publicKeyBase64Url: authorizedKey,
     payload,
     signatureBase64Url: proof.signature,
-  }).catch(async () => {
-    await store.remove(proof.nonce);
-    return false;
-  });
-  if (!valid) {
-    await store.remove(proof.nonce);
-    throw new CoreAuthError('signature verification failed', 401);
-  }
-  await store.remove(proof.nonce);
+  }).catch(() => false);
+  if (valid !== true) throw new CoreAuthError('signature verification failed', 401);
+  const verifiedAt = Math.floor(Date.now() / 1000);
+  if (verifiedAt >= session.expiresAt) throw new CoreAuthError('challenge expired during verification', 401);
 
   // 5. Establish: mint an opaque session token and store the session.
   const sessionToken = generateHex(32);
-  const expiresAt = now + (config.sessionTtlSecs ?? DEFAULT_SESSION_TTL_SECS);
+  const expiresAt = verifiedAt + (config.sessionTtlSecs ?? DEFAULT_SESSION_TTL_SECS);
   const established: StoredSession = {
     ...session,
     id: sessionToken,
     state: 'established',
-    createdAt: now,
+    initiatorDid: proof.did,
+    publicKeyBase64Url: authorizedKey,
+    keyType: proof.key_type,
+    createdAt: verifiedAt,
     expiresAt,
   };
   await store.put(established);
 
   return {
-    did: session.initiatorDid,
+    did: proof.did,
     trust_tier: config.trustTier ?? 'anonymous',
     session_token: sessionToken,
     session_expires: specTimestamp(new Date(expiresAt * 1000)),
@@ -280,20 +310,28 @@ export interface AuthResult {
   error?: string;
 }
 
-/** Authenticate an incoming request by checking the session token. */
+/** Authenticate a session and recheck its current identity authority on every request. */
 export async function authenticateRequest(
   request: Request,
   store: SessionStore,
+  resolveIdentityKey: ResolveIdentityKeyFn,
 ): Promise<AuthResult> {
+  if (typeof resolveIdentityKey !== 'function') {
+    return { authenticated: false, error: 'identity authority is required' };
+  }
   const header = request.headers.get('authorization');
   const token = header ? extractOpenAgentToken(header) : undefined;
   const sessionToken = token ?? request.headers.get(HEADER_OPENAGENT_SESSION) ?? undefined;
+  if (header && !token) return { authenticated: false, error: 'invalid authorization scheme' };
+  if (token && request.headers.has(HEADER_OPENAGENT_SESSION) && request.headers.get(HEADER_OPENAGENT_SESSION) !== token) {
+    return { authenticated: false, error: 'conflicting session credentials' };
+  }
   if (!sessionToken) {
     return { authenticated: false, error: 'missing credentials' };
   }
 
   const session = await store.get(sessionToken);
-  if (!session || session.state !== 'established') {
+  if (!session || session.state !== 'established' || !session.initiatorDid) {
     return { authenticated: false, error: 'unknown session' };
   }
 
@@ -303,6 +341,24 @@ export async function authenticateRequest(
     return { authenticated: false, error: 'session expired' };
   }
 
+  let current: string | null = null;
+  try {
+    current = session.keyType ? await resolveIdentityKey(session.initiatorDid, session.keyType) : null;
+  } catch {
+    // Both rejected promises and synchronous authority failures deny admission.
+  }
+  if (!current || current !== session.publicKeyBase64Url) {
+    await store.remove(sessionToken);
+    return { authenticated: false, error: 'identity revoked, rotated or unavailable' };
+  }
+  if (Math.floor(Date.now() / 1000) >= session.expiresAt) {
+    await store.remove(sessionToken);
+    return { authenticated: false, error: 'session expired during authority check' };
+  }
+  const claimedDid = request.headers.get(HEADER_OPENAGENT_DID);
+  if (claimedDid !== null && claimedDid !== session.initiatorDid) {
+    return { authenticated: false, error: 'DID does not match authenticated session' };
+  }
   return {
     authenticated: true,
     peerDid: session.initiatorDid,

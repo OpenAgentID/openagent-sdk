@@ -46,7 +46,7 @@ default global trust source.
 
 The implemented [EAS adapter](../../adapters/eas/typescript/) is configurable
 for Base; its README uses Base RPC and EAS GraphQL endpoints. The separate
-`@openagentid/anchor-eas` package is published at 0.1.1. Select its schema UID,
+`@openagentid/anchor-eas` 0.2.0 adapter requires trusted attesters. Select its schema UID,
 trusted attester, endpoints, confirmation policy and, when publishing, actual
 EAS contract and protected signer explicitly.
 

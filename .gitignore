@@ -33,3 +33,5 @@ Thumbs.db
 **/.openagentid/
 .public-tooling-artifacts/
 .public-onboarding-*/
+.compatibility-artifacts/
+compatibility-results/

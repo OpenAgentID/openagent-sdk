@@ -1,23 +1,6 @@
-/**
- * `@openagentid/claude-agent`
- *
- * Drop-in plugin for the Claude Agent SDK that wires OpenAgent identity,
- * Arsenal-backed capability control, and tamper-evident audit logging
- * into the agent lifecycle.
- *
- * Three-line install:
- *
- * ```ts
- * import { query } from '@anthropic-ai/claude-agent-sdk';
- * import { openAgentPlugin } from '@openagentid/claude-agent';
- *
- * const result = query({
- *   prompt: 'Refactor this',
- *   options: {
- *     plugins: [openAgentPlugin({ agent, capabilities, skillsPolicy, audit: true })],
- *   },
- * });
- * ```
+/** OpenAgent identity and capability hooks for the Claude Agent SDK.
+ * Pass createOpenAgentHooks(...).hooks to query({ options: { hooks } }).
+ * openAgentPlugin remains a framework-independent lifecycle controller.
  */
 
 export {
@@ -93,3 +76,5 @@ export type {
 } from './types.js';
 
 export { canonicalJson, getHashAlgo, hashHex } from './hash.js';
+
+export { createOpenAgentHooks, createSdkAgentIdentity, sdkToolScope, sdkSkillScope } from './sdk-hooks.js';

@@ -5,7 +5,7 @@
  * Request/Response API.
  */
 
-import type { SessionStore, ServerConfig, VerifySignatureFn, AuthResult } from './server.js';
+import type { SessionStore, ServerConfig, VerifySignatureFn, ResolveIdentityKeyFn, AuthResult } from './server.js';
 import {
   authenticateRequest,
   handleDiscovery,
@@ -19,8 +19,12 @@ import { CONTENT_TYPE_JSON } from './headers.js';
 
 /** Options for creating OAAP middleware. */
 export interface MiddlewareOptions {
-  /** Server DID. */
-  serverDid: string;
+  /** Canonical public HTTP origin, for example https://api.example.com. */
+  origin: string;
+  /** Optional server DID advertised in discovery. */
+  serverDid?: string;
+  /** Current authoritative DID-to-authentication-key binding. */
+  resolveIdentityKey: ResolveIdentityKeyFn;
   /** Session store (default: in-memory). */
   store?: SessionStore;
   /** Required conformance level (default: L2). */
@@ -31,12 +35,12 @@ export interface MiddlewareOptions {
   challengeTtlSecs?: number;
   /** Signature verification function. */
   verifySignature: VerifySignatureFn;
-  /** Paths to exclude from authentication (well-known paths are always excluded). */
+  /** Explicit public paths (including their descendants). */
   excludePaths?: string[];
 }
 
 /** Well-known paths that are always public (the handshake endpoints themselves). */
-const OAAP_PUBLIC_PATHS = [
+const OAAP_ENDPOINT_PATHS = [
   '/.well-known/openagent',
   '/.well-known/openagent/auth',
   '/.well-known/openagent/auth/prove',
@@ -48,7 +52,7 @@ const OAAP_PUBLIC_PATHS = [
  * Returns a function that:
  * - Handles OAAP well-known endpoints
  * - Validates authenticated requests
- * - Returns `undefined` for well-known routes (caller should send the JSON response)
+ * - Returns a Response for handshake routes and an AuthResult for application routes
  *
  * Works with Hono, Cloudflare Workers, Deno, Bun, and any fetch-based framework.
  */
@@ -59,17 +63,22 @@ export function createOpenAgentHandler(options: MiddlewareOptions): {
    * Handle an incoming request.
    *
    * Returns a Response for well-known endpoints and auth failures.
-   * Returns undefined for authenticated requests that should proceed to the app.
+   * Returns an AuthResult for application routes; check authenticated before proceeding.
    */
   handle: (request: Request) => Promise<Response | AuthResult>;
 } {
-  const config = createServerConfig(options.serverDid, {
+  const config = createServerConfig(options.origin, {
+    serverDid: options.serverDid,
+    resolveIdentityKey: options.resolveIdentityKey,
     requiredConformance: options.requiredConformance,
     sessionTtlSecs: options.sessionTtlSecs,
     challengeTtlSecs: options.challengeTtlSecs,
   });
   const store = options.store ?? new InMemorySessionStore();
-  const excludePaths = [...OAAP_PUBLIC_PATHS, ...(options.excludePaths ?? [])];
+  if (typeof store.take !== 'function' || typeof options.verifySignature !== 'function') {
+    throw new TypeError('An atomic SessionStore.take and signature verifier are required');
+  }
+  const excludePaths = options.excludePaths ?? [];
 
   const handle = async (request: Request): Promise<Response | AuthResult> => {
     const url = new URL(request.url);
@@ -129,62 +138,63 @@ export function createOpenAgentHandler(options: MiddlewareOptions): {
       }
     }
 
+    if (OAAP_ENDPOINT_PATHS.includes(path)) {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405, headers: { 'content-type': CONTENT_TYPE_JSON },
+      });
+    }
+
     // Check if path is excluded.
     if (excludePaths.some((p) => path === p || path.startsWith(p + '/'))) {
       return { authenticated: true, peerDid: 'excluded' };
     }
 
     // Authenticate the request.
-    return authenticateRequest(request, store);
+    return authenticateRequest(request, store, options.resolveIdentityKey);
   };
 
   return { config, store, handle };
 }
 
-/**
- * Create Express-compatible middleware.
- *
- * Usage:
- * ```ts
- * app.use(createOpenAgentMiddleware({
- *   serverDid: 'did:oas:l1fe:service:api',
- *   verifySignature: async (did, payload, sig) => { ... },
- * }));
- * ```
- */
+/** Express-compatible middleware. Register express.json() before this handler.
+ * Only handshake JSON is copied; application bodies remain untouched. Verified
+ * request identity is exposed as req.openAgent, never read from caller headers. */
 export function createOpenAgentMiddleware(options: MiddlewareOptions): (
-  req: { url?: string; method?: string; headers: Record<string, string | string[] | undefined>; path?: string },
-  res: { status: (code: number) => { json: (body: unknown) => void; end: () => void } },
-  next: () => void,
+  req: { url?: string; originalUrl?: string; method?: string;
+    headers: Record<string, string | string[] | undefined>; body?: unknown; openAgent?: AuthResult },
+  res: { status: (code: number) => { json: (body: unknown) => void } },
+  next: (error?: unknown) => void,
 ) => Promise<void> {
   const { handle } = createOpenAgentHandler(options);
-
   return async (req, res, next) => {
-    // Build a minimal Request-like object for the handler.
-    const url = `http://localhost${req.path ?? req.url ?? '/'}`;
-    const method = req.method ?? 'GET';
-    const headers = new Headers();
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (typeof value === 'string') {
-        headers.set(key, value);
+    try {
+      const url = new URL(req.originalUrl ?? req.url ?? '/', options.origin);
+      const method = req.method ?? 'GET';
+      const headers = new Headers();
+      for (const [key, value] of Object.entries(req.headers)) {
+        if (typeof value === 'string') headers.set(key, value);
+        else if (Array.isArray(value)) headers.set(key, value.join(', '));
       }
+      const isProof = url.pathname === '/.well-known/openagent/auth/prove' && method === 'POST';
+      if (isProof && (req.body === undefined || !headers.get('content-type')?.startsWith('application/json'))) {
+        res.status(400).json({ error: 'JSON proof body required; register express.json() before OpenAgent middleware' });
+        return;
+      }
+      const request = new Request(url, { method, headers,
+        ...(isProof ? { body: JSON.stringify(req.body) } : {}) });
+      const result = await handle(request);
+      if (result instanceof Response) {
+        res.status(result.status).json(await result.json());
+        return;
+      }
+      if (!result.authenticated) {
+        res.status(401).json({ error: result.error ?? 'Unauthorized' });
+        return;
+      }
+      req.openAgent = result;
+      next();
+    } catch (error) {
+      next(error);
     }
-
-    const request = new Request(url, { method, headers });
-    const result = await handle(request);
-
-    if (result instanceof Response) {
-      const body = await result.text();
-      res.status(result.status).json(JSON.parse(body));
-      return;
-    }
-
-    // AuthResult
-    if (!result.authenticated) {
-      res.status(401).json({ error: result.error ?? 'Unauthorized' });
-      return;
-    }
-
-    next();
   };
 }

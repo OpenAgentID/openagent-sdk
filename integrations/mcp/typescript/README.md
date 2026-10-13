@@ -1,170 +1,72 @@
 # @openagentid/mcp
 
-OpenAgent middleware for the [Model Context Protocol](https://modelcontextprotocol.io).
+Authenticated Model Context Protocol tools using the current OpenAgentID SDK.
+Works with SDK `^0.7.2` and MCP SDK `^1.27.0`.
 
-Add OAS identity verification, Arsenal capability tokens, and AEGIS authorization to any MCP server in three lines.
-
-## Install
-
-```bash
-npm install @openagentid/mcp @modelcontextprotocol/sdk @openagentid/sdk
+```sh
+npm install @openagentid/sdk@^0.7.2 @openagentid/mcp@0.2.0 @modelcontextprotocol/sdk@^1.27.0 zod
 ```
 
-## Server: add auth to MCP in 3 lines
+## Run a real server and client
 
-```ts
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { withOpenAgent } from '@openagentid/mcp';
-import { agent } from './my-agent.js';
+The [complete stdio example](https://github.com/OpenAgentID/openagent-sdk/tree/main/examples/typescript/02-mcp-server)
+creates real Ed25519 identities in separate signer and receiver workspaces,
+starts a separate MCP server process, authenticates a tool call and verifies
+unsigned and revoked callers are rejected. It needs no hosted account or API key.
 
-const server = new McpServer({ name: 'my-tools', version: '0.1.0' });
-
-const authedServer = withOpenAgent(server, {
-  agent,
-  requireScopes: (toolName) => [`mcp:${toolName}:invoke`],
-});
-
-authedServer.registerTool(
-  'search_web',
-  { description: 'search the web', inputSchema: { q: z.string() } },
-  async ({ q }) => ({ content: [{ type: 'text', text: `results for ${q}` }] }),
-);
+```sh
+git clone https://github.com/OpenAgentID/openagent-sdk.git
+cd openagent-sdk/examples/typescript/02-mcp-server
+npm install
+npm start
 ```
 
-That is it. Every tool call now:
+## Current SDK adapters
 
-1. Pulls the identity envelope from `extra._meta.openagent.identity`.
-2. Verifies it against your `IdentityVerifier` (OAS DID + Arsenal ACT + AEGIS policy).
-3. Enforces the per-tool scopes returned by `requireScopes`.
-4. Runs the optional `skillsPolicy` hook (consults SKILLS.md-style rules).
-5. Runs the user's tool body.
-6. Stamps `audit_id`, `verified_did`, and `scopes` into the response `_meta.openagent`.
+`createWorkspaceMcpServer({ workspace, did, authorize })` returns an `agent`
+for `withOpenAgent(server, { agent })` and an `issueChallenge` method.
+Expose challenge issuance on your trusted MCP transport before wrapping the
+server. `authorize(verifiedIdentity)` obtains scopes from your receiver policy.
+Identity trust alone never grants tool access.
 
-## Client: sign every outbound call
+`createWorkspaceMcpClient({ workspace, did, audience, issueChallenge })` returns
+an agent for `withOpenAgentClient(client, { agent })`. Its challenge callback
+calls the receiver's challenge endpoint. The audience is explicit and must
+match the receiver; no keys travel in request metadata.
 
-```ts
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { withOpenAgentClient } from '@openagentid/mcp';
-import { agent } from './my-agent.js';
+The receiver binds each nonce to the DID, tool name and canonical JSON arguments.
+The SDK verifies the signature, current trust, revocation and replay state. The
+middleware then checks `mcp:<tool>:invoke` scopes and any configured skills policy.
+Argument-changing `beforeCall` hooks run **before** signing. Custom verifiers
+receive the original transmitted tool request as their third argument, captured
+at the public MCP transport boundary before schema parsing. Authorization policies
+and tool handlers receive the parsed arguments. Defaults, coercion, transforms and
+unknown-field stripping therefore work without weakening request binding.
 
-const client = new Client({ name: 'my-agent', version: '0.1.0' });
-const authedClient = withOpenAgentClient(client, {
-  agent,
-  audience: 'did:oas:vendor:tools-server',
-});
+The workspace adapter is a single-process challenge coordinator backed by durable
+SDK trust/replay state. Keep one adapter alive for the process lifetime. Restart
+invalidates outstanding challenges. Distributed deployments should supply a
+shared atomic challenge authority through the custom `Agent` contract. The standard MCP server transport
+keeps raw request context isolated across asynchronous concurrent calls. Custom
+server implementations without a transport use the arguments they pass directly
+to the middleware callback.
 
-await authedClient.callTool({
-  name: 'search_web',
-  arguments: { q: 'mcp' },
-});
-```
+## Policy and audit
 
-The interceptor wraps `callTool` only — `listTools`, `listResources`, `getPrompt`, and every other client method pass straight through.
+- `requireScopes(toolName, args)` overrides the per-tool scope set.
+- `scopeFormat(toolName)` customizes the default scope name.
+- `createSkillsPolicy` rejects unlisted skill names and unauthorized DIDs.
+- `preCall`, `postCall` and `onError` receive verified identity context.
+- Results include `_meta.openagent` with `verified_did`, scopes and an audit ID.
 
-## Hooks
+`requireIdentity: false` explicitly permits anonymous calls; do not enable it
+on protected tools. Callbacks and bespoke `Agent` implementations are trusted
+application configuration, not substitutes for signature verification.
 
-`withOpenAgent` accepts three optional hooks plus the skills policy:
+## Migration from 0.1
 
-```ts
-withOpenAgent(server, {
-  agent,
-  preCall: ({ toolName, identity }) => {
-    metrics.increment('mcp.tool.calls', { tool: toolName, did: identity.did });
-  },
-  postCall: ({ toolName, identity, durationMs, result }) => {
-    audit.write({ tool: toolName, did: identity.did, ms: durationMs });
-  },
-  onError: ({ toolName, identity, error }) => {
-    audit.writeError({ tool: toolName, did: identity?.did ?? null, error });
-  },
-});
-```
-
-## Skills policy
-
-MCP tools and SKILLS.md entries describe the same thing — a capability an
-agent can invoke. When an MCP server exposes a skill-like tool (default
-matchers: `invoke_skill`, `run_skill`, `execute_skill`, `skill.invoke`,
-`skill.run`), the middleware consults a policy hook before allowing the
-call.
-
-```ts
-import {
-  withOpenAgent,
-  createSkillsPolicy,
-  InMemorySkillsPolicyStore,
-} from '@openagentid/mcp';
-
-const skillsPolicy = createSkillsPolicy({
-  store: new InMemorySkillsPolicyStore([
-    { skillName: 'cook_dinner', dids: ['did:oas:org:kitchen:agent:alice'] },
-    { skillName: 'order_pizza', dids: null }, // any verified caller
-  ]),
-});
-
-withOpenAgent(server, { agent, skillsPolicy });
-```
-
-You can also write your own store that reads from `SKILLS.md` files, a
-remote service, or AEGIS policy bundles — just implement the
-`SkillsPolicyStore` interface.
-
-## Errors
-
-Every middleware-rejected call surfaces a typed error:
-
-| Error                          | Code     | When                                            |
-| ------------------------------ | -------- | ----------------------------------------------- |
-| `MissingIdentityError`         | `-32001` | `_meta.openagent.identity` was absent           |
-| `IdentityVerificationError`    | `-32001` | The verifier rejected the envelope              |
-| `AuthorizationDeniedError`     | `-32002` | Caller does not hold the required scopes        |
-| `SkillsPolicyDeniedError`      | `-32003` | The skills policy hook returned `allow: false`  |
-
-All extend `OpenAgentMcpError`, which carries a `code`, `message`, and
-optional `data` payload — ready for serialization through the JSON-RPC
-error envelope the MCP SDK expects.
-
-## Configuration reference
-
-```ts
-interface OpenAgentMcpConfig {
-  agent: Agent;
-  requireScopes?: (toolName: string, args: unknown) => readonly string[];
-  requireIdentity?: boolean;            // default: true
-  skillsPolicy?: SkillsPolicyHook;
-  preCall?: PreCallHook;
-  postCall?: PostCallHook;
-  onError?: ErrorHook;
-  scopeFormat?: (toolName: string) => string;
-}
-```
-
-## Versioning
-
-This package is built against `@modelcontextprotocol/sdk@^1.27.0`. Both
-the deprecated `tool(name, schema, cb)` overloads and the current
-`registerTool(name, config, cb)` API are intercepted, so any 1.x server
-works without code changes.
-
-## Testing
-
-```bash
-npm test
-```
-
-The test suite uses [vitest](https://vitest.dev) and exercises the
-middleware against both a synthetic MCP server and a real
-`@modelcontextprotocol/sdk` server connected over the SDK's
-`InMemoryTransport`.
-
-## Documentation
-
-- Spec: <https://openagent.id/docs/integrations/mcp>
-- OpenAgent SDK: <https://openagent.id/docs/sdk>
-- MCP: <https://modelcontextprotocol.io>
-
-## License
-
-Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
-
-Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
+The SDK's `OpenAgentInstance` was never the adapter's `Agent` interface. Use the
+workspace factories or implement the declared signing/verifier contract. The
+new factories make that conversion explicit and exercise the current SDK with
+real keys. Existing custom adapters remain supported; bind the verifier's new
+`request` argument to your signed request data.

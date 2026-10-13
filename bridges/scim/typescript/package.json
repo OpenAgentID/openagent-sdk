@@ -1,7 +1,7 @@
 {
   "name": "@openagentid/scim",
-  "version": "0.1.1",
-  "description": "SCIM 2.0 provisioning bridge for OpenAgent — enterprise agent lifecycle via RFC 7644",
+  "version": "0.2.0",
+  "description": "SCIM 2.0 provisioning bridge for OpenAgent \u2014 enterprise agent lifecycle via RFC 7644",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
   "homepage": "https://openagent.id",
@@ -25,7 +25,8 @@
     "dist",
     "CHANGELOG.md",
     "LICENSE-APACHE",
-    "LICENSE-MIT"
+    "LICENSE-MIT",
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -48,7 +49,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openagentid/sdk": "^0.1.0"
+    "@openagentid/sdk": "^0.7.2"
   },
   "peerDependenciesMeta": {
     "@openagentid/sdk": {
@@ -60,7 +61,8 @@
     "@vitest/coverage-v8": "^3.2.6",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "@openagentid/sdk": "0.7.2"
   },
   "keywords": [
     "openagent",

@@ -1,18 +1,17 @@
 {
-  "name": "openagent-aws-lambda",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "name": "openagent-aws-lambda",
   "scripts": {
-    "build": "tsup handler.ts --format cjs --out-dir dist",
-    "typecheck": "tsc --noEmit",
-    "deploy": "sam build && sam deploy --guided"
+    "build": "tsup handler.ts --format esm --out-dir dist --target node20 --no-splitting",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@openagentid/sdk": "^0.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.11.30",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.5"
+    "@openagentid/sdk": "^0.7.2",
+    "@openagentid/crypto-wasm": "^0.1.1"
   }
 }

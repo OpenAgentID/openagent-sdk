@@ -1,172 +1,143 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  InMemorySessionStore,
-  createServerConfig,
-  handleDiscovery,
-  handleChallenge,
-  handleProve,
-  authenticateRequest,
-  CoreAuthError,
-  type StoredSession,
+  InMemorySessionStore, createServerConfig, handleDiscovery, handleChallenge,
+  handleProve, authenticateRequest, CoreAuthError,
 } from '../src/server.js';
-import { CHALLENGE_TYPE, canonicalChallengeBytes, type IdentityProof } from '../src/transport.js';
-import { HEADER_OPENAGENT_SESSION, buildOpenAgentHeader } from '../src/headers.js';
+import { verifyNodeSignature } from '../src/node.js';
+import { makeIdentity } from './crypto-fixture.js';
+import { buildOpenAgentHeader } from '../src/headers.js';
 
-function validProof(nonce: string): IdentityProof {
-  return {
-    signature: 'c2ln',
-    public_key: 'a2V5',
-    key_type: 'ed25519',
-    nonce,
-  };
-}
-
-describe('server', () => {
+describe('real HTTP identity authentication', () => {
+  const identity = makeIdentity();
+  const config = createServerConfig('https://api.example.com', { resolveIdentityKey: identity.resolve });
   let store: InMemorySessionStore;
-  const config = createServerConfig('https://api.example.com');
+  beforeEach(() => { store = new InMemorySessionStore(); });
 
-  beforeEach(() => {
-    store = new InMemorySessionStore();
+  it('publishes discovery and binds a real signed identity to its session', async () => {
+    expect(handleDiscovery(config).auth_endpoint).toBe('/.well-known/openagent/auth');
+    const challenge = await handleChallenge(config, store);
+    const verified = await handleProve(config, store, await identity.proof(challenge), verifyNodeSignature);
+    expect(verified.did).toBe(identity.did);
+    const request = new Request('https://api.example.com/tools', {
+      headers: { authorization: buildOpenAgentHeader(verified.session_token) },
+    });
+    expect(await authenticateRequest(request, store, identity.resolve)).toMatchObject({ authenticated: true, peerDid: identity.did });
+    expect(await authenticateRequest(request, store, async () => null)).toMatchObject({ authenticated: false });
+    expect(await store.get(verified.session_token)).toBeUndefined();
   });
 
-  describe('handleDiscovery', () => {
-    it('returns a valid discovery document', () => {
-      const doc = handleDiscovery(config);
-      expect(doc.server_did).toBe('https://api.example.com');
-      expect(doc.supported_versions).toContain(1);
-      expect(doc.auth_endpoint).toBe('/.well-known/openagent/auth');
+  it('rejects a direct JavaScript call with no authority, even for a real signed session', async () => {
+    const challenge = await handleChallenge(config, store);
+    const verified = await handleProve(config, store, await identity.proof(challenge), verifyNodeSignature);
+    const request = new Request(config.origin, {
+      headers: { authorization: buildOpenAgentHeader(verified.session_token) },
     });
+    // @ts-expect-error A JavaScript caller can omit the required authority.
+    expect(await authenticateRequest(request, store)).toEqual({ authenticated: false, error: 'identity authority is required' });
+    expect((await authenticateRequest(request, store, identity.resolve)).authenticated).toBe(true);
   });
 
-  describe('handleChallenge', () => {
-    it('issues a spec-shaped challenge', async () => {
-      const challenge = await handleChallenge(config, store);
-      expect(challenge.type).toBe(CHALLENGE_TYPE);
-      expect(challenge.nonce).toMatch(/^[0-9a-f]{64}$/);
-      expect(challenge.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
-      expect(challenge.origin).toBe('https://api.example.com');
-      expect(challenge.realm).toBeUndefined();
+  it.each(['revoked', 'rotated', 'offline', 'synchronous-failure'])('rejects direct session authentication when authority is %s', async failure => {
+    const challenge = await handleChallenge(config, store);
+    const verified = await handleProve(config, store, await identity.proof(challenge), verifyNodeSignature);
+    const request = new Request(config.origin, {
+      headers: { authorization: buildOpenAgentHeader(verified.session_token) },
     });
-
-    it('stores a pending session keyed by the nonce', async () => {
-      const challenge = await handleChallenge(config, store);
-      const pending = await store.get(challenge.nonce);
-      expect(pending).toBeDefined();
-      expect(pending?.state).toBe('awaiting_proof');
-      expect(pending?.challengeTimestamp).toBe(challenge.timestamp);
-    });
-  });
-
-  describe('handleProve', () => {
-    const acceptAll = async () => true;
-
-    it('verifies a correct proof and issues a session token', async () => {
-      const challenge = await handleChallenge(config, store);
-      const verified = await handleProve(config, store, validProof(challenge.nonce), acceptAll);
-      expect(verified.session_token).toBeTruthy();
-      expect(verified.trust_tier).toBe('anonymous');
-      expect(verified.session_expires).toMatch(/Z$/);
-    });
-
-    it('consumes the nonce so a second answer is replay', async () => {
-      const challenge = await handleChallenge(config, store);
-      await handleProve(config, store, validProof(challenge.nonce), acceptAll);
-      await expect(
-        handleProve(config, store, validProof(challenge.nonce), acceptAll),
-      ).rejects.toThrow(CoreAuthError);
-    });
-
-    it('rejects and consumes a bad signature', async () => {
-      const challenge = await handleChallenge(config, store);
-      await expect(
-        handleProve(config, store, validProof(challenge.nonce), async () => false),
-      ).rejects.toThrow(CoreAuthError);
-      // The nonce is consumed on failure: even a now-accepting verifier fails.
-      await expect(
-        handleProve(config, store, validProof(challenge.nonce), acceptAll),
-      ).rejects.toThrow(CoreAuthError);
-    });
-
-    it('rejects a secp256k1 proof with a named reason', async () => {
-      const challenge = await handleChallenge(config, store);
-      const proof: IdentityProof = { ...validProof(challenge.nonce), key_type: 'secp256k1' };
-      await expect(handleProve(config, store, proof, acceptAll)).rejects.toThrow(
-        /ed25519 only/,
-      );
-    });
-
-    it('rejects a nonce with no pending challenge', async () => {
-      await expect(
-        handleProve(config, store, validProof('f'.repeat(64)), acceptAll),
-      ).rejects.toThrow(CoreAuthError);
-    });
-  });
-
-  describe('canonical payload reconstruction', () => {
-    it('rebuilds the exact signed challenge from the session record', async () => {
-      const challenge = await handleChallenge(config, store);
-      const pending = await store.get(challenge.nonce);
-      expect(pending).toBeDefined();
-      const rebuilt = canonicalChallengeBytes({
-        type: CHALLENGE_TYPE,
-        nonce: pending!.nonce,
-        timestamp: pending!.challengeTimestamp,
-        origin: pending!.responderDid,
-      });
-      const original = canonicalChallengeBytes(challenge);
-      expect(rebuilt).toEqual(original);
-    });
-  });
-
-  describe('authenticateRequest', () => {
-    function establishedSession(id: string): StoredSession {
-      return {
-        id,
-        state: 'established',
-        initiatorDid: 'did:oas:l1fe:agent:alice',
-        responderDid: 'https://api.example.com',
-        nonce: 'n',
-        challengeTimestamp: '2026-03-21T12:00:00Z',
-        createdAt: Math.floor(Date.now() / 1000),
-        expiresAt: Math.floor(Date.now() / 1000) + 300,
-        capabilities: [],
+    const rotated = makeIdentity();
+    const resolve = failure === 'synchronous-failure'
+      ? () => { throw new Error('authority unavailable'); }
+      : async () => {
+        if (failure === 'offline') throw new Error('authority unavailable');
+        return failure === 'rotated' ? rotated.publicKeyBase64Url : null;
       };
+    expect(await authenticateRequest(request, store, resolve)).toMatchObject({ authenticated: false });
+    expect(await store.get(verified.session_token)).toBeUndefined();
+  });
+
+  it.each(['ed25519', 'secp256k1'] as const)('verifies actual %s signatures', async keyType => {
+    const agent = makeIdentity(keyType);
+    const cfg = createServerConfig(config.origin, { resolveIdentityKey: agent.resolve });
+    const challenge = await handleChallenge(cfg, store);
+    const proof = await agent.proof(challenge);
+    expect((await handleProve(cfg, store, proof, verifyNodeSignature)).did).toBe(agent.did);
+    await expect(handleProve(cfg, store, proof, verifyNodeSignature)).rejects.toThrow(/replay/);
+  });
+
+  it('admits exactly one of 20 simultaneous proofs before asynchronous verification', async () => {
+    const challenge = await handleChallenge(config, store);
+    const proof = await identity.proof(challenge);
+    const results = await Promise.allSettled(Array.from({ length: 20 }, () => handleProve(config, store, proof,
+      async params => { await new Promise(resolve => setTimeout(resolve, 5)); return verifyNodeSignature(params); })));
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(19);
+  });
+
+  it('rejects a valid attacker signature claiming the pinned DID', async () => {
+    const attacker = makeIdentity();
+    const challenge = await handleChallenge(config, store);
+    await expect(handleProve(config, store, await attacker.proof(challenge), verifyNodeSignature)).rejects.toThrow(/key/);
+    await expect(handleProve(config, store, await identity.proof(challenge), verifyNodeSignature)).rejects.toThrow(/replay/);
+  });
+
+  it('rejects wrong DID, altered signature and algorithm confusion', async () => {
+    for (const change of ['did', 'signature', 'algorithm']) {
+      const challenge = await handleChallenge(config, store);
+      const proof = await identity.proof(challenge);
+      if (change === 'did') proof.did = 'did:oas:example:agent:other';
+      if (change === 'signature') {
+        const bytes = Buffer.from(proof.signature, 'base64url'); bytes[0] = bytes[0]! ^ 1;
+        proof.signature = bytes.toString('base64url');
+      }
+      if (change === 'algorithm') proof.key_type = 'secp256k1';
+      await expect(handleProve(config, store, proof, verifyNodeSignature)).rejects.toThrow(CoreAuthError);
     }
+  });
 
-    it('authenticates via Authorization: OpenAgent', async () => {
-      await store.put(establishedSession('sess-1'));
-      const req = new Request('http://localhost/api', {
-        headers: { authorization: buildOpenAgentHeader('sess-1') },
-      });
-      const result = await authenticateRequest(req, store);
-      expect(result.authenticated).toBe(true);
-      expect(result.peerDid).toBe('did:oas:l1fe:agent:alice');
-    });
+  it('fails closed on resolver/verifier outages and consumes the challenge', async () => {
+    for (const failedAuthority of ['resolver', 'verifier']) {
+      const cfg = failedAuthority === 'resolver' ? { ...config, resolveIdentityKey: async () => { throw new Error('offline'); } } : config;
+      const challenge = await handleChallenge(cfg, store);
+      const proof = await identity.proof(challenge);
+      await expect(handleProve(cfg, store, proof, failedAuthority === 'verifier' ? async () => { throw new Error('offline'); } : verifyNodeSignature)).rejects.toThrow(CoreAuthError);
+      expect(await store.get(challenge.nonce)).toBeUndefined();
+    }
+  });
 
-    it('authenticates via the session header fallback', async () => {
-      await store.put(establishedSession('sess-2'));
-      const req = new Request('http://localhost/api', {
-        headers: { [HEADER_OPENAGENT_SESSION]: 'sess-2' },
-      });
-      const result = await authenticateRequest(req, store);
-      expect(result.authenticated).toBe(true);
-    });
+  it('rejects expired challenges and established records used as nonces', async () => {
+    const challenge = await handleChallenge(config, store);
+    const pending = (await store.get(challenge.nonce))!;
+    await store.put({ ...pending, expiresAt: 1 });
+    await expect(handleProve(config, store, await identity.proof(challenge), verifyNodeSignature)).rejects.toThrow(/expired/);
+    const next = await handleChallenge(config, store);
+    await store.put({ ...(await store.get(next.nonce))!, state: 'established' });
+    await expect(handleProve(config, store, await identity.proof(next), verifyNodeSignature)).rejects.toThrow(/replay/);
+  });
 
-    it('rejects missing credentials', async () => {
-      const result = await authenticateRequest(new Request('http://localhost/api'), store);
-      expect(result.authenticated).toBe(false);
-    });
+  it('rejects missing credentials, conflicting tokens and caller DID substitution', async () => {
+    const challenge = await handleChallenge(config, store);
+    const verified = await handleProve(config, store, await identity.proof(challenge), verifyNodeSignature);
+    for (const headers of [ {},
+      { authorization: 'Bearer unsupported', 'x-openagent-session': verified.session_token },
+      { authorization: buildOpenAgentHeader(verified.session_token), 'x-openagent-session': 'other' },
+      { authorization: buildOpenAgentHeader(verified.session_token), 'x-openagent-did': 'did:oas:example:agent:other' },
+    ]) {
+      expect((await authenticateRequest(new Request(config.origin, { headers }), store, identity.resolve)).authenticated).toBe(false);
+    }
+  });
 
-    it('rejects and removes an expired session', async () => {
-      const expired = establishedSession('sess-3');
-      expired.expiresAt = Math.floor(Date.now() / 1000) - 10;
-      await store.put(expired);
-      const req = new Request('http://localhost/api', {
-        headers: { [HEADER_OPENAGENT_SESSION]: 'sess-3' },
-      });
-      const result = await authenticateRequest(req, store);
-      expect(result.authenticated).toBe(false);
-      expect(await store.get('sess-3')).toBeUndefined();
-    });
+  it('consumes malformed answers and rejects challenges issued by another service', async () => {
+    const malformed = await handleChallenge(config, store);
+    await expect(handleProve(config, store, { nonce: malformed.nonce }, verifyNodeSignature)).rejects.toThrow();
+    expect(await store.get(malformed.nonce)).toBeUndefined();
+    const challenge = await handleChallenge(config, store);
+    await expect(handleProve({ ...config, origin: 'https://other.example.com' }, store,
+      await identity.proof(challenge), verifyNodeSignature)).rejects.toThrow(/origin/);
+  });
+
+  it('uses the issued realm even if configuration changes before proof', async () => {
+    const cfg = { ...config, realm: 'original' };
+    const challenge = await handleChallenge(cfg, store);
+    cfg.realm = 'changed';
+    expect((await handleProve(cfg, store, await identity.proof(challenge), verifyNodeSignature)).did).toBe(identity.did);
   });
 });

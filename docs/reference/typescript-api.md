@@ -1,6 +1,6 @@
 # TypeScript API reference
 
-This is a map of the current SDK 0.7.2 surfaces. The linked source declarations
+This is a map of the current SDK 0.7.3 surfaces. The linked source declarations
 are authoritative for exact types and exports; the public
 [developer-tooling guide](../developer-tooling.md) supplies the complete first
 integration. The separate OIDC package remains version 0.2.0.
@@ -73,6 +73,55 @@ The separate `@openagentid/oidc@0.2.0` exports `createAgentOidcProvider` and its
 configuration/identity contracts. See the [provider reference](../../bridges/oidc/typescript/README.md).
 The SDK's `oaid oidc doctor` is diagnosis, not an OIDC login client.
 
+## Published component adapters
+
+Import the adapter from its component entry point: `@openagentid/sdk/integrations/oas`,
+`/integrations/arsenal`, `/integrations/aegis` or `/integrations/skills-policy`.
+Each entry references only that component's optional peer types. Core SDK
+consumers need none of them. The aggregate `/integrations` entry remains available
+for applications with all four component packages installed.
+
+| Export | Actual contract |
+| --- | --- |
+| `createOasIdentityProvider({ oas, store, authorizeCreation, audience })` | Adapt published OAS 1.0.2 to the `IdentityProvider` facade. Returns `OasIdentityProvider`, including explicit `signBytes(did, payload)`. |
+| `OasIdentityStore` | Current `get`/`resolve` plus atomic duplicate-refusing `put`; application owns signer custody and persistence. |
+| `createArsenalCapabilityFetch({ client, capability, binding, authorizeBinding, allowedOrigins, maxRequestBytes?, timeoutMs? })` | Return a Fetch-compatible function using actual Arsenal 0.1.1 broker transport, bound capability/tenant/DID and destination policy. Responses are buffered by the broker protocol. |
+| `ArsenalIdentityBinding` | Explicit receiver-owned `did`, `agentId`, `tenantId`, `audience` relationship. |
+| `createAegisRequestAuthenticator({ client, readCredential, authorizeSession })` | Return `(request, requirements?) => Promise<AuthContext>` after actual AEGIS 0.1.1 credential authentication and receiver-owned authorization. |
+| `createSkillsPolicyInvoker({ policy, agentDid, context })` | Return `invoke(skill, args, run)` with `{ result, receipt }`; actual contextual policy authorizes and records before execution. |
+
+Complete runnable examples: [OAS descendants](../../examples/typescript/04-delegated-agent/README.md),
+[skills governance](../../examples/typescript/05-skills-governance/README.md),
+[Arsenal capability proxy](../../examples/typescript/06-credential-proxy/README.md).
+[Integration notes](../../sdks/typescript/INTEGRATION_NOTES.md) document trust,
+transport and custody contracts. No identity lookup is substituted for request
+possession, and no capability scope is inferred from a DID string.
+
+## HTTP authentication adapter
+
+`@openagentid/http@0.2.0` exports `HttpAuthClient`,
+`createOpenAgentHandler`, `createOpenAgentMiddleware`, and
+`createSdkIdentityKeyResolver`. `@openagentid/http/node` exports
+`verifyNodeSignature` for real Ed25519/secp256k1 verification. The SDK bridge
+uses Ed25519, the algorithm supported by both identity protocols.
+
+Servers configure a canonical HTTP `origin`, actual signature verifier and
+authoritative DID/key resolver. `serverDid` is an optional separate discovery
+field. Proofs carry a DID, and `SessionStore.take` must atomically consume
+challenges across workers. Express middleware follows `express.json()`, preserves
+application bodies/queries and exposes the authenticated `req.openAgent`.
+Session requests recheck current authority so rotation/revocation closes access.
+See the [complete working HTTP example](../../adapters/http/typescript/README.md).
+
+## ACT and raw cryptography
+
+`setActCryptoBinding` accepts the actual initialized WASM binding. Fluent
+`act.verify(bytes)` requires issuer, audience and trusted keys before `run()`.
+SDK 0.7.3 passes fresh receiver Unix time on every verification, including
+`withAct` and `requireActExpress`. `atTime(seconds)` is an explicit fixed-time
+override for tests/decision replay; it is not a startup-time production clock.
+Claims retain the [canonical wire contract](wire-formats.md).
+
 ## Configured provider facade
 
 Root exports `OpenAgent`, `OpenAgentRuntime`, `OpenAgentInstance`, `IdentityProvider`,
@@ -94,10 +143,10 @@ Creation does not implicitly issue an ACT or start a worker. Endpoint strings
 do not instantiate these clients. See [facade source](../../sdks/typescript/src/agent.ts)
 and [configuration](../../sdks/typescript/src/config.ts).
 
-The facade does not expose the former guide's proposed `authenticateHandshake`,
-global `revoke`, `audit`, `healthCheck`, `refresh` or `startAutoRefresh` methods.
-Use actual exported contracts rather than those historical example shapes.
-Current per-instance methods and credential handles are declared in source.
+Use the explicit adapters above for published component packages. The proxy-URL
+credential facade is a distinct application-supplied contract; it is not the
+class exported by the Arsenal package. Current per-instance methods and
+credential handles are declared in source.
 
 `PrivilegedAuthorityVerifier`, `PrivilegedAuthorityVerificationClient` and
 `LineageAuthorityContext` are genuine optional authority hooks with legacy anchor

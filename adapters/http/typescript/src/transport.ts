@@ -30,6 +30,8 @@ export type KeyType = 'ed25519' | 'secp256k1';
 
 /** Agent → Server: the cryptographic proof of identity (Section 15.3). */
 export interface IdentityProof {
+  /** Claimed identity; the server must bind this to its authoritative key. */
+  did: string;
   /** Base64url (no padding) signature over the JCS-canonical challenge bytes. */
   signature: string;
   /** Base64url (no padding) raw public key. */
@@ -145,6 +147,7 @@ export class HttpTransport {
         method: 'POST',
         headers: { accept: CONTENT_TYPE_JSON, ...this.config.headers },
         signal: controller.signal,
+        redirect: 'error',
       });
       if (!resp.ok) {
         const text = await resp.text().catch(() => '<unreadable>');
@@ -172,6 +175,7 @@ export class HttpTransport {
         },
         body: JSON.stringify(proof),
         signal: controller.signal,
+        redirect: 'error',
       });
       if (!resp.ok) {
         const text = await resp.text().catch(() => '<unreadable>');

@@ -1,83 +1,89 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createOpenAgentHandler } from '../src/middleware.js';
-import { InMemorySessionStore, type StoredSession } from '../src/server.js';
-import { buildOpenAgentHeader } from '../src/headers.js';
+import { describe, it, expect } from 'vitest';
+import express from 'express';
+import type { AddressInfo } from 'node:net';
+import { IdentityVerifier } from '@openagentid/sdk';
+import { createOpenAgentHandler, createOpenAgentMiddleware } from '../src/middleware.js';
+import { createSdkIdentityKeyResolver } from '../src/sdk.js';
+import { HttpAuthClient } from '../src/client.js';
+import { verifyNodeSignature } from '../src/node.js';
+import { makeIdentity } from './crypto-fixture.js';
+import type { AuthResult } from '../src/server.js';
 
-describe('middleware', () => {
-  let store: InMemorySessionStore;
-  const baseOptions = {
-    serverDid: 'https://api.example.com',
-    verifySignature: async () => true,
-  } as const;
-
-  beforeEach(() => {
-    store = new InMemorySessionStore();
+function authorities() {
+  const identity = makeIdentity();
+  let revoked = false;
+  const createdAt = Math.floor(Date.now() / 1000) - 1;
+  const resolveDid = async (did: string) => did === identity.did ? { did,
+    verificationMethods: [{ id: `${did}#signing`, publicKeyJwk: identity.jwk, purposes: ['authentication'] as const }],
+  } : null;
+  const verifier = new IdentityVerifier({
+    resolveDid, authorizeOwner: async () => null,
+    authorizeSelfRoot: async (did, { audience }) => did === identity.did ? {
+      did, audience, authorizationId: 'explicit-local-registration', revision: '1', issuedAt: createdAt,
+      notBefore: createdAt, checkedAt: Math.floor(Date.now() / 1000), expiresAt: Math.floor(Date.now() / 1000) + 300,
+    } : null,
+    checkRevocation: async () => ({ revoked, checkedAt: Math.floor(Date.now() / 1000) }),
+    resolveDelegations: async () => [], replay: { consume: async () => { throw new Error('Lineage resolution must not consume possession proofs'); } },
   });
+  return { identity, resolve: createSdkIdentityKeyResolver({ verifier, resolveDid, audience: 'http-tests' }), revoke: () => { revoked = true; } };
+}
 
-  it('serves the discovery document', async () => {
-    const { handle } = createOpenAgentHandler({ ...baseOptions, store });
-    const result = (await handle(new Request('http://localhost/.well-known/openagent'))) as Response;
+describe('Fetch and real Express + SDK integration', () => {
+  it('handles a real proof in Fetch and keeps well-known descendants protected', async () => {
+    const { identity, resolve } = authorities();
+    const { handle } = createOpenAgentHandler({ origin: 'https://api.example.com', resolveIdentityKey: resolve, verifySignature: verifyNodeSignature });
+    const response = await handle(new Request('https://api.example.com/.well-known/openagent/auth', { method: 'POST' })) as Response;
+    const proof = await identity.proof(await response.json());
+    const result = await handle(new Request('https://api.example.com/.well-known/openagent/auth/prove', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(proof),
+    })) as Response;
     expect(result.status).toBe(200);
-    const doc = await result.json();
-    expect(doc.server_did).toBe('https://api.example.com');
+    expect((await result.json()).did).toBe(identity.did);
+    expect((await handle(new Request('https://api.example.com/.well-known/openagent/private')) as AuthResult).authenticated).toBe(false);
+    expect((await handle(new Request('https://api.example.com/.well-known/openagent/auth')) as Response).status).toBe(405);
   });
 
-  it('issues a challenge on the auth endpoint, then verifies a proof', async () => {
-    const { handle } = createOpenAgentHandler({ ...baseOptions, store });
-
-    const challengeReq = new Request('http://localhost/.well-known/openagent/auth', {
-      method: 'POST',
-    });
-    const challengeResp = (await handle(challengeReq)) as Response;
-    expect(challengeResp.status).toBe(200);
-    const challenge = await challengeResp.json();
-    expect(challenge.type).toBe('openagent-challenge-v1');
-
-    const proveReq = new Request('http://localhost/.well-known/openagent/auth/prove', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        signature: 'c2ln',
-        public_key: 'a2V5',
-        key_type: 'ed25519',
-        nonce: challenge.nonce,
-      }),
-    });
-    const proveResp = (await handle(proveReq)) as Response;
-    expect(proveResp.status).toBe(200);
-    const verified = await proveResp.json();
-    expect(verified.session_token).toBeTruthy();
+  it('authenticates over TCP, preserves application JSON/query, attaches trusted DID and rejects revocation', async () => {
+    const { identity, resolve, revoke } = authorities();
+    const app = express();
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise<void>(resolve => server.once('listening', resolve));
+    const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    app.use(express.json());
+    app.use(createOpenAgentMiddleware({ origin, resolveIdentityKey: resolve, verifySignature: verifyNodeSignature }));
+    app.post('/echo', (req, res) => res.json({ body: req.body, query: req.query,
+      did: (req as typeof req & { openAgent: AuthResult }).openAgent.peerDid }));
+    try {
+      const client = new HttpAuthClient({ config: { did: identity.did }, sign: identity.sign,
+        publicKey: async () => identity.publicKeyBase64Url });
+      const session = await client.authenticate(origin);
+      expect(session.getPeerDid()).toBe(identity.did);
+      const result = await session.post('/echo?mode=real', { prompt: 'Keep this JSON body', count: 3 });
+      expect(result.status).toBe(200);
+      expect(await result.json()).toEqual({ body: { prompt: 'Keep this JSON body', count: 3 }, query: { mode: 'real' }, did: identity.did });
+      revoke();
+      expect((await session.post('/echo', { denied: true })).status).toBe(401);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
   });
 
-  it('rejects unauthenticated requests to non-well-known paths', async () => {
-    const { handle } = createOpenAgentHandler({ ...baseOptions, store });
-    const result = await handle(new Request('http://localhost/api/tools'));
-    expect(result).not.toBeInstanceOf(Response);
-    expect((result as { authenticated: boolean }).authenticated).toBe(false);
-  });
-
-  it('authenticates requests with a valid session token', async () => {
-    const { handle } = createOpenAgentHandler({ ...baseOptions, store });
-
-    const session: StoredSession = {
-      id: 'sess-valid',
-      state: 'established',
-      initiatorDid: 'did:oas:l1fe:agent:alice',
-      responderDid: 'https://api.example.com',
-      nonce: 'test',
-      challengeTimestamp: '2026-03-21T12:00:00Z',
-      createdAt: Math.floor(Date.now() / 1000),
-      expiresAt: Math.floor(Date.now() / 1000) + 300,
-      capabilities: [],
-    };
-    await store.put(session);
-
-    const req = new Request('http://localhost/api/tools', {
-      headers: { authorization: buildOpenAgentHeader('sess-valid') },
-    });
-    const result = await handle(req);
-    expect(result).not.toBeInstanceOf(Response);
-    expect((result as { authenticated: boolean }).authenticated).toBe(true);
-    expect((result as { peerDid: string }).peerDid).toBe('did:oas:l1fe:agent:alice');
+  it('fails with an actionable error when Express JSON parsing is missing', async () => {
+    const agent = makeIdentity();
+    const app = express();
+    app.use(createOpenAgentMiddleware({ origin: 'https://api.example.com', resolveIdentityKey: agent.resolve, verifySignature: verifyNodeSignature }));
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise<void>(resolve => server.once('listening', resolve));
+    try {
+      const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/.well-known/openagent/auth/prove`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}),
+      });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toMatch(/express.json/);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
   });
 });

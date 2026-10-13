@@ -24,15 +24,16 @@ export const silentLogger: Logger = {
 /** Configuration for the SCIM provisioning bridge. */
 export interface ScimBridgeConfig {
   /**
-   * OAS namespace for generated DIDs. Defaults to `l1fe`.
+   * OAS namespace for generated DIDs. Defaults to `openagent`.
    */
   readonly namespace?: string;
 
   /**
    * Bearer token(s) that SCIM clients must present.
-   * When undefined, authentication is disabled (dev only).
+   * Required unless allowUnauthenticated is explicitly enabled for local development.
    */
   readonly bearerTokens?: readonly string[];
+  readonly allowUnauthenticated?: boolean;
 
   /**
    * Base URL for SCIM resource `meta.location` fields.
@@ -49,7 +50,7 @@ export interface ScimBridgeConfig {
 
 export const scimBridgeConfigSchema = z
   .object({
-    namespace: z.string().min(1).default('l1fe'),
+    namespace: z.string().min(1).default('openagent'),
     bearerTokens: z.array(z.string().min(1)).optional(),
     baseUrl: z.string().url().optional(),
     maxPageSize: z.number().int().min(1).max(1000).default(100),
@@ -65,8 +66,11 @@ export interface ResolvedScimConfig {
 }
 
 export function resolveScimConfig(config: ScimBridgeConfig = {}): ResolvedScimConfig {
+  if (!config.allowUnauthenticated && (!config.bearerTokens?.length || config.bearerTokens.some(token => !token))) {
+    throw new TypeError('SCIM bearer tokens are required');
+  }
   return {
-    namespace: config.namespace ?? 'l1fe',
+    namespace: config.namespace ?? 'openagent',
     bearerTokens: config.bearerTokens ?? [],
     baseUrl: config.baseUrl ?? 'https://localhost/scim/v2',
     maxPageSize: config.maxPageSize ?? 100,

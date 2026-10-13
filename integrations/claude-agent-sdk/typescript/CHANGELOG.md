@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0 — 2026-10-12
+
+- Add real Claude Agent SDK options.hooks adapter with per-session state, native deny decisions, skill policy and tool failure audit. Adapt current SDK signer custody explicitly. Replace the fictional plugins example with executable real-key hook checks.
+
 All notable changes to `@openagent/claude-agent` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

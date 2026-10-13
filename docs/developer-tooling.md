@@ -1,19 +1,19 @@
 # Developer tooling
 
 OpenAgentID provides agent identity, verification and animated avatars on
-infrastructure you control. The public first-run path requires Node 20+ and npm;
+infrastructure you control. The public first-run path requires Node 20.19+ and npm;
 it needs no Life account, hosted resolver or private integration package.
 
 | Published package | Version | Purpose |
 | --- | --- | --- |
-| `create-openagent` | 0.5.2 | Generate a working HTTP receiver, signer and browser UI. |
-| `@openagentid/sdk` | 0.7.2 | Local identity, `oaid` CLI, portable verification, OATS and avatars. |
+| `create-openagent` | 0.5.3 | Generate a working HTTP receiver, signer and browser UI. |
+| `@openagentid/sdk` | 0.7.3 | Local identity, `oaid` CLI, portable verification, OATS and avatars. |
 | `@openagentid/oidc` | 0.2.0 | Run a configured agent OIDC provider and optional owner federation. |
 
 ## Start a working application
 
 ```sh
-npx create-openagent@0.5.2 my-agent-app --yes
+npx create-openagent@0.5.3 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -38,7 +38,7 @@ these calls on the installed package rather than searching for an unrelated
 package named `oaid`.
 
 ```sh
-npm install @openagentid/sdk@0.7.2
+npm install @openagentid/sdk@0.7.3
 npx --no-install oaid --version
 npx --no-install oaid --help
 ```

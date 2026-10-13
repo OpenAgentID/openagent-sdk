@@ -87,8 +87,9 @@ function requireSubsystem<T>(
   if (subsystem === undefined) {
     throw new ConfigError(
       `OpenAgent: no ${name} client configured. ` +
-        `Production: pass a ${SUBSYSTEM_PACKAGES[name]} client via ` +
-        `OpenAgentConfig.clients.${name}. Tests: use @openagentid/sdk-testing.`,
+        `Configure OpenAgentConfig.clients.${name} with the facade contract; ` +
+        `published ${SUBSYSTEM_PACKAGES[name]} APIs use the explicit adapters in ` +
+        `@openagentid/sdk/integrations. Tests: use @openagentid/sdk-testing.`,
       { code: ErrorCode.INVALID_CONFIG, context: { subsystem: name } },
     );
   }
@@ -272,8 +273,13 @@ function buildSubsystems(config: OpenAgentConfig): Subsystems {
     identityClient === undefined ? undefined : toIdentityProvider(identityClient);
 
   const arsenalClient = resolved.clients.credentials;
+  if (arsenalClient !== undefined && (!arsenalClient || typeof arsenalClient !== 'object' ||
+      !('requestCredential' in arsenalClient) || typeof arsenalClient.requestCredential !== 'function')) {
+    throw new ConfigError('clients.credentials must implement requestCredential. Use createArsenalCapabilityFetch from @openagentid/sdk/integrations with the published ArsenalClient.',
+      { code: ErrorCode.INVALID_CONFIG });
+  }
   const arsenal: ArsenalClient | undefined =
-    arsenalClient === undefined ? undefined : (arsenalClient as ArsenalClient);
+    arsenalClient === undefined ? undefined : arsenalClient as ArsenalClient;
 
   const verificationClient = resolved.clients.verification;
   const verification: VerificationClient | undefined =

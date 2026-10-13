@@ -1,6 +1,6 @@
 # Quickstart — TypeScript and JavaScript
 
-The SDK 0.7.2 developer path runs on Node 20+ without a Life account, API key,
+The SDK 0.7.3 developer path runs on Node 20.19+ without a Life account, API key,
 hosted resolver or private package. Keys and trust stay on your infrastructure.
 The [developer-tooling guide](../developer-tooling.md) includes the complete CLI,
 verification, OIDC/OATS and current browser integration map.
@@ -8,7 +8,7 @@ verification, OIDC/OATS and current browser integration map.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.5.2 my-agent-app --yes
+npx create-openagent@0.5.3 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -31,7 +31,7 @@ your HTTPS transport and storage/authorization policy deliberately.
 ## Add identity to an existing Node application
 
 ```sh
-npm install @openagentid/sdk@0.7.2
+npm install @openagentid/sdk@0.7.3
 ```
 
 This complete first-run example uses two separate persistent workspaces. Run it

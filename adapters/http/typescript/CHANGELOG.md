@@ -1,6 +1,23 @@
+# 0.2.0 — 2026-10-12
+
+- Bind every proof and session to an authoritative DID authentication key; add
+  the SDK IdentityVerifier bridge and live revocation/rotation checks.
+- Require atomic SessionStore.take to prevent simultaneous challenge replay.
+- Provide real Node Ed25519 and secp256k1 verification, validate service origins
+  and returned identities, and refuse credential-bearing redirects.
+- Preserve Express JSON/query data and expose the verified request principal.
+- Remove the unpublished auth-protocol peer; support SDK ^0.7.2 with a runnable
+  local Express example and real cryptographic, replay and SDK integration tests.
+- Breaking: explicit origin/key resolver, DID in proofs and atomic store take
+  are now required. See README migration instructions.
+
 # Changelog — @openagent/http
 
 ## Unreleased
+
+- Require current identity authority for direct `authenticateRequest` calls as
+  well as middleware; reject missing resolvers, rotation, revocation and outages.
+
 
 - **Breaking:** package renamed from `@openagent/http` to `@openagentid/http`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
 
