@@ -154,6 +154,8 @@ try {
     for (const specifier of specifiers) assert.match(specifier, /^@openagentid\/sdk\/(?:character-player|characters)$/);
     assert.match(buttonCss, /\.oaid-continue__eyes \[data-character-body\] \{\s*display: none;/);
     assert.doesNotMatch(buttonBundle, /oidc-provider|["']node:|["']jose["']|["']zod["']|XMLHttpRequest|fetch\(/);
+    assert.doesNotMatch(buttonBundle, /oaid-continue__mark|M114\.8 0C135\.6|createElementNS/);
+    assert.doesNotMatch(buttonCss, /__mark|@keyframes/);
     const provider = await readFile(join(installedOidc, 'dist/index.js'), 'utf8');
     assert.match(provider, /oidc-provider/);
     assert.doesNotMatch(provider, /mountContinueAsAgent/);
@@ -177,7 +179,11 @@ try {
     assert.equal(await page.locator('.oaid-continue__button').count(), 12);
     for (const text of await page.locator('.oaid-continue__label').allTextContents()) assert.equal(text, LABEL);
     assert.equal(await page.locator('.oaid-continue__avatar[aria-hidden="true"]').count(), 12);
-    assert.equal(await page.locator('.oaid-continue__mark[aria-hidden="true"]').count(), 12);
+    assert.equal(await page.locator('.oaid-continue__mark').count(), 0);
+    // The only graphic inside any button is the SDK eye player; no logo or trailing icon.
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll('.oaid-continue__button')].every(button =>
+      button.querySelectorAll('svg').length === 1 && button.querySelector('svg').hasAttribute('data-character-player') &&
+      [...button.children].map(child => child.className).join(',') === 'oaid-continue__avatar,oaid-continue__label')), true);
   });
   const appearances = await page.evaluate(() => Object.fromEntries(Object.entries(window.oaidContinueDemo.handles)
     .map(([variant, handle]) => [variant, { ...handle.appearance }])));
@@ -220,18 +226,24 @@ try {
       const wrapper = handle.button.querySelector('.oaid-continue__eyes');
       const matrix = getComputedStyle(wrapper).transform.match(/matrix\(([^)]+)\)/);
       const [a, b] = matrix ? matrix[1].split(',').map(Number) : [0, 0];
-      const mark = handle.button.querySelector('.oaid-continue__mark').getBoundingClientRect();
+      const label = handle.button.querySelector('.oaid-continue__label').getBoundingClientRect();
       return [variant, { width: Math.round(box.width), height: Math.round(box.height), radius: style.borderTopLeftRadius, font: style.fontSize + '/' + style.fontWeight,
         avatar: Math.round(avatar.width) + 'x' + Math.round(avatar.height), eyesLayout: wrapper.offsetWidth + 'x' + wrapper.offsetHeight,
-        eyesScale: Math.round(Math.hypot(a, b) * 100) / 100, mark: Math.round(mark.height), background: style.backgroundColor, color: style.color }];
+        eyesScale: Math.round(Math.hypot(a, b) * 100) / 100, background: style.backgroundColor, color: style.color,
+        // Alignment: window and label share a vertical centre; the label ends at the right padding.
+        centred: Math.abs((avatar.top + avatar.height / 2) - (label.top + label.height / 2)) < 1.5,
+        leftInset: Math.round(avatar.left - box.left), rightInset: Math.round(box.right - label.right), gap: Math.round(label.left - avatar.right) }];
     })));
     const medium = ['light-1', 'light-2', 'light-3', 'dark-1', 'dark-2', 'dark-3', 'disabled', 'loading', 'error', 'selected'];
     for (const variant of medium) {
       assert.equal(metrics[variant].height, 44, variant); assert.equal(metrics[variant].width, metrics['light-1'].width, variant);
-      assert.equal(metrics[variant].font, metrics['light-1'].font); assert.equal(metrics[variant].avatar, '32x32'); assert.equal(metrics[variant].mark, 18);
+      assert.equal(metrics[variant].font, metrics['light-1'].font); assert.equal(metrics[variant].avatar, '32x32');
+      assert.equal(metrics[variant].centred, true); assert.equal(metrics[variant].leftInset, 11); assert.equal(metrics[variant].gap, 12);
+      assert.equal(metrics[variant].rightInset, variant === 'full-width' ? metrics[variant].rightInset : 21);
       assert.equal(metrics[variant].eyesLayout, '32x32'); assert.equal(metrics[variant].eyesScale, 1.35);
     }
     assert.equal(metrics.large.height, 52); assert.equal(metrics.large.avatar, '32x32');
+    assert.equal(metrics.large.leftInset, 13); assert.equal(metrics.large.rightInset, 25); assert.equal(metrics.large.gap, 14);
     assert(metrics['full-width'].width > metrics['light-1'].width * 2);
     assert.equal(metrics['light-1'].background, 'rgb(11, 11, 15)'); assert.equal(metrics['light-1'].color, 'rgb(255, 255, 255)');
     assert.equal(metrics['dark-1'].background, 'rgb(255, 255, 255)'); assert.equal(metrics['dark-1'].color, 'rgb(11, 11, 15)');
@@ -368,7 +380,7 @@ try {
     assert.deepEqual(region, { role: 'status', live: 'polite', text: '', hidden: false, display: 'block', visibility: 'visible', height: 0, id: true });
   });
   await check('async-pending-ignores-duplicate-clicks-keeps-label-and-size', async () => {
-    const widthBefore = await page.locator('[data-variant="loading"] .oaid-continue__button').evaluate(node => node.getBoundingClientRect().width);
+    const sizeBefore = await page.locator('[data-variant="loading"] .oaid-continue__button').evaluate(node => { const box = node.getBoundingClientRect(); return [box.width, box.height]; });
     await page.evaluate(() => { const { button } = window.oaidContinueDemo.handles.loading; button.click(); button.click(); button.click(); });
     const button = page.locator('[data-variant="loading"] .oaid-continue__button');
     assert.equal(await button.getAttribute('aria-busy'), 'true');
@@ -376,7 +388,8 @@ try {
     assert.equal(await button.getAttribute('disabled'), null);
     assert.equal(await page.locator('[data-variant="loading"] .oaid-continue__label').textContent(), LABEL);
     assert.equal(await buttons.count(), 12);
-    assert.equal(await button.evaluate(node => node.getBoundingClientRect().width), widthBefore);
+    assert.deepEqual(await button.evaluate(node => { const box = node.getBoundingClientRect(); return [box.width, box.height]; }), sizeBefore);
+    assert.equal(await button.evaluate(node => getComputedStyle(node).cursor), 'progress');
     assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-status'), 'reasoning');
     assert.equal(await page.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-expression'), 'thoughtful');
     assert.equal(await page.evaluate(() => window.oaidContinueDemo.lines.filter(line => line.includes('loading: pending')).length), 1);
@@ -495,7 +508,8 @@ try {
     }));
     for (const entry of still) assert.equal(entry, 'neutral 0px 0deg 0s');
     await reducedPage.evaluate(() => window.oaidContinueDemo.handles.loading.button.click());
-    assert.equal(await reducedPage.evaluate(() => getComputedStyle(document.querySelector('[data-variant="loading"] .oaid-continue__mark')).animationName), 'none');
+    assert.equal(await reducedPage.locator('[data-variant="loading"] svg[data-character-player]').getAttribute('data-character-status'), 'reasoning');
+    assert.equal(await eyeFrames(reducedPage, '[data-variant="loading"] svg[data-character-player]', 1500), 1);
   });
   await shot(reducedPage, '#light', 'reduced-motion-light.png');
   await reduced.close();

@@ -1,9 +1,9 @@
 /**
  * @openagentid/oidc/button -- the branded "Continue as Agent" browser control.
  *
- * Framework-neutral and browser-only. It renders one canonical button whose
- * only living element is a dark 32px window holding a pair of bright eyes: an
- * agent in the dark, never a face. The eyes are the real `@openagentid/sdk`
+ * Framework-neutral and browser-only. It renders one canonical button: the
+ * exact label beside a dark 32px window holding a pair of bright eyes, an
+ * agent in the dark, never a face. Nothing else decorates it. The eyes are the real `@openagentid/sdk`
  * live-eye player; the character body is simply never shown.
  *
  * The control starts nothing by itself: the host's `onContinue` callback owns
@@ -40,7 +40,7 @@ export interface ContinueAsAgentOptions {
   /** `auto` follows `prefers-color-scheme`; `light` and `dark` are fixed. */
   readonly theme?: ContinueAsAgentTheme;
   readonly size?: ContinueAsAgentSize;
-  /** Stretch to the container width; the silhouette, label and mark do not change. */
+  /** Stretch to the container width; the silhouette and label do not change. */
   readonly fullWidth?: boolean;
   /** Accessible text announced when `onContinue` fails. */
   readonly errorMessage?: string;
@@ -88,15 +88,6 @@ const glanceRangeY = 3;
 const glanceTiltDegrees = 7;
 /** Roughly one glance in four keeps the current spot so the eyes pause rather than swim. */
 const glanceHoldChance = 4;
-const svgNamespace = 'http://www.w3.org/2000/svg';
-/** Official OpenAgentID mark (four OAID glyphs), reproduced locally in currentColor. */
-const markPaths: readonly string[] = [
-  'M114.8 0C135.6 0 154.8 5.2 172.4 15.6C190 25.7333 203.867 39.6 214 57.2C224.4 74.8 229.6 94 229.6 114.8V175.6C229.6 196.4 224.4 215.6 214 233.2C203.867 250.8 190 264.8 172.4 275.2C154.8 285.333 135.6 290.4 114.8 290.4C94 290.4 74.8 285.333 57.2 275.2C39.6 264.8 25.6 250.8 15.2 233.2C5.06667 215.6 0 196.4 0 175.6V114.8C0 94 5.06667 74.8 15.2 57.2C25.6 39.6 39.6 25.7333 57.2 15.6C74.8 5.2 94 0 114.8 0ZM14.8 175.6C14.8 193.733 19.2 210.533 28 226C37.0667 241.2 49.2 253.333 64.4 262.4C79.8667 271.2 96.6667 275.6 114.8 275.6C132.933 275.6 149.6 271.2 164.8 262.4C180.267 253.333 192.4 241.2 201.2 226C210.267 210.533 214.8 193.733 214.8 175.6V114.8C214.8 96.6667 210.267 80 201.2 64.8C192.4 49.3333 180.267 37.2 164.8 28.4C149.6 19.3333 132.933 14.8 114.8 14.8C96.6667 14.8 79.8667 19.3333 64.4 28.4C49.2 37.2 37.0667 49.3333 28 64.8C19.2 80 14.8 96.6667 14.8 114.8V175.6Z',
-  'M542.094 284.4H279.694L410.894 0L542.094 284.4ZM302.894 269.6H518.894L410.894 35.2L302.894 269.6Z',
-  'M206.2 366V380.8H123V629.6H206.2V644.4H25.8V629.6H108.6V380.8H25.8V366H206.2Z',
-  'M311.894 644.4V366H415.494C435.76 366 454.427 371.067 471.494 381.2C488.827 391.333 502.56 405.067 512.694 422.4C522.827 439.467 527.894 458.133 527.894 478.4V532C527.894 552.267 522.827 571.067 512.694 588.4C502.56 605.467 488.827 619.067 471.494 629.2C454.427 639.333 435.76 644.4 415.494 644.4H311.894Z',
-];
-
 function validate(container: unknown, options: unknown): asserts options is ContinueAsAgentOptions {
   if (!container || typeof container !== 'object' || (container as Element).nodeType !== 1 || !(container as Element).ownerDocument?.defaultView) {
     throw new TypeError('Continue as Agent requires a browser container element');
@@ -114,21 +105,6 @@ function validate(container: unknown, options: unknown): asserts options is Cont
   if (value.errorMessage !== undefined && (typeof value.errorMessage !== 'string' || value.errorMessage.trim().length === 0)) {
     throw new TypeError('Continue as Agent errorMessage must be non-empty text');
   }
-}
-
-function officialMark(doc: Document): SVGSVGElement {
-  const svg = doc.createElementNS(svgNamespace, 'svg');
-  svg.setAttribute('viewBox', '0 0 543 645');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('focusable', 'false');
-  svg.setAttribute('class', 'oaid-continue__mark');
-  for (const d of markPaths) {
-    const path = doc.createElementNS(svgNamespace, 'path');
-    path.setAttribute('d', d);
-    path.setAttribute('fill', 'currentColor');
-    svg.append(path);
-  }
-  return svg;
 }
 
 /**
@@ -306,7 +282,7 @@ export function mountContinueAsAgent(container: Element, options: ContinueAsAgen
     }
   }
 
-  button.append(avatar, label, officialMark(doc));
+  button.append(avatar, label);
   root.append(button, status);
   button.addEventListener('click', activate);
   button.addEventListener('pointerenter', pointerEnter);

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — Continue as Agent without the trailing mark, 2026-10-13
+
+- The Continue as Agent button drops its trailing OpenAgentID mark: only the
+  dark eye window and the exact label remain, with balanced padding. Loading,
+  disabled, error and accessibility behavior are unchanged; OIDC stays at the
+  unpublished 0.3.0.
+
 ## Unreleased — eyes-only Continue as Agent window, 2026-10-13
 
 - The Continue as Agent button now shows only a pair of bright SDK live eyes in
