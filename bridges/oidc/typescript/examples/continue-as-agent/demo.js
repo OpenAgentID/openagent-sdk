@@ -1,7 +1,6 @@
 // Demo wiring for the review page. Each callback is a stand-in for the host's
 // real `onContinue`; see README.md for the actual /oauth/start integration.
 import { mountContinueAsAgent } from '@openagentid/oidc/button';
-import { getCharacterSkins } from '@openagentid/sdk/characters';
 
 const log = document.querySelector('#log');
 const lines = [];
@@ -18,7 +17,7 @@ function card(variant, caption, options) {
   host.append(slot);
   const handle = mountContinueAsAgent(slot, options);
   const small = document.createElement('small');
-  small.textContent = `${caption} · ${handle.appearance.skin}/${handle.appearance.shape}`;
+  small.textContent = handle.appearance.decorative ? `${caption} · random eye-timing seed` : `${caption} · host-selected seed`;
   host.append(small);
   handles[variant] = handle;
   return handle;
@@ -29,8 +28,8 @@ const demoContinue = variant => ({ button }) => {
 };
 
 for (const n of [1, 2, 3]) {
-  card(`light-${n}`, 'Random year-round character', { theme: 'light', onContinue: demoContinue(`light-${n}`) });
-  card(`dark-${n}`, 'Random year-round character', { theme: 'dark', onContinue: demoContinue(`dark-${n}`) });
+  card(`light-${n}`, 'Eyes in the dark', { theme: 'light', onContinue: demoContinue(`light-${n}`) });
+  card(`dark-${n}`, 'Eyes in the dark', { theme: 'dark', onContinue: demoContinue(`dark-${n}`) });
 }
 card('large', 'Large size', { theme: 'light', size: 'large', onContinue: demoContinue('large') });
 card('full-width', 'Full container width', { theme: 'light', fullWidth: true, onContinue: demoContinue('full-width') });
@@ -48,12 +47,12 @@ card('error', 'Async callback that rejects (demo failure)', {
   onContinue: () => Promise.reject(new Error('demo: start route unavailable')),
   onError: error => note(`[demo] error: onError received "${error.message}"`),
 });
-card('selected', 'Host-selected agent DID (shown, not authenticated)', {
+card('selected', 'Host-selected agent DID times the eyes (not authenticated)', {
   theme: 'light',
-  appearance: { did: 'did:oas:openagent:agent:review-selected-agent', skin: 'autos', accessories: ['glasses'] },
+  appearance: { did: 'did:oas:openagent:agent:review-selected-agent' },
   onContinue: demoContinue('selected'),
 });
 
 // Exposed for the browser verifier and for manual inspection in devtools.
-window.oaidContinueDemo = { handles, lines, deferred, mountContinueAsAgent, catalog: getCharacterSkins().map(family => family.id) };
+window.oaidContinueDemo = { handles, lines, deferred, mountContinueAsAgent };
 note('[demo] mounted ' + Object.keys(handles).length + ' Continue as Agent buttons');

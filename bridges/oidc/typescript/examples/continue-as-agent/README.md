@@ -1,9 +1,9 @@
 # Continue as Agent review page
 
 A self-contained page showing the canonical `@openagentid/oidc/button` control:
-several randomly generated year-round characters, light and dark, sizes, and
-the disabled, loading, error and host-selected states. All variants are the same
-recognizable button; only the avatar slot differs.
+the dark eye window with its wandering, tilting, squinting live eyes, light and
+dark, sizes, and the disabled, loading, error and host-selected states. All
+variants are the same recognizable button; only the eyes' timing differs.
 
 ```sh
 npm install @openagentid/oidc@0.3.0 @openagentid/sdk@0.7.2

@@ -32,7 +32,6 @@ const fixture = await mkdtemp(join(root, '.public-button-'));
 const checks = [];
 const logs = [];
 const screenshots = [];
-const SEASONAL = new Set(['halloween', 'thanksgiving', 'christmas']);
 const LABEL = 'Continue as Agent';
 let server, browser, failure, source = null;
 
@@ -153,6 +152,7 @@ try {
     const specifiers = [...buttonBundle.matchAll(/\bfrom\s*["']([^"']+)["']/g)].map(match => match[1]);
     assert(specifiers.length > 0, 'Button bundle has no imports');
     for (const specifier of specifiers) assert.match(specifier, /^@openagentid\/sdk\/(?:character-player|characters)$/);
+    assert.match(buttonCss, /\.oaid-continue__eyes \[data-character-body\] \{\s*display: none;/);
     assert.doesNotMatch(buttonBundle, /oidc-provider|["']node:|["']jose["']|["']zod["']|XMLHttpRequest|fetch\(/);
     const provider = await readFile(join(installedOidc, 'dist/index.js'), 'utf8');
     assert.match(provider, /oidc-provider/);
@@ -180,39 +180,56 @@ try {
     assert.equal(await page.locator('.oaid-continue__mark[aria-hidden="true"]').count(), 12);
   });
   const appearances = await page.evaluate(() => Object.fromEntries(Object.entries(window.oaidContinueDemo.handles)
-    .map(([variant, handle]) => [variant, { ...handle.appearance, status: handle.button.querySelector('svg[data-character-player]').getAttribute('data-character-status') }])));
-  const catalog = await page.evaluate(() => window.oaidContinueDemo.catalog);
-  assert.equal(catalog.length, 17);
-  await check('real-generator-random-year-round-characters-with-unique-seeds', async () => {
+    .map(([variant, handle]) => [variant, { ...handle.appearance }])));
+  await check('eyes-only-window-with-unique-decorative-seeds-and-no-visible-body', async () => {
     const decorative = Object.entries(appearances).filter(([variant]) => variant !== 'selected');
     assert.equal(decorative.length, 11);
     for (const [, appearance] of decorative) {
       assert.equal(appearance.decorative, true);
       assert.match(appearance.did, /^did:oas:openagent:agent:decorative-[0-9a-f]{16}$/);
-      assert(catalog.includes(appearance.skin), 'Unknown family ' + appearance.skin);
-      assert(!SEASONAL.has(appearance.skin), 'Seasonal family chosen: ' + appearance.skin);
+      assert.deepEqual(Object.keys(appearance).sort(), ['decorative', 'did']);
     }
     assert.equal(new Set(Object.values(appearances).map(appearance => appearance.did)).size, 12);
-    assert.equal(appearances.selected.decorative, false);
-    assert.equal(appearances.selected.did, 'did:oas:openagent:agent:review-selected-agent');
-    assert.equal(appearances.selected.skin, 'autos');
-    assert(await page.locator('[data-variant="selected"] [data-character-accessory]').count() >= 1);
-    assert.equal(await page.locator('.oaid-continue__avatar > svg[data-character-player="live-v1"]').count(), 12);
-    assert.equal(await page.locator('.oaid-continue__avatar [data-character-eye]').count(), 24);
-    assert.equal(await page.locator('.oaid-continue__avatar svg[width="32"][height="32"]').count(), 12);
+    assert.deepEqual(appearances.selected, { did: 'did:oas:openagent:agent:review-selected-agent', decorative: false });
+    assert.equal(await page.locator('.oaid-continue__avatar > .oaid-continue__eyes > svg[data-character-player="live-v1"]').count(), 12);
+    assert.equal(await page.locator('.oaid-continue__eyes svg[data-character-skin="autos"][data-character-shape="standard"][data-character-finish="flat"][data-character-eye-placement="face"]').count(), 12);
+    assert.equal(await page.locator('.oaid-continue__eyes [data-character-accessory]').count(), 0);
+    assert.equal(await page.locator('.oaid-continue__eyes [data-character-eye-mount]').count(), 0);
+    assert.equal(await page.locator('.oaid-continue__eyes [data-character-eye]').count(), 24);
+    const painted = await page.evaluate(() => [...document.querySelectorAll('.oaid-continue__eyes svg')].map(svg => {
+      const body = svg.querySelector('[data-character-body]');
+      const eyes = [...svg.querySelectorAll('[data-character-eye]')].map(eye => eye.getBoundingClientRect());
+      const window = svg.closest('.oaid-continue__avatar').getBoundingClientRect();
+      return { body: body ? getComputedStyle(body).display : 'missing', bodyBox: body ? body.getBoundingClientRect().width : -1,
+        eyeFill: getComputedStyle(svg.querySelector('[data-character-eyes]')).fill,
+        // A mid-blink eye is legitimately well under 1px tall; it must still be painted and inside the window.
+        eyesVisible: eyes.every(box => box.width > 1 && box.height > 0 && box.left >= window.left - 1 && box.right <= window.right + 1 && box.top >= window.top - 1 && box.bottom <= window.bottom + 1),
+        windowBackground: getComputedStyle(svg.closest('.oaid-continue__avatar')).backgroundColor };
+    }));
+    assert.equal(painted.length, 12);
+    for (const item of painted) {
+      assert.equal(item.body, 'none'); assert.equal(item.bodyBox, 0);
+      assert.equal(item.eyeFill, 'rgb(255, 255, 255)'); assert.equal(item.eyesVisible, true);
+      assert.equal(item.windowBackground, 'rgb(13, 13, 20)');
+    }
   });
   await check('one-canonical-silhouette-across-variants', async () => {
     const metrics = await page.evaluate(() => Object.fromEntries(Object.entries(window.oaidContinueDemo.handles).map(([variant, handle]) => {
       const box = handle.button.getBoundingClientRect(), style = getComputedStyle(handle.button);
       const avatar = handle.button.querySelector('.oaid-continue__avatar').getBoundingClientRect();
+      const wrapper = handle.button.querySelector('.oaid-continue__eyes');
+      const matrix = getComputedStyle(wrapper).transform.match(/matrix\(([^)]+)\)/);
+      const [a, b] = matrix ? matrix[1].split(',').map(Number) : [0, 0];
       const mark = handle.button.querySelector('.oaid-continue__mark').getBoundingClientRect();
       return [variant, { width: Math.round(box.width), height: Math.round(box.height), radius: style.borderTopLeftRadius, font: style.fontSize + '/' + style.fontWeight,
-        avatar: Math.round(avatar.width) + 'x' + Math.round(avatar.height), mark: Math.round(mark.height), background: style.backgroundColor, color: style.color }];
+        avatar: Math.round(avatar.width) + 'x' + Math.round(avatar.height), eyesLayout: wrapper.offsetWidth + 'x' + wrapper.offsetHeight,
+        eyesScale: Math.round(Math.hypot(a, b) * 100) / 100, mark: Math.round(mark.height), background: style.backgroundColor, color: style.color }];
     })));
     const medium = ['light-1', 'light-2', 'light-3', 'dark-1', 'dark-2', 'dark-3', 'disabled', 'loading', 'error', 'selected'];
     for (const variant of medium) {
       assert.equal(metrics[variant].height, 44, variant); assert.equal(metrics[variant].width, metrics['light-1'].width, variant);
       assert.equal(metrics[variant].font, metrics['light-1'].font); assert.equal(metrics[variant].avatar, '32x32'); assert.equal(metrics[variant].mark, 18);
+      assert.equal(metrics[variant].eyesLayout, '32x32'); assert.equal(metrics[variant].eyesScale, 1.35);
     }
     assert.equal(metrics.large.height, 52); assert.equal(metrics.large.avatar, '32x32');
     assert(metrics['full-width'].width > metrics['light-1'].width * 2);
@@ -237,15 +254,89 @@ try {
           [...svg.querySelectorAll('[data-character-eye]')].map(eye => eye.getAttribute('height') + ':' + eye.getAttribute('width')).join(','));
       } while (performance.now() - start < 900);
       const status = [svg.getAttribute('data-character-status'), svg.getAttribute('data-character-expression')];
+      // Settled thoughtful pose: both eyes tilted, the right eye narrowed well below the neutral 72-unit height.
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      const settled = [...svg.querySelectorAll('[data-character-eye]')].map(eye => ({ height: Number(eye.getAttribute('height')),
+        rotation: Number((eye.getAttribute('transform') || '').match(/rotate\(\s*(-?[\d.]+)/)?.[1] ?? 0) }));
       handle.dispose(); host.remove();
-      return { idle, status, frames: frames.size, removed: document.querySelector('#animation-probe') === null };
+      return { idle, status, frames: frames.size, settled, removed: document.querySelector('#animation-probe') === null };
     });
+    assert(transition.settled.every(eye => Math.abs(eye.rotation + 9) < 1.5), 'Expected tilted eyes, saw ' + JSON.stringify(transition.settled));
+    assert(transition.settled.some(eye => eye.height < 50) && transition.settled.every(eye => eye.height < 66), 'Expected a squint, saw ' + JSON.stringify(transition.settled));
     // Public SDK mapping: reasoning -> thoughtful, success -> happy, error -> concerned.
     assert.deepEqual(transition.idle, ['neutral', 'neutral']); assert.deepEqual(transition.status, ['reasoning', 'thoughtful']);
     assert.equal(transition.removed, true);
     assert(transition.frames > 3, 'Expected the SDK expression transition to paint distinct frames, saw ' + transition.frames);
     // Ambient idle motion, sampled across the SDK's full bounded gaze cycle (at most ~3.1 s).
     assert(await eyeFrames(page, '[data-variant="light-1"] svg[data-character-player]', 3600) > 3, 'Expected ambient live eyes over a full cycle');
+  });
+  await check('idle-eyes-glance-tilt-and-pause-within-the-window', async () => {
+    // Deterministic: page randomness is replaced for one probe button so every idle tick
+    // (about every 1.8 s) picks a glance that moves and tilts; holds are sampled in between.
+    const idle = await page.evaluate(async () => {
+      const original = crypto.getRandomValues.bind(crypto);
+      let draw = 0;
+      // Low byte 1 or 2 alternately: never a hold, always a non-zero offset and tilt, two expressions.
+      crypto.getRandomValues = array => {
+        const view = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+        for (let index = 0; index < view.length; index++) view[index] = index % 2 === 0 ? 0 : 1 + (draw++ % 2);
+        return array;
+      };
+      const host = document.createElement('div'); host.id = 'idle-probe'; document.body.append(host);
+      let handle;
+      try {
+        handle = window.oaidContinueDemo.mountContinueAsAgent(host, { theme: 'light', onContinue: () => {} });
+        const wrapper = handle.root.querySelector('.oaid-continue__eyes'), svg = wrapper.querySelector('svg');
+        const window_ = handle.root.querySelector('.oaid-continue__avatar').getBoundingClientRect();
+        const expressions = new Set(), looks = new Set(), tilts = new Set();
+        let maxOverflow = 0, holds = 0, previous = null;
+        const start = performance.now();
+        while (performance.now() - start < 8_000) {
+          await new Promise(resolve => setTimeout(resolve, 120));
+          const computed = getComputedStyle(wrapper);
+          expressions.add(svg.getAttribute('data-character-expression'));
+          const look = [computed.getPropertyValue('--oaid-eyes-x'), computed.getPropertyValue('--oaid-eyes-y')].join(',');
+          const tilt = computed.getPropertyValue('--oaid-eyes-tilt');
+          looks.add(look); tilts.add(tilt);
+          if (previous === look + tilt) holds += 1; previous = look + tilt;
+          for (const eye of svg.querySelectorAll('[data-character-eye]')) {
+            const box = eye.getBoundingClientRect();
+            maxOverflow = Math.max(maxOverflow, window_.left - box.left, box.right - window_.right, window_.top - box.top, box.bottom - window_.bottom);
+          }
+        }
+        const sdkEyes = svg.querySelector('[data-character-eyes]');
+        return { expressions: [...expressions], looks: [...looks], tilts: [...tilts], holds, maxOverflow,
+          sdkTransformIntact: /^translate\(/.test(sdkEyes.getAttribute('transform')) && getComputedStyle(sdkEyes).rotate === 'none' && sdkEyes.style.transform === '',
+          wrapperTransform: getComputedStyle(wrapper).transform, transition: getComputedStyle(wrapper).transitionDuration };
+      } finally {
+        crypto.getRandomValues = original;
+        handle?.dispose(); host.remove();
+      }
+    });
+    assert(idle.expressions.includes('neutral') && idle.expressions.some(value => value === 'curious' || value === 'attentive'), 'Expected changing idle expressions, saw ' + idle.expressions.join(','));
+    // x and y are drawn separately, so each is -1px or -2px in any combination.
+    assert(idle.looks.includes('0px,0px') && idle.looks.some(value => /^-[12]px,-[12]px$/.test(value)), 'Expected the eyes to move within the window, saw ' + idle.looks.join(' '));
+    assert(idle.tilts.includes('0deg') && idle.tilts.some(value => value === '-6deg' || value === '-5deg'), 'Expected the eyes to tilt, saw ' + idle.tilts.join(' '));
+    assert(idle.holds > 40, 'Expected natural pauses between glances, saw ' + idle.holds);
+    assert(idle.maxOverflow <= 1, 'Eyes left the window by ' + idle.maxOverflow + 'px');
+    assert.equal(idle.sdkTransformIntact, true); assert.notEqual(idle.wrapperTransform, 'none'); assert.equal(idle.transition, '0.72s');
+    assert.equal(await page.locator('#idle-probe').count(), 0);
+  });
+  await check('hover-and-focus-draw-the-eyes-to-the-viewer-and-are-tracked-separately', async () => {
+    const svg = page.locator('[data-variant="light-3"] svg[data-character-player]');
+    const wrapper = page.locator('[data-variant="light-3"] .oaid-continue__eyes');
+    await page.locator('[data-variant="light-3"] .oaid-continue__button').hover();
+    assert.equal(await svg.getAttribute('data-character-status'), 'listening');
+    assert.equal(await svg.getAttribute('data-character-expression'), 'attentive');
+    assert.equal(await wrapper.evaluate(node => { const computed = getComputedStyle(node);
+      return ['--oaid-eyes-x', '--oaid-eyes-y', '--oaid-eyes-tilt'].map(name => computed.getPropertyValue(name).trim()).join(' '); }), '0px 0px 0deg');
+    await page.evaluate(() => window.oaidContinueDemo.handles['light-3'].button.focus());
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(5000);
+    // Still focused: idle glances must not resume just because the pointer left.
+    assert.equal(await svg.getAttribute('data-character-status'), 'listening');
+    await page.evaluate(() => window.oaidContinueDemo.handles['light-3'].button.blur());
+    assert.equal(await svg.getAttribute('data-character-status'), 'idle');
   });
   const before = await page.evaluate(() => { const svg = document.querySelector('[data-variant="light-1"] svg[data-character-player]');
     window.oaidOriginalSvg = svg; return [svg.getAttribute('data-character-skin'), svg.getAttribute('data-character-shape')]; });
@@ -265,8 +356,7 @@ try {
     const after = await page.evaluate(() => { const svg = document.querySelector('[data-variant="light-1"] svg[data-character-player]');
       return [svg.getAttribute('data-character-skin'), svg.getAttribute('data-character-shape'), svg === window.oaidOriginalSvg]; });
     assert.deepEqual(after, [...before, true]);
-    assert.deepEqual(await page.evaluate(() => { const { did, skin, shape } = window.oaidContinueDemo.handles['light-1'].appearance; return { did, skin, shape }; }),
-      { did: appearances['light-1'].did, skin: appearances['light-1'].skin, shape: appearances['light-1'].shape });
+    assert.deepEqual(await page.evaluate(() => ({ ...window.oaidContinueDemo.handles['light-1'].appearance })), appearances['light-1']);
   });
   await check('status-live-region-mounted-empty-before-any-failure', async () => {
     const region = await page.evaluate(() => {
@@ -372,8 +462,8 @@ try {
     });
     assert.deepEqual(messages, ['TypeError', 'TypeError', 'TypeError', 'TypeError', 0]);
   });
-  await shot(page, '#light', 'light-random-characters.png');
-  await shot(page, '#dark', 'dark-random-characters.png');
+  await shot(page, '#light', 'light-eyes.png');
+  await shot(page, '#dark', 'dark-eyes.png');
   await shot(page, '#sizes', 'sizes.png');
   await shot(page, null, 'review-page.png');
   await light.close();
@@ -394,9 +484,16 @@ try {
   // Reduced motion: the real player renders a still character and never animates.
   const reduced = await browser.newContext({ viewport: { width: 1120, height: 960 }, deviceScaleFactor: 2, colorScheme: 'light', reducedMotion: 'reduce' });
   const reducedPage = await openPage(reduced, url, errors, external);
-  await check('reduced-motion-renders-still-characters', async () => {
-    assert.equal(await reducedPage.locator('.oaid-continue__avatar > svg[data-character-player]').count(), 12);
+  await check('reduced-motion-renders-still-eyes', async () => {
+    assert.equal(await reducedPage.locator('.oaid-continue__eyes > svg[data-character-player]').count(), 12);
     assert.equal(await eyeFrames(reducedPage, '[data-variant="light-1"] svg[data-character-player]', 3600), 1);
+    await reducedPage.waitForTimeout(5000);
+    const still = await reducedPage.evaluate(() => [...document.querySelectorAll('.oaid-continue__eyes')].map(wrapper => {
+      const computed = getComputedStyle(wrapper);
+      return [wrapper.querySelector('svg').getAttribute('data-character-expression'), computed.getPropertyValue('--oaid-eyes-x').trim(),
+        computed.getPropertyValue('--oaid-eyes-tilt').trim(), computed.transitionDuration].join(' ');
+    }));
+    for (const entry of still) assert.equal(entry, 'neutral 0px 0deg 0s');
     await reducedPage.evaluate(() => window.oaidContinueDemo.handles.loading.button.click());
     assert.equal(await reducedPage.evaluate(() => getComputedStyle(document.querySelector('[data-variant="loading"] .oaid-continue__mark')).animationName), 'none');
   });

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — eyes-only Continue as Agent window, 2026-10-13
+
+- The Continue as Agent button now shows only a pair of bright SDK live eyes in
+  a dark 32px window, glancing, tilting, squinting and blinking with pauses, in
+  place of a random character. The existing SDK player renders them; the
+  character body is never painted and the generator is unchanged. Hover and
+  focus draw the eyes to the viewer; reduced motion keeps them still. OIDC stays
+  at the unpublished 0.3.0; no SDK change or republish.
+
 ## Unreleased — Continue as Agent button, 2026-10-13
 
 - Add the branded Continue as Agent browser button to `@openagentid/oidc` 0.3.0

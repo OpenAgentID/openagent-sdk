@@ -2,26 +2,27 @@
  * @openagentid/oidc/button -- the branded "Continue as Agent" browser control.
  *
  * Framework-neutral and browser-only. It renders one canonical button whose
- * only variable element is a bounded 32px avatar slot filled by the real
- * OpenAgentID character generator and live player from `@openagentid/sdk`.
+ * only living element is a dark 32px window holding a pair of bright eyes: an
+ * agent in the dark, never a face. The eyes are the real `@openagentid/sdk`
+ * live-eye player; the character body is simply never shown.
  *
  * The control starts nothing by itself: the host's `onContinue` callback owns
- * the OIDC flow (issuer, redirect, state, nonce, PKCE). The decorative seed is
- * never sent anywhere and never implies an authenticated agent.
+ * the OIDC flow (issuer, redirect, state, nonce, PKCE). The decorative seed only
+ * varies eye timing, is never sent anywhere and never implies authentication.
  *
  * This entry deliberately imports nothing from the Node provider graph
  * (`oidc-provider`, `jose`, `node:*`); keep it that way.
  */
 import { mountCharacter, type CharacterPlayer } from '@openagentid/sdk/character-player';
-import { getCharacterSkins, type CharacterShape, type CharacterSkin } from '@openagentid/sdk/characters';
-import { type ContinueAsAgentAppearance, type ResolvedButtonAppearance, resolveButtonAppearance } from './button-identity.js';
+import type { AvatarExpression } from '@openagentid/sdk/characters';
+import { type ResolvedButtonAppearance, resolveButtonAppearance } from './button-identity.js';
 
-export { SEASONAL_FAMILIES, decorativeAgentDid, isDecorativeAgentDid, pickYearRoundFamily, resolveButtonAppearance, yearRoundFamilies } from './button-identity.js';
+export { decorativeAgentDid, isDecorativeAgentDid, resolveButtonAppearance } from './button-identity.js';
 export type { ContinueAsAgentAppearance, ResolvedButtonAppearance, RandomBytes } from './button-identity.js';
 
 /** The exact brand label. It is not configurable. */
 export const CONTINUE_AS_AGENT_LABEL = 'Continue as Agent';
-/** Side of the bounded avatar slot in CSS pixels. */
+/** Side of the dark eye window in CSS pixels. */
 export const CONTINUE_AS_AGENT_AVATAR_SIZE = 32;
 
 export type ContinueAsAgentTheme = 'auto' | 'light' | 'dark';
@@ -33,8 +34,8 @@ export interface ContinueAsAgentOptions {
   readonly onContinue: (event: ContinueAsAgentActivation) => void | Promise<void>;
   /** Receives rejections and thrown errors from `onContinue` after the button has recovered. */
   readonly onError?: (error: unknown) => void;
-  /** Shows an already chosen agent instead of a random decorative character. */
-  readonly appearance?: ContinueAsAgentAppearance;
+  /** Seeds the eyes' timing from an already chosen agent DID instead of a random decorative seed. */
+  readonly appearance?: import('./button-identity.js').ContinueAsAgentAppearance;
   readonly disabled?: boolean;
   /** `auto` follows `prefers-color-scheme`; `light` and `dark` are fixed. */
   readonly theme?: ContinueAsAgentTheme;
@@ -46,7 +47,7 @@ export interface ContinueAsAgentOptions {
 }
 
 /**
- * What `onContinue` receives: only the button. The decorative appearance is
+ * What `onContinue` receives: only the button. The decorative seed is
  * deliberately absent so a generated pseudo-DID can never slip into an
  * authorization request; read `handle.appearance` for display purposes only.
  */
@@ -56,15 +57,13 @@ export interface ContinueAsAgentActivation {
 
 export interface ContinueAsAgentIdentity {
   readonly did: string;
-  readonly skin: CharacterSkin;
-  readonly shape: CharacterShape;
   readonly decorative: boolean;
 }
 
 export interface ContinueAsAgentHandle {
   readonly root: HTMLElement;
   readonly button: HTMLButtonElement;
-  /** Display-only: which character fills the slot. Never send it as an identity claim. */
+  /** Display-only: which seed times the eyes. Never send it as an identity claim. */
   readonly appearance: ContinueAsAgentIdentity;
   getState(): ContinueAsAgentState;
   isDisabled(): boolean;
@@ -75,6 +74,20 @@ export interface ContinueAsAgentHandle {
 const themes: readonly ContinueAsAgentTheme[] = ['auto', 'light', 'dark'];
 const sizes: readonly ContinueAsAgentSize[] = ['medium', 'large'];
 const optionKeys: readonly string[] = ['onContinue', 'onError', 'appearance', 'disabled', 'theme', 'size', 'fullWidth', 'errorMessage'];
+/** Idle glances: the SDK expressions that tilt, narrow and widen the eyes while nothing is happening. */
+const idleMoods: readonly AvatarExpression[] = ['neutral', 'curious', 'attentive', 'suspicious', 'thoughtful', 'neutral', 'unimpressed', 'confused', 'sleepy', 'surprised'];
+const moodPauseMs = 1800;
+const moodSpreadMs = 2400;
+/**
+ * Bounded wander of the eye pair inside the 32px window, in CSS pixels and
+ * degrees, on top of the SDK's own gaze. Sized so the widest SDK expression
+ * at the stylesheet's 1.35 scale never leaves the window; SDK transforms stay untouched.
+ */
+const glanceRangeX = 3;
+const glanceRangeY = 3;
+const glanceTiltDegrees = 7;
+/** Roughly one glance in four keeps the current spot so the eyes pause rather than swim. */
+const glanceHoldChance = 4;
 const svgNamespace = 'http://www.w3.org/2000/svg';
 /** Official OpenAgentID mark (four OAID glyphs), reproduced locally in currentColor. */
 const markPaths: readonly string[] = [
@@ -121,17 +134,21 @@ function officialMark(doc: Document): SVGSVGElement {
 /**
  * Mount one Continue as Agent button into `container`.
  *
- * The decorative seed and family are chosen once per mount and never change
- * across renders, focus, clicks, loading or errors. Pass `appearance.did` to
- * show an agent the host has already selected; doing so still does not claim
- * that the agent is authenticated.
+ * The eye-timing seed is chosen once per mount and never changes across
+ * renders, focus, clicks, loading or errors. Pass `appearance.did` to time the
+ * eyes from an agent the host has already selected; doing so still does not
+ * claim that the agent is authenticated.
  */
 export function mountContinueAsAgent(container: Element, options: ContinueAsAgentOptions): ContinueAsAgentHandle {
   validate(container, options);
   const doc = container.ownerDocument;
   const win = doc.defaultView!;
   const random = (length: number): Uint8Array => win.crypto.getRandomValues(new Uint8Array(length));
-  const resolved: ResolvedButtonAppearance = resolveButtonAppearance(options.appearance, getCharacterSkins(), random);
+  const randomBelow = (limit: number): number => {
+    const bytes = random(2);
+    return (bytes[0]! * 256 + bytes[1]!) % limit;
+  };
+  const resolved: ResolvedButtonAppearance = resolveButtonAppearance(options.appearance, random);
   const { onContinue, onError } = options;
   const errorMessage = options.errorMessage ?? 'Could not continue as agent. Try again.';
 
@@ -150,6 +167,10 @@ export function mountContinueAsAgent(container: Element, options: ContinueAsAgen
   const avatar = doc.createElement('span');
   avatar.className = 'oaid-continue__avatar';
   avatar.setAttribute('aria-hidden', 'true');
+  // Outer wrapper the button moves and tilts; the SDK keeps full control of the eye group inside it.
+  const eyes = doc.createElement('span');
+  eyes.className = 'oaid-continue__eyes';
+  avatar.append(eyes);
 
   const label = doc.createElement('span');
   label.className = 'oaid-continue__label';
@@ -162,29 +183,79 @@ export function mountContinueAsAgent(container: Element, options: ContinueAsAgen
   // Mounted empty and accessibility-visible from the start so a later failure is announced.
   status.textContent = '';
 
-  // The real SDK player validates the DID and appearance before anything is attached.
-  const player: CharacterPlayer = mountCharacter(avatar, resolved.did, {
-    skin: resolved.skin,
-    ...(resolved.shape === undefined ? {} : { shape: resolved.shape }),
-    ...(resolved.finish === undefined ? {} : { finish: resolved.finish }),
-    ...(resolved.eyePlacement === undefined ? {} : { eyePlacement: resolved.eyePlacement }),
-    ...(resolved.accessories === undefined ? {} : { accessories: resolved.accessories }),
+  // One fixed plain character whose body the stylesheet never shows; only the
+  // live eyes remain. The real SDK player validates the DID before anything is attached.
+  const player: CharacterPlayer = mountCharacter(eyes, resolved.did, {
+    skin: 'autos', shape: 'standard', finish: 'flat', eyePlacement: 'face', accessories: [],
     size: CONTINUE_AS_AGENT_AVATAR_SIZE,
     reducedMotion: 'system',
   });
-  const mounted = avatar.querySelector('svg[data-character-player]')!;
-  const appearance: ContinueAsAgentIdentity = Object.freeze({
-    did: resolved.did,
-    skin: mounted.getAttribute('data-character-skin') as CharacterSkin,
-    shape: mounted.getAttribute('data-character-shape') as CharacterShape,
-    decorative: resolved.decorative,
-  });
+  const appearance: ContinueAsAgentIdentity = Object.freeze({ did: resolved.did, decorative: resolved.decorative });
 
   let state: ContinueAsAgentState = 'idle';
   let pending = false;
   let disposed = false;
+  let hovered = false;
+  let focused = false;
+  const engaged = (): boolean => hovered || focused;
+  let moodTimer: number | undefined;
+  const motion = win.matchMedia('(prefers-reduced-motion: reduce)');
   const statusId = 'oaid-continue-status-' + Array.from(random(4), value => value.toString(16).padStart(2, '0')).join('');
   status.id = statusId;
+
+  // Idle glances run on a slow timer; they stop under reduced motion, in hidden
+  // tabs, while the pointer or focus is on the button, and outside the idle state.
+  function clearMood(): void {
+    if (moodTimer !== undefined) win.clearTimeout(moodTimer);
+    moodTimer = undefined;
+  }
+  function restless(): boolean {
+    return !disposed && !doc.hidden && !motion.matches && state === 'idle' && !engaged();
+  }
+  function scheduleMood(): void {
+    clearMood();
+    if (restless()) moodTimer = win.setTimeout(nextMood, moodPauseMs + randomBelow(moodSpreadMs));
+  }
+  function look(x: number, y: number, tilt: number): void {
+    eyes.style.setProperty('--oaid-eyes-x', `${x}px`);
+    eyes.style.setProperty('--oaid-eyes-y', `${y}px`);
+    eyes.style.setProperty('--oaid-eyes-tilt', `${tilt}deg`);
+  }
+  function glance(): void {
+    if (randomBelow(glanceHoldChance) === 0) return;
+    const spread = (range: number, steps: number) => (randomBelow(steps * 2 + 1) - steps) * (range / steps);
+    look(spread(glanceRangeX, 3), spread(glanceRangeY, 3), spread(glanceTiltDegrees, 7));
+  }
+  function nextMood(): void {
+    moodTimer = undefined;
+    if (!restless()) return;
+    player.update({ expression: idleMoods[randomBelow(idleMoods.length)]! });
+    glance();
+    scheduleMood();
+  }
+  function settleIdleEyes(): void {
+    if (disposed || state !== 'idle') return;
+    // Attention or a fresh idle period starts with the eyes centred on the viewer.
+    look(0, 0, 0);
+    player.update({ status: engaged() ? 'listening' : 'idle' });
+    scheduleMood();
+  }
+  // Hover and focus are tracked separately: leaving with the pointer must not
+  // resume idle glances while keyboard focus remains, and vice versa.
+  function attention(change: Partial<{ hovered: boolean; focused: boolean }>): void {
+    const before = engaged();
+    if (change.hovered !== undefined) hovered = change.hovered;
+    if (change.focused !== undefined) focused = change.focused;
+    if (engaged() === before) return;
+    clearMood();
+    settleIdleEyes();
+  }
+  const pointerEnter = (): void => attention({ hovered: true });
+  const pointerLeave = (): void => attention({ hovered: false });
+  const focusIn = (): void => attention({ focused: true });
+  const focusOut = (): void => attention({ focused: false });
+  function visibilityChanged(): void { if (doc.hidden) clearMood(); else scheduleMood(); }
+  function motionChanged(): void { if (motion.matches) look(0, 0, 0); scheduleMood(); }
 
   function setState(next: ContinueAsAgentState): void {
     state = next;
@@ -205,6 +276,7 @@ export function mountContinueAsAgent(container: Element, options: ContinueAsAgen
     if (result === 'success') {
       setState('idle');
       player.update({ status: 'success' });
+      scheduleMood();
       return;
     }
     setState('error');
@@ -216,6 +288,8 @@ export function mountContinueAsAgent(container: Element, options: ContinueAsAgen
     if (disposed || pending || button.disabled) return;
     event.preventDefault();
     pending = true;
+    clearMood();
+    look(0, 0, 0);
     setState('loading');
     player.update({ status: 'reasoning' });
     let outcome: void | Promise<void>;
@@ -235,7 +309,15 @@ export function mountContinueAsAgent(container: Element, options: ContinueAsAgen
   button.append(avatar, label, officialMark(doc));
   root.append(button, status);
   button.addEventListener('click', activate);
+  button.addEventListener('pointerenter', pointerEnter);
+  button.addEventListener('pointerleave', pointerLeave);
+  button.addEventListener('focus', focusIn);
+  button.addEventListener('blur', focusOut);
+  motion.addEventListener('change', motionChanged);
+  doc.addEventListener('visibilitychange', visibilityChanged);
   container.append(root);
+  look(0, 0, 0);
+  scheduleMood();
 
   return Object.freeze({
     root,
@@ -251,7 +333,14 @@ export function mountContinueAsAgent(container: Element, options: ContinueAsAgen
     dispose() {
       if (disposed) return;
       disposed = true;
+      clearMood();
       button.removeEventListener('click', activate);
+      button.removeEventListener('pointerenter', pointerEnter);
+      button.removeEventListener('pointerleave', pointerLeave);
+      button.removeEventListener('focus', focusIn);
+      button.removeEventListener('blur', focusOut);
+      motion.removeEventListener('change', motionChanged);
+      doc.removeEventListener('visibilitychange', visibilityChanged);
       player.dispose();
       root.remove();
     },

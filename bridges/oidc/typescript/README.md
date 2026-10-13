@@ -13,7 +13,7 @@ around the same open contracts; nothing here depends on them.
 npm install @openagentid/oidc@0.3.0
 ```
 
-The browser button additionally needs the character generator:
+The browser button additionally needs the SDK's live-eye player:
 
 ```sh
 npm install @openagentid/sdk@0.7.2
@@ -226,10 +226,14 @@ deployment choice; the library never contacts one unless configured.
 `@openagentid/oidc/button` is a framework-neutral, browser-only entry that
 renders the canonical OpenAgentID sign-in control: one silhouette, one
 typography scale, the exact label **Continue as Agent**, the official
-OpenAgentID mark, and a bounded 32px avatar slot filled by a character from the
-real `@openagentid/sdk` generator and live player. Randomness lives only inside
-that slot; the button chrome never changes. It is separate from the Node
-provider entry, so a browser bundle never pulls in `oidc-provider`.
+OpenAgentID mark, and a dark 32px window holding only a pair of bright eyes,
+like an agent in the dark whose face you never see. The eyes are the real
+`@openagentid/sdk` live-eye player; the character body is never shown. They
+glance around the window, tilt, squint, blink and pause, look at the viewer on
+hover or focus, think while `onContinue` runs and react to success or failure.
+Randomness lives only in their timing; the button chrome never changes. It is
+separate from the Node provider entry, so a browser bundle never pulls in
+`oidc-provider`.
 
 ```ts
 import { mountContinueAsAgent } from '@openagentid/oidc/button';
@@ -257,16 +261,16 @@ shows the character reasoning. A rejection restores the button, announces an
 accessible status message (`errorMessage` to customize) and calls `onError`.
 `dispose()` removes everything and is safe at any time, including mid-request.
 
-Options: `appearance` to show an already chosen agent (`did` plus optional
-`skin`, `shape`, `finish`, `eyePlacement`, `accessories`); showing an agent does
-not claim it is authenticated. `theme` (`auto`, `light`, `dark`), `size`
-(`medium`, `large`), `fullWidth`, `disabled` and `errorMessage`. Without
-`appearance.did` each mounted button draws one random decorative seed and one
-random year-round family; both stay fixed for the life of the mount and are
-readable from `handle.appearance` for display only. Motion follows the
-operating system's reduced-motion preference through the SDK player. The
-stylesheet is static; custom properties on `.oaid-continue` adjust colors,
-and `forced-colors` mode keeps a visible focus outline.
+Options: `appearance.did` to time the eyes from an agent the host has already
+chosen; doing so does not claim it is authenticated. `theme` (`auto`, `light`,
+`dark`), `size` (`medium`, `large`), `fullWidth`, `disabled` and
+`errorMessage`. Without `appearance.did` each mounted button draws one random
+decorative seed that stays fixed for the life of the mount and is readable from
+`handle.appearance` for display only. Idle glances stop under the operating
+system's reduced-motion preference, in hidden tabs and on dispose; reduced
+motion shows still eyes through the SDK player. The stylesheet is static;
+custom properties on `.oaid-continue` adjust colors, and `forced-colors` mode
+keeps a visible focus outline.
 
 React hosts mount it in an effect; there is no React dependency:
 
@@ -282,7 +286,7 @@ function ContinueAsAgent() {
 ```
 
 `examples/continue-as-agent` is a self-contained review page with several
-generated variants, light/dark, sizes and the disabled, loading, error and
+mounted buttons, light/dark, sizes and the disabled, loading, error and
 host-selected states; its callbacks are labeled demos that start nothing.
 
 ## Migrate the legacy bridge from 0.1.x
@@ -324,8 +328,9 @@ revocation and root/mode/authorization/revision changes before redemption and
 UserInfo, plus the standalone no-LifeID server. `tools/public-onboarding/verify-button.mjs`
 installs the packed `@openagentid/sdk` and `@openagentid/oidc` archives into a
 clean consumer and drives the review page in real Chromium: exact accessible
-name, one silhouette across variants, live and reduced-motion character
-rendering, keyboard activation and focus (including forced colors), duplicate
+name, one silhouette across variants, eyes-only rendering with the body never
+painted, live glances, tilts and squints at 32px, still eyes under reduced
+motion, keyboard activation and focus (including forced colors), duplicate
 clicks while pending, rejection recovery, disposal mid-request and browser/Node
 entry separation. It asserts the consumer resolved the source SDK version, or
 `OAID_EXPECTED_SDK_VERSION` when a registry run installs the supported minimum
