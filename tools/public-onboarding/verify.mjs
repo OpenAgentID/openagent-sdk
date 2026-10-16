@@ -170,7 +170,7 @@ try {
     });
     await browserCheck(label + '-every-family-and-kind-preserves-actual-status-and-eyes', async () => {
       const catalog = await page.evaluate(async () => (await import('/character-player.js')).getCharacterSkins());
-      assert.equal(catalog.reduce((sum, family) => sum + family.shapes.length, 0), 75);
+      assert.equal(catalog.reduce((sum, family) => sum + family.shapes.length, 0), 77);
       // The two-eyed families keep the same svg and eye nodes across every switch; the One family
       // replaces them with its own head and is checked on its own below.
       for (const family of catalog.filter(entry => entry.id !== 'one')) {
