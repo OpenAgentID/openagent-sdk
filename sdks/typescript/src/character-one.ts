@@ -57,13 +57,15 @@ const color = (id: OneColor, label: string, disc: string, eye: string, keyline: 
 });
 
 // AVATARS.md §1.3 (One app avatars, 15 October 2026): contrast-gated, colour-vision-checked and
-// ordered so that small teams receive the most distinct colours first.
+// ordered so that small teams receive the most distinct colours first. Red, Yellow, Blue and Green are
+// the four Ones shared with the One website and the One app (final palette, 16 October 2026), each at
+// least CIEDE2000 10 from Google's logo, Material, 2014–15 and 2015 logo colours.
 const colors: readonly OneColorDescription[] = Object.freeze([
   color('blue', 'Blue', '#3253e6', ONE_EYE_LIGHT, null, '#5366fd', 'neat'),
-  color('red', 'Red', '#e0344f', ONE_EYE_LIGHT, null, '#e0344f', 'quick'),
+  color('red', 'Red', '#e51e59', ONE_EYE_LIGHT, null, '#e51e59', 'quick'),
   color('sky', 'Sky', '#6fc9fe', ONE_EYE_INK, '#3889b6', '#6fc9fe', 'neat'),
-  color('green', 'Green', '#0e9270', ONE_EYE_LIGHT, null, '#0e9270', 'slow'),
-  color('yellow', 'Yellow', '#ffdd33', ONE_EYE_INK, '#957f08', '#ffdd33', 'bouncy'),
+  color('green', 'Green', '#0e9076', ONE_EYE_LIGHT, null, '#0e9076', 'slow'),
+  color('yellow', 'Yellow', '#ffe93f', ONE_EYE_INK, '#908207', '#ffe93f', 'bouncy'),
   color('pink', 'Pink', '#f85fa0', ONE_EYE_INK, '#cd4882', '#f85fa0', 'bouncy'),
   color('plum', 'Plum', '#890f8e', ONE_EYE_LIGHT, null, '#a94cac', 'neat'),
   color('teal', 'Teal', '#0aaead', ONE_EYE_INK, '#3b8f8e', '#0aaead', 'slow'),

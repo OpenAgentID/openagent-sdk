@@ -73,6 +73,15 @@
   blink) still skip the window's cap but wait for their group, so agents added
   together blink open one at a time. The next move in a group starts a beat
   (about 100 ms) after the last one ends, never in the same frame.
+- The four Ones shared with the One website and the One app take their final
+  values on light and dark surfaces alike: Red `#e51e59`, Yellow `#ffe93f`
+  (keyline `#908207`, its own hue darkened to 3:1) and Green `#0e9076`, with
+  Blue `#3253e6` unchanged. Every agent colour stays at least CIEDE2000 10 from
+  Google's logo, Material, 2014–15 and 2015 logo colours. The other eight
+  colours, the default order and every DID default are unchanged. The smallest
+  colour-vision distance among Digital One and the first five colours is now
+  13.4 (Yellow beside Digital One's chalk on dark surfaces under tritanopia);
+  the first eight and all twelve keep 10.0 and 8.3.
 
 ## 0.7.3 — current package compatibility, 2026-10-12
 

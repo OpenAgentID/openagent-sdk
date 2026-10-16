@@ -134,10 +134,10 @@ own hue) on light surfaces so the head always reaches 3:1 against them.
 | Kind (`shape`) | Picker name | Light disc | Keyline | Dark disc | Eye |
 | --- | --- | --- | --- | --- | --- |
 | `blue` | Blue | `#3253e6` | — | `#5366fd` | `#fbfaf6` |
-| `red` | Red | `#e0344f` | — | `#e0344f` | `#fbfaf6` |
+| `red` | Red | `#e51e59` | — | `#e51e59` | `#fbfaf6` |
 | `sky` | Sky | `#6fc9fe` | `#3889b6` | `#6fc9fe` | `#141b16` |
-| `green` | Green | `#0e9270` | — | `#0e9270` | `#fbfaf6` |
-| `yellow` | Yellow | `#ffdd33` | `#957f08` | `#ffdd33` | `#141b16` |
+| `green` | Green | `#0e9076` | — | `#0e9076` | `#fbfaf6` |
+| `yellow` | Yellow | `#ffe93f` | `#908207` | `#ffe93f` | `#141b16` |
 | `pink` | Pink | `#f85fa0` | `#cd4882` | `#f85fa0` | `#141b16` |
 | `plum` | Plum | `#890f8e` | — | `#a94cac` | `#fbfaf6` |
 | `teal` | Teal | `#0aaead` | `#3b8f8e` | `#0aaead` | `#141b16` |
@@ -163,10 +163,16 @@ then a look toward its name). Under reduced motion it simply appears in colour.
 - **Gates.** Every eye reaches 3:1 on its disc; every silhouette reaches 3:1 on
   the four light and four dark surfaces of the One app; colours stay at least
   CIEDE2000 25 from Digital One, 15 from One Humanoid's amber, 12 from the
-  needs-you green, 10 from the danger reds and 10 from Google's logo colours.
-  Under simulated protanopia, deuteranopia and tritanopia the smallest distance
-  among Digital One and the first five colours is above 15, the first eight
-  about 10, and all twelve above 8. The unit tests check all of these.
+  needs-you green, 10 from the danger reds and 10 from Google's logo, Material,
+  2014–15 and 2015 logo colours. Under simulated protanopia, deuteranopia and
+  tritanopia the smallest distance among Digital One and the first five colours
+  is above 13, the first eight about 10, and all twelve above 8. The unit tests
+  check all of these.
+- **Shared with the One website and the One app.** Red, Yellow, Blue and Green
+  are the four Ones that the One website and the One app draw, with identical
+  values. The first five's colour-vision floor (13.4) is Yellow beside Digital
+  One's chalk on dark surfaces under tritanopia; both values are fixed, so no
+  other colour can raise it.
 - **The DID default** is `order[u32le(seed[0..4]) mod 12]`, where the seed is the
   family seed every character uses, BLAKE3 over `oaid-character-v1\0one\0<did>`.
   It is display only: the colour neither identifies nor authenticates an agent.

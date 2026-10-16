@@ -162,9 +162,9 @@ describe('One palette', () => {
 
   it('keeps the plan-of-record values (AVATARS.md §1.3)', () => {
     expect(Object.fromEntries(getOneColors().map(entry => [entry.id, [entry.light.disc, entry.light.keyline, entry.dark.disc, entry.light.eye]]))).toEqual({
-      blue: ['#3253e6', null, '#5366fd', '#fbfaf6'], red: ['#e0344f', null, '#e0344f', '#fbfaf6'],
-      sky: ['#6fc9fe', '#3889b6', '#6fc9fe', '#141b16'], green: ['#0e9270', null, '#0e9270', '#fbfaf6'],
-      yellow: ['#ffdd33', '#957f08', '#ffdd33', '#141b16'], pink: ['#f85fa0', '#cd4882', '#f85fa0', '#141b16'],
+      blue: ['#3253e6', null, '#5366fd', '#fbfaf6'], red: ['#e51e59', null, '#e51e59', '#fbfaf6'],
+      sky: ['#6fc9fe', '#3889b6', '#6fc9fe', '#141b16'], green: ['#0e9076', null, '#0e9076', '#fbfaf6'],
+      yellow: ['#ffe93f', '#908207', '#ffe93f', '#141b16'], pink: ['#f85fa0', '#cd4882', '#f85fa0', '#141b16'],
       plum: ['#890f8e', null, '#a94cac', '#fbfaf6'], teal: ['#0aaead', '#3b8f8e', '#0aaead', '#141b16'],
       lime: ['#a9c21a', '#798a28', '#a9c21a', '#141b16'], mint: ['#3df0b0', '#21946b', '#3df0b0', '#141b16'],
       lilac: ['#b183f4', '#9068ca', '#b183f4', '#141b16'], coral: ['#fa8f77', '#bd624e', '#f29782', '#141b16'],
@@ -189,7 +189,12 @@ describe('One palette', () => {
   });
 
   it('keeps colours apart from One, amber, needs-you green, danger and Google', () => {
-    const google = ['#4285F4', '#EA4335', '#FBBC05', '#34A853', '#1A73E8', '#D93025', '#F9AB00', '#1E8E3E', '#188038'];
+    const google = [
+      '#4285F4', '#EA4335', '#FBBC05', '#34A853', // the logo
+      '#1A73E8', '#D93025', '#F9AB00', '#1E8E3E', '#188038', // Material
+      '#DB4437', '#F4B400', '#0F9D58', // the 2014–15 brand palette (its blue is the logo's)
+      '#4885ED', '#DB3236', '#F4C20D', '#3CBA54', // the widely published 2015 logo values
+    ];
     for (const entry of getOneColors()) {
       expect(distance(entry.light.disc, '#141b16')).toBeGreaterThanOrEqual(25);
       expect(distance(entry.dark.disc, '#f2f1ea')).toBeGreaterThanOrEqual(25);
@@ -204,7 +209,8 @@ describe('One palette', () => {
 
   it('gives small teams the most distinct colours under every colour-vision condition', () => {
     // Smallest pairwise distance among Digital One and the first n colours, worst of both surfaces and
-    // four conditions. The plan rounds these to 15.1, 10.0 and 8.3.
+    // four conditions: 13.4, 10.0 and 8.3. The first five's floor is Yellow beside Digital One's chalk on dark
+    // surfaces under tritanopia; both are fixed by the shared palette, so no other colour can raise it.
     const minimum = (n: number): number => {
       let worst = Infinity;
       for (const theme of ['light', 'dark'] as const) for (const condition of ['normal', 'protan', 'deutan', 'tritan']) {
@@ -213,7 +219,7 @@ describe('One palette', () => {
       }
       return worst;
     };
-    expect(minimum(5)).toBeGreaterThanOrEqual(15);
+    expect(minimum(5)).toBeGreaterThanOrEqual(13.35);
     expect(minimum(8)).toBeGreaterThanOrEqual(9.95);
     expect(minimum(12)).toBeGreaterThanOrEqual(8.25);
   });
@@ -711,7 +717,7 @@ describe('One still glyph', () => {
   });
 
   it('scales the keyline to one pixel, two at 96 px and up', () => {
-    const width = (size: number) => Number(generateCharacter(did, { skin: 'one', shape: 'yellow', size }).svg.match(/data-one-keyline="true" r="[^"]+" fill="none" stroke="#957f08" stroke-width="([^"]+)"/)![1]);
+    const width = (size: number) => Number(generateCharacter(did, { skin: 'one', shape: 'yellow', size }).svg.match(/data-one-keyline="true" r="[^"]+" fill="none" stroke="#908207" stroke-width="([^"]+)"/)![1]);
     expect(width(16)).toBeCloseTo(200 / 16, 2);
     expect(width(24)).toBeCloseTo(200 / 24, 2);
     expect(width(32)).toBeCloseTo(200 / 32, 2);
