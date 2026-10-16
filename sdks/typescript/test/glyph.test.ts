@@ -118,7 +118,7 @@ describe('OAS Glyph avatars', () => {
       expect(full).toContain('data-character-view="full"');
       kinds++;
     }
-    expect(kinds).toBe(75);
+    expect(kinds).toBe(77);
     // Explicit Glyph and human profiles retain the original Glyph framing/bytes.
     for (const view of ['avatar', 'full'] as const) {
       expect(decode(agentAvatar(did, { avatarSkin: null }, { view }))).toBe(oasGlyph(did));

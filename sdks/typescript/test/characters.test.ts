@@ -26,7 +26,7 @@ const familyKinds = {
   halloween: ['pumpkin', 'ghost', 'bat', 'witch-hat', 'candy-corn'],
   thanksgiving: ['turkey', 'acorn', 'squash', 'pie', 'corn'],
   christmas: ['light', 'tree', 'snowman', 'ornament', 'gift'],
-  one: ['blue', 'red', 'sky', 'green', 'yellow', 'pink', 'plum', 'teal', 'lime', 'mint', 'lilac', 'coral', 'charcoal'],
+  one: ['star', 'heart', 'flower', 'cloud', 'droplet', 'squircle', 'diamond', 'clover', 'gumdrop', 'hexagon', 'egg', 'blob', 'peanut', 'bean', 'charcoal'],
 } as const;
 // The two-eyed families: every family except One, whose head is a disc with a single bar for an eye.
 const classicKinds = Object.fromEntries(Object.entries(familyKinds).filter(([id]) => id !== 'one')) as Omit<typeof familyKinds, 'one'>;
@@ -101,7 +101,7 @@ describe('OpenAgent character profile v1', () => {
       Object.entries(familyKinds).map(([id, shapes]) => ({ id, shapes })),
     );
     expect(catalog).toHaveLength(18);
-    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(75);
+    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(77);
     expect(classicSkins().reduce((total, skin) => total + skin.shapes.length, 0)).toBe(62);
     expect(Object.isFrozen(catalog)).toBe(true);
     expect(getCharacterExpressions()).toEqual(expressions);

@@ -23,7 +23,7 @@ const familyKinds = {
   halloween: ['pumpkin', 'ghost', 'bat', 'witch-hat', 'candy-corn'],
   thanksgiving: ['turkey', 'acorn', 'squash', 'pie', 'corn'],
   christmas: ['light', 'tree', 'snowman', 'ornament', 'gift'],
-  one: ['blue', 'red', 'sky', 'green', 'yellow', 'pink', 'plum', 'teal', 'lime', 'mint', 'lilac', 'coral', 'charcoal'],
+  one: ['star', 'heart', 'flower', 'cloud', 'droplet', 'squircle', 'diamond', 'clover', 'gumdrop', 'hexagon', 'egg', 'blob', 'peanut', 'bean', 'charcoal'],
 } as const;
 // Two-eyed families; One heads are a disc with a single bar and keep wearables without drawing them.
 const classicSkins = () => getCharacterSkins().filter(skin => skin.id !== 'one');
@@ -121,10 +121,10 @@ describe('public stateless character API', () => {
   });
 
   it('carries the presentation theme through GET, SVG and POST, never accepts labels, and refuses unknown themes', async () => {
-    const options = { skin: 'one' as const, shape: 'plum' as const, theme: 'dark' as const, animated: false, state: { status: 'working' as const } };
+    const options = { skin: 'one' as const, shape: 'squircle' as const, color: 'indigo' as const, theme: 'dark' as const, animated: false, state: { status: 'working' as const } };
     const dark = generateCharacter(did, options);
-    expect(dark).toMatchObject({ theme: 'dark', color: '#a94cac' });
-    const query = '?skin=one&shape=plum&theme=dark&animated=false&status=working';
+    expect(dark).toMatchObject({ theme: 'dark', color: '#5660f6', oneColor: 'indigo' });
+    const query = '?skin=one&shape=squircle&color=indigo&theme=dark&animated=false&status=working';
     expect(await (await handler(new Request(path() + query))).json()).toEqual(dark);
     expect(await (await handler(new Request(path(did, true) + query))).text()).toBe(dark.svg);
     expect(await (await handler(post({ did, ...options }))).json()).toEqual(dark);
@@ -256,7 +256,7 @@ describe('public stateless character API', () => {
     const kinds = [...new Set(Object.values(familyKinds).flat())];
     expect(catalog.map(entry => entry.id)).toEqual(families);
     expect(catalog).toHaveLength(18);
-    expect(catalog.reduce((total, entry) => total + entry.shapes.length, 0)).toBe(75);
+    expect(catalog.reduce((total, entry) => total + entry.shapes.length, 0)).toBe(77);
     expect(Object.fromEntries(catalog.map(entry => [entry.id, entry.shapes]))).toEqual(familyKinds);
     for (const entry of catalog) {
       expect(entry.version).toBe(1);
@@ -598,11 +598,11 @@ describe('public stateless character API', () => {
 
   it('accepts One heads from 16 px and each family\'s own eye style through GET, SVG and POST', async () => {
     for (const size of [16, 20, 24, 28]) {
-      const expected = generateCharacter(did, { skin: 'one', shape: 'teal', size, eyeStyle: 'agent-eye-v1' });
-      const query = `?skin=one&shape=teal&size=${size}&eyeStyle=agent-eye-v1`;
+      const expected = generateCharacter(did, { skin: 'one', shape: 'star', size, eyeStyle: 'agent-eye-v1' });
+      const query = `?skin=one&shape=star&size=${size}&eyeStyle=agent-eye-v1`;
       expect(await (await handler(new Request(path() + query))).json()).toEqual(expected);
       expect(await (await handler(new Request(path(did, true) + query))).text()).toBe(expected.svg);
-      expect(await (await handler(post({ did, skin: 'one', shape: 'teal', size, eyeStyle: 'agent-eye-v1' }))).json()).toEqual(expected);
+      expect(await (await handler(post({ did, skin: 'one', shape: 'star', size, eyeStyle: 'agent-eye-v1' }))).json()).toEqual(expected);
     }
     for (const bad of ['?skin=one&size=15', '?size=16', '?skin=spacex&size=31', '?skin=one&eyeStyle=live-v1', '?eyeStyle=agent-eye-v1',
       '?skin=christmas&eyeStyle=agent-eye-v1']) {
@@ -626,6 +626,46 @@ describe('public stateless character API', () => {
         else expect(rule.then.properties.size).toEqual({ minimum: 32 });
       }
     }
+  });
+
+  it('carries the One family\'s colour through GET, SVG and POST, and refuses it for other families, Digital One and never pairs', async () => {
+    const colours = ['berry', 'lime', 'blush', 'jade', 'periwinkle', 'cherry', 'indigo', 'mint', 'bubblegum', 'apricot', 'sky', 'lemon', 'grape', 'lavender', 'watermelon', 'lagoon', 'orchid', 'aqua'];
+    for (const [shape, color] of [['star', 'lemon'], ['droplet', 'lagoon'], ['cloud', 'lavender'], ['bean', 'blush']] as const) {
+      const expected = generateCharacter(did, { skin: 'one', shape, color, size: 44 });
+      expect(expected.oneColor).toBe(color);
+      const query = `?skin=one&shape=${shape}&color=${color}&size=44`;
+      expect(await (await handler(new Request(path() + query))).json()).toEqual(expected);
+      expect(await (await handler(new Request(path(did, true) + query))).text()).toBe(expected.svg);
+      expect(await (await handler(post({ did, skin: 'one', shape, color, size: 44 }))).json()).toEqual(expected);
+    }
+    // A colour alone wears the DID's shape (the Diamond for this DID, which refuses Lime); a shape alone wears its own colour; Digital One has none.
+    expect(generateCharacter(did, { skin: 'one' }).shape).toBe('diamond');
+    expect(await (await handler(new Request(path() + '?skin=one&color=blush'))).json()).toEqual(generateCharacter(did, { skin: 'one', color: 'blush' }));
+    expect((await handler(new Request(path() + '?skin=one&color=lime'))).status).toBe(400);
+    expect(await (await handler(new Request(path() + '?skin=one&shape=heart'))).json()).toMatchObject({ shape: 'heart', oneColor: 'bubblegum' });
+    expect(await (await handler(new Request(path() + '?skin=one&shape=charcoal'))).json()).not.toHaveProperty('oneColor');
+    for (const bad of ['?color=lemon', '?skin=autos&color=lemon', '?skin=spacex&shape=cloud&color=lavender', '?skin=one&shape=star&color=cherry',
+      '?skin=one&shape=droplet&color=berry', '?skin=one&shape=cloud&color=sky', '?skin=one&shape=charcoal&color=lemon', '?skin=one&color=teal',
+      '?skin=one&color=', '?skin=one&color=lemon&color=lime', '?skin=one&shape=star&color=charcoal', '?skin=one&shape=star&color=blank', '?skin=one&shape=teal',
+      '?skin=one&shape=blue']) {
+      expect((await handler(new Request(path() + bad))).status, bad).toBe(400);
+      expect((await handler(new Request(path(did, true) + bad))).status, bad).toBe(400);
+    }
+    for (const body of [{ did, color: 'lemon' }, { did, skin: 'autos', color: 'lemon' }, { did, skin: 'one', shape: 'star', color: 'cherry' },
+      { did, skin: 'one', shape: 'charcoal', color: 'lemon' }, { did, skin: 'one', color: 'teal' }, { did, skin: 'one', color: null }, { did, skin: 'one', shape: 'teal' }]) {
+      expect((await handler(post(body))).status, JSON.stringify(body)).toBe(400);
+    }
+    expect(characterApiOpenApi.components.parameters.color).toMatchObject({ name: 'color', in: 'query', schema: { type: 'string', enum: colours } });
+    for (const route of ['/{did}', '/svg/{did}'] as const) for (const method of ['get', 'head', 'options'] as const) {
+      expect(characterApiOpenApi.paths[route][method].parameters).toContainEqual({ $ref: '#/components/parameters/color' });
+    }
+    const schemas = characterApiOpenApi.components.schemas;
+    for (const schema of [schemas.CharacterAppearanceV1, schemas.CharacterOptionsV1, schemas.CharacterGenerateRequestV1]) {
+      expect(schema.properties.color).toMatchObject({ type: 'string', enum: colours });
+    }
+    expect(schemas.CharacterDescriptorV1.properties.oneColor).toMatchObject({ type: 'string', enum: colours });
+    expect(schemas.CharacterDescriptorV1.properties.color).toEqual({ type: 'string', pattern: '^#[0-9a-fA-F]{6}$' });
+    expect(schemas.CharacterDescriptorV1.required).not.toContain('oneColor');
   });
 
   it('accepts every catalog shape only under its skin and every shared expression without changing the body', async () => {
