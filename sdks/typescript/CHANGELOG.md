@@ -38,10 +38,10 @@
   without counting as a move; a head takes over a still One rendered in its
   element. The animator exposes `frame.one` for DOM-free renderers.
 - Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, palette
-  helpers) and `@openagentid/sdk/browser/one`, the live runtime alone at 14.5 KB
+  helpers) and `@openagentid/sdk/browser/one`, the live runtime alone at 15.1 KB
   gzipped, with blank heads for ready-made agents and their First blink. `npm run
   size` enforces 16 KB for it and 65 KB for the all-family browser bundle, which is
-  61.7 KB (63.1 KB in 0.7.3) because avatar DID parsing no longer loads zod.
+  62.7 KB (63.1 KB in 0.7.3) because avatar DID parsing no longer loads zod.
 - Add `typing`, `attention`, `paused` and `offline` statuses for every family,
   `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
   CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the
@@ -58,6 +58,16 @@
   upgrades.
 - Pin create-openagent 0.6.0 to SDK 0.8.0; its family picker lists One, and the
   public onboarding verifier checks the One family in the generated starter.
+- One heads take gestures from their host: `play(gesture, { viewer? })` on the
+  light entry's player plays `lookAtYou`, `nod`, `smile`, `wave`, `shrug` or
+  `popIn` and returns to the held face, for arrivals (which take a motion slot,
+  and wait up to 1.5 s for a head that is not yet in view) and a hero's tap ladder
+  (`viewer: true`, at once). Nothing plays under reduced motion or out of view,
+  and a head that needs the viewer only looks at them or nods.
+- Typing repeats in headers and heroes like every ongoing state, one cluster every
+  six to ten seconds, instead of back to back. A dropped move shows the held face
+  at once instead of gliding to it, and a cut cadence keeps its slot while it
+  settles, so two heads never move in one group.
 
 ## 0.7.3 — current package compatibility, 2026-10-12
 

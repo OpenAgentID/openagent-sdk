@@ -116,7 +116,7 @@ family's art and no schema library (see [The light One entry](#the-light-one-ent
 
 ```ts
 import { renderOne } from '@openagentid/sdk/one';           // server: stills and DID defaults
-import { mountOne } from '@openagentid/sdk/browser/one';   // client: the live runtime, 14.5 KB gzipped
+import { mountOne } from '@openagentid/sdk/browser/one';   // client: the live runtime, 15.1 KB gzipped
 
 const html = renderOne({ did: agent.did, color, size: 44, label: `${agent.name}, agent`, state });
 const head = mountOne(element, { color, size: 44, label: `${agent.name}, agent`, state }); // takes over the still
@@ -326,12 +326,15 @@ its element (a server-rendered head, say); otherwise mount into an empty element
   at most five seconds after the state starts or the head comes into view (each
   next cluster is drawn and measured before it is scheduled).
   **`cadence: 'repeat'`** suits headers and heroes: a cluster every six to ten
-  seconds, resting after a minute without viewer input.
+  seconds for every ongoing state (working, reasoning and typing alike), resting
+  after a minute without viewer input.
 - **One mover per group, three per window** (two below 600 px wide). `group`
   names a row group; by default it is the nearest list container (`ul`, `ol`,
   `role=list`, `listbox`, `grid`, `feed`, `tree` or `table`). A higher-priority
-  move (attention, then error, then success) cuts an ongoing cadence short; a
-  move that cannot start within 1.5 s is dropped and the head shows its held face.
+  move (attention, then error, then success) cuts an ongoing cadence short: the
+  cut head settles in 160 ms while keeping its slot, and the move starts after it,
+  so two heads never move in one group. A move that cannot start within 1.5 s is
+  dropped and the head shows its held face at once, without moving to it.
   Recolouring, a theme switch or a size change mid-move never strands a head as
   moving: repaints do not advance its timeline, so the move ends on the ticker and
   frees its slot.
@@ -348,10 +351,25 @@ its element (a server-rendered head, say); otherwise mount into an empty element
 - **`setAppearance({ shape, theme, size, label })`** (`color` in the light entry)
   recolours, changes surface tones, size or name without resetting the state;
   switching to or from another family keeps the status, expression and wearables.
-- **The tap ladder and Digital One's rainbow** are the host's job. The SDK draws
-  no rainbow and plays no taps: Eureka's rainbow belongs to agent-eye's own
-  `<agent-eye>` element, which the SDK never registers. A hero that offers taps
-  can swap in that element for the rainbow, as the One app prototype does.
+- **`play(gesture, { viewer? })`** (the light entry's player) plays a gesture the
+  host chooses, then returns to the held face: `lookAtYou` (square to the viewer
+  and a blink; Digital One adds a dry chuckle), `nod`, `smile`, `wave`, `shrug`
+  (up and aside, the body tipped) and `popIn` (an arrival: the eye shut, a pop up
+  and a landing as it opens wide; the head does not grow from nothing, because the
+  host already shows its still). Hosts use it for arrival moments (`popIn` on a
+  first screen, `lookAtYou` once after a page loads, `wave` the first time an
+  empty thread shows) and, with `{ viewer: true }`, for a hero's tap ladder: a tap
+  starts at once, an arrival takes a motion slot like a state change and is
+  dropped after 1.5 s without one. `lookAtYou` and `nod` play from 24 px, the
+  others from 40 px. Nothing plays under reduced motion, in a hidden document or
+  out of view; an arrival asked as the head mounts waits up to 1.5 s for it to
+  come into view. A head whose status is `attention`, or that is speaking, only
+  looks at you or nods. It returns whether the gesture was accepted. Never use it
+  on approval or money surfaces.
+- **Digital One's rainbow** is the host's job. The SDK draws no rainbow:
+  Eureka's rainbow belongs to agent-eye's own `<agent-eye>` element, which the
+  SDK never registers. A hero that offers it can swap in that element, as the One
+  app prototype does.
 
 ### The light One entry
 
@@ -368,12 +386,12 @@ self-contained and minified for a browser: `mountOne` and the palette helpers.
 - **`mountOne(element, { color, size?, theme?, label?, expression?, state?, animated?,
   reducedMotion?, cadence?, group?, voiceLevel?, follow? })`** mounts a live head
   and returns `update`, `setAppearance({ color?, theme?, size?, label? })`,
-  `setReducedMotion`, `getState` and `dispose`. It takes the head's colour (the
+  `play(gesture, { viewer? })`, `setReducedMotion`, `getState` and `dispose`. It takes the head's colour (the
   stored one, or `oneColorForDid(did)` on the server), so the browser never hashes
   a DID.
 - **Budgets** (`npm run size`, run in CI): the live runtime is at most 16 KB
-  gzipped (14.5 KB in 0.8.0), the One app's script budget for animated heads; the
-  all-family browser bundle stays at most 65 KB gzipped (61.7 KB in 0.8.0, 63.1 KB
+  gzipped (15.1 KB in 0.8.0), the One app's script budget for animated heads; the
+  all-family browser bundle stays at most 65 KB gzipped (62.7 KB in 0.8.0, 63.1 KB
   in 0.7.3).
 
 ### Provenance of agent-eye

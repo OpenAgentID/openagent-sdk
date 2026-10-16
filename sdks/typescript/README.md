@@ -45,7 +45,7 @@ Adds the One family: a round disc with one bar for an eye, drawn from agent-eye,
 One's animated mark, with its own eye style `agent-eye-v1`. Twelve agent colours
 and Digital One (`charcoal`); a DID selects a colour when none is stored. Hosts
 that draw only Ones can use the light `@openagentid/sdk/one` entry, whose live
-runtime is 14.5 KB gzipped. Autos remains the default family, and every existing
+runtime is 15.1 KB gzipped. Autos remains the default family, and every existing
 family renders exactly as before. Four statuses join the shared timeline for
 every family (`typing`, `attention`, `paused`, `offline`), and `theme` and
 `label` join the rendering options. Identity documents that store a One
@@ -288,6 +288,7 @@ import { mountOne } from '@openagentid/sdk/browser/one';  // client: the live ru
 const html = renderOne({ did: agent.did, color, size: 44, state });
 const head = mountOne(element, { color, size: 44, label: agent.name, follow: false, state }); // replaces the still
 head.setAppearance({ color: 'teal' });                    // a blank head plays First blink instead
+head.play('shrug', { viewer: true });                     // a tap on a hero; arrivals omit `viewer`
 ```
 
 `state.gaze` is where the head's content is, and a One at rest looks there.

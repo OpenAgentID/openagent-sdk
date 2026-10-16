@@ -23,10 +23,11 @@ Hosts that draw only Ones can use the light entry instead:
 
 ```ts
 import { renderOne } from '@openagentid/sdk/one';          // server: stills, DID defaults, blank heads
-import { mountOne } from '@openagentid/sdk/browser/one';  // client: the live runtime, 14.5 KB gzipped
+import { mountOne } from '@openagentid/sdk/browser/one';  // client: the live runtime, 15.1 KB gzipped
 
 element.innerHTML = renderOne({ did: agent.did, color: 'teal', size: 44, label: agent.name, state });
 const head = mountOne(element, { color: 'teal', size: 44, label: agent.name, state }); // replaces the still
+head.play('popIn');                                      // an arrival, once the head is in view
 ```
 
 ## What is new
@@ -60,6 +61,11 @@ const head = mountOne(element, { color: 'teal', size: 44, label: agent.name, sta
   assigned. Given its colour, it plays First blink.
 - **Pointer follow.** `follow: true` lets a header or hero head's eye follow a
   fine pointer: eye only, never a counted move.
+- **Gestures from the host.** `play(gesture, { viewer? })` on the light entry's
+  player plays `lookAtYou`, `nod`, `smile`, `wave`, `shrug` or `popIn`, then
+  returns to the held face: arrival moments that take a motion slot, and a hero's
+  tap ladder that starts at once. Nothing plays under reduced motion or out of
+  view, and a head that needs the viewer only looks at them or nods.
 - **Four new statuses for every family:** `typing` and `attention` (attentive),
   `paused` and `offline` (sleepy). The existing statuses and their order are
   unchanged.
@@ -120,8 +126,8 @@ enforces the budgets in CI.
 
 | Entry | 0.7.3 | 0.8.0 | Budget |
 | --- | --- | --- | --- |
-| `@openagentid/sdk/browser` (every family) | 63.1 KB | 61.7 KB | 65 KB |
-| `@openagentid/sdk/browser/one` (the live One runtime) | — | 14.5 KB | 16 KB |
+| `@openagentid/sdk/browser` (every family) | 63.1 KB | 62.7 KB | 65 KB |
+| `@openagentid/sdk/browser/one` (the live One runtime) | — | 15.1 KB | 16 KB |
 
 The all-family bundle is smaller than in 0.7.3 although it now carries the One
 family: avatar DID parsing no longer loads the schema library. The light entry

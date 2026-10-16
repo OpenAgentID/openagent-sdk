@@ -15,7 +15,13 @@ import {
 /** Ongoing-state pacing: brief (lists: at most five seconds of motion on entering a state) or repeat (headers and heroes). */
 export type OneCadence = 'brief' | 'repeat';
 export type OneMomentName = 'settle' | 'home' | 'psst' | 'aha' | 'smile' | 'nod' | 'dizzy' |
-  'dozeOff' | 'wake' | 'read' | 'ponder' | 'keys' | 'wave' | 'firstBlink';
+  'dozeOff' | 'wake' | 'read' | 'ponder' | 'keys' | 'wave' | 'firstBlink' | 'lookAtYou' | 'shrug' | 'popIn';
+/**
+ * The moments a host may play itself (`OnePlayer.play`): an arrival or a viewer's tap on a hero. Look-at-you and nod
+ * play from 24 px; the others need a body, from 40 px.
+ */
+export type OneGesture = 'lookAtYou' | 'nod' | 'smile' | 'wave' | 'shrug' | 'popIn';
+export const ONE_GESTURES: readonly OneGesture[] = Object.freeze(['lookAtYou', 'nod', 'smile', 'wave', 'shrug', 'popIn']);
 
 export interface OneMomentRequest {
   readonly name: OneMomentName;
@@ -271,7 +277,8 @@ export class OneMotion {
       return gap;
     }
     if (at - this.input > 60_000) return null;
-    return this.face === 'typing' ? 600 + this.random() * 600 : 6000 + this.random() * 4000;
+    // Every ongoing state, typing included, repeats one cluster every six to ten seconds (AVATARS.md §2.3 rule 6).
+    return 6000 + this.random() * 4000;
   }
 
   /** Restart the brief cadence window, as when a head comes back into view. */
@@ -588,6 +595,42 @@ export class OneMotion {
         if (!big) { b.mv(600, 760, { look: P.look, lift: P.lift }, 'glide'); return { duration: 760 }; }
         saccade(b, 600, 0, { lift: 0 });
         return { duration: saccade(b, 900, P.look, { lift: P.lift }) };
+      }
+      case 'lookAtYou': {
+        // The website's look-at-you (DIGITAL-ONE move 4): square to the viewer, a blink at 60 % of the hold (shut
+        // tilted, never a level bar), then back to the held face. Digital One holds deadpan and adds a dry chuckle at
+        // 40 px and up; a bouncy One giggles twice.
+        const dry = t2 === 'dry', open = dry ? 0.92 : 1.04, hold = 1100;
+        b.mv(0, 250, { look: 0, lift: dry ? -0.05 : 0, open, tilt: 0, smile: 0, mouth: 0, rotate: 0 }, 'glide');
+        if (big && dry) pulses(b, 300, 3, 2, -2);
+        else if (big && t2 === 'bouncy') pulses(b, 250, 2, 4, -2);
+        blinkAt(b, 250 + hold * 0.6, open, d);
+        return { duration: 250 + hold };
+      }
+      case 'shrug': {
+        // DIGITAL-ONE move 19: a wind, up and tipped about its base into "who knows?" (up and aside), a dead hold,
+        // down on the bounce spring, then a look at the viewer. No mouth: a line under a raised eye reads as a sign.
+        b.mv(0, 4 * F, { squash: -5 }, 'wind');
+        b.mv(4 * F, 9 * F, { squash: 7, rotate: 10 * d, hop: -0.015 }, 'pop');
+        b.mv(4 * F, 9 * F, { look: 0.3 * d, lift: -0.4, open: 0.9, tilt: 0, smile: 0, mouth: 0 }, 'snap');
+        b.cut(875, { squash: -4 });
+        b.mv(875, 1125, { squash: 0, rotate: 0, hop: 0 }, '~bounce');
+        b.mv(1100, 1350, { look: 0, lift: 0, open: 1.04 }, 'glide');
+        blinkAt(b, 1750, 1.04, d);
+        return { duration: 2350, twos: true };
+      }
+      case 'popIn': {
+        // An arrival (the website's pop-in, move 7). The host already shows the still head, so it does not grow from
+        // nothing: the eye shuts (tilted), the head pops up with a stretch and lands squashed as the eye opens wide,
+        // settles, then glances toward its content.
+        const stretch = t2 === 'dry' ? 10 : 18, land = t2 === 'dry' ? -6 : -10;
+        b.mv(0, 80, { open: 0, look: 0, lift: 0, tilt: 7 * d, smile: 0, mouth: 0, rotate: 0 }, 'shut');
+        b.mv(80, 80 + 3 * F, { hop: -0.08, squash: stretch }, 'pop');
+        b.mv(80 + 3 * F, 80 + 5 * F, { hop: 0 }, 'fall');
+        b.mv(80 + 3 * F, 80 + 5 * F, { squash: land, open: 1.06, tilt: 0 }, 'snap');
+        b.mv(80 + 5 * F, 80 + 7 * F, { squash: 4, open: 1 });
+        b.mv(80 + 7 * F, 80 + 10 * F, { squash: 0 }, 'settle');
+        return { duration: Math.max(saccade(b, 80 + 10 * F, P.look, { lift: P.lift }), 680), twos: true };
       }
     }
   }

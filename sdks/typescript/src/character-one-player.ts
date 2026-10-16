@@ -6,12 +6,12 @@
  * Calm by rule (AVATARS.md §2.3): nothing moves at rest; a moment starts only for a head at least
  * 60 % in view while the page is not scrolling; one head moves per row group and at most three in
  * the window (two below 600 px wide); a moment that cannot start within 1.5 s is dropped and the head
- * shows its held face; hidden heads and hidden documents never tick. A head that follows the pointer
- * moves its eye only and is not counted.
+ * shows its held face at once; hidden heads and hidden documents never tick. A head that follows the
+ * pointer moves its eye only and is not counted.
  */
 import { GEOMETRY } from './agent-eye.js';
 import { oneKeylineWidth, onePaint, oneTier, type OneFace, type OneHeadColor, type OnePaint, type OneTheme } from './character-one.js';
-import { OneMotion, type OneCadence, type OneMomentRequest, type OneMotionFrame } from './character-one-motion.js';
+import { OneMotion, type OneCadence, type OneGesture, type OneMomentRequest, type OneMotionFrame } from './character-one-motion.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const LIST_CONTAINERS = 'ul,ol,[role="list"],[role="listbox"],[role="grid"],[role="feed"],[role="tree"],table';
@@ -20,6 +20,8 @@ const INPUTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 const FOLLOW_RANGE = 240;
 const FOLLOW_REST_MS = 1600;
 const WASH_MS = 240;
+/** A gesture asked of a head that is not yet in view (an arrival on mount) plays when it is, within this long. */
+const GESTURE_WAIT_MS = 1500;
 const stages = new WeakMap<Window, OneStage>();
 
 interface Queued { readonly head: OneHead; readonly request: OneMomentRequest; readonly at: number }
@@ -190,8 +192,9 @@ class OneStage {
     const keep: Queued[] = [];
     for (const item of this.queue) {
       if (!item.head.visible || !item.head.motionAllowed) continue;
-      // Missed is missed: the head shows its held face rather than performing late.
-      if (now - item.at > 1500) { item.head.start({ name: 'settle', priority: 0, uncounted: true }, now); this.tick(item.head); continue; }
+      // Missed is missed: the head shows its held face at once rather than performing late, and it takes no slot,
+      // so no second head in its group moves while it gets there.
+      if (now - item.at > 1500) { item.head.drop(); continue; }
       if (this.canStart(item.head)) { this.begin(item.head, item.request); continue; }
       keep.push(item);
     }
@@ -286,6 +289,7 @@ export class OneHead {
   private followTimer = 0;
   private disposed = false;
   private wash: { readonly from: OnePaint; readonly start: number } | null = null;
+  private gesture: { readonly request: OneMomentRequest; readonly at: number } | null = null;
   private parts!: { disc: SVGElement; eye: SVGElement; bar: SVGElement; mouth: SVGElement; body: SVGElement; keyline: SVGElement | null };
   private written: Record<string, string> = {};
   private readonly instance: string;
@@ -531,11 +535,50 @@ export class OneHead {
     this.stage.stopWaiting(this);
   }
 
-  /** A higher-priority entrance in the same group ends an ongoing cadence early. */
+  /**
+   * A higher-priority entrance in the same group ends an ongoing cadence early. The head keeps its slot while it
+   * settles (160 ms), so the entrance starts once it has: never two heads moving in one group.
+   */
   cutCadence(): void {
-    this.stage.cancel(this);
-    this.start({ name: 'settle', priority: 0, uncounted: true }, this.stage.now());
+    this.stopCadence();
+    this.start({ name: 'settle', priority: 0 }, this.stage.now());
     this.stage.tick(this);
+  }
+
+  /** A queued moment missed its slot: the held face at once, without moving (it holds no slot). */
+  drop(): void {
+    this.motion.snap();
+    this.wash = null;
+    this.root.removeAttribute('data-moving');
+    this.paint(this.motion.sample(this.stage.now()).frame, true);
+    if (this.speaking) this.startTalk();
+    else this.scheduleCadence();
+  }
+
+  /**
+   * A gesture the host chooses: an arrival (it takes a motion slot like a state change) or, with `viewer`, the
+   * viewer's tap on a hero (it starts at once). It plays only where the head may move and is big enough to carry
+   * it, and a head that needs the viewer never smiles, waves, shrugs or pops. A head not yet in view plays an
+   * arrival when it comes into view, within 1.5 s. Returns whether it was accepted.
+   */
+  play(name: OneGesture, viewer: boolean): boolean {
+    if (this.disposed || !this.motionAllowed || this.stage.hidden) return false;
+    const tier = this.motion.tier;
+    const big = tier === 'M' || tier === 'L';
+    const light = name === 'lookAtYou' || name === 'nod';
+    if (tier === 'XS' || (!big && !light)) return false;
+    if (!light && (this.motion.face === 'attention' || this.speaking)) return false;
+    const request: OneMomentRequest = viewer ? { name, priority: 5, user: true } : { name, priority: 3 };
+    if (!this.visible) {
+      if (viewer) return false;
+      this.gesture = { request, at: this.stage.now() };
+      return true;
+    }
+    this.gesture = null;
+    this.stopCadence();
+    this.stopFollow();
+    this.stage.request(this, request);
+    return true;
   }
 
   /** Hold the face still, ending any motion. */
@@ -545,6 +588,7 @@ export class OneHead {
     this.stage.cancel(this);
     this.motion.snap();
     this.wash = null;
+    this.gesture = null;
     this.root.removeAttribute('data-moving');
     this.paint(this.motion.sample(this.stage.now()).frame, true);
   }
@@ -557,6 +601,8 @@ export class OneHead {
 
   show(): void {
     if (this.disposed || this.stage.hidden) return;
+    const gesture = this.gesture;
+    this.gesture = null;
     if (!this.motionAllowed) { this.snap(); this.seen = this.motion.face; return; }
     const face = this.motion.face;
     if (this.seen !== face) {
@@ -565,6 +611,7 @@ export class OneHead {
       this.stage.request(this, this.motion.entrance(previous, face));
       return;
     }
+    if (gesture && this.stage.now() - gesture.at <= GESTURE_WAIT_MS) { this.stage.request(this, gesture.request); return; }
     if (this.speaking) { this.startTalk(); return; }
     const cadence = this.motion.cadenceRequest();
     if (cadence) {

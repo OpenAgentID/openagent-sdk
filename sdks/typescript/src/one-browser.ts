@@ -4,8 +4,8 @@
  * a DID is at hand, on the server or in a bundle, with `@openagentid/sdk/one`.
  */
 export { mountOne } from './one.js';
-export type { OneMountOptions, OneAppearanceUpdate, OnePlayer } from './one.js';
+export type { OneMountOptions, OneAppearanceUpdate, OnePlayer, OnePlayOptions } from './one.js';
 export { getOneColors, nextOneColor, ONE_KINDS } from './character-one.js';
 export type { OneColor, OneKind, OneHeadColor, OneColorHolder, OneColorDescription, OneTemperament, OneTheme } from './character-one.js';
-export type { OneCadence } from './character-one-motion.js';
+export type { OneCadence, OneGesture } from './character-one-motion.js';
 export type { AvatarExpression, AvatarStatus, LiveEyeState, CharacterRuntimeState, CharacterStateUpdate } from './character-state.js';

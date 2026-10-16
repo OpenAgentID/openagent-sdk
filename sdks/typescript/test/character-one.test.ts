@@ -109,7 +109,8 @@ function contained(pose: Parameters<typeof eye.poseToFrame>[0]): { eye: number; 
 
 const faces: readonly OneFace[] = ['idle', 'listening', 'thinking', 'working', 'typing', 'speaking', 'done', 'attention',
   'waiting', 'paused', 'offline', 'error', ...getCharacterExpressions()];
-const moments: readonly OneMomentName[] = ['settle', 'home', 'psst', 'aha', 'smile', 'nod', 'dizzy', 'dozeOff', 'wake', 'read', 'ponder', 'keys', 'wave', 'firstBlink'];
+const moments: readonly OneMomentName[] = ['settle', 'home', 'psst', 'aha', 'smile', 'nod', 'dizzy', 'dozeOff', 'wake', 'read', 'ponder', 'keys', 'wave', 'firstBlink',
+  'lookAtYou', 'shrug', 'popIn'];
 const sizes = [16, 24, 44, 96] as const;
 
 describe('agent-eye port', () => {
@@ -523,6 +524,48 @@ describe('One moments', () => {
     }
   });
 
+  it('plays the host\'s gestures, each ending on the held face: look-at-you, a shrug and an arrival', () => {
+    const peak = (head: OneMotion, pick: (pose: ReturnType<typeof oneHeldPose>) => number, max = true): number => {
+      let best = max ? -Infinity : Infinity;
+      for (let t = 0; t <= head.timelineEnd!; t += 8) { const v = pick(head.sample(t).frame.pose); best = max ? Math.max(best, v) : Math.min(best, v); }
+      return best;
+    };
+    for (const px of [24, 44, 96]) {
+      // Look-at-you turns square to the viewer, then blinks shut tilted, never as a level bar.
+      const look = motion('idle', px);
+      look.start({ name: 'lookAtYou', priority: 5, user: true }, 0);
+      const square = look.sample(300).frame.pose;
+      expect(Math.abs(square.look)).toBeLessThan(0.05);
+      expect(Math.abs(square.lift)).toBeLessThan(0.05);
+      let shut = false;
+      for (let t = 0; t <= look.timelineEnd!; t += 4) {
+        const pose = look.sample(t).frame.pose;
+        if (pose.open < 0.05) { shut = true; expect(Math.abs(pose.tilt)).toBeGreaterThanOrEqual(4); }
+      }
+      expect(shut).toBe(true);
+      expect(look.timelineEnd!).toBeLessThan(2000);
+    }
+    // Digital One holds deadpan with a dry chuckle at 40 px and up; a coloured One opens a touch wide.
+    const dry = motion('idle', 44, 'dry');
+    dry.start({ name: 'lookAtYou', priority: 5 }, 0);
+    expect(dry.sample(300).frame.pose.open).toBeCloseTo(0.92, 2);
+    expect(peak(dry, pose => pose.squash)).toBeGreaterThan(1);
+    // The shrug looks up and aside and tips its body at 40 px and up.
+    const shrug = motion('idle', 64);
+    shrug.start({ name: 'shrug', priority: 5 }, 0);
+    expect(peak(shrug, pose => pose.lift, false)).toBeLessThan(-0.3);
+    expect(peak(shrug, pose => Math.abs(pose.rotate))).toBeGreaterThan(8);
+    // The arrival starts by shutting the eye (tilted), pops up and lands with the eye wide open.
+    const arrive = motion('idle', 96, 'dry');
+    arrive.start({ name: 'popIn', priority: 3 }, 0);
+    const closed = arrive.sample(120).frame.pose; // 80 ms at tempo 1; Digital One at 96 px is paced 1.18×
+    expect(closed.open).toBeLessThan(0.05);
+    expect(Math.abs(closed.tilt)).toBeGreaterThanOrEqual(6);
+    expect(peak(arrive, pose => pose.hop, false)).toBeLessThan(-0.05);
+    expect(peak(arrive, pose => pose.open)).toBeGreaterThan(1.03);
+    expect(arrive.timelineEnd!).toBeLessThan(1500);
+  });
+
   it('follows a fine pointer with the eye only, at rest and at 40 px and up', () => {
     const head = motion('idle', 64);
     expect(head.follow({ x: 0.8, y: -0.5 })).toBe(true);
@@ -573,6 +616,14 @@ describe('One moments', () => {
     expect(repeat.nextCadence(70_000)).toBeNull();
     repeat.noteInput(70_000);
     expect(repeat.nextCadence(70_001)).not.toBeNull();
+    // Typing in a header repeats like every ongoing state: one cluster every six to ten seconds, never back to back.
+    const typing = new OneMotion({ face: 'typing', gaze: { x: 0, y: 0.3 }, px: 40, temperament: 'neat', random: seededRandom(new Uint8Array([9, 9, 9, 9])), cadence: 'repeat', motion: true, at: 0 });
+    expect(typing.cadenceRequest()).toMatchObject({ name: 'keys', cadence: true });
+    for (let i = 0; i < 50; i++) {
+      const gap = typing.nextCadence(1000 + i)!;
+      expect(gap).toBeGreaterThanOrEqual(6000);
+      expect(gap).toBeLessThanOrEqual(10_000);
+    }
     expect(motion('idle', 44).cadenceRequest()).toBeNull();
     expect(motion('working', 16).cadenceRequest()).toBeNull();
   });

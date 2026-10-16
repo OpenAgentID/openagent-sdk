@@ -7,14 +7,14 @@
 import { isAgentAvatarDid } from './avatar-did.js';
 import { parseCharacterLabel } from './character-label.js';
 import { isOneHeadColor, oneColorForDid, oneFaceFor, oneStillSvg, type OneHeadColor, type OneTheme } from './character-one.js';
-import { parseOneLiveOptions, seededRandom, type OneCadence } from './character-one-motion.js';
+import { ONE_GESTURES, parseOneLiveOptions, seededRandom, type OneCadence, type OneGesture } from './character-one-motion.js';
 import { OneHead } from './character-one-player.js';
 import { parseAvatarExpression, parseCharacterState, updateCharacterState, type AvatarExpression,
   type CharacterRuntimeState, type CharacterStateUpdate, type LiveEyeState } from './character-state.js';
 
 export { getOneColors, oneColorForDid, nextOneColor, ONE_KINDS } from './character-one.js';
 export type { OneColor, OneKind, OneHeadColor, OneColorHolder, OneColorDescription, OneTemperament, OneTheme } from './character-one.js';
-export type { OneCadence } from './character-one-motion.js';
+export type { OneCadence, OneGesture } from './character-one-motion.js';
 export type { AvatarExpression, AvatarStatus, LiveEyeState, CharacterRuntimeState, CharacterStateUpdate } from './character-state.js';
 
 export interface OneOptions {
@@ -61,10 +61,24 @@ export interface OneAppearanceUpdate {
   readonly label?: string | null;
 }
 
+export interface OnePlayOptions {
+  /** The viewer started it (a tap): it starts at once. Otherwise it waits for a motion slot like a state change. */
+  readonly viewer?: boolean;
+}
+
 export interface OnePlayer {
   update(state: CharacterStateUpdate): CharacterRuntimeState;
   /** Recolour (a wave at 40 px and up; First blink when a blank head gets its colour), change surface, size or name. */
   setAppearance(input: OneAppearanceUpdate): void;
+  /**
+   * Play a gesture the host chooses, then return to the held face: an arrival (`popIn` on a first screen, `lookAtYou`
+   * once after a page loads, `wave` the first time an empty thread shows) or, with `{ viewer: true }`, the viewer's
+   * tap on a hero (a tap ladder). `lookAtYou` and `nod` play from 24 px, the others from 40 px. Nothing plays under
+   * reduced motion, in a hidden document or out of view (an arrival waits up to 1.5 s for its head to come into
+   * view); a head whose status is `attention`, or that is speaking, only looks at you or nods. Returns whether the
+   * gesture was accepted. Never use it on approval or money surfaces.
+   */
+  play(gesture: OneGesture, options?: OnePlayOptions): boolean;
   setReducedMotion(value: boolean | 'system'): void;
   getState(): CharacterRuntimeState;
   dispose(): void;
@@ -183,6 +197,13 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
       active();
       selected = preference(input);
       motionChanged();
+    },
+    play(gesture: OneGesture, options: OnePlayOptions = {}) {
+      active();
+      if (!ONE_GESTURES.includes(gesture)) throw new TypeError('Unsupported One gesture');
+      const value = record(options, ['viewer'], 'play options');
+      if (value.viewer !== undefined && typeof value.viewer !== 'boolean') throw new TypeError('One play viewer must be boolean');
+      return head.play(gesture, value.viewer === true);
     },
     getState() { return state; },
     dispose() {

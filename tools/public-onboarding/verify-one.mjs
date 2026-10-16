@@ -9,7 +9,10 @@
  * motion, accessible naming, live family switching and clean disposal; and on
  * the light runtime: taking over a server-rendered still, a blank head's First
  * blink, eye-only pointer follow, repaints at a moment's end that never strand a
- * moving head, and Digital One stills that match the live head pixel for pixel.
+ * moving head, a dropped moment that shows its face without moving, host gestures
+ * (taps at once, arrivals once in view, never a gag on a head that needs you or
+ * under reduced motion), and Digital One stills that match the live head pixel for
+ * pixel.
  * Evidence goes to OAID_ONE_ARTIFACT_DIR (default .public-tooling-artifacts/one):
  * receipt.json and PNG screenshots.
  *
@@ -120,6 +123,7 @@ const lean = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>
   window.oaidParity.forEach((state, i) => window.oaidHeads.set('live-' + i,
     mountOne(document.getElementById('live-' + i), { color: 'charcoal', size: 192, reducedMotion: true, state })));
   window.oaidColours = getOneColors().length;
+  window.oaidMount = mountOne;
   window.oaidReady = true;
 </script></body></html>`;
 
@@ -362,6 +366,79 @@ try {
     assert.equal(await moving('.team'), 0);
     await tab.waitForFunction(() => !document.querySelector('#header svg[data-moving]'), null, { timeout: 4000 });
     assert.equal(await eye(), held);
+    await frames();
+    await tab.waitForTimeout(600);
+    assert.deepEqual(await frames(), []);
+  });
+
+  await check('a-dropped-moment-shows-its-held-face-without-moving', async () => {
+    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    // Ghost smiles (over three seconds); Ledger's entrance waits for the list's slot, is dropped after 1.5 s and shows
+    // its face at once: it never moves beside the smiling head, not even to settle.
+    await tab.evaluate(() => { window.oaidHeads.get('ghost').update({ status: 'success' }); window.oaidHeads.get('peer').update({ status: 'error' }); });
+    let peak = 0, peerMoved = false;
+    const start = Date.now();
+    while (Date.now() - start < 2600) {
+      peak = Math.max(peak, await moving('.team'));
+      peerMoved ||= await tab.evaluate(() => document.querySelector('#peer svg[data-moving]') !== null);
+      await tab.waitForTimeout(20);
+    }
+    assert.equal(peak, 1);
+    assert.equal(peerMoved, false);
+    assert.equal(await tab.locator('#peer svg').getAttribute('data-one-face'), 'error');
+    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+  });
+
+  await check('a-higher-priority-entrance-never-moves-beside-a-cut-cadence', async () => {
+    await tab.evaluate(() => window.oaidHeads.get('ghost').update({ status: 'working' }));
+    let peak = 0;
+    const start = Date.now();
+    while (Date.now() - start < 4200) {
+      if (Date.now() - start > 2400) await tab.evaluate(() => { const peer = window.oaidHeads.get('peer'); if (peer.getState().status !== 'attention') peer.update({ status: 'attention' }); });
+      peak = Math.max(peak, await moving('.team'));
+      await tab.waitForTimeout(20);
+    }
+    assert.equal(peak, 1);
+    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 6000 });
+    assert.equal(await tab.locator('#peer svg').getAttribute('data-one-face'), 'attention');
+  });
+
+  await check('host-gestures-play-taps-at-once-and-arrivals-once-in-view', async () => {
+    const eye = () => tab.locator('#header [data-character-eyes]').getAttribute('transform');
+    const held = await eye();
+    // A tap on a hero starts at once and ends on the held face.
+    assert.equal(await tab.evaluate(() => window.oaidHeads.get('header').play('shrug', { viewer: true })), true);
+    assert.equal(await tab.locator('#header svg').getAttribute('data-moving'), '');
+    await tab.waitForFunction(() => !document.querySelector('#header svg[data-moving]'), null, { timeout: 4000 });
+    assert.equal(await eye(), held);
+    // A head that needs you only looks at you or nods; unknown gestures and options are refused.
+    assert.equal(await tab.evaluate(() => window.oaidHeads.get('peer').play('smile', { viewer: true })), false);
+    assert.equal(await tab.evaluate(() => window.oaidHeads.get('peer').play('lookAtYou', { viewer: true })), true);
+    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    assert.equal(await tab.evaluate(() => { try { window.oaidHeads.get('peer').play('dance'); return 'played'; } catch (error) { return error.name; } }), 'TypeError');
+    assert.equal(await tab.evaluate(() => { try { window.oaidHeads.get('peer').play('nod', { viewer: 'yes' }); return 'played'; } catch (error) { return error.name; } }), 'TypeError');
+    // Nothing plays under reduced motion.
+    await tab.emulateMedia({ reducedMotion: 'reduce' });
+    await tab.waitForTimeout(100);
+    await frames();
+    assert.equal(await tab.evaluate(() => window.oaidHeads.get('header').play('popIn')), false);
+    await tab.waitForTimeout(300);
+    assert.deepEqual(await frames(), []);
+    await tab.emulateMedia({ reducedMotion: 'no-preference' });
+    await tab.waitForTimeout(100);
+    // An arrival asked of a head as it mounts plays once it is in view, then the ticker sleeps.
+    await tab.evaluate(() => {
+      const element = document.createElement('div');
+      element.id = 'arrival';
+      element.style.cssText = 'width: 96px; height: 96px';
+      document.body.prepend(element);
+      const head = window.oaidMount(element, { color: 'charcoal', size: 96, cadence: 'repeat', state: { gaze: { x: 0, y: 0 } } });
+      window.oaidHeads.set('arrival', head);
+      window.oaidArrival = head.play('popIn');
+    });
+    assert.equal(await tab.evaluate(() => window.oaidArrival), true);
+    await tab.waitForFunction(() => document.querySelector('#arrival svg[data-moving]') !== null, null, { timeout: 1500 });
+    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
     await frames();
     await tab.waitForTimeout(600);
     assert.deepEqual(await frames(), []);
