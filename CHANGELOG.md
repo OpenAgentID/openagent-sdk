@@ -94,6 +94,14 @@
   `sdk-testing` 0.1.3, the deployment templates 0.2.1 and the unreleased
   `@openagentid/oidc` changes, each qualified against a packed SDK 0.8.0 and the
   published 0.7.2. Publish them with the SDK.
+- Verify live One heads in real Chromium in the public onboarding CI job
+  (`tools/public-onboarding/verify-one.mjs`): one shared animation-frame ticker
+  that sleeps at rest, one moving head per list and three per window, brief
+  cadence, no motion out of view or under reduced motion, accessible names,
+  live family switching and disposal; on the light runtime, taking over a
+  server-rendered still, First blink, pointer follow, repaints at a move's end
+  and Digital One stills matching the live head pixel for pixel. CI also checks
+  the browser bundle budgets.
 
 ## 0.7.3 — current package compatibility, 2026-10-12
 
