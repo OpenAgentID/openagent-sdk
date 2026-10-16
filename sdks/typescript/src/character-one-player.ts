@@ -199,20 +199,28 @@ class OneStage {
     const now = this.now();
     this.queue.sort((a, b) => b.request.priority - a.request.priority || a.at - b.at);
     const keep: Queued[] = [];
+    // Groups whose face changed in this pass: one change per group per pass, so held faces never switch together.
+    const changed = new Set<unknown>();
     for (const item of this.queue) {
       if (!item.head.visible || !item.head.motionAllowed) continue;
-      // Missed is missed: the head shows its held face at once rather than performing late, and it takes no slot,
-      // so no second head in its group moves while it gets there.
-      if (now - item.at > 1500) { item.head.drop(); continue; }
-      if (item.request.user ? !this.hidden && !this.groupMover(item.head) : this.canStart(item.head)) { this.begin(item.head, item.request); continue; }
+      if (changed.has(item.head.group)) { keep.push(item); continue; }
+      // Missed is missed: past 1.5 s the head does not perform late. It switches straight to its held face, without
+      // moving to it and without taking a slot.
+      if (now - item.at > 1500) { changed.add(item.head.group); item.head.drop(); continue; }
+      if (item.request.user ? !this.hidden && !this.groupMover(item.head) : this.canStart(item.head)) {
+        changed.add(item.head.group);
+        this.begin(item.head, item.request);
+        continue;
+      }
       keep.push(item);
     }
     this.queue = keep;
     this.armPump();
   }
 
+  /** A head's move ended. The next waiting move starts on the next pump, a beat later, never in the same frame. */
   release(head: OneHead): void {
-    if (this.movers.delete(head) && this.queue.length) this.pump();
+    if (this.movers.delete(head) && this.queue.length) this.armPump();
   }
 
   cancel(head: OneHead): void {

@@ -126,7 +126,7 @@ enforces the budgets in CI.
 
 | Entry | 0.7.3 | 0.8.0 | Budget |
 | --- | --- | --- | --- |
-| `@openagentid/sdk/browser` (every family) | 63.1 KB | 62.8 KB | 65 KB |
+| `@openagentid/sdk/browser` (every family) | 63.1 KB | 62.9 KB | 65 KB |
 | `@openagentid/sdk/browser/one` (the live One runtime) | — | 15.1 KB | 16 KB |
 
 The all-family bundle is smaller than in 0.7.3 although it now carries the One

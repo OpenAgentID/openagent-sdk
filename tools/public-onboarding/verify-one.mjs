@@ -170,6 +170,19 @@ try {
   const moving = selector => tab.evaluate(selector => document.querySelectorAll(selector + ' svg[data-moving]').length, selector);
   const frames = () => tab.evaluate(() => { const values = [...window.oaidFrames.values()]; window.oaidFrames.clear(); return values; });
   const update = (ids, state) => tab.evaluate(({ ids, state }) => { for (const id of ids) window.oaidPlayers.get(id).update(state); }, { ids, state });
+  // Settled: no head has moved for a second. A group's next move starts a beat after the last one ends, so a moment
+  // with nothing moving is not yet the end.
+  async function settled(timeout) {
+    const end = Date.now() + timeout;
+    let quietSince = null;
+    while (Date.now() < end) {
+      if (await moving('body')) quietSince = null;
+      else if (quietSince === null) quietSince = Date.now();
+      else if (Date.now() - quietSince >= 1000) return;
+      await tab.waitForTimeout(50);
+    }
+    throw new Error(`One heads were still moving after ${timeout} ms`);
+  }
   async function sample(durationMs, selectors) {
     const counts = Object.fromEntries(selectors.map(selector => [selector, 0]));
     const start = Date.now();
@@ -209,7 +222,7 @@ try {
   });
 
   await check('brief-cadence-ends-and-the-ticker-sleeps', async () => {
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 12_000 });
+    await settled(12_000);
     await frames();
     await tab.waitForTimeout(1000);
     assert.deepEqual(await frames(), []);
@@ -221,7 +234,7 @@ try {
     const counts = await sample(1200, ['#team-a', '#team-b', '#team-c', '#team-d', 'body']);
     assert(counts.body <= 3, `${counts.body} heads moved at once`);
     assert(counts['#team-b'] <= 1);
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 12_000 });
+    await settled(12_000);
     for (const id of ['team-a-1', 'team-b-0', 'team-b-1', 'team-c-0', 'team-d-0']) {
       assert.equal(await tab.locator(`#${id} svg`).getAttribute('data-one-face'), 'attention');
     }
@@ -233,7 +246,7 @@ try {
     assert.equal(await moving('#below'), 0);
     await tab.locator('#below').scrollIntoViewIfNeeded();
     await tab.waitForFunction(() => document.querySelector('#below-0 svg[data-moving]') !== null, null, { timeout: 3000 });
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 8000 });
+    await settled(8000);
     assert.equal(await tab.locator('#below-0 svg').getAttribute('data-one-face'), 'error');
     await tab.evaluate(() => window.scrollTo(0, 0));
     await tab.waitForTimeout(300);
@@ -336,7 +349,7 @@ try {
   });
 
   await check('repaints-at-a-moment-end-never-strand-a-moving-head', async () => {
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    await settled(8000);
     // A colour change waves (a counted moment); theme repaints land in the same task as its end, many times over.
     await tab.evaluate(() => {
       const head = window.oaidHeads.get('ghost');
@@ -350,7 +363,7 @@ try {
     // The list's slot was released: the next head in the same list moves at once.
     await tab.evaluate(() => window.oaidHeads.get('peer').update({ status: 'attention' }));
     await tab.waitForFunction(() => document.querySelector('#peer svg[data-moving]') !== null, null, { timeout: 500 });
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    await settled(8000);
   });
 
   await check('pointer-follow-moves-the-eye-only-and-rests', async () => {
@@ -372,9 +385,9 @@ try {
   });
 
   await check('a-dropped-moment-shows-its-held-face-without-moving', async () => {
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
-    // Ghost smiles (over three seconds); Ledger's entrance waits for the list's slot, is dropped after 1.5 s and shows
-    // its face at once: it never moves beside the smiling head, not even to settle.
+    await settled(8000);
+    // Ghost smiles (over three seconds); Ledger's entrance waits for the list's slot, is dropped after 1.5 s and
+    // switches straight to its face: it never moves beside the smiling head, not even to settle.
     await tab.evaluate(() => { window.oaidHeads.get('ghost').update({ status: 'success' }); window.oaidHeads.get('peer').update({ status: 'error' }); });
     let peak = 0, peerMoved = false;
     const start = Date.now();
@@ -386,7 +399,7 @@ try {
     assert.equal(peak, 1);
     assert.equal(peerMoved, false);
     assert.equal(await tab.locator('#peer svg').getAttribute('data-one-face'), 'error');
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    await settled(8000);
   });
 
   await check('a-higher-priority-entrance-never-moves-beside-a-cut-cadence', async () => {
@@ -399,7 +412,7 @@ try {
       await tab.waitForTimeout(20);
     }
     assert.equal(peak, 1);
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 6000 });
+    await settled(9000);
     assert.equal(await tab.locator('#peer svg').getAttribute('data-one-face'), 'attention');
   });
 
@@ -414,7 +427,7 @@ try {
     // A head that needs you only looks at you or nods; unknown gestures and options are refused.
     assert.equal(await tab.evaluate(() => window.oaidHeads.get('peer').play('smile', { viewer: true })), false);
     assert.equal(await tab.evaluate(() => window.oaidHeads.get('peer').play('lookAtYou', { viewer: true })), true);
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    await settled(8000);
     assert.equal(await tab.evaluate(() => { try { window.oaidHeads.get('peer').play('dance'); return 'played'; } catch (error) { return error.name; } }), 'TypeError');
     assert.equal(await tab.evaluate(() => { try { window.oaidHeads.get('peer').play('nod', { viewer: 'yes' }); return 'played'; } catch (error) { return error.name; } }), 'TypeError');
     // Nothing plays under reduced motion.
@@ -438,7 +451,7 @@ try {
     });
     assert.equal(await tab.evaluate(() => window.oaidArrival), true);
     await tab.waitForFunction(() => document.querySelector('#arrival svg[data-moving]') !== null, null, { timeout: 1500 });
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    await settled(8000);
     await frames();
     await tab.waitForTimeout(600);
     assert.deepEqual(await frames(), []);
@@ -461,7 +474,7 @@ try {
     const start = Date.now();
     while (Date.now() - start < 3500) { peak = Math.max(peak, await moving('#added')); await tab.waitForTimeout(20); }
     assert.equal(peak, 1);
-    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    await settled(8000);
     assert.equal(await tab.locator('#added-0 [data-one-disc]').getAttribute('fill'), '#a9c21a');
     assert.equal(await tab.locator('#added-1 [data-one-disc]').getAttribute('fill'), '#3df0b0');
   });
