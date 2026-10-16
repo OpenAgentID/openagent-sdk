@@ -48,13 +48,16 @@ transport around that authority. See the [normative verification contract](../id
 
 `@openagentid/sdk/characters` exports `generateCharacter`, `renderCharacterSvg`,
 `getCharacterSkins`, `getCharacterExpressions`, `getCharacterStatuses`, appearance
-and state types. The closed catalog has 18 families, 75 kinds and 18 expressions.
-`CharacterAppearance` stores skin/version, eye style, shape, finish, eye placement
-and accessories. `view`, `theme` and `label` belong to render/player options, not
+and state types. The closed catalog has 18 families, 77 kinds and 18 expressions.
+`CharacterAppearance` stores skin/version, eye style, shape, colour (the One
+family only), finish, eye placement and accessories. `view`, `theme` and `label` belong to render/player options, not
 that stored type. Each catalog family lists its eye styles (`live-v1`, or
-`agent-eye-v1` for One). For the One family it also exports `getOneColors`,
-`oneColorForDid` and `nextOneColor` with the `OneColor`, `OneKind` and
-`OneColorHolder` types.
+`agent-eye-v1` for One). For the One family it also exports `getOneShapes`,
+`getOneColors`, `ONE_SHAPE_ORDER`, `ONE_DIGITAL`, `isOneShape`, `isOneColor`,
+`isOneKind`, `isOneColorAllowed`, `oneShapeForDid`, `oneColorForDid`,
+`oneLookForDid` and `nextOneLook` with the `OneShape`, `OneColor`, `OneKind`,
+`OneLook`, `OneLookHolder`, `OneShapeDescription` and `OneColorDescription`
+types.
 
 `@openagentid/sdk/browser` is self-contained browser ESM. It exports
 `mountCharacter(element, did, options?)` and catalogs. The returned player has

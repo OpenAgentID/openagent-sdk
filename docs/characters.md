@@ -3,7 +3,7 @@
 An agent has a stable DID, a body/face **skin**, a preferred **avatar expression**,
 and optional runtime **status/expression state**.
 Autos is the default family: a simple vertical capsule character. The catalog
-contains 18 families and 75 distinct kinds, including [the One family](#the-one-family).
+contains 18 families and 77 distinct kinds, including [the One family](#the-one-family).
 Changing family or kind preserves
 identity, current status and expression. The API keeps the field names `skin`
 for family and `shape` for kind.
@@ -40,14 +40,15 @@ and a stored style that belongs to another family is refused.
 | Halloween | pumpkin, ghost, bat, witch-hat, candy-corn |
 | Thanksgiving | turkey, acorn, squash, pie, corn |
 | Christmas | light, tree, snowman, ornament, gift |
-| One | blue, red, sky, green, yellow, pink, plum, teal, lime, mint, lilac, coral, charcoal |
+| One | star, heart, flower, cloud, droplet, squircle, diamond, clover, gumdrop, hexagon, egg, blob, peanut, bean, charcoal |
 
 These are distinct silhouettes with shared eyes. Holiday selection is explicit;
 there is no date-based switch of an agent's appearance. Omit `shape` to choose
 a stable kind from the DID within the selected family. The twelve crafted
 families and three holiday families use curated material palettes. Autos and
 SpaceX preserve their original DID-selected shapes and colors. The One family's
-kinds are colours, and an omitted kind selects one of its twelve agent colours.
+kinds are fourteen shapes worn in one of eighteen colours (`color`), plus Digital
+One; an omitted shape and colour select the agent's default look from the DID.
 
 ## Finish, eye placement and wearables
 
@@ -85,28 +86,30 @@ calculate eye offsets. `view` belongs to rendering options, not persisted
 
 ## The One family
 
-`skin: 'one'` draws an agent as One: a round disc with one bar for an eye, in its
-own colour. Every frame comes from agent-eye's geometry (see
-[Provenance](#provenance-of-agent-eye)); the eye style is `agent-eye-v1`. Autos
-stays the default family; an app opts into One per agent, by stored appearance
-or render options.
+`skin: 'one'` draws an agent as One: one of fourteen fun shapes, in one of
+eighteen colours, with one bar for an eye; or Digital One, the black circle, for
+One itself. Every frame comes from agent-eye's geometry (see
+[Provenance](#provenance-of-agent-eye)), placed and limited by the shape library;
+the eye style is `agent-eye-v1`. Autos stays the default family; an app opts into
+One per agent, by stored appearance or render options.
 
 ```ts
-import { generateCharacter, nextOneColor, oneColorForDid } from '@openagentid/sdk';
+import { generateCharacter, nextOneLook, oneLookForDid } from '@openagentid/sdk';
 import { mountCharacter } from '@openagentid/sdk/browser';
 
-// The agent's colour: given once, when the agent is created, and kept until the user changes it.
-const color = nextOneColor(team.map(agent => ({ color: agent.color, group: agent.group })), { group: 'team' });
+// The agent's look: given once, when the agent is created, and kept until the user changes it.
+const look = nextOneLook(team.map(agent => ({ ...agent.look, group: agent.group })), { group: 'team' });
+// → { shape: 'droplet', color: 'sky' } for the first agent, { shape: 'cloud', color: 'lavender' } for the second, …
 
-// Without a stored colour, the DID selects one of the twelve.
-oneColorForDid(agent.did);
+// Without a stored look, the DID selects a shape and a colour.
+oneLookForDid(agent.did);                      // { shape: 'flower', color: 'bubblegum' }
 
 // A still glyph for server rendering, static images and reduced motion.
-const { svg } = generateCharacter(agent.did, { skin: 'one', shape: color, size: 44, theme: 'light',
+const { svg } = generateCharacter(agent.did, { skin: 'one', ...look, size: 44, theme: 'light',
   state: { status: 'working', gaze: { x: 0.4, y: 0.1 } } });
 
 // A live head in a list row, named from the agent's own name.
-const player = mountCharacter(element, agent.did, { skin: 'one', shape: color, size: 44, label: `${agent.name}, agent`,
+const player = mountCharacter(element, agent.did, { skin: 'one', ...look, size: 44, label: `${agent.name}, agent`,
   state: { gaze: { x: 0.4, y: 0.1 } } });
 player.update({ status: 'attention' });
 ```
@@ -116,79 +119,150 @@ family's art and no schema library (see [The light One entry](#the-light-one-ent
 
 ```ts
 import { renderOne } from '@openagentid/sdk/one';           // server: stills and DID defaults
-import { mountOne } from '@openagentid/sdk/browser/one';   // client: the live runtime, 15.1 KB gzipped
+import { mountOne } from '@openagentid/sdk/browser/one';   // client: the live runtime, 18.9 KB gzipped
 
-const html = renderOne({ did: agent.did, color, size: 44, label: `${agent.name}, agent`, state });
-const head = mountOne(element, { color, size: 44, label: `${agent.name}, agent`, state }); // takes over the still
+const html = renderOne({ did: agent.did, ...look, size: 44, label: `${agent.name}, agent`, state });
+const head = mountOne(element, { ...look, size: 44, label: `${agent.name}, agent`, state }); // takes over the still
 head.update({ status: 'success' });
 ```
 
-### Kinds and colours
+### Shapes
 
-The family's kinds are colours. The twelve agent colours come in a fixed default
-order, chosen so that small teams get the most distinct colours first. Each has
-one identity value; Blue, Plum and Coral are lifted on dark surfaces. Light
-colours carry a keyline (a ring inside the disc's edge in a darker tone of its
-own hue) on light surfaces so the head always reaches 3:1 against them.
+The family's kinds (`shape`) are the fourteen agent shapes, in library order,
+plus `charcoal` for Digital One. Every shape has a default colour, a
+temperament that paces its moves, and an eye placement from the library: agent-eye's
+bar at 0.8 scale, with its own look gain, open scale and caps, so that every
+frame of every move stays at least ten units inside the edge. The id
+`squircle` is labelled "Square" and `droplet` "Drop" wherever people see them.
+`cloud`, `droplet`, `squircle` and `hexagon` share SpaceX's literals.
 
-| Kind (`shape`) | Picker name | Light disc | Keyline | Dark disc | Eye |
+| Kind (`shape`) | Picker name | Default colour | Temperament | Never in |
+| --- | --- | --- | --- | --- |
+| `star` | Star | Lemon | bouncy | Cherry, Watermelon (a red star is a political emblem) |
+| `heart` | Heart | Bubblegum | bouncy | — |
+| `flower` | Flower | Cherry | bouncy | — |
+| `cloud` | Cloud | Lavender | slow | Sky (the cloud-sync glyph) |
+| `droplet` | Drop | Sky | quick | Cherry, Watermelon, Berry (blood) |
+| `squircle` | Square | Indigo | neat | — |
+| `diamond` | Diamond | Aqua | quick | Lemon, Lime, Apricot (a road warning sign) |
+| `clover` | Clover | Jade | slow | — |
+| `gumdrop` | Gumdrop | Orchid | bouncy | Cherry, Watermelon (an emergency beacon) |
+| `hexagon` | Hexagon | Apricot | neat | — |
+| `egg` | Egg | Blush | slow | — |
+| `blob` | Blob | Mint | slow | — |
+| `peanut` | Peanut | Watermelon | bouncy | — |
+| `bean` | Bean | Grape | quick | — |
+| `charcoal` | (Digital One) | black | dry | every colour: One is always the black circle |
+
+A **never pair** would turn a shape into a sign or a symbol. The eleven pairs are
+refused everywhere (options, stored appearance, identity documents, the light
+entry, the CLI and the HTTP API), never silently changed, which leaves 241
+looks. `getOneShapes()` returns the fourteen with their picker names, paths,
+eye placements, pivots, temperaments, default colours and never lists;
+`isOneShape`, `isOneKind` and `isOneColorAllowed(shape, color)` check values.
+Picker names belong in a picker only: never use a shape as an agent's name.
+
+### Colours
+
+The eighteen agent colours sit on a bright, warm spectrum and come in a fixed
+team order, chosen so that small teams get the most distinct colours first.
+Each colour is **one value on every surface**: there are no dark tones. The line
+comes from the disc, never from the surface: paper `#fbfaf6` on the six deep
+colours, ink `#141b16` on the twelve bright ones, at 4.5:1 or more, so that a
+16 px head on a 1× screen still renders at 3:1. Bright colours carry a keyline
+(a ring 1 CSS px inside the edge, in a darker tone of their own hue, 2 px from
+96 px) on light surfaces, exactly where the disc alone falls under 3:1 against
+them, so the head always reaches 3:1; the silhouette never grows.
+
+| # | Colour (`color`) | Picker name | Disc | Line | Keyline, light surfaces only |
 | --- | --- | --- | --- | --- | --- |
-| `blue` | Blue | `#3253e6` | — | `#5366fd` | `#fbfaf6` |
-| `red` | Red | `#e51e59` | — | `#e51e59` | `#fbfaf6` |
-| `sky` | Sky | `#6fc9fe` | `#3889b6` | `#6fc9fe` | `#141b16` |
-| `green` | Green | `#0e9076` | — | `#0e9076` | `#fbfaf6` |
-| `yellow` | Yellow | `#ffe93f` | `#908207` | `#ffe93f` | `#141b16` |
-| `pink` | Pink | `#f85fa0` | `#cd4882` | `#f85fa0` | `#141b16` |
-| `plum` | Plum | `#890f8e` | — | `#a94cac` | `#fbfaf6` |
-| `teal` | Teal | `#0aaead` | `#3b8f8e` | `#0aaead` | `#141b16` |
-| `lime` | Lime | `#a9c21a` | `#798a28` | `#a9c21a` | `#141b16` |
-| `mint` | Mint | `#3df0b0` | `#21946b` | `#3df0b0` | `#141b16` |
-| `lilac` | Lilac | `#b183f4` | `#9068ca` | `#b183f4` | `#141b16` |
-| `coral` | Coral | `#fa8f77` | `#bd624e` | `#f29782` | `#141b16` |
-| `charcoal` | (Digital One) | `#141b16` ink | — | `#f2f1ea` chalk | knocked out |
+| 1 | `berry` | Berry | `#c92fa3` | paper | — |
+| 2 | `lime` | Lime | `#b0dc3c` | ink | `#6e8d08` |
+| 3 | `blush` | Blush | `#ffc2d4` | ink | `#aa7384` |
+| 4 | `jade` | Jade | `#068368` | paper | — |
+| 5 | `periwinkle` | Periwinkle | `#9ba0ff` | ink | `#7679d4` |
+| 6 | `cherry` | Cherry | `#e00d61` | paper | — |
+| 7 | `indigo` | Indigo | `#5660f6` | paper | — |
+| 8 | `mint` | Mint | `#5ee6a8` | ink | `#129564` |
+| 9 | `bubblegum` | Bubblegum | `#ff7eb6` | ink | `#d3568f` |
+| 10 | `apricot` | Apricot | `#ffa98c` | ink | `#bd6d52` |
+| 11 | `sky` | Sky | `#5cc8ff` | ink | `#148bbd` |
+| 12 | `lemon` | Lemon | `#ffe93f` | ink | `#918312` |
+| 13 | `grape` | Grape | `#9f47dc` | paper | — |
+| 14 | `lavender` | Lavender | `#e9c8ff` | ink | `#9577a9` |
+| 15 | `watermelon` | Watermelon | `#ff6075` | ink | `#e64861` |
+| 16 | `lagoon` | Lagoon | `#067f89` | paper | — |
+| 17 | `orchid` | Orchid | `#d27cf2` | ink | `#b35ed2` |
+| 18 | `aqua` | Aqua | `#2ad4d4` | ink | `#139191` |
 
-`charcoal` is Digital One, One itself: ink on light surfaces and chalk on dark
-ones, with its eye knocked out of the disc so the surface shows through. It is
-never a DID default and is never assigned by `nextOneColor`.
+**Digital One** (`shape: 'charcoal'`, no `color`) is One itself: the black
+circle `#141b16` on every surface, at every size. On light surfaces his eye is
+cut out of the disc so the surface shows through, as the logo is drawn. On dark
+surfaces he keeps the black disc, his eye is chalk `#f2f1ea`, and a chalk rim at
+44 % opacity (`#767973` as a flat colour), 1 CSS px inside the edge (2 px from
+96 px, never reduced to a device pixel), carries his edge. He is never
+chalk-inverted, never a shape and never a colour; no agent is a circle and no
+agent is black. He is never a DID default and is never assigned by
+`nextOneLook`.
 
 A **blank head** (`color: 'blank'` in the light entry) is a ready-made agent that
 has not been added yet: the surface's ink at 10 % for the disc and a muted eye
-(`#5a6256` light, `#a9b2a2` dark), still and looking toward its name. It is
-presentation only: not a catalog kind, never stored, never a DID default and
-never assigned. When the agent is added, give the same head its colour with
-`setAppearance({ color })`: it plays **First blink**, the disc washing to its
-colour while the eye opens for the first time (a glance at you at 40 px and up,
-then a look toward its name). Under reduced motion it simply appears in colour.
+(`#5a6256` light, `#a9b2a2` dark), drawn in the shape the agent will get (or the
+Square), still and looking toward its name. It is presentation only: not a
+catalog kind, never stored, never a DID default and never assigned. When the
+agent is added, give the same head its colour with `setAppearance({ color })`:
+it plays **First blink**, the disc washing to its colour while the eye opens for
+the first time (a glance at you at 40 px and up, then a look toward its name).
+Under reduced motion it simply appears in colour.
 
-- **Gates.** Every eye reaches 3:1 on its disc; every silhouette reaches 3:1 on
-  the four light and four dark surfaces of the One app; colours stay at least
-  CIEDE2000 25 from Digital One, 15 from One Humanoid's amber, 12 from the
-  needs-you green, 10 from the danger reds and 10 from Google's logo, Material,
-  2014–15 and 2015 logo colours. Under simulated protanopia, deuteranopia and
-  tritanopia the smallest distance among Digital One and the first five colours
-  is above 13, the first eight about 10, and all twelve above 8. The unit tests
-  check all of these.
-- **Shared with the One website and the One app.** Red, Yellow, Blue and Green
-  are the four Ones that the One website and the One app draw, with identical
-  values. The first five's colour-vision floor (13.4) is Yellow beside Digital
-  One's chalk on dark surfaces under tritanopia; both values are fixed, so no
-  other colour can raise it.
-- **The DID default** is `order[u32le(seed[0..4]) mod 12]`, where the seed is the
-  family seed every character uses, BLAKE3 over `oaid-character-v1\0one\0<did>`.
-  It is display only: the colour neither identifies nor authenticates an agent.
-- **`nextOneColor(held, { group })`** returns the first colour in the default
-  order that nobody in `held` has. When all twelve are held it returns the
-  least-held colour; among those, with `group`, one whose holders all sit in
-  other groups (a team or a company, say), so repeats stay apart for as long as
-  possible; ties go by the order. `held` lists colours or `{ color, group }`
-  holders for every agent of the same scope; a holder without a group never
-  counts as another group. Unknown colours and malformed holders are refused.
-  Store the result: a colour derived on the fly would shift whenever an earlier
-  agent leaves.
-- **`getOneColors()`** returns the twelve in order with their picker names, light
-  and dark tones and temperament. Picker names belong in a colour picker only:
-  never use a colour as an agent's name.
-- **Colour is identity, never status.** A One keeps its colour in every state.
+- **Gates** (`palette.json`, all measured with the SDK's own formulas: WCAG 2.x
+  contrast, CIEDE2000, Machado 2009 colour vision at severity 1.0). Every line
+  reaches 4.5:1 on its disc; every disc or keyline reaches 3:1 on the four light
+  surfaces and every disc 3:1 on the six dark surfaces of the One app and the
+  One website; colours stay at least CIEDE2000 25 from Digital One, 18 from One
+  Humanoid's amber, 12 from its glow and from the needs-you green, 10 from the
+  danger reds, 10 from Google's logo, Material, 2014–15 and 2015 logo colours, and
+  10 from each other. Under simulated protanopia, deuteranopia and tritanopia the
+  smallest distance among Digital One and the first five colours is 17.4, the
+  first eight 10.7 and the first twelve 4.9. The unit tests check all of these.
+- **Confusable pairs** under colour blindness (Aqua/Blush, Watermelon/Jade,
+  Sky/Lavender and Lemon/Lime under protanopia; Periwinkle/Orchid and Indigo/Grape
+  under deuteranopia; Jade/Lagoon, Aqua/Sky and Mint/Aqua under tritanopia) never
+  sit side by side unless the two heads have different shapes. Identity never
+  rests on colour alone.
+- **The DID default** comes from the family seed every character uses, BLAKE3
+  over `oaid-character-v1\0one\0<did>`: the shape is library order at
+  `u32le(seed[4..8]) mod 14` and the colour team order at `u32le(seed[0..4]) mod
+  18`, stepped forward past the shape's never colours. `oneLookForDid(did)`
+  returns both; `oneShapeForDid` and `oneColorForDid` each half. Agent and
+  agent-instance DIDs only; display only: a look neither identifies nor
+  authenticates an agent.
+- **`nextOneLook(held, { group })`** returns the look for a new agent in a
+  scope: the first shape in the team shape order (`ONE_SHAPE_ORDER`: `droplet,
+  cloud, heart, diamond, star, bean, blob, peanut, egg, gumdrop, clover, hexagon,
+  squircle, flower`, the most distinct silhouettes at 16 px first) that nobody
+  in `held` has, in that shape's own colour if nobody wears it, otherwise the
+  first free colour in team order that the shape allows. An empty team fills
+  with the site's fourteen characters, then Drop Lime, Cloud Berry, Heart
+  Periwinkle and Diamond Lagoon: up to eighteen agents no two share a look. When
+  every shape (or every allowed colour) is held it returns the least held;
+  among those, with `group`, one whose holders all sit in other groups (a team
+  or a company, say); ties go by the order. `held` lists `{ shape, color,
+  group? }` for every agent of the same scope; a holder without a group never
+  counts as another group. Unknown values, never pairs and malformed holders are
+  refused. Store the result: a look derived on the fly would shift whenever an
+  earlier agent leaves.
+- **`getOneColors()`** returns the eighteen in team order with their picker
+  names, disc, line and keyline; **`ONE_DIGITAL`** holds Digital One's values.
+  Picker names belong in a colour picker only: never use a colour as an agent's
+  name.
+- **Stored appearance** holds `{ skin: 'one', shape, color }`: a shape with its
+  colour, a shape alone (which wears its own colour), or `shape: 'charcoal'`
+  with no colour. A stored colour needs its shape, because a colour alone cannot
+  be checked against a shape's never list.
+- **A shape and a colour are identity, never status.** A One keeps its look in
+  every state. A character's colour is never a background, button, link, focus
+  ring or chart.
 
 ### Faces
 
@@ -253,9 +327,11 @@ SDK statuses. Render them with these statuses and content directions:
 **Size tiers** follow the rendered size: up to 20 px holds faces only and
 settles state changes over 160 ms; 24–36 px moves the face; 40–52 px adds a
 little body; 64 px and up is fully expressive. One heads render from 16 px (every
-other family from 32 px). Each colour paces its moves with one of four
+other family from 32 px). Each shape paces its moves with one of four
 temperaments (quick, bouncy, neat, slow; Digital One is dry), a second cue
-besides colour. Tempo paces the gaps between read-along jumps; the jumps
+besides its silhouette and colour. The body squashes and hops about the
+shape's own pivot, its foot. No One shows a smile or mouth line at 24 px or
+smaller, where the line under the bar reads as "!". Tempo paces the gaps between read-along jumps; the jumps
 themselves keep agent-eye's saccade speed.
 
 ### The still glyph
@@ -272,13 +348,20 @@ live renderers.
 - **Decorative by default.** Without `label`, the SVG is `aria-hidden`. With
   `label` (1–200 characters of plain text, normally the agent's own name, never
   a colour word) it is `role="img"` with that name and a matching title.
-- **Digital One** cuts its eye out of the disc with the even-odd rule (the bar as
-  drawn, its stroke included), so stills need no mask and no identifier: any
-  number of identical heads can share a page. The live head draws the same eye
-  through a mask with a per-head identifier; the browser verifier checks that the
-  two match pixel for pixel.
-- **`theme`** selects light (default) or dark surface tones and drops keylines
-  on dark surfaces. It is presentation only, never stored appearance.
+- **The body is the shape's path** (`data-one-disc`), and the eye sits in the
+  shape's eye group with the library's limits applied; containment is
+  guaranteed by the library's ten-unit clearance and tested, so stills need no
+  clip. A keyline, or Digital One's rim on dark surfaces, is the outline inset
+  by half its width and stroked, never a clip, so the silhouette never grows.
+- **Digital One** on a light surface cuts its eye out of the disc with the
+  even-odd rule (the bar as drawn, its stroke included), so stills need no mask
+  and no identifier: any number of identical heads can share a page. The live
+  head draws the same eye through a mask with a per-head identifier; the
+  browser verifier checks that the two match pixel for pixel. On a dark surface
+  his eye is a chalk bar and his rim a chalk stroke, in stills and live alike.
+- **`theme`** selects light (default) or dark surfaces: keylines are drawn on
+  light only, and Digital One takes his chalk eye and rim on dark. Discs keep
+  one colour on both. It is presentation only, never stored appearance.
 - **`size`** (16–2048) sets the keyline width (one pixel, two at 96 px and up)
   and the tier; pass the displayed size where possible. A paused head at 64 px
   and up is drawn with its slumped body, exactly as the live head holds it, so a
@@ -287,26 +370,25 @@ live renderers.
 - **`view`** is accepted; a One is the whole head in both views.
 - **Finish, eye placement and accessories** are kept in the descriptor and the
   stored appearance, so switching back to another family restores them, but a
-  One does not draw them: the head is agent-eye's geometry and nothing else.
-- **Hooks for host styles:** `data-one-disc`, `data-one-keyline`, `data-one-eye`
-  and `data-one-mouth` on the drawn parts (a still Digital One has no eye element:
-  its eye is a hole in `data-one-disc`); `data-one-color`, `data-one-face` and
-  `data-one-tier` on every root, and `data-moving` on live heads while they move.
+  One does not draw them: the head is the shape and agent-eye's geometry and
+  nothing else.
+- **Hooks for host styles:** `data-one-disc`, `data-one-keyline`, `data-one-rim`,
+  `data-one-eye` and `data-one-mouth` on the drawn parts (a still Digital One on
+  a light surface has no eye element: its eye is a hole in `data-one-disc`);
+  `data-one-shape` (the drawn shape, `circle` for Digital One), `data-one-color`
+  (a colour, `charcoal` or `blank`), `data-one-face` and `data-one-tier` on every
+  root, and `data-moving` on live heads while they move.
 
 Hosts that support forced colours or increased contrast can style those hooks.
-Coloured Ones become `Canvas` discs with a `CanvasText` ring and eye; Digital One
-becomes a `CanvasText` disc whose eye shows the `Canvas` surface (the rules leave
-its live mask alone):
+Every One is drawn in `CanvasText` with its eye in `Canvas`, so shape still tells
+agents apart (the rules leave Digital One's live mask alone):
 
 ```css
 @media (forced-colors: active) {
   [data-one-color] { forced-color-adjust: none; }
-  [data-one-color]:not([data-one-color="charcoal"]) [data-one-disc] {
-    fill: Canvas; fill-opacity: 1; stroke: CanvasText; stroke-width: 2px; vector-effect: non-scaling-stroke;
-  }
-  [data-one-color]:not([data-one-color="charcoal"]) [data-one-keyline] { stroke: none; }
-  [data-one-color]:not([data-one-color="charcoal"]) :is([data-one-eye], [data-one-mouth]) { fill: CanvasText; stroke: CanvasText; }
-  [data-one-color="charcoal"] [data-one-disc] { fill: CanvasText; }
+  [data-one-color] [data-one-disc] { fill: CanvasText; fill-opacity: 1; }
+  [data-one-color] :is([data-one-keyline], [data-one-rim]) { stroke: none; }
+  [data-one-color] :is([data-one-eye], [data-one-mouth]) { fill: Canvas; stroke: Canvas; }
 }
 @media (prefers-contrast: more) {
   [data-one-color]:not([data-one-color="charcoal"]):not([data-one-color="blank"]) [data-one-disc] {
@@ -325,7 +407,7 @@ and nothing ticks at rest. A One head replaces a still One already rendered in
 its element (a server-rendered head, say); otherwise mount into an empty element.
 
 - **A head moves only when its state changes** (or the viewer changes its
-  colour, which plays a small wave at 40 px and up), and only while at least
+  look, which plays a small wave at 40 px and up), and only while at least
   60 % of it is in view and the page is not scrolling. A head that changes state
   out of view plays the change when it comes into view.
 - **`cadence: 'brief'`** (default) suits lists and cards: ongoing work moves for
@@ -359,8 +441,9 @@ its element (a server-rendered head, say); otherwise mount into an empty element
 - **`voiceLevel: () => number`** (0–1, read every frame) lets a speaking head of
   64 px and up talk with a mouth line, blinking only in pauses. Without it, a
   speaking head holds its warm face.
-- **`setAppearance({ shape, theme, size, label })`** (`color` in the light entry)
-  recolours, changes surface tones, size or name without resetting the state;
+- **`setAppearance({ shape, color, theme, size, label })`** changes the look,
+  surface, size or name without resetting the state; a never pair is refused and
+  the head keeps its look;
   switching to or from another family keeps the status, expression and wearables.
 - **`play(gesture, { viewer? })`** (the light entry's player) plays a gesture the
   host chooses, then returns to the held face: `lookAtYou` (square to the viewer
@@ -385,25 +468,34 @@ its element (a server-rendered head, say); otherwise mount into an empty element
 ### The light One entry
 
 `@openagentid/sdk/one` is the One family on its own, for bundlers and servers:
-`renderOne(options)`, `mountOne(element, options)`, `getOneColors`,
-`oneColorForDid`, `nextOneColor` and `ONE_KINDS`, with no other family's art and
-no schema library. `@openagentid/sdk/browser/one` is the live runtime alone,
-self-contained and minified for a browser: `mountOne` and the palette helpers.
+`renderOne(options)`, `mountOne(element, options)`, `getOneShapes`,
+`getOneColors`, `ONE_SHAPE_ORDER`, `ONE_DIGITAL`, `ONE_KINDS`, `isOneShape`,
+`isOneColor`, `isOneKind`, `isOneColorAllowed`, `oneShapeForDid`,
+`oneColorForDid`, `oneLookForDid` and `nextOneLook`, with no other family's art
+and no schema library. `@openagentid/sdk/browser/one` is the live runtime alone,
+self-contained and minified for a browser: `mountOne`, the shape and colour
+helpers and `nextOneLook`; it never hashes a DID.
 
-- **`renderOne({ did?, color?, size?, theme?, label?, expression?, state? })`**
-  returns exactly the SVG of `generateCharacter(did, { skin: 'one', shape: color, ... })`.
-  A colour or an agent DID is required; without a colour the DID selects one. A
-  blank head needs no DID.
-- **`mountOne(element, { color, size?, theme?, label?, expression?, state?, animated?,
+- **`renderOne({ did?, shape?, color?, size?, theme?, label?, expression?, state? })`**
+  returns exactly the SVG of `generateCharacter(did, { skin: 'one', shape, color, ... })`.
+  `color: 'charcoal'` is Digital One (it takes no shape); `color: 'blank'` is a
+  blank head in `shape` or the Square. Otherwise a shape, a colour or an agent DID
+  is required: a shape alone wears its own colour, a colour alone wears the DID's
+  shape (which must allow it), and neither takes the DID's look. A never pair is
+  refused.
+- **`mountOne(element, { shape?, color?, size?, theme?, label?, expression?, state?, animated?,
   reducedMotion?, cadence?, group?, voiceLevel?, follow? })`** mounts a live head
-  and returns `update`, `setAppearance({ color?, theme?, size?, label? })`,
-  `play(gesture, { viewer? })`, `setReducedMotion`, `getState` and `dispose`. It takes the head's colour (the
-  stored one, or `oneColorForDid(did)` on the server), so the browser never hashes
-  a DID.
-- **Budgets** (`npm run size`, run in CI): the live runtime is at most 16 KB
-  gzipped (15.1 KB in 0.8.0), the One app's script budget for animated heads; the
-  all-family browser bundle stays at most 65 KB gzipped (62.9 KB in 0.8.0, 63.1 KB
-  in 0.7.3).
+  and returns `update`, `setAppearance({ shape?, color?, theme?, size?, label? })`,
+  `play(gesture, { viewer? })`, `setReducedMotion`, `getState` and `dispose`. It
+  takes the head's look (the stored one, or `oneLookForDid(did)` from the server),
+  `charcoal` or `blank`; a live head needs no DID, so the browser runtime never
+  hashes one.
+- **Budgets** (`npm run size`, run in CI): the live runtime is at most 20 KB
+  gzipped (18.9 KB in 0.8.0: the circles-only runtime was 15.1 KB and the shape
+  library and palette add 3.7 KB that no code change removes; the One app's
+  16 KB script budget for animated heads is to be revisited when it moves to
+  looks); the all-family browser bundle, minified from 0.8.0, stays at most 65 KB
+  gzipped (53.6 KB in 0.8.0; 63.1 KB unminified in 0.7.3).
 
 ### Provenance of agent-eye
 
@@ -529,9 +621,9 @@ and agent policy. The open renderer cannot edit a profile.
 `avatarSkin` against their own closed catalog, so a document whose `avatarSkin`
 has `skin: 'one'` (or `eyeStyle: 'agent-eye-v1'`) fails to parse there as a whole
 (`IDENTITY_RESOLVE_FAILED`). Until every reader of a document runs SDK 0.8.0 or
-later, keep an agent's One colour in the application's own agent record (a colour
-id such as `teal`, as the One app plans) and render it with `shape` or `color`,
-rather than writing it into identity documents that older readers resolve.
+later, keep an agent's One look in the application's own agent record (`{ shape:
+'star', color: 'lemon' }`, as the One app plans) and render it with `shape` and
+`color`, rather than writing it into identity documents that older readers resolve.
 
 `agentAvatar(did, profile, options)` returns an HTTPS override when present,
 otherwise a self-contained SVG data URL. Agents with no explicit skin use
@@ -724,7 +816,7 @@ oaid avatar skins
 oaid avatar accessories
 oaid avatar did:oas:openagent:agent:preview --skin halloween --shape pumpkin --status reasoning --output pumpkin.svg
 oaid avatar did:oas:openagent:agent:preview --skin christmas --shape tree --view full --output tree.svg
-oaid avatar did:oas:openagent:agent:preview --skin one --shape teal --theme dark --status working --size 64 --output teal.svg
+oaid avatar did:oas:openagent:agent:preview --skin one --shape star --color lemon --theme dark --status working --size 64 --output star.svg
 ```
 
 `oaid avatar skins` prints the same family/kind catalog as the SDK and open API.

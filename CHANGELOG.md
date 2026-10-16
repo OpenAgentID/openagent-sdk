@@ -33,15 +33,39 @@
 
 ## 0.8.0 — the One family, 2026-10-15
 
-- Add the opt-in `one` character family: a round disc with one bar for an eye,
-  drawn only from agent-eye geometry with its own eye style `agent-eye-v1`, in
-  twelve contrast- and colour-vision-gated agent colours plus `charcoal` (Digital
-  One). A DID selects one of the twelve colours when no kind is stored;
-  `getOneColors`, `oneColorForDid` and `nextOneColor` expose the palette, the DID
-  default and first-free assignment, repeating from the thirteenth agent
-  least-held first and, given `{ color, group }` holders, in another group first.
-  Autos stays the default; every existing family, kind, colour, stored profile
-  and DID seed renders exactly as in 0.7.3.
+- Add the opt-in `one` character family: fourteen fun shapes (`star`, `heart`,
+  `flower`, `cloud`, `droplet`, `squircle`, `diamond`, `clover`, `gumdrop`,
+  `hexagon`, `egg`, `blob`, `peanut`, `bean`) in eighteen contrast- and
+  colour-vision-gated agent colours (`color`), plus `charcoal` (Digital One, the
+  black circle), every head with one bar for an eye drawn only from agent-eye
+  geometry with its own eye style `agent-eye-v1`. The shapes, their eye
+  placements, pivots, temperaments, default colours and never lists, and the
+  palette are generated from the pinned Ones' library (`shapes.json` sha256
+  894f801c…1767, `palette.json` 76fa2016…c991), never edited by hand. A DID
+  selects a shape and a colour when no look is stored (`oneLookForDid`,
+  `oneShapeForDid`, `oneColorForDid`); `nextOneLook(held, { group })` fills a
+  team with the next free shape in its own colour, then free colours in team
+  order, then the least held, in another group first; `getOneShapes`,
+  `getOneColors`, `ONE_SHAPE_ORDER`, `ONE_DIGITAL`, `isOneShape`, `isOneColor`,
+  `isOneKind` and `isOneColorAllowed` expose the library. The eleven never pairs
+  (a shape in a colour that reads as a sign) are refused in options, stored
+  appearance, identity documents, the light entry, the CLI and the HTTP API,
+  never changed; `CharacterAppearance` gains `color` for the One family only, and
+  a stored colour needs its shape. Autos stays the default; every existing
+  family, kind, colour, stored profile and DID seed renders exactly as in 0.7.3.
+- Draw Digital One as the black circle `#141b16` on every surface: the eye cut
+  out to the surface on light; a chalk eye and a chalk rim at 44 % (1 CSS px
+  inside the edge, 2 px from 96 px, never a device pixel) on dark. No agent is a
+  circle and no agent is black. Each agent colour is one value on light and dark
+  surfaces, with no dark tones; the line comes from the disc (paper on the six
+  deep colours, ink on the twelve bright ones, at 4.5:1 or more) and a keyline in
+  the colour's own hue is drawn on light surfaces only, exactly where the disc
+  alone falls under 3:1, as an exact inset of the outline, never a clip. The
+  shape's temperament paces its moves; the body squashes and hops about the
+  shape's pivot; the eye is placed and limited by the library, holds a wide eye
+  level in an agent shape, and stays at least ten units inside every shape in
+  every frame of every move; no One shows a smile or mouth line at 24 px or
+  smaller.
 - List eye styles per family in the catalog (`live-v1` on the two-eyed families,
   `agent-eye-v1` on One) and refuse a style that belongs to another family in
   options, stored appearance, identity documents, the HTTP API and OpenAPI.
@@ -57,8 +81,9 @@
   animator, player, CLI and HTTP API, with the plan's size tiers.
 - Render a decorative still glyph for servers, images and reduced motion, with
   no element identifiers: Digital One's eye is cut out of its disc with the
-  even-odd rule. Stills carry `data-one-color` for forced-colours styles and keep
-  finish, eye placement and accessories in the descriptor without drawing them.
+  even-odd rule. Stills carry `data-one-shape` and `data-one-color` for
+  forced-colours styles and keep finish, eye placement and accessories in the
+  descriptor without drawing them.
 - Run live One heads on one shared, sleeping animation-frame ticker per window
   with one IntersectionObserver and one ResizeObserver: nothing moves at rest or
   out of view, one head per list and three per window move at once, ongoing work
@@ -68,15 +93,19 @@
   never stranded as moving. `follow: true` lets an eye follow a fine pointer
   without counting as a move; a head takes over a still One rendered in its
   element. The animator exposes `frame.one` for DOM-free renderers.
-- Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, palette
-  helpers) and `@openagentid/sdk/browser/one`, the live runtime alone at 15.1 KB
-  gzipped, with blank heads for ready-made agents and their First blink. `npm run
-  size` enforces 16 KB for it and 65 KB for the all-family browser bundle, which is
-  62.9 KB (63.1 KB in 0.7.3) because avatar DID parsing no longer loads zod.
+- Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, the shape
+  and colour helpers) and `@openagentid/sdk/browser/one`, the live runtime alone
+  at 18.9 KB gzipped, which never hashes a DID, with blank heads for ready-made
+  agents (drawn in the shape they will get) and their First blink. `npm run size`
+  enforces 20 KB for it (the circles-only runtime was 15.1 KB; the shape library
+  and palette add 3.7 KB that no code change removes, above the One app's 16 KB
+  script budget, which is to be revisited) and 65 KB for the all-family browser
+  bundle, now minified like the One runtime: 53.6 KB with the shape library
+  (63.1 KB unminified in 0.7.3).
 - Add `typing`, `attention`, `paused` and `offline` statuses for every family,
   `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
   CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the
-  family, its eye style, sizes, statuses and theme.
+  family, its kinds and colours, its eye style, sizes, statuses and theme.
 - Port agent-eye's pure geometry and motion to TypeScript with its provenance:
   the master (sha256 83cc379a…bba4), written by JR and contributed by its copyright
   holder L1fe Labs, Inc. under Apache-2.0 OR MIT, is a byte-identical test
@@ -85,8 +114,8 @@
   cuts a smile or talk short.
 - Compatibility: SDK 0.7.3 and earlier reject identity documents whose
   `avatarSkin` uses skin `one` or eye style `agent-eye-v1` (`IDENTITY_RESOLVE_FAILED`).
-  Keep One colours in the application's own agent records until every reader
-  upgrades.
+  Keep One looks (`{ shape, color }`) in the application's own agent records
+  until every reader upgrades.
 - Pin create-openagent 0.6.0 to SDK 0.8.0; its family picker lists One, and the
   public onboarding verifier checks the One family in the generated starter.
 - Accept SDK 0.8.0 beside 0.7.x (`^0.7.2 || ^0.8.0`) in every package that
@@ -117,15 +146,16 @@
   blink) still skip the window's cap but wait for their group, so agents added
   together blink open one at a time. The next move in a group starts a beat
   (about 100 ms) after the last one ends, never in the same frame.
-- The four Ones shared with the One website and the One app take their final
-  values on light and dark surfaces alike: Red `#e51e59`, Yellow `#ffe93f`
-  (keyline `#908207`, its own hue darkened to 3:1) and Green `#0e9076`, with
-  Blue `#3253e6` unchanged. Every agent colour stays at least CIEDE2000 10 from
-  Google's logo, Material, 2014–15 and 2015 logo colours. The other eight
-  colours, the default order and every DID default are unchanged. The smallest
-  colour-vision distance among Digital One and the first five colours is now
-  13.4 (Yellow beside Digital One's chalk on dark surfaces under tritanopia);
-  the first eight and all twelve keep 10.0 and 8.3.
+- The palette gates are the library's: every line at 4.5:1 or more on its disc,
+  every disc or keyline at 3:1 or more on the four light surfaces and every disc
+  at 3:1 or more on the six dark surfaces of the One app and website, and every
+  colour at least CIEDE2000 25 from Digital One, 18 from One Humanoid's amber,
+  12 from its glow and from the needs-you green, 10 from danger, from Google's
+  logo, Material, 2014–15 and 2015 logo colours and from every other agent
+  colour. The smallest colour-vision distance among Digital One and the first
+  five colours is 17.4; the first eight and twelve keep 10.7 and 4.9. The HTTP API
+  and OpenAPI 0.8.0 accept `color` and return `oneColor` on One descriptors; the
+  CLI takes `--color`; the public onboarding verifier renders the shapes live.
 
 ## 0.7.3 — current package compatibility, 2026-10-12
 
