@@ -26,7 +26,11 @@ const familyKinds = {
   halloween: ['pumpkin', 'ghost', 'bat', 'witch-hat', 'candy-corn'],
   thanksgiving: ['turkey', 'acorn', 'squash', 'pie', 'corn'],
   christmas: ['light', 'tree', 'snowman', 'ornament', 'gift'],
+  one: ['blue', 'red', 'sky', 'green', 'yellow', 'pink', 'plum', 'teal', 'lime', 'mint', 'lilac', 'coral', 'charcoal'],
 } as const;
+// The two-eyed families: every family except One, whose head is a disc with a single bar for an eye.
+const classicKinds = Object.fromEntries(Object.entries(familyKinds).filter(([id]) => id !== 'one')) as Omit<typeof familyKinds, 'one'>;
+const classicSkins = () => getCharacterSkins().filter(skin => skin.id !== 'one');
 
 function attributes(element: string): Record<string, string> {
   return Object.fromEntries([...element.matchAll(/([\w-]+)="([^"]*)"/g)].map((match) => [match[1]!, match[2]!]));
@@ -96,14 +100,16 @@ describe('OpenAgent character profile v1', () => {
     expect(catalog.map(({ id, shapes }) => ({ id, shapes }))).toEqual(
       Object.entries(familyKinds).map(([id, shapes]) => ({ id, shapes })),
     );
-    expect(catalog).toHaveLength(17);
-    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(62);
+    expect(catalog).toHaveLength(18);
+    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(75);
+    expect(classicSkins().reduce((total, skin) => total + skin.shapes.length, 0)).toBe(62);
     expect(Object.isFrozen(catalog)).toBe(true);
     expect(getCharacterExpressions()).toEqual(expressions);
     expect(Object.isFrozen(getCharacterExpressions())).toBe(true);
     for (const skin of catalog) {
       expect(skin.shapes.length).toBeGreaterThan(1);
-      expect(skin).toMatchObject({ version: 1, eyeStyles: ['live-v1'], expressions });
+      // Each family names its own eye geometry: live-v1 bars on the two-eyed families, agent-eye-v1 on One.
+      expect(skin).toMatchObject({ version: 1, eyeStyles: [skin.id === 'one' ? 'agent-eye-v1' : 'live-v1'], expressions });
       expect(Object.isFrozen(skin)).toBe(true);
       expect(Object.isFrozen(skin.eyeStyles)).toBe(true);
       expect(Object.isFrozen(skin.shapes)).toBe(true);
@@ -143,8 +149,8 @@ describe('OpenAgent character profile v1', () => {
     expect(bars(full.svg)).toEqual(bars(avatar.svg));
   });
 
-  it('switches all 62 kinds between avatar and full without reseeding or changing body/eyes', () => {
-    for (const skin of getCharacterSkins()) for (const shape of skin.shapes) {
+  it('switches all 62 two-eyed kinds between avatar and full without reseeding or changing body/eyes', () => {
+    for (const skin of classicSkins()) for (const shape of skin.shapes) {
       const avatar = generateCharacter(did, { skin: skin.id, shape, size: 32, animated: false });
       const full = generateCharacter(did, { skin: skin.id, shape, size: 32, view: 'full', animated: false });
       expect(avatar).toMatchObject({ did, skin: skin.id, shape, view: 'avatar', size: 32 });
@@ -268,7 +274,7 @@ describe('OpenAgent character profile v1', () => {
     }
   });
 
-  it.each(Object.keys(familyKinds) as CharacterSkin[])('shares all 18 expressions across %s without changing body, color or shape', (skin) => {
+  it.each(Object.keys(classicKinds) as CharacterSkin[])('shares all 18 expressions across %s without changing body, color or shape', (skin) => {
     const base = generateCharacter(did, { skin, animated: false });
     const body = bodyMarkup(base.svg);
     const signatures = new Set<string>();
@@ -347,9 +353,9 @@ describe('OpenAgent character profile v1', () => {
     }
   });
 
-  it('renders all 62 kinds with distinct geometry and preserves identity-derived legacy colors', () => {
+  it('renders all 62 two-eyed kinds with distinct geometry and preserves identity-derived legacy colors', () => {
     const allGeometry = new Set<string>();
-    for (const skin of getCharacterSkins()) {
+    for (const skin of classicSkins()) {
       const base = generateCharacter(did, { skin: skin.id });
       const silhouettes = new Set<string>();
       for (const shape of skin.shapes) {

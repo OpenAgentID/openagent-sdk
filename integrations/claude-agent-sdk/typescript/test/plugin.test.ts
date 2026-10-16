@@ -38,7 +38,7 @@ describe('openAgentPlugin', () => {
         capabilities: new AllowAllChecker(),
       });
       expect(p.name).toBe('@openagentid/claude-agent');
-      expect(p.version).toBe('0.2.0');
+      expect(p.version).toBe('0.2.1');
       expect(typeof p.hooks.onSessionStart).toBe('function');
       expect(typeof p.hooks.preToolUse).toBe('function');
       expect(typeof p.hooks.postToolUse).toBe('function');

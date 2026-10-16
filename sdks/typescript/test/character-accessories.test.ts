@@ -114,7 +114,8 @@ describe('independent character accessories', () => {
   });
 
   it('fits external headgear inside every circular crop with stable framing across gaze and expression', () => {
-    for (const family of getCharacterSkins()) for (const shape of family.shapes) for (const eyePlacement of ['face', 'raised'] as const) {
+    // One heads keep wearables in their descriptor but do not draw them (see character-one.test.ts).
+    for (const family of getCharacterSkins().filter(entry => entry.id !== 'one')) for (const shape of family.shapes) for (const eyePlacement of ['face', 'raised'] as const) {
       const framing = characterFraming(family.id, shape, 'avatar', { accessories: both, eyePlacement });
       const [cropX, cropY, size] = framing.viewBox.split(' ').map(Number) as [number, number, number];
       const [faceX, faceY, scale] = framing.faceTransform.match(/-?\d+(?:\.\d+)?/g)!.map(Number) as [number, number, number, ...number[]];
@@ -146,7 +147,7 @@ describe('independent character accessories', () => {
     expect(frames({ x: 1, y: -1 })).toEqual(frames({ x: 0, y: 0 }));
   });
 
-  it.each(getCharacterSkins().map(family => ({ family })))('adds wearables to $family.id without changing seed, body or live eyes', ({ family }) => {
+  it.each(getCharacterSkins().filter(entry => entry.id !== 'one').map(family => ({ family })))('adds wearables to $family.id without changing seed, body or live eyes', ({ family }) => {
     const options: CharacterOptions = { skin: family.id, animated: true, state: { expression: 'scared', gaze: { x: -1, y: 1 } } };
     const bare = generateCharacter(did, options);
     const adorned = generateCharacter(did, { ...options, accessories: both });

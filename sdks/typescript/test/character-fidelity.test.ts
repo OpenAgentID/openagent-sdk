@@ -42,7 +42,8 @@ describe('shared plush finish and raised live eyes', () => {
   });
 
   it('keeps deterministic local material definitions separate from the two animated bars', () => {
-    for (const family of getCharacterSkins()) for (const shape of family.shapes) {
+    // One heads are flat agent-eye geometry by design and draw neither material nor raised pods.
+    for (const family of getCharacterSkins().filter(entry => entry.id !== 'one')) for (const shape of family.shapes) {
       const plush = generateCharacter(did, { skin: family.id, shape, eyePlacement: 'raised' });
       const flat = generateCharacter(did, { skin: family.id, shape, eyePlacement: 'raised', finish: 'flat' });
       expect(plush.svg).toBe(generateCharacter(did, { skin: family.id, shape, eyePlacement: 'raised' }).svg);

@@ -99,11 +99,11 @@ describe('stored character appearance', () => {
 
   it('persists every family kind separately from shared preferred eye expressions', () => {
     const catalog = getCharacterSkins();
-    expect(catalog).toHaveLength(17);
-    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(62);
+    expect(catalog).toHaveLength(18);
+    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(75);
     for (const skin of catalog) {
       for (const shape of skin.shapes) {
-        const appearance = { skin: skin.id, skinVersion: 1 as const, eyeStyle: 'live-v1' as const, shape };
+        const appearance = { skin: skin.id, skinVersion: 1 as const, eyeStyle: skin.eyeStyles[0]!, shape };
         expect(characterAppearanceSchema.parse(appearance)).toEqual(appearance);
         for (const avatarExpression of getCharacterExpressions()) {
           const parsed = parseIdentityDocument({ ...document, avatarSkin: appearance, avatarExpression });
@@ -231,7 +231,8 @@ describe('stored character appearance', () => {
     { skin: 'christmas', shape: 'ghost' }, { skin: 'autos', shape: 'pumpkin' },
     { skin: 'christmas', skinVersion: 2 }, { skin: 'christmas', skinVersion: '1' },
     { skin: 'christmas', skinVersion: null }, { skin: 'christmas', eyeStyle: 'other' },
-    { skin: 'christmas', eyeStyle: null }, { skin: 'christmas', view: 'avatar' },
+    { skin: 'christmas', eyeStyle: null }, { skin: 'christmas', eyeStyle: 'agent-eye-v1' }, { skin: 'one', eyeStyle: 'live-v1' },
+    { skin: 'christmas', view: 'avatar' },
     { skin: 'christmas', view: 'full' }, { skin: 'christmas', size: 128 },
     { skin: 'christmas', animated: false }, { skin: 'christmas', expression: 'happy' },
     { skin: 'christmas', status: 'working' }, { skin: 'christmas', state: { blink: 0 } },

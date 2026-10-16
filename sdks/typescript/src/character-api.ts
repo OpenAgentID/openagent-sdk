@@ -12,8 +12,9 @@ const DEFAULT_BASE_PATH = '/v1/characters';
 const MAX_BODY_BYTES = 16_384;
 const MAX_URL_LENGTH = 8192;
 const encoder = new TextEncoder();
-const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY']);
-const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'size', 'animated', 'state']);
+const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY', 'theme']);
+// The SDK's label option is deliberately absent: the public API renders decorative heads and never echoes caller text.
+const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'size', 'animated', 'state', 'theme']);
 const numericQuery = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 class CharacterRequestError extends Error {
@@ -59,8 +60,7 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
     result.skinVersion = 1;
   }
   if ('eyeStyle' in value) {
-    if (value.eyeStyle !== 'live-v1') invalid();
-    result.eyeStyle = 'live-v1';
+    result.eyeStyle = member(value.eyeStyle, getCharacterSkins().find(entry => entry.id === skin)!.eyeStyles);
   }
   if ('shape' in value) {
     result.shape = member(value.shape, getCharacterSkins().find(entry => entry.id === skin)!.shapes);
@@ -68,9 +68,10 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
   if ('finish' in value) result.finish = member(value.finish, ['plush', 'flat'] as const);
   if ('eyePlacement' in value) result.eyePlacement = member(value.eyePlacement, ['face', 'raised'] as const);
   if ('view' in value) result.view = member(value.view, ['avatar', 'full'] as const);
+  if ('theme' in value) result.theme = member(value.theme, ['light', 'dark'] as const);
   if ('accessories' in value) result.accessories = parseCharacterAccessories(value.accessories);
   if ('expression' in value) result.expression = member(value.expression, getCharacterExpressions());
-  if ('size' in value) result.size = boundedNumber(value.size, 32, 2048, true);
+  if ('size' in value) result.size = boundedNumber(value.size, skin === 'one' ? 16 : 32, 2048, true);
   if ('animated' in value) {
     if (typeof value.animated !== 'boolean') invalid();
     result.animated = value.animated;
@@ -102,7 +103,7 @@ function queryOptions(query: URLSearchParams): CharacterOptions {
     values[key] = value;
   }
   const input: Record<string, unknown> = {};
-  for (const key of ['skin', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'expression']) {
+  for (const key of ['skin', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'expression', 'theme']) {
     if (key in values) input[key] = values[key];
   }
   if ('accessories' in values) {
@@ -295,8 +296,8 @@ export const characterApiOpenApi = {
   "openapi": "3.1.0",
   "info": {
     "title": "OpenAgentID Character API",
-    "version": "0.7.2",
-    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 17 families and 62 distinct character kinds, including Halloween, Thanksgiving and Christmas. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions and live-v1 eyes are shared across skins. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused. Every family supports shared finish (plush default, flat optional) and eyePlacement (face default, raised optional). These strictly closed appearance selectors do not change identity-derived shape/color or runtime state. Descriptors include both resolved values."
+    "version": "0.8.0",
+    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 18 families and 75 distinct character kinds, including Halloween, Thanksgiving, Christmas and One. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions are shared across skins, and the two-eyed families share live-v1 eyes. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused. Every family supports shared finish (plush default, flat optional) and eyePlacement (face default, raised optional). These strictly closed appearance selectors do not change identity-derived shape/color or runtime state. Descriptors include both resolved values. The One family is a disc with one bar for an eye, drawn only from agent-eye geometry (eye style agent-eye-v1): its kinds are twelve agent colours and charcoal (Digital One), and an omitted kind selects one of the twelve colours from the DID. A One renders the held face of its resolved state as a still glyph without animation or element identifiers, decorative (aria-hidden), at 16\u20132048 px, and keeps finish, eyePlacement and accessories in the descriptor without drawing them. theme selects light (default) or dark surface tones; it is presentation only, is never stored appearance, and changes only the One family today."
   },
   "servers": [
     {
@@ -850,6 +851,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/eyePlacement"
+          },
+          {
+            "$ref": "#/components/parameters/theme"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -978,6 +982,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/eyePlacement"
+          },
+          {
+            "$ref": "#/components/parameters/theme"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1144,6 +1151,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/eyePlacement"
+          },
+          {
+            "$ref": "#/components/parameters/theme"
           }
         ],
         "responses": {
@@ -1248,6 +1258,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/eyePlacement"
+          },
+          {
+            "$ref": "#/components/parameters/theme"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1370,6 +1383,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/eyePlacement"
+          },
+          {
+            "$ref": "#/components/parameters/theme"
           }
         ],
         "x-reject-unknown-query-parameters": true,
@@ -1530,6 +1546,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/eyePlacement"
+          },
+          {
+            "$ref": "#/components/parameters/theme"
           }
         ],
         "responses": {
@@ -2210,7 +2229,8 @@ export const characterApiOpenApi = {
               "tuft",
               "halloween",
               "thanksgiving",
-              "christmas"
+              "christmas",
+              "one"
             ],
             "default": "autos"
           },
@@ -2220,10 +2240,7 @@ export const characterApiOpenApi = {
             "default": 1
           },
           "eyeStyle": {
-            "type": "string",
-            "const": "live-v1",
-            "default": "live-v1",
-            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
+            "$ref": "#/components/schemas/CharacterEyeStyle"
           },
           "shape": {
             "type": "string",
@@ -2277,7 +2294,20 @@ export const characterApiOpenApi = {
               "tree",
               "snowman",
               "ornament",
-              "gift"
+              "gift",
+              "blue",
+              "red",
+              "sky",
+              "green",
+              "yellow",
+              "pink",
+              "plum",
+              "teal",
+              "lime",
+              "mint",
+              "lilac",
+              "coral",
+              "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           },
@@ -2308,6 +2338,9 @@ export const characterApiOpenApi = {
                     "slender",
                     "wide"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2336,6 +2369,9 @@ export const characterApiOpenApi = {
                     "cloud",
                     "droplet"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2359,6 +2395,9 @@ export const characterApiOpenApi = {
                     "kite",
                     "fan"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2382,6 +2421,9 @@ export const characterApiOpenApi = {
                     "bud",
                     "leaf"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2405,6 +2447,9 @@ export const characterApiOpenApi = {
                     "drop",
                     "wave"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2428,6 +2473,9 @@ export const characterApiOpenApi = {
                     "comet",
                     "satellite"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2451,6 +2499,9 @@ export const characterApiOpenApi = {
                     "mitt",
                     "hood"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2474,6 +2525,9 @@ export const characterApiOpenApi = {
                     "crystal",
                     "obelisk"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2497,6 +2551,9 @@ export const characterApiOpenApi = {
                     "spring",
                     "bellows"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2520,6 +2577,9 @@ export const characterApiOpenApi = {
                     "vase",
                     "teapot"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2543,6 +2603,9 @@ export const characterApiOpenApi = {
                     "flame",
                     "curl"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2566,6 +2629,9 @@ export const characterApiOpenApi = {
                     "radio",
                     "beacon"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2589,6 +2655,9 @@ export const characterApiOpenApi = {
                     "tower",
                     "arch"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2612,6 +2681,9 @@ export const characterApiOpenApi = {
                     "pom",
                     "bear"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2637,6 +2709,9 @@ export const characterApiOpenApi = {
                     "witch-hat",
                     "candy-corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2662,6 +2737,9 @@ export const characterApiOpenApi = {
                     "pie",
                     "corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
                 }
               }
             }
@@ -2687,6 +2765,45 @@ export const characterApiOpenApi = {
                     "ornament",
                     "gift"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "one"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "blue",
+                    "red",
+                    "sky",
+                    "green",
+                    "yellow",
+                    "pink",
+                    "plum",
+                    "teal",
+                    "lime",
+                    "mint",
+                    "lilac",
+                    "coral",
+                    "charcoal"
+                  ]
+                },
+                "eyeStyle": {
+                  "const": "agent-eye-v1"
                 }
               }
             }
@@ -2762,7 +2879,8 @@ export const characterApiOpenApi = {
               "tuft",
               "halloween",
               "thanksgiving",
-              "christmas"
+              "christmas",
+              "one"
             ],
             "default": "autos"
           },
@@ -2772,16 +2890,14 @@ export const characterApiOpenApi = {
             "default": 1
           },
           "eyeStyle": {
-            "type": "string",
-            "const": "live-v1",
-            "default": "live-v1",
-            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
+            "$ref": "#/components/schemas/CharacterEyeStyle"
           },
           "size": {
             "type": "integer",
-            "minimum": 32,
+            "minimum": 16,
             "maximum": 2048,
-            "default": 512
+            "default": 512,
+            "description": "Square pixel size: 16\u20132048 for the One family, 32\u20132048 for every other family."
           },
           "animated": {
             "type": "boolean",
@@ -2843,7 +2959,20 @@ export const characterApiOpenApi = {
               "tree",
               "snowman",
               "ornament",
-              "gift"
+              "gift",
+              "blue",
+              "red",
+              "sky",
+              "green",
+              "yellow",
+              "pink",
+              "plum",
+              "teal",
+              "lime",
+              "mint",
+              "lilac",
+              "coral",
+              "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           },
@@ -2889,6 +3018,9 @@ export const characterApiOpenApi = {
           },
           "eyePlacement": {
             "$ref": "#/components/schemas/CharacterEyePlacement"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/CharacterTheme"
           }
         },
         "allOf": [
@@ -2908,6 +3040,12 @@ export const characterApiOpenApi = {
                     "slender",
                     "wide"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -2936,6 +3074,12 @@ export const characterApiOpenApi = {
                     "cloud",
                     "droplet"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -2959,6 +3103,12 @@ export const characterApiOpenApi = {
                     "kite",
                     "fan"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -2982,6 +3132,12 @@ export const characterApiOpenApi = {
                     "bud",
                     "leaf"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3005,6 +3161,12 @@ export const characterApiOpenApi = {
                     "drop",
                     "wave"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3028,6 +3190,12 @@ export const characterApiOpenApi = {
                     "comet",
                     "satellite"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3051,6 +3219,12 @@ export const characterApiOpenApi = {
                     "mitt",
                     "hood"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3074,6 +3248,12 @@ export const characterApiOpenApi = {
                     "crystal",
                     "obelisk"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3097,6 +3277,12 @@ export const characterApiOpenApi = {
                     "spring",
                     "bellows"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3120,6 +3306,12 @@ export const characterApiOpenApi = {
                     "vase",
                     "teapot"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3143,6 +3335,12 @@ export const characterApiOpenApi = {
                     "flame",
                     "curl"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3166,6 +3364,12 @@ export const characterApiOpenApi = {
                     "radio",
                     "beacon"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3189,6 +3393,12 @@ export const characterApiOpenApi = {
                     "tower",
                     "arch"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3212,6 +3422,12 @@ export const characterApiOpenApi = {
                     "pom",
                     "bear"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3237,6 +3453,12 @@ export const characterApiOpenApi = {
                     "witch-hat",
                     "candy-corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3262,6 +3484,12 @@ export const characterApiOpenApi = {
                     "pie",
                     "corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3287,6 +3515,48 @@ export const characterApiOpenApi = {
                     "ornament",
                     "gift"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "one"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "blue",
+                    "red",
+                    "sky",
+                    "green",
+                    "yellow",
+                    "pink",
+                    "plum",
+                    "teal",
+                    "lime",
+                    "mint",
+                    "lilac",
+                    "coral",
+                    "charcoal"
+                  ]
+                },
+                "eyeStyle": {
+                  "const": "agent-eye-v1"
                 }
               }
             }
@@ -3322,7 +3592,8 @@ export const characterApiOpenApi = {
               "tuft",
               "halloween",
               "thanksgiving",
-              "christmas"
+              "christmas",
+              "one"
             ],
             "default": "autos"
           },
@@ -3332,16 +3603,14 @@ export const characterApiOpenApi = {
             "default": 1
           },
           "eyeStyle": {
-            "type": "string",
-            "const": "live-v1",
-            "default": "live-v1",
-            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
+            "$ref": "#/components/schemas/CharacterEyeStyle"
           },
           "size": {
             "type": "integer",
-            "minimum": 32,
+            "minimum": 16,
             "maximum": 2048,
-            "default": 512
+            "default": 512,
+            "description": "Square pixel size: 16\u20132048 for the One family, 32\u20132048 for every other family."
           },
           "animated": {
             "type": "boolean",
@@ -3403,7 +3672,20 @@ export const characterApiOpenApi = {
               "tree",
               "snowman",
               "ornament",
-              "gift"
+              "gift",
+              "blue",
+              "red",
+              "sky",
+              "green",
+              "yellow",
+              "pink",
+              "plum",
+              "teal",
+              "lime",
+              "mint",
+              "lilac",
+              "coral",
+              "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           },
@@ -3449,6 +3731,9 @@ export const characterApiOpenApi = {
           },
           "eyePlacement": {
             "$ref": "#/components/schemas/CharacterEyePlacement"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/CharacterTheme"
           }
         },
         "allOf": [
@@ -3468,6 +3753,12 @@ export const characterApiOpenApi = {
                     "slender",
                     "wide"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3496,6 +3787,12 @@ export const characterApiOpenApi = {
                     "cloud",
                     "droplet"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3519,6 +3816,12 @@ export const characterApiOpenApi = {
                     "kite",
                     "fan"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3542,6 +3845,12 @@ export const characterApiOpenApi = {
                     "bud",
                     "leaf"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3565,6 +3874,12 @@ export const characterApiOpenApi = {
                     "drop",
                     "wave"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3588,6 +3903,12 @@ export const characterApiOpenApi = {
                     "comet",
                     "satellite"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3611,6 +3932,12 @@ export const characterApiOpenApi = {
                     "mitt",
                     "hood"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3634,6 +3961,12 @@ export const characterApiOpenApi = {
                     "crystal",
                     "obelisk"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3657,6 +3990,12 @@ export const characterApiOpenApi = {
                     "spring",
                     "bellows"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3680,6 +4019,12 @@ export const characterApiOpenApi = {
                     "vase",
                     "teapot"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3703,6 +4048,12 @@ export const characterApiOpenApi = {
                     "flame",
                     "curl"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3726,6 +4077,12 @@ export const characterApiOpenApi = {
                     "radio",
                     "beacon"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3749,6 +4106,12 @@ export const characterApiOpenApi = {
                     "tower",
                     "arch"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3772,6 +4135,12 @@ export const characterApiOpenApi = {
                     "pom",
                     "bear"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3797,6 +4166,12 @@ export const characterApiOpenApi = {
                     "witch-hat",
                     "candy-corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3822,6 +4197,12 @@ export const characterApiOpenApi = {
                     "pie",
                     "corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -3847,6 +4228,48 @@ export const characterApiOpenApi = {
                     "ornament",
                     "gift"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "one"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "blue",
+                    "red",
+                    "sky",
+                    "green",
+                    "yellow",
+                    "pink",
+                    "plum",
+                    "teal",
+                    "lime",
+                    "mint",
+                    "lilac",
+                    "coral",
+                    "charcoal"
+                  ]
+                },
+                "eyeStyle": {
+                  "const": "agent-eye-v1"
                 }
               }
             }
@@ -3871,7 +4294,8 @@ export const characterApiOpenApi = {
           "view",
           "accessories",
           "finish",
-          "eyePlacement"
+          "eyePlacement",
+          "theme"
         ],
         "properties": {
           "did": {
@@ -3896,7 +4320,8 @@ export const characterApiOpenApi = {
               "tuft",
               "halloween",
               "thanksgiving",
-              "christmas"
+              "christmas",
+              "one"
             ],
             "default": "autos"
           },
@@ -3906,16 +4331,14 @@ export const characterApiOpenApi = {
             "default": 1
           },
           "eyeStyle": {
-            "type": "string",
-            "const": "live-v1",
-            "default": "live-v1",
-            "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
+            "$ref": "#/components/schemas/CharacterEyeStyle"
           },
           "size": {
             "type": "integer",
-            "minimum": 32,
+            "minimum": 16,
             "maximum": 2048,
-            "default": 512
+            "default": 512,
+            "description": "Square pixel size: 16\u20132048 for the One family, 32\u20132048 for every other family."
           },
           "animated": {
             "type": "boolean",
@@ -4008,7 +4431,20 @@ export const characterApiOpenApi = {
               "tree",
               "snowman",
               "ornament",
-              "gift"
+              "gift",
+              "blue",
+              "red",
+              "sky",
+              "green",
+              "yellow",
+              "pink",
+              "plum",
+              "teal",
+              "lime",
+              "mint",
+              "lilac",
+              "coral",
+              "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
           },
@@ -4054,6 +4490,9 @@ export const characterApiOpenApi = {
           },
           "eyePlacement": {
             "$ref": "#/components/schemas/CharacterEyePlacement"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/CharacterTheme"
           }
         },
         "allOf": [
@@ -4073,6 +4512,12 @@ export const characterApiOpenApi = {
                     "slender",
                     "wide"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4101,6 +4546,12 @@ export const characterApiOpenApi = {
                     "cloud",
                     "droplet"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4124,6 +4575,12 @@ export const characterApiOpenApi = {
                     "kite",
                     "fan"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4147,6 +4604,12 @@ export const characterApiOpenApi = {
                     "bud",
                     "leaf"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4170,6 +4633,12 @@ export const characterApiOpenApi = {
                     "drop",
                     "wave"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4193,6 +4662,12 @@ export const characterApiOpenApi = {
                     "comet",
                     "satellite"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4216,6 +4691,12 @@ export const characterApiOpenApi = {
                     "mitt",
                     "hood"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4239,6 +4720,12 @@ export const characterApiOpenApi = {
                     "crystal",
                     "obelisk"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4262,6 +4749,12 @@ export const characterApiOpenApi = {
                     "spring",
                     "bellows"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4285,6 +4778,12 @@ export const characterApiOpenApi = {
                     "vase",
                     "teapot"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4308,6 +4807,12 @@ export const characterApiOpenApi = {
                     "flame",
                     "curl"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4331,6 +4836,12 @@ export const characterApiOpenApi = {
                     "radio",
                     "beacon"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4354,6 +4865,12 @@ export const characterApiOpenApi = {
                     "tower",
                     "arch"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4377,6 +4894,12 @@ export const characterApiOpenApi = {
                     "pom",
                     "bear"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4402,6 +4925,12 @@ export const characterApiOpenApi = {
                     "witch-hat",
                     "candy-corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4427,6 +4956,12 @@ export const characterApiOpenApi = {
                     "pie",
                     "corn"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
                 }
               }
             }
@@ -4452,6 +4987,48 @@ export const characterApiOpenApi = {
                     "ornament",
                     "gift"
                   ]
+                },
+                "eyeStyle": {
+                  "const": "live-v1"
+                },
+                "size": {
+                  "minimum": 32
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "skin": {
+                  "const": "one"
+                }
+              },
+              "required": [
+                "skin"
+              ]
+            },
+            "then": {
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "blue",
+                    "red",
+                    "sky",
+                    "green",
+                    "yellow",
+                    "pink",
+                    "plum",
+                    "teal",
+                    "lime",
+                    "mint",
+                    "lilac",
+                    "coral",
+                    "charcoal"
+                  ]
+                },
+                "eyeStyle": {
+                  "const": "agent-eye-v1"
                 }
               }
             }
@@ -4489,7 +5066,8 @@ export const characterApiOpenApi = {
               "tuft",
               "halloween",
               "thanksgiving",
-              "christmas"
+              "christmas",
+              "one"
             ],
             "default": "autos"
           },
@@ -4503,13 +5081,11 @@ export const characterApiOpenApi = {
           "eyeStyles": {
             "type": "array",
             "items": {
-              "type": "string",
-              "const": "live-v1",
-              "default": "live-v1",
-              "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
+              "$ref": "#/components/schemas/CharacterEyeStyle"
             },
             "minItems": 1,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "The family\u2019s eye styles; the first is its default."
           },
           "shapes": {
             "type": "array",
@@ -4565,7 +5141,20 @@ export const characterApiOpenApi = {
                 "tree",
                 "snowman",
                 "ornament",
-                "gift"
+                "gift",
+                "blue",
+                "red",
+                "sky",
+                "green",
+                "yellow",
+                "pink",
+                "plum",
+                "teal",
+                "lime",
+                "mint",
+                "lilac",
+                "coral",
+                "charcoal"
               ],
               "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
             },
@@ -4628,6 +5217,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4660,6 +5256,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 8,
                   "maxItems": 8
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4687,6 +5290,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4714,6 +5324,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4741,6 +5358,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4768,6 +5392,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4795,6 +5426,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4822,6 +5460,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4849,6 +5494,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4876,6 +5528,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4903,6 +5562,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4930,6 +5596,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4957,6 +5630,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -4984,6 +5664,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 3,
                   "maxItems": 3
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -5013,6 +5700,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 5,
                   "maxItems": 5
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -5042,6 +5736,13 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 5,
                   "maxItems": 5
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -5071,6 +5772,57 @@ export const characterApiOpenApi = {
                   },
                   "minItems": 5,
                   "maxItems": 5
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "live-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "const": "one"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "shapes": {
+                  "items": {
+                    "enum": [
+                      "blue",
+                      "red",
+                      "sky",
+                      "green",
+                      "yellow",
+                      "pink",
+                      "plum",
+                      "teal",
+                      "lime",
+                      "mint",
+                      "lilac",
+                      "coral",
+                      "charcoal"
+                    ]
+                  },
+                  "minItems": 13,
+                  "maxItems": 13
+                },
+                "eyeStyles": {
+                  "items": {
+                    "const": "agent-eye-v1"
+                  },
+                  "minItems": 1,
+                  "maxItems": 1
                 }
               }
             }
@@ -5148,9 +5900,13 @@ export const characterApiOpenApi = {
           "speaking",
           "success",
           "blocked",
-          "error"
+          "error",
+          "typing",
+          "attention",
+          "paused",
+          "offline"
         ],
-        "description": "Expressions map to themselves. Aliases: idle\u2192neutral, listening\u2192attentive, reasoning\u2192thoughtful, working\u2192attentive, speaking/success\u2192happy, blocked/error\u2192concerned. Presentation only; not evidence of actual agent activity."
+        "description": "Expressions map to themselves. Aliases: idle\u2192neutral, listening\u2192attentive, reasoning\u2192thoughtful, working\u2192attentive, speaking/success\u2192happy, blocked/error\u2192concerned, typing/attention\u2192attentive, paused/offline\u2192sleepy. Presentation only; not evidence of actual agent activity."
       },
       "CharacterStatusV1": {
         "type": "object",
@@ -5225,6 +5981,23 @@ export const characterApiOpenApi = {
         ],
         "default": "face",
         "description": "Shared live-v1 eye placement on every family: on the face by default, or raised above the head. Appearance only; all eighteen expressions remain available."
+      },
+      "CharacterTheme": {
+        "type": "string",
+        "enum": [
+          "light",
+          "dark"
+        ],
+        "default": "light",
+        "description": "Surface the character is drawn on. Presentation only, never stored appearance. The One family uses lifted disc tones and no keyline on dark surfaces; other families render identically on both."
+      },
+      "CharacterEyeStyle": {
+        "type": "string",
+        "enum": [
+          "live-v1",
+          "agent-eye-v1"
+        ],
+        "description": "Eye geometry. live-v1 is shared geometry across the two-eyed families; the One family uses agent-eye-v1, agent-eye\u2019s single bar. A family accepts only its own eye style, and an omitted style selects it. Future eye geometries receive new identifiers."
       }
     },
     "parameters": {
@@ -5268,7 +6041,8 @@ export const characterApiOpenApi = {
             "tuft",
             "halloween",
             "thanksgiving",
-            "christmas"
+            "christmas",
+            "one"
           ],
           "default": "autos"
         }
@@ -5286,10 +6060,7 @@ export const characterApiOpenApi = {
         "name": "eyeStyle",
         "in": "query",
         "schema": {
-          "type": "string",
-          "const": "live-v1",
-          "default": "live-v1",
-          "description": "Shared geometry across all families. Future eye geometries receive new identifiers."
+          "$ref": "#/components/schemas/CharacterEyeStyle"
         }
       },
       "size": {
@@ -5297,11 +6068,12 @@ export const characterApiOpenApi = {
         "in": "query",
         "schema": {
           "type": "integer",
-          "minimum": 32,
+          "minimum": 16,
           "maximum": 2048,
-          "default": 512
+          "default": 512,
+          "description": "Square pixel size: 16\u20132048 for the One family, 32\u20132048 for every other family."
         },
-        "description": "Unsigned decimal integer, no leading zeroes."
+        "description": "Unsigned decimal integer, no leading zeroes. 16\u20132048 for the One family, 32\u20132048 for every other family."
       },
       "animated": {
         "name": "animated",
@@ -5401,7 +6173,20 @@ export const characterApiOpenApi = {
             "tree",
             "snowman",
             "ornament",
-            "gift"
+            "gift",
+            "blue",
+            "red",
+            "sky",
+            "green",
+            "yellow",
+            "pink",
+            "plum",
+            "teal",
+            "lime",
+            "mint",
+            "lilac",
+            "coral",
+            "charcoal"
           ],
           "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
         }
@@ -5481,6 +6266,13 @@ export const characterApiOpenApi = {
         "in": "query",
         "schema": {
           "$ref": "#/components/schemas/CharacterEyePlacement"
+        }
+      },
+      "theme": {
+        "name": "theme",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/CharacterTheme"
         }
       }
     },

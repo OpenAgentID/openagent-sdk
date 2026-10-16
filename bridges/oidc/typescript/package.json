@@ -62,7 +62,7 @@
   "peerDependencies": {
     "@openagentid/arsenal-sdk": "^0.1.0",
     "@openagentid/oas-sdk": "^1.0.2",
-    "@openagentid/sdk": "^0.7.2"
+    "@openagentid/sdk": "^0.7.2 || ^0.8.0"
   },
   "peerDependenciesMeta": {
     "@openagentid/oas-sdk": {

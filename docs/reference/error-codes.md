@@ -2,7 +2,7 @@
 
 The SDK facade exports `OpenAgentError`, its subclasses and `ErrorCode` from
 `@openagentid/sdk`. Match the stable `code` value rather than the message.
-These are the literal strings shipped in SDK 0.7.3:
+These are the literal strings shipped in SDK 0.8.0:
 
 | Exported constant | Value |
 | --- | --- |

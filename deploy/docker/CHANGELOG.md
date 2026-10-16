@@ -1,5 +1,10 @@
 # Changelog — openagent-docker
 
+## 0.2.1 (2026-10-15)
+
+- Accept `@openagentid/sdk` 0.8.0 beside 0.7.x (`^0.7.2 || ^0.8.0`). No receiver change; the deployment
+  examples' typecheck and tests are qualified against a packed SDK 0.8.0.
+
 ## 0.2.0 (2026-10-12)
 
 - Replace placeholder authentication with the shared SDK ACT receiver and explicit broker, audience, tenant, scope and revocation policy.

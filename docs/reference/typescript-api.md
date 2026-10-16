@@ -1,6 +1,6 @@
 # TypeScript API reference
 
-This is a map of the current SDK 0.7.3 surfaces. The linked source declarations
+This is a map of the current SDK 0.8.0 surfaces. The linked source declarations
 are authoritative for exact types and exports; the public
 [developer-tooling guide](../developer-tooling.md) supplies the complete first
 integration. The separate OIDC package remains version 0.2.0.
@@ -48,15 +48,23 @@ transport around that authority. See the [normative verification contract](../id
 
 `@openagentid/sdk/characters` exports `generateCharacter`, `renderCharacterSvg`,
 `getCharacterSkins`, `getCharacterExpressions`, `getCharacterStatuses`, appearance
-and state types. The closed catalog has 17 families, 62 kinds and 18 expressions.
+and state types. The closed catalog has 18 families, 75 kinds and 18 expressions.
 `CharacterAppearance` stores skin/version, eye style, shape, finish, eye placement
-and accessories. `view` belongs to render/player options, not that stored type.
+and accessories. `view`, `theme` and `label` belong to render/player options, not
+that stored type. Each catalog family lists its eye styles (`live-v1`, or
+`agent-eye-v1` for One). For the One family it also exports `getOneColors`,
+`oneColorForDid` and `nextOneColor` with the `OneColor`, `OneKind` and
+`OneColorHolder` types.
 
 `@openagentid/sdk/browser` is self-contained browser ESM. It exports
 `mountCharacter(element, did, options?)` and catalogs. The returned player has
-`update`, `setAppearance`, `setReducedMotion`, `getState` and `dispose`.
-`@openagentid/sdk/character-player` also exposes the player as a module, while
-`@openagentid/sdk/character-animation` supplies DOM-free sampled geometry.
+`update`, `setAppearance`, `setReducedMotion`, `getState` and `dispose`; One heads
+also take `cadence`, `group`, `voiceLevel` and `follow`. The browser entry re-exports
+the One colour helpers. `@openagentid/sdk/one` is the One family alone: `renderOne`,
+`mountOne` and the palette helpers; `@openagentid/sdk/browser/one` is its live
+runtime, self-contained, within a 16 KB gzipped budget. `@openagentid/sdk/character-player` also exposes the player as a
+module, while `@openagentid/sdk/character-animation` supplies DOM-free sampled
+geometry, including `frame.one` for One heads.
 
 Root/`glyph` exports include `oasGlyph`, `glyphEndpoint`, `agentAvatar` and
 `isAgentAvatarDid`. Display parsing establishes no authentication or permission.

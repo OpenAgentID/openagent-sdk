@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "Open agent identity, local trust and verification, and live animated avatars. No hosted service required.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
@@ -95,9 +95,18 @@
       "import": "./dist/character-player.js",
       "require": "./dist/character-player.cjs"
     },
+    "./one": {
+      "types": "./dist/one.d.ts",
+      "import": "./dist/one.js",
+      "require": "./dist/one.cjs"
+    },
     "./browser": {
       "types": "./dist/browser/character-player.d.ts",
       "import": "./dist/browser/character-player.js"
+    },
+    "./browser/one": {
+      "types": "./dist/browser/one.d.ts",
+      "import": "./dist/browser/one.js"
     },
     "./local": {
       "types": "./dist/local-workspace.d.ts",
@@ -152,7 +161,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit && vitest run",
-    "clean": "rm -rf dist coverage"
+    "clean": "rm -rf dist coverage",
+    "size": "node scripts/check-size.mjs"
   },
   "dependencies": {
     "zod": "^3.23.8",

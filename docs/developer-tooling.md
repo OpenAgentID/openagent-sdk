@@ -6,14 +6,14 @@ it needs no Life account, hosted resolver or private integration package.
 
 | Published package | Version | Purpose |
 | --- | --- | --- |
-| `create-openagent` | 0.5.3 | Generate a working HTTP receiver, signer and browser UI. |
-| `@openagentid/sdk` | 0.7.3 | Local identity, `oaid` CLI, portable verification, OATS and avatars. |
+| `create-openagent` | 0.6.0 | Generate a working HTTP receiver, signer and browser UI. |
+| `@openagentid/sdk` | 0.8.0 | Local identity, `oaid` CLI, portable verification, OATS and avatars. |
 | `@openagentid/oidc` | 0.2.0 | Run a configured agent OIDC provider and optional owner federation. |
 
 ## Start a working application
 
 ```sh
-npx create-openagent@0.5.3 my-agent-app --yes
+npx create-openagent@0.6.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -38,7 +38,7 @@ these calls on the installed package rather than searching for an unrelated
 package named `oaid`.
 
 ```sh
-npm install @openagentid/sdk@0.7.3
+npm install @openagentid/sdk@0.8.0
 npx --no-install oaid --version
 npx --no-install oaid --help
 ```
@@ -158,13 +158,15 @@ player.update({ expression: null });    // Return to that status's expression.
 player.dispose();
 ```
 
-All 17 families and 62 kinds share 18 expressions, ambient blink/gaze and smooth,
-interruptible transitions. Use `getCharacterSkins()` for the exact catalog and
+All 18 families and 75 kinds share 18 expressions. The two-eyed families add
+ambient blink/gaze and smooth, interruptible transitions; the One family holds
+still at rest and moves only when its state changes. Use `getCharacterSkins()` for the exact catalog and
 valid shapes; omitted shape selects deterministically from the DID. A changed
 skin resets an incompatible old shape. `setAppearance({ shape: null })` returns
 to the DID-selected shape; `accessories: []` removes both wearable layers.
 
-Appearance updates preserve the SVG, eye nodes and animation clock. `view: 'avatar'`
+Appearance updates preserve the SVG, eye nodes and animation clock; switching to
+or from the One family replaces the head and keeps its state. `view: 'avatar'`
 frames the face by default; `view: 'full'` renders the complete body. `view` is a
 rendering option, not a stored appearance field. Plush/flat finish, face/raised
 eyes and wearables are independent of identity and expression state. Glasses

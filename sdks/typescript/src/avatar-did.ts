@@ -1,5 +1,5 @@
 /** Display-only identity parsing. This module never admits or verifies a principal. */
-import { didSchema } from './config.js';
+import { isDidSyntax } from './did-format.js';
 
 // IAM enrollment already assigns this literal format using ulid::Ulid::new().
 // Canonical ULIDs have 128 bits: their first base32 digit is at most seven.
@@ -21,7 +21,7 @@ export function parseAvatarDid(did: string): AvatarDidParts {
   if (iamInstanceDid.test(did)) {
     return { namespace: '', kind: 'agent:instance', identifier: did.slice('did:oas:agent-instance:'.length), opaque: true };
   }
-  didSchema.parse(did);
+  if (!isDidSyntax(did)) throw new TypeError('Invalid avatar DID');
   const fields = did.split(':');
   const legacy = fields[1] === 'l1fe';
   return {

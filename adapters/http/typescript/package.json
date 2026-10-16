@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/http",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "HTTP authentication with authoritative OpenAgentID identity binding, atomic challenge replay protection and SDK integration.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
@@ -81,7 +81,7 @@
     "zod": "^3.23.8"
   },
   "peerDependencies": {
-    "@openagentid/sdk": "^0.7.2"
+    "@openagentid/sdk": "^0.7.2 || ^0.8.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

@@ -12,7 +12,8 @@ const animated = element('animated');
 const preview = element('preview');
 const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const label = value => value.replaceAll('-', ' ').replace(/^./, character => character.toUpperCase());
-const activityStates = ['idle', 'listening', 'reasoning', 'working', 'speaking', 'success', 'blocked', 'error'];
+const activityStates = ['idle', 'listening', 'reasoning', 'working', 'speaking', 'success', 'blocked', 'error',
+  'typing', 'attention', 'paused', 'offline'];
 const sequence = [
   ['listening', 1000], ['reasoning', 1600], ['working', 1600],
   ['speaking', 1100], ['success', 1000], ['idle', 0],
@@ -98,7 +99,9 @@ function refresh() {
   codeExample();
   if (!player) return;
   const state = player.getState();
-  const query = new URLSearchParams({ skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, skinVersion: '1', eyeStyle: 'live-v1',
+  const query = new URLSearchParams({ skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, skinVersion: '1',
+    // Each family has its own eye geometry: live-v1 bars, or agent-eye-v1 on One.
+    eyeStyle: catalog.find(entry => entry.id === skin.value).eyeStyles[0],
     expression: state.expression, size: element('size').value,
     animated: String(animated.checked && !motion.matches),
     blink: String(state.blink), gazeX: String(state.gaze.x), gazeY: String(state.gaze.y) });

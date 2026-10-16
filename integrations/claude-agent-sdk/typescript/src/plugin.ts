@@ -101,7 +101,7 @@ export interface HookDecision {
   inputHash?: string;
 }
 
-const PLUGIN_VERSION = '0.2.0';
+const PLUGIN_VERSION = '0.2.1';
 
 /**
  * Build a Claude Agent SDK plugin that wires OpenAgent identity,

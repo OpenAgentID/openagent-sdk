@@ -1,7 +1,7 @@
 # Delegating Authority
 
 Identity delegation and application capability delegation are different
-contracts. SDK 0.7.3's `IdentityVerifier` verifies signed identity paths; the
+contracts. SDK 0.8.0's `IdentityVerifier` verifies signed identity paths; the
 configured issuer/broker authorizes and signs capability grants. Neither the
 local identity module nor `OpenAgentInstance` exposes a `delegate()` method.
 

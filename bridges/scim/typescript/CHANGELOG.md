@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — 2026-10-15
+
+- Accept `@openagentid/sdk` 0.8.0 beside 0.7.x (peer range `^0.7.2 || ^0.8.0`). No API change: the
+  package's typecheck, tests and build are qualified against a packed SDK 0.8.0 as well as the published 0.7.2.
+
 ## 0.2.0 — 2026-10-12
 
 - Require actual identity provisioning and authority-backed scope changes. Fail closed on missing authentication/revocation callbacks, retain inactive records for retry and revoke on deactivation. Remove placeholder DIDs/key fingerprints and add current SDK Ed25519 lifecycle tests.

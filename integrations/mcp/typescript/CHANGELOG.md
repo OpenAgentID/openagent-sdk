@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — 2026-10-15
+
+- Accept `@openagentid/sdk` 0.8.0 beside 0.7.x (peer range `^0.7.2 || ^0.8.0`). No API change: the
+  package's typecheck, tests and build are qualified against a packed SDK 0.8.0 as well as the published 0.7.2.
+
 ## 0.2.0 — 2026-10-12
 
 - Current SDK workspace adapters use real Ed25519 proofs with caller/tool/argument-bound challenges, receiver-owned scopes, replay and revocation checks. Raw wire requests are captured before schema parsing so defaults, transforms and stripped fields preserve binding. Client mutations run before signing; native MCP integration and stdio example cover the complete path.

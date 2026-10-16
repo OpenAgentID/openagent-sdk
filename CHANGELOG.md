@@ -31,6 +31,70 @@
   no SDK republish is part of this change. The OIDC browser entry is separate
   from the Node provider.
 
+## 0.8.0 — the One family, 2026-10-15
+
+- Add the opt-in `one` character family: a round disc with one bar for an eye,
+  drawn only from agent-eye geometry with its own eye style `agent-eye-v1`, in
+  twelve contrast- and colour-vision-gated agent colours plus `charcoal` (Digital
+  One). A DID selects one of the twelve colours when no kind is stored;
+  `getOneColors`, `oneColorForDid` and `nextOneColor` expose the palette, the DID
+  default and first-free assignment, repeating from the thirteenth agent
+  least-held first and, given `{ color, group }` holders, in another group first.
+  Autos stays the default; every existing family, kind, colour, stored profile
+  and DID seed renders exactly as in 0.7.3.
+- List eye styles per family in the catalog (`live-v1` on the two-eyed families,
+  `agent-eye-v1` on One) and refuse a style that belongs to another family in
+  options, stored appearance, identity documents, the HTTP API and OpenAPI.
+- Map the shared status timeline to One faces and moves: working reads along,
+  reasoning glances up and ponders, typing taps, attention looks at the viewer,
+  success smiles with a happy squint (40 px and up) or nods, paused dozes (a lid
+  and slumped body at 64 px and up), error goes dizzy, speaking talks with an
+  opaque mouth line under a full smile from an optional voice level. Idle with no
+  content direction is the warm face, so needs-you is the only face that looks
+  straight out. A blink at the viewer shuts tilted, never as a level bar. Every
+  move withdraws a visible smile line before it moves the eye.
+- Render One heads from 16 px (every other family keeps 32 px) in the SDK,
+  animator, player, CLI and HTTP API, with the plan's size tiers.
+- Render a decorative still glyph for servers, images and reduced motion, with
+  no element identifiers: Digital One's eye is cut out of its disc with the
+  even-odd rule. Stills carry `data-one-color` for forced-colours styles and keep
+  finish, eye placement and accessories in the descriptor without drawing them.
+- Run live One heads on one shared, sleeping animation-frame ticker per window
+  with one IntersectionObserver and one ResizeObserver: nothing moves at rest or
+  out of view, one head per list and three per window move at once, ongoing work
+  moves for at most five seconds in lists (`cadence: 'brief'`, each cluster
+  measured first) or in clusters in headers (`cadence: 'repeat'`), and reduced
+  motion holds every face still. Repaints never advance a move, so a head is
+  never stranded as moving. `follow: true` lets an eye follow a fine pointer
+  without counting as a move; a head takes over a still One rendered in its
+  element. The animator exposes `frame.one` for DOM-free renderers.
+- Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, palette
+  helpers) and `@openagentid/sdk/browser/one`, the live runtime alone at 14.5 KB
+  gzipped, with blank heads for ready-made agents and their First blink. `npm run
+  size` enforces 16 KB for it and 65 KB for the all-family browser bundle, which is
+  61.7 KB (63.1 KB in 0.7.3) because avatar DID parsing no longer loads zod.
+- Add `typing`, `attention`, `paused` and `offline` statuses for every family,
+  `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
+  CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the
+  family, its eye style, sizes, statuses and theme.
+- Port agent-eye's pure geometry and motion to TypeScript with its provenance:
+  the master (sha256 83cc379a…bba4), written by JR and contributed by its copyright
+  holder L1fe Labs, Inc. under Apache-2.0 OR MIT, is a byte-identical test
+  fixture; the port is compared with it and its containment check runs over
+  every held face and every frame of every move, from every face and when a move
+  cuts a smile or talk short.
+- Compatibility: SDK 0.7.3 and earlier reject identity documents whose
+  `avatarSkin` uses skin `one` or eye style `agent-eye-v1` (`IDENTITY_RESOLVE_FAILED`).
+  Keep One colours in the application's own agent records until every reader
+  upgrades.
+- Pin create-openagent 0.6.0 to SDK 0.8.0; its family picker lists One, and the
+  public onboarding verifier checks the One family in the generated starter.
+- Accept SDK 0.8.0 beside 0.7.x (`^0.7.2 || ^0.8.0`) in every package that
+  declares it: `@openagentid/http`, `mcp`, `claude-agent` and `scim` 0.2.1,
+  `sdk-testing` 0.1.3, the deployment templates 0.2.1 and the unreleased
+  `@openagentid/oidc` changes, each qualified against a packed SDK 0.8.0 and the
+  published 0.7.2. Publish them with the SDK.
+
 ## 0.7.3 — current package compatibility, 2026-10-12
 
 - Restore deterministic X25519 public keys from seeds with real WASM bindings;

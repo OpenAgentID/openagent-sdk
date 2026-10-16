@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — SDK 0.8.0 compatibility, 2026-10-15
+
+- Accept `@openagentid/sdk` 0.8.0 beside 0.7.x in the optional SDK peer range (`^0.7.2 || ^0.8.0`).
+  No API change; typecheck, tests and both builds are qualified against a packed SDK 0.8.0 too. The
+  package version is left to the release that publishes the unreleased Continue as Agent changes.
+
 ## Unreleased — eyes and label only, 2026-10-13
 
 - Remove the trailing OpenAgentID mark from the Continue as Agent button and

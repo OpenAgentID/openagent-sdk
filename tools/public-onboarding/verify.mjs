@@ -74,18 +74,18 @@ try {
   source = run('source-commit', ['git', 'rev-parse', 'HEAD'], root).trim();
   assert.match(source, /^[0-9a-f]{40}$/);
   if (process.env.OAID_SOURCE_SHA) assert.equal(source, process.env.OAID_SOURCE_SHA);
-  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.7.3', 'pack-sdk'),
-    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.5.3', 'pack-generator')];
+  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.8.0', 'pack-sdk'),
+    await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.6.0', 'pack-generator')];
   const tooling = join(fixture, 'tools');
   await mkdir(tooling);
   await writeFile(join(tooling, 'package.json'), JSON.stringify({ name: 'public-generator-consumer', private: true }));
   run('install-generator-archive', ['npm', 'install', '--ignore-scripts', '--no-audit', '--no-fund', packages[1].file], tooling);
   const generator = join(tooling, 'node_modules/.bin/create-openagent');
-  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.5.3');
+  assert.equal(run('installed-generator-version', [generator, '--version'], fixture).trim(), '0.6.0');
   run('generate-noninteractive-application', [generator, 'my-agent-app', '--yes'], fixture);
   const application = join(fixture, 'my-agent-app');
   const manifest = JSON.parse(await readFile(join(application, 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.7.3' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.8.0' });
   // Before publication the exact review artifact substitutes for the declared
   // registry release. No source or transitive dependency is replaced.
   run('install-sdk-archive-in-application', ['npm', 'install', '--ignore-scripts', '--save-exact', '--no-audit', '--no-fund', packages[0].file], application);
@@ -101,7 +101,7 @@ try {
   checks.push({ name: 'public-registry-dependency-closure', passed: true });
   run('generated-real-http-restart-replay-revocation-tests', ['npm', 'test'], application);
   const cli = join(application, 'node_modules/.bin/oaid');
-  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.7.3');
+  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.8.0');
   assert(run('installed-sdk-cli-help', [cli, '--help'], application).includes('oaid agent trust'));
 
   const hello = join(fixture, 'hello-agent');
@@ -131,7 +131,7 @@ try {
     await browserCheck(label + '-default-autos-and-owned-did', async () => {
       assert.equal(await page.locator('#identity').textContent(), app.did);
       assert.equal(await page.locator('#skin').inputValue(), 'autos');
-      assert.equal(await page.locator('#skin option').count(), 17);
+      assert.equal(await page.locator('#skin option').count(), 18);
       assert.equal(await page.locator('#avatar svg').getAttribute('data-character-view'), 'avatar');
       assert.notEqual(await page.locator('#avatar svg').getAttribute('viewBox'), '0 0 512 512');
       assert.equal(await page.locator('[data-character-eye]').count(), 2);
@@ -170,8 +170,10 @@ try {
     });
     await browserCheck(label + '-every-family-and-kind-preserves-actual-status-and-eyes', async () => {
       const catalog = await page.evaluate(async () => (await import('/character-player.js')).getCharacterSkins());
-      assert.equal(catalog.reduce((sum, family) => sum + family.shapes.length, 0), 62);
-      for (const family of catalog) {
+      assert.equal(catalog.reduce((sum, family) => sum + family.shapes.length, 0), 75);
+      // The two-eyed families keep the same svg and eye nodes across every switch; the One family
+      // replaces them with its own head and is checked on its own below.
+      for (const family of catalog.filter(entry => entry.id !== 'one')) {
         await page.selectOption('#skin', family.id);
         for (const shape of family.shapes) {
           await page.selectOption('#shape', shape);
@@ -232,6 +234,21 @@ try {
       assert(await page.evaluate(() => document.querySelector('#avatar svg') === window.oaidOriginalSvg &&
         [...document.querySelectorAll('#avatar [data-character-eye]')].every((eye, i) => eye === window.oaidOriginalEyes[i])));
     });
+    await browserCheck(label + '-one-family-keeps-real-status-and-returns', async () => {
+      await page.selectOption('#skin', 'one');
+      await page.waitForSelector('#avatar svg[data-character-skin="one"]');
+      assert.equal(await page.locator('#avatar svg').count(), 1);
+      assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
+      assert.equal(await page.locator('#avatar svg').getAttribute('data-one-face'), 'done');
+      assert.equal(await page.locator('#avatar [data-one-eye]').count(), 1);
+      assert.equal(await page.locator('#avatar [data-character-eye]').count(), 0);
+      assert.equal(await page.locator('#avatar [data-character-accessory]').count(), 0);
+      await page.selectOption('#skin', 'autos');
+      await page.waitForSelector('#avatar svg[data-character-skin="autos"]');
+      assert.equal(await page.locator('#avatar svg').count(), 1);
+      assert.equal(await page.locator('#avatar [data-character-eye]').count(), 2);
+      assert.equal(await page.locator('#avatar svg').getAttribute('data-character-status'), 'success');
+    });
     if (label === 'desktop') {
       await browserCheck('all-62-kinds-face-mask-expression-extremes-and-distinct-mount-paints', async () => {
         const result = await page.evaluate(async () => {
@@ -242,7 +259,8 @@ try {
           document.body.append(gallery);
           const players = [], failures = [];
           const title = document.createElement('h2'); title.textContent = 'OpenAgent families · full character and face avatar'; gallery.append(title);
-          for (const family of getCharacterSkins()) {
+          const families = getCharacterSkins().filter(family => family.id !== 'one');
+          for (const family of families) {
             const group = document.createElement('div'); group.dataset.characterFamily = family.id; gallery.append(group);
             const heading = document.createElement('h3'); heading.textContent = family.label; group.append(heading);
             const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px'; group.append(row);
@@ -339,7 +357,7 @@ try {
             }
           }
           window.oaidGalleryPlayers = players;
-          return { failures: [...new Set(failures)], families: getCharacterSkins().map(family => family.id) };
+          return { failures: [...new Set(failures)], families: families.map(family => family.id) };
         });
         await page.locator('#family-gallery').screenshot({ path: join(out, 'all-character-families.png') });
         for (const family of result.families) await page.locator('[data-character-family="' + family + '"]').screenshot({ path: join(out, 'family-' + family + '.png') });

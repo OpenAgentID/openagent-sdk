@@ -7,19 +7,9 @@
  */
 
 import { z } from 'zod';
+import { DID_REGEX, LEGACY_DID_REGEX } from './did-format.js';
 
-/**
- * DID regex for `did:oas:<namespace>:<kind>:<identifier>`.
- *
- * Mirrors the OAS v1.1.0 specification. We keep it deliberately permissive
- * here — strict validation belongs in the OAS SDK itself.
- */
-export const DID_REGEX =
-  /^did:oas:[a-z0-9][a-z0-9-]{0,63}:(hmr|mhr|ao|enr|agent|tool|skill|workflow|model|dataset|service|agent:instance):[A-Za-z0-9._-]+$/;
-
-/** Read existing legacy identities without rewriting their signed identifiers. */
-export const LEGACY_DID_REGEX =
-  /^did:l1fe:(hmr|mhr|ao|enr|agent|tool|skill|workflow|model|dataset|service|agent:instance):[A-Za-z0-9._-]+$/;
+export { DID_REGEX, LEGACY_DID_REGEX };
 
 export const didSchema = z.string().max(512).refine(
   value => DID_REGEX.test(value) || LEGACY_DID_REGEX.test(value),

@@ -1,5 +1,12 @@
 # Changelog — create-openagent
 
+## [0.6.0] - 2026-10-15
+
+- Pin SDK 0.8.0. The family picker lists the One family (coloured discs with one
+  bar for an eye) beside the existing families, from the SDK catalog; the real
+  signed-request status, expression controls and selected wearables carry over
+  when switching to and from it.
+
 ## [0.5.3] - 2026-10-12
 
 - Pin SDK 0.7.3 with current component adapters, fresh ACT verification clocks

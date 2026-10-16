@@ -11,6 +11,7 @@ const expressions = ['neutral', 'attentive', 'surprised', 'excited', 'happy', 'l
 const runtime = {
   idle: 'neutral', listening: 'attentive', reasoning: 'thoughtful', working: 'attentive',
   speaking: 'happy', success: 'happy', blocked: 'concerned', error: 'concerned',
+  typing: 'attentive', attention: 'attentive', paused: 'sleepy', offline: 'sleepy',
 } as const;
 
 describe('public character runtime state', () => {
@@ -23,6 +24,8 @@ describe('public character runtime state', () => {
     for (const entry of statuses) expect(Object.isFrozen(entry)).toBe(true);
     expect(Object.fromEntries(statuses.map(({ status, expression }) => [status, expression])))
       .toEqual({ ...Object.fromEntries(expressions.map((expression) => [expression, expression])), ...runtime });
+    // 0.8.0 appends its statuses; the earlier catalog order is unchanged.
+    expect(statuses.map(({ status }) => status).slice(-12)).toEqual(Object.keys(runtime));
   });
 
   it.each(Object.entries(runtime))('maps runtime %s to %s', (status, expression) => {
