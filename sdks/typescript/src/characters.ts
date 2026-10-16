@@ -11,9 +11,12 @@ import { isAgentAvatarDid } from './avatar-did.js';
 import { parseCharacterLabel } from './character-label.js';
 export { isAgentAvatarDid } from './avatar-did.js';
 import { CHARACTER_EXPRESSIONS, parseCharacterState, type AvatarExpression, type LiveEyeState } from './character-state.js';
-import { ONE_KINDS, oneColorForDid, onePaint, oneStillSvg, escapeXml, type OneKind } from './character-one.js';
-export { getOneColors, oneColorForDid, nextOneColor } from './character-one.js';
-export type { OneColor, OneKind, OneHeadColor, OneColorHolder, OneColorDescription, OneTemperament, OneFace, OnePose, OneTier, OneGeometry } from './character-one.js';
+import { ONE_KINDS, getOneShapes, isOneColor, isOneColorAllowed, oneColorForDid, onePaint, oneShapeForDid, oneStillSvg, escapeXml,
+  type OneColor, type OneHeadColor, type OneKind } from './character-one.js';
+export { getOneShapes, getOneColors, ONE_SHAPE_ORDER, ONE_DIGITAL, isOneShape, isOneColor, isOneKind, isOneColorAllowed,
+  oneShapeForDid, oneColorForDid, oneLookForDid, nextOneLook } from './character-one.js';
+export type { OneShape, OneColor, OneKind, OneHeadColor, OneLook, OneLookHolder, OneShapeDescription, OneShapeEye, OneColorDescription,
+  OneTemperament, OneFace, OnePose, OneTier, OneGeometry } from './character-one.js';
 export { getCharacterExpressions, getCharacterStatuses, parseCharacterState, expressionForStatus } from './character-state.js';
 export type { AvatarExpression, AvatarStatus, AgentActivity, LiveEyeState, CharacterRuntimeState, CharacterStateUpdate } from './character-state.js';
 
@@ -43,6 +46,12 @@ export interface CharacterAppearance {
   /** Raised places the same live eyes on soft pods above the head. */
   readonly eyePlacement?: CharacterEyePlacement;
   readonly shape?: CharacterShape;
+  /**
+   * The One family only: the agent's colour, one of the eighteen. With a shape and no colour, the shape's own
+   * colour applies; with neither, the DID's default look. Digital One (`shape: 'charcoal'`) has no colour, and a
+   * never pair (a shape in a colour that would turn it into a sign) is refused.
+   */
+  readonly color?: OneColor;
   /** Independent wearable layers; omit or pass [] for no accessories. */
   readonly accessories?: readonly CharacterAccessory[];
 }
@@ -86,7 +95,10 @@ export interface CharacterDescriptor {
   readonly shape: CharacterShape;
   readonly accessories: readonly CharacterAccessory[];
   readonly expression: AvatarExpression;
+  /** The body's paint as drawn (a hex value). */
   readonly color: string;
+  /** The One family only: the agent's colour id, as stored; absent for Digital One. */
+  readonly oneColor?: OneColor;
   readonly view: CharacterView;
   readonly theme: CharacterTheme;
   readonly size: number;
@@ -132,12 +144,12 @@ function record(value: unknown, keys: readonly string[], label: string): Record<
 }
 
 function normalizedOptions(options: CharacterOptions | undefined): {
-  skin: CharacterSkin; eyeStyle: CharacterEyeStyle; finish: CharacterFinish; eyePlacement: CharacterEyePlacement; shape?: CharacterShape; accessories: readonly CharacterAccessory[]; expression: AvatarExpression;
+  skin: CharacterSkin; eyeStyle: CharacterEyeStyle; finish: CharacterFinish; eyePlacement: CharacterEyePlacement; shape?: CharacterShape; color?: OneColor; accessories: readonly CharacterAccessory[]; expression: AvatarExpression;
   view: CharacterView; theme: CharacterTheme; label?: string; size: number; animated: boolean; state: CharacterDescriptor['state'];
   status: import('./character-state.js').AvatarStatus;
 } {
   const value: Record<string, unknown> = options === undefined ? {} : record(options,
-    ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'accessories', 'view', 'expression', 'size', 'animated', 'state', 'theme', 'label'], 'options');
+    ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'color', 'accessories', 'view', 'expression', 'size', 'animated', 'state', 'theme', 'label'], 'options');
   const selection = catalog.find(entry => entry.id === (value.skin === undefined ? 'autos' : value.skin));
   if (!selection) throw new TypeError('Unsupported character skin');
   const skin = selection.id;
@@ -154,6 +166,13 @@ function normalizedOptions(options: CharacterOptions | undefined): {
   const shapes = selection.shapes;
   if (value.shape !== undefined && !shapes.includes(value.shape as CharacterShape)) {
     throw new TypeError('Unsupported shape for character skin');
+  }
+  // A colour belongs to the One family's agents alone: never to another family, never to Digital One, never a never pair.
+  if (value.color !== undefined) {
+    if (skin !== 'one') throw new TypeError('Colour is for the One family');
+    if (!isOneColor(value.color)) throw new TypeError('Unsupported One colour');
+    if (value.shape === 'charcoal') throw new TypeError('Digital One has no colour');
+    if (value.shape !== undefined && !isOneColorAllowed(value.shape, value.color)) throw new TypeError(`A ${value.shape as string} is never ${value.color}`);
   }
   const view = value.view === undefined ? 'avatar' : value.view;
   if (view !== 'avatar' && view !== 'full') throw new TypeError('Unsupported character view');
@@ -172,7 +191,8 @@ function normalizedOptions(options: CharacterOptions | undefined): {
   const input = value.state === undefined ? {} : value.state;
   const resolved = parseCharacterState(input, expression as AvatarExpression);
   const supplied = input as Record<string, unknown>;
-  return { skin, eyeStyle, finish, eyePlacement, view, theme, ...(label === undefined ? {} : { label }), shape: value.shape as CharacterShape | undefined, accessories: parseCharacterAccessories(value.accessories), expression: resolved.expression, size, animated,
+  return { skin, eyeStyle, finish, eyePlacement, view, theme, ...(label === undefined ? {} : { label }), shape: value.shape as CharacterShape | undefined,
+    ...(value.color === undefined ? {} : { color: value.color as OneColor }), accessories: parseCharacterAccessories(value.accessories), expression: resolved.expression, size, animated,
     status: resolved.status,
     state: Object.freeze({ blink: resolved.blink, gaze: resolved.gaze,
       ...(supplied.status === undefined ? {} : { status: resolved.status }),
@@ -181,19 +201,22 @@ function normalizedOptions(options: CharacterOptions | undefined): {
 
 /** Strict stored body/face selection; expression and live state belong elsewhere. */
 export function parseCharacterAppearance(value: unknown): CharacterAppearance {
-  const selection = record(value, ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'accessories'], 'appearance');
+  const selection = record(value, ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'color', 'accessories'], 'appearance');
   if (!Object.hasOwn(selection, 'skin') || !catalog.some(entry => entry.id === selection.skin)) {
     throw new TypeError('Character appearance requires a supported skin');
   }
+  // A stored look is a shape and a colour: a colour alone cannot be checked against the shape's never list.
+  if (selection.color !== undefined && selection.shape === undefined) throw new TypeError('A stored One colour needs its shape');
   const normalized = normalizedOptions({ skin: selection.skin,
     skinVersion: selection.skinVersion, eyeStyle: selection.eyeStyle,
-    finish: selection.finish, eyePlacement: selection.eyePlacement, shape: selection.shape, accessories: selection.accessories } as CharacterOptions);
+    finish: selection.finish, eyePlacement: selection.eyePlacement, shape: selection.shape, color: selection.color, accessories: selection.accessories } as CharacterOptions);
   return Object.freeze({ skin: normalized.skin,
     ...(selection.finish === undefined ? {} : { finish: normalized.finish }),
     ...(selection.eyePlacement === undefined ? {} : { eyePlacement: normalized.eyePlacement }),
     ...(selection.skinVersion === undefined ? {} : { skinVersion: 1 as const }),
     ...(selection.eyeStyle === undefined ? {} : { eyeStyle: normalized.eyeStyle }),
     ...(normalized.shape === undefined ? {} : { shape: normalized.shape }),
+    ...(normalized.color === undefined ? {} : { color: normalized.color }),
     ...(selection.accessories === undefined ? {} : { accessories: normalized.accessories }) });
 }
 
@@ -290,22 +313,30 @@ export function generateCharacter(did: string, options?: CharacterOptions): Char
 }
 
 /**
- * The One family: a disc and one bar for an eye (eye style agent-eye-v1), drawn as a still glyph of the state's
- * held face. Finish, eye placement and accessories are kept in the descriptor (so switching back to another
- * family restores them) but are not drawn: the head is agent-eye's geometry and nothing else. The SVG never
- * embeds animation, because an embedded animation cannot follow the viewer's reduced-motion setting;
- * motion comes from the live player or the clock-driven animator.
+ * The One family: a shape with one bar for an eye (eye style agent-eye-v1), drawn as a still glyph of the state's
+ * held face. Without a shape the DID selects the agent's default look; with a shape and no colour the shape's own
+ * colour applies; a colour with no shape wears the DID's shape, which must allow it. Finish, eye placement and
+ * accessories are kept in the descriptor (so switching back to another family restores them) but are not drawn:
+ * the head is the shape and agent-eye's geometry and nothing else. The SVG never embeds animation, because an
+ * embedded animation cannot follow the viewer's reduced-motion setting; motion comes from the live player or the
+ * clock-driven animator.
  */
 function generateOne(did: string, normalized: ReturnType<typeof normalizedOptions>): CharacterDescriptor {
-  const shape = (normalized.shape ?? oneColorForDid(did)) as OneKind;
-  const svg = oneStillSvg({ did, kind: shape, theme: normalized.theme, size: normalized.size,
+  const kind = (normalized.shape ?? oneShapeForDid(did)) as OneKind;
+  let color: OneHeadColor;
+  if (kind === 'charcoal') color = 'charcoal';
+  else if (normalized.color !== undefined) {
+    if (!isOneColorAllowed(kind, normalized.color)) throw new TypeError(`A ${kind} is never ${normalized.color}`);
+    color = normalized.color;
+  } else color = normalized.shape === undefined ? oneColorForDid(did) : getOneShapes().find(entry => entry.id === kind)!.color;
+  const svg = oneStillSvg({ did, kind, color, theme: normalized.theme, size: normalized.size,
     status: normalized.status, expression: normalized.expression, blink: normalized.state.blink, gaze: normalized.state.gaze,
     view: normalized.view, finish: normalized.finish, eyePlacement: normalized.eyePlacement,
     ...(normalized.label === undefined ? {} : { label: normalized.label }) });
   return Object.freeze({ did, skin: 'one', skinVersion: 1, eyeStyle: normalized.eyeStyle,
-    shape, finish: normalized.finish, eyePlacement: normalized.eyePlacement, accessories: normalized.accessories,
-    expression: normalized.expression, color: onePaint(shape, normalized.theme).disc, view: normalized.view, theme: normalized.theme,
-    size: normalized.size, animated: normalized.animated, state: normalized.state, svg });
+    shape: kind, finish: normalized.finish, eyePlacement: normalized.eyePlacement, accessories: normalized.accessories,
+    expression: normalized.expression, color: onePaint(color, normalized.theme).disc, ...(color === 'charcoal' ? {} : { oneColor: color }),
+    view: normalized.view, theme: normalized.theme, size: normalized.size, animated: normalized.animated, state: normalized.state, svg });
 }
 
 /** Render a character without retaining its descriptor. */

@@ -8,8 +8,8 @@
  */
 import { BLINK, EASE, SMILE, cubicBezier, type AgentEyeKey } from './agent-eye.js';
 import {
-  ONE_BODY_CHANNELS, ONE_CHANNELS, ONE_FACE_CHANNELS, oneGeometry, oneHeldPose, oneTier,
-  type OneChannel, type OneFace, type OneGeometry, type OnePose, type OneTemperament, type OneTier,
+  ONE_BODY_CHANNELS, ONE_CHANNELS, ONE_FACE_CHANNELS, oneGeometry, oneHeldPose, oneTemperament, oneTier,
+  type OneChannel, type OneFace, type OneGeometry, type OneKind, type OnePose, type OneTemperament, type OneTier,
 } from './character-one.js';
 
 /** Ongoing-state pacing: brief (lists: at most five seconds of motion on entering a state) or repeat (headers and heroes). */
@@ -162,7 +162,8 @@ export interface OneMotionOptions {
   readonly gaze: { readonly x: number; readonly y: number };
   /** Rendered size in CSS pixels; selects the tier. */
   readonly px: number;
-  readonly temperament: OneTemperament;
+  /** The shape drawn (or 'charcoal' for Digital One): it places and limits the eye and paces the moves by its temperament. */
+  readonly kind: OneKind;
   /** Seeded uniform generator in [0, 1). */
   readonly random: () => number;
   readonly cadence: OneCadence;
@@ -181,7 +182,7 @@ export class OneMotion {
   face: OneFace;
   private gaze: { x: number; y: number };
   private px: number;
-  private temperament: OneTemperament;
+  private kind: OneKind;
   private readonly random: () => number;
   private readonly cadenceMode: OneCadence;
   private readonly level: (() => number) | undefined;
@@ -202,7 +203,7 @@ export class OneMotion {
     this.face = options.face;
     this.gaze = { ...options.gaze };
     this.px = options.px;
-    this.temperament = options.temperament;
+    this.kind = options.kind;
     this.random = options.random;
     this.cadenceMode = options.cadence;
     this.level = options.level;
@@ -288,7 +289,9 @@ export class OneMotion {
 
   /** A new rendered size can change the tier, and so the held face (a lid at 64 px and up). */
   setSize(px: number): void { this.px = px; if (!this.moving) this.value = { ...this.held() }; }
-  setTemperament(temperament: OneTemperament): void { this.temperament = temperament; }
+  /** A new shape places and limits the eye differently and may change the pace. */
+  setKind(kind: OneKind): void { this.kind = kind; }
+  get temperament(): OneTemperament { return oneTemperament(this.kind); }
   setMotion(allowed: boolean): void {
     this.motion = allowed;
     if (!allowed) this.snap();
@@ -388,7 +391,7 @@ export class OneMotion {
 
   private frame(value: OnePose, blink: number): OneMotionFrame {
     const pose = Object.freeze({ ...value });
-    return Object.freeze({ face: this.face, tier: this.tier, pose, geometry: oneGeometry(pose, this.tier, this.temperament, blink), moving: this.moving });
+    return Object.freeze({ face: this.face, tier: this.tier, pose, geometry: oneGeometry(pose, this.tier, this.kind, blink), moving: this.moving });
   }
 
   /** The frame at `at` without advancing: nothing finishes, eases or blinks. Safe for repainting mid-moment. */

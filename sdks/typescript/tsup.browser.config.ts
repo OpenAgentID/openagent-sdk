@@ -15,8 +15,9 @@ const browser = {
 };
 
 export default defineConfig([
-  // Every family, for hosts that switch families: mountCharacter and the catalog.
-  { ...browser, entry: { 'character-player': 'src/character-browser.ts' } },
+  // Every family, for hosts that switch families: mountCharacter and the catalog. Minified like the One runtime, with
+  // a source map, so the One family's shape library does not grow what hosts of the other families download.
+  { ...browser, entry: { 'character-player': 'src/character-browser.ts' }, minify: true },
   // The live One runtime alone, minified for the One app's script budget (scripts/check-size.mjs).
   { ...browser, entry: { one: 'src/one-browser.ts' }, minify: true },
 ]);

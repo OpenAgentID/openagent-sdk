@@ -1,44 +1,47 @@
 /**
- * The One family on its own, for hosts that draw only One heads: the still glyph, the colour helpers and the
- * live head, without the other families' art or a schema library. `@openagentid/sdk/one` serves bundlers;
- * `@openagentid/sdk/browser/one` is the same entry built self-contained for a browser. Importing it does not
- * touch a DOM. Heads are identical to `generateCharacter` and `mountCharacter` with `skin: 'one'`.
+ * The One family on its own, for hosts that draw only One heads: the still glyph, the shape and colour helpers
+ * and the live head, without the other families' art or a schema library. `@openagentid/sdk/one` serves
+ * bundlers; `@openagentid/sdk/browser/one` is the same entry built self-contained for a browser. Importing it
+ * does not touch a DOM. Heads are identical to `generateCharacter` and `mountCharacter` with `skin: 'one'`.
  */
 import { isAgentAvatarDid } from './avatar-did.js';
 import { parseCharacterLabel } from './character-label.js';
-import { isOneHeadColor, oneColorForDid, oneFaceFor, oneStillSvg, type OneHeadColor, type OneTheme } from './character-one.js';
+import { ONE_BLANK_SHAPE, getOneShapes, isOneColorAllowed, isOneHeadColor, isOneShape, oneFaceFor, oneLookForDid, oneStillSvg,
+  type OneHeadColor, type OneKind, type OneLook, type OneShape, type OneTheme } from './character-one.js';
 import { ONE_GESTURES, parseOneLiveOptions, seededRandom, type OneCadence, type OneGesture } from './character-one-motion.js';
 import { OneHead } from './character-one-player.js';
 import { parseAvatarExpression, parseCharacterState, updateCharacterState, type AvatarExpression,
   type CharacterRuntimeState, type CharacterStateUpdate, type LiveEyeState } from './character-state.js';
 
-export { getOneColors, oneColorForDid, nextOneColor, ONE_KINDS } from './character-one.js';
-export type { OneColor, OneKind, OneHeadColor, OneColorHolder, OneColorDescription, OneTemperament, OneTheme } from './character-one.js';
+export { getOneShapes, getOneColors, ONE_SHAPE_ORDER, ONE_DIGITAL, ONE_KINDS, isOneShape, isOneColor, isOneKind, isOneColorAllowed,
+  oneShapeForDid, oneColorForDid, oneLookForDid, nextOneLook } from './character-one.js';
+export type { OneShape, OneColor, OneKind, OneHeadColor, OneLook, OneLookHolder, OneShapeDescription, OneShapeEye, OneColorDescription,
+  OneTemperament, OneTheme } from './character-one.js';
 export type { OneCadence, OneGesture } from './character-one-motion.js';
 export type { AvatarExpression, AvatarStatus, LiveEyeState, CharacterRuntimeState, CharacterStateUpdate } from './character-state.js';
 
 export interface OneOptions {
-  /** The agent's DID. Without `color` it selects one of the twelve colours. A blank head needs none. */
+  /** The agent's DID. Without `shape` and `color` it selects the agent's default look. A blank head needs none. */
   readonly did?: string;
-  /** An agent colour, 'charcoal' for Digital One, or 'blank' for a ready-made agent that has not been added. */
+  /** The agent's shape. With a shape and no colour, the shape's own colour applies. Digital One takes no shape. */
+  readonly shape?: OneShape;
+  /**
+   * An agent colour, 'charcoal' for Digital One, or 'blank' for a ready-made agent that has not been added, drawn in
+   * the shape it will get (the Square when none is given). A never pair is refused.
+   */
   readonly color?: OneHeadColor;
-  /** Square pixel size, 16–2048; default 512. Pass the displayed size: it selects the tier and keyline. */
+  /** Square pixel size, 16–2048; default 512. Pass the displayed size: it selects the tier and the keyline. */
   readonly size?: number;
   /** Light (default) or dark surface tones. */
   readonly theme?: OneTheme;
-  /** Accessible name, normally the agent's own name, never a colour word. Without it the head is decorative. */
+  /** Accessible name, normally the agent's own name, never a shape or colour word. Without it the head is decorative. */
   readonly label?: string;
   /** Preferred expression, used when the state names no status. */
   readonly expression?: AvatarExpression;
   readonly state?: LiveEyeState;
 }
 
-export interface OneMountOptions extends Omit<OneOptions, 'did' | 'color'> {
-  /**
-   * The head's colour: the agent's stored colour (or `oneColorForDid(did)`), 'charcoal' for Digital One, or
-   * 'blank' for a ready-made agent. A live head needs no DID, so the light entry never hashes one in the browser.
-   */
-  readonly color: OneHeadColor;
+export interface OneMountOptions extends Omit<OneOptions, 'did'> {
   /** False holds the face still, like reduced motion. Default true. */
   readonly animated?: boolean;
   /** Defaults to the operating system's reduced-motion preference. */
@@ -54,6 +57,9 @@ export interface OneMountOptions extends Omit<OneOptions, 'did' | 'color'> {
 }
 
 export interface OneAppearanceUpdate {
+  /** A new shape; with no colour in the same update, the head keeps its colour, which the new shape must allow. */
+  readonly shape?: OneShape;
+  /** A new colour, 'charcoal' for Digital One (which drops the shape), or 'blank'. */
   readonly color?: OneHeadColor;
   readonly theme?: OneTheme;
   readonly size?: number;
@@ -68,7 +74,7 @@ export interface OnePlayOptions {
 
 export interface OnePlayer {
   update(state: CharacterStateUpdate): CharacterRuntimeState;
-  /** Recolour (a wave at 40 px and up; First blink when a blank head gets its colour), change surface, size or name. */
+  /** Change the look (a wave at 40 px and up; First blink when a blank head gets its colour), surface, size or name. */
   setAppearance(input: OneAppearanceUpdate): void;
   /**
    * Play a gesture the host chooses, then return to the held face: an arrival (`popIn` on a first screen, `lookAtYou`
@@ -84,10 +90,12 @@ export interface OnePlayer {
   dispose(): void;
 }
 
-interface Paint { readonly kind: OneHeadColor; readonly theme: OneTheme; readonly size: number; readonly label?: string }
+/** A head's resolved look: the shape drawn (Digital One's circle for 'charcoal') and its paint. */
+interface Look { readonly kind: OneKind; readonly color: OneHeadColor }
+interface Paint extends Look { readonly theme: OneTheme; readonly size: number; readonly label?: string }
 
-const stillKeys = ['did', 'color', 'size', 'theme', 'label', 'expression', 'state'];
-const mountKeys = ['color', 'size', 'theme', 'label', 'expression', 'state', 'animated', 'reducedMotion', 'cadence', 'group', 'voiceLevel', 'follow'];
+const stillKeys = ['did', 'shape', 'color', 'size', 'theme', 'label', 'expression', 'state'];
+const mountKeys = ['shape', 'color', 'size', 'theme', 'label', 'expression', 'state', 'animated', 'reducedMotion', 'cadence', 'group', 'voiceLevel', 'follow'];
 
 function record(value: unknown, keys: readonly string[], label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !keys.includes(key))) {
@@ -106,14 +114,43 @@ function parseTheme(value: unknown): OneTheme {
   return value;
 }
 
+function parseShape(value: unknown): OneShape {
+  if (value === 'charcoal') throw new TypeError("Digital One is color: 'charcoal' and takes no shape");
+  if (!isOneShape(value)) throw new TypeError('Unsupported One shape');
+  return value;
+}
+
 function parseColor(value: unknown): OneHeadColor {
   if (!isOneHeadColor(value)) throw new TypeError('Unsupported One colour');
   return value;
 }
 
-function parsePaint(value: Record<string, unknown>, kind: OneHeadColor): Paint {
+/**
+ * The look from a shape and a colour, either optional: Digital One takes no shape; a blank head takes the shape it
+ * will get, or the Square; a colour needs a shape (or a DID to default one); a shape alone wears its own colour; with
+ * neither, the DID's default look. A never pair is refused.
+ */
+function resolveLook(shape: OneShape | undefined, color: OneHeadColor | undefined, fallback: (() => OneLook) | undefined): Look {
+  if (color === 'charcoal') {
+    if (shape !== undefined) throw new TypeError('Digital One is always the circle: give it no shape');
+    return { kind: 'charcoal', color };
+  }
+  if (color === 'blank') return { kind: shape ?? ONE_BLANK_SHAPE, color };
+  if (shape === undefined && color === undefined) {
+    if (fallback === undefined) throw new TypeError('A One head needs a shape, a colour or an agent DID');
+    const look = fallback();
+    return { kind: look.shape, color: look.color };
+  }
+  if (shape === undefined && fallback === undefined) throw new TypeError('A coloured One head needs a shape or an agent DID');
+  const kind = shape ?? fallback!().shape;
+  const resolved = color ?? getOneShapes().find(entry => entry.id === kind)!.color;
+  if (!isOneColorAllowed(kind, resolved)) throw new TypeError(`A ${kind} is never ${resolved}`);
+  return { kind, color: resolved };
+}
+
+function parsePaint(value: Record<string, unknown>, look: Look): Paint {
   return {
-    kind,
+    ...look,
     theme: value.theme === undefined ? 'light' : parseTheme(value.theme),
     size: value.size === undefined ? 512 : parseSize(value.size),
     ...(value.label === undefined ? {} : { label: parseCharacterLabel(value.label) }),
@@ -127,13 +164,15 @@ function initialState(value: Record<string, unknown>): { state: CharacterRuntime
   return { state, override: supplied?.expression === undefined ? undefined : state.expression };
 }
 
-/** The still glyph: identical to `generateCharacter(did, { skin: 'one', shape: color, ... }).svg`. */
+/** The still glyph: identical to `generateCharacter(did, { skin: 'one', shape, color, ... }).svg`. */
 export function renderOne(options: OneOptions): string {
   const value = record(options, stillKeys, 'options');
   if (value.did !== undefined && !isAgentAvatarDid(value.did)) throw new TypeError('One heads require an agent or agent instance DID');
-  if (value.color === undefined && value.did === undefined) throw new TypeError('A One head needs a colour or an agent DID');
   const did = value.did as string | undefined;
-  const look = parsePaint(value, value.color === undefined ? oneColorForDid(did!) : parseColor(value.color));
+  const shape = value.shape === undefined ? undefined : parseShape(value.shape);
+  const color = value.color === undefined ? undefined : parseColor(value.color);
+  // The DID is hashed only here, on the server or in a bundle: the live entry never hashes one in the browser.
+  const look = parsePaint(value, resolveLook(shape, color, did === undefined ? undefined : () => oneLookForDid(did)));
   const { state } = initialState(value);
   return oneStillSvg({ ...(did === undefined ? {} : { did }), ...look, status: state.status, expression: state.expression, blink: state.blink, gaze: state.gaze,
     view: 'avatar', finish: 'plush', eyePlacement: 'face' });
@@ -142,11 +181,16 @@ export function renderOne(options: OneOptions): string {
 /**
  * A live One head in `element`. It replaces a still One already rendered there (for example on the server);
  * otherwise mount into an empty element. Hosts deliver authorized state updates; the head writes no profile.
+ * A live head needs no DID, so the light entry never hashes one in the browser: pass the agent's stored look
+ * (or `oneLookForDid(did)` from the server), 'charcoal' for Digital One, or 'blank' for a ready-made agent.
  */
 export function mountOne(element: Element, options: OneMountOptions): OnePlayer {
   if (!element || element.nodeType !== 1 || !element.ownerDocument?.defaultView) throw new TypeError('One head requires a browser element');
   const value = record(options, mountKeys, 'options');
-  let look = parsePaint(value, parseColor(value.color));
+  const shape = value.shape === undefined ? undefined : parseShape(value.shape);
+  const color = value.color === undefined ? undefined : parseColor(value.color);
+  if (shape === undefined && color === undefined) throw new TypeError('A live One head needs a shape or a colour');
+  let look = parsePaint(value, resolveLook(shape, color, undefined));
   let { state, override } = initialState(value);
   const live = parseOneLiveOptions(value.cadence, value.voiceLevel);
   if (value.group !== undefined && (typeof value.group !== 'string' || !value.group || value.group.length > 200)) throw new TypeError('Character group must be 1–200 characters');
@@ -161,7 +205,7 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
   const media = win.matchMedia('(prefers-reduced-motion: reduce)');
   const reduced = (): boolean => selected === 'system' ? media.matches : selected;
   const head = new OneHead(element, {
-    kind: look.kind, theme: look.theme, size: look.size, ...(look.label === undefined ? {} : { label: look.label }),
+    kind: look.kind, color: look.color, theme: look.theme, size: look.size, ...(look.label === undefined ? {} : { label: look.label }),
     face: oneFaceFor(state), gaze: state.gaze, blink: state.blink, status: state.status, expression: state.expression,
     speaking: state.status === 'speaking', cadence: live.cadence, ...(live.voiceLevel ? { voiceLevel: live.voiceLevel } : {}),
     ...(value.group === undefined ? {} : { group: value.group as string }), follow: value.follow === true,
@@ -182,16 +226,24 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
     },
     setAppearance(input: OneAppearanceUpdate) {
       active();
-      const update = record(input, ['color', 'theme', 'size', 'label'], 'appearance update');
+      const update = record(input, ['shape', 'color', 'theme', 'size', 'label'], 'appearance update');
+      const nextShape = update.shape === undefined ? undefined : parseShape(update.shape);
+      const nextColor = update.color === undefined ? undefined : parseColor(update.color);
+      // The head keeps whatever the update leaves out: its shape and its colour. Digital One has neither to keep:
+      // a shape given to him wears that shape's own colour, and `color: 'charcoal'` makes any head Digital One.
+      let resolved: Look;
+      if (nextShape === undefined && nextColor === undefined) resolved = { kind: look.kind, color: look.color };
+      else if (nextColor === 'charcoal') resolved = resolveLook(nextShape, 'charcoal', undefined);
+      else resolved = resolveLook(nextShape ?? (look.kind === 'charcoal' ? undefined : look.kind), nextColor ?? (look.color === 'charcoal' ? undefined : look.color), undefined);
       const next: Paint = {
-        kind: update.color === undefined ? look.kind : parseColor(update.color),
+        ...resolved,
         theme: update.theme === undefined ? look.theme : parseTheme(update.theme),
         size: update.size === undefined ? look.size : parseSize(update.size),
         ...(update.label === null ? {} : update.label !== undefined ? { label: parseCharacterLabel(update.label) }
           : look.label === undefined ? {} : { label: look.label }),
       };
       look = next;
-      head.setPaint(next.kind, next.theme, next.size, next.label);
+      head.setPaint(next.kind, next.color, next.theme, next.size, next.label);
     },
     setReducedMotion(input: boolean | 'system') {
       active();

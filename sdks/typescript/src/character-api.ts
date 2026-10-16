@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
-import { generateCharacter, getCharacterExpressions, getCharacterSkins, getCharacterStatuses, isAgentAvatarDid, type CharacterOptions } from './characters.js';
+import { generateCharacter, getCharacterExpressions, getCharacterSkins, getCharacterStatuses, getOneColors, isAgentAvatarDid, type CharacterOptions } from './characters.js';
 import { getCharacterAccessories, parseCharacterAccessories } from './character-accessories.js';
 
 export interface CharacterApiHandlerOptions {
@@ -12,9 +12,9 @@ const DEFAULT_BASE_PATH = '/v1/characters';
 const MAX_BODY_BYTES = 16_384;
 const MAX_URL_LENGTH = 8192;
 const encoder = new TextEncoder();
-const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY', 'theme']);
+const queryKeys = new Set(['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'color', 'view', 'accessories', 'expression', 'status', 'size', 'animated', 'blink', 'gazeX', 'gazeY', 'theme']);
 // The SDK's label option is deliberately absent: the public API renders decorative heads and never echoes caller text.
-const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'accessories', 'expression', 'size', 'animated', 'state', 'theme']);
+const optionKeys = new Set(['did', 'skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'color', 'view', 'accessories', 'expression', 'size', 'animated', 'state', 'theme']);
 const numericQuery = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 class CharacterRequestError extends Error {
@@ -65,6 +65,11 @@ function characterOptions(value: Record<string, unknown>): CharacterOptions {
   if ('shape' in value) {
     result.shape = member(value.shape, getCharacterSkins().find(entry => entry.id === skin)!.shapes);
   }
+  if ('color' in value) {
+    // The One family's agents only; Digital One and never pairs are refused by the generator.
+    if (skin !== 'one') invalid();
+    result.color = member(value.color, getOneColors().map(entry => entry.id));
+  }
   if ('finish' in value) result.finish = member(value.finish, ['plush', 'flat'] as const);
   if ('eyePlacement' in value) result.eyePlacement = member(value.eyePlacement, ['face', 'raised'] as const);
   if ('view' in value) result.view = member(value.view, ['avatar', 'full'] as const);
@@ -103,7 +108,7 @@ function queryOptions(query: URLSearchParams): CharacterOptions {
     values[key] = value;
   }
   const input: Record<string, unknown> = {};
-  for (const key of ['skin', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'view', 'expression', 'theme']) {
+  for (const key of ['skin', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'color', 'view', 'expression', 'theme']) {
     if (key in values) input[key] = values[key];
   }
   if ('accessories' in values) {
@@ -297,7 +302,7 @@ export const characterApiOpenApi = {
   "info": {
     "title": "OpenAgentID Character API",
     "version": "0.8.0",
-    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 18 families and 75 distinct character kinds, including Halloween, Thanksgiving, Christmas and One. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions are shared across skins, and the two-eyed families share live-v1 eyes. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused. Every family supports shared finish (plush default, flat optional) and eyePlacement (face default, raised optional). These strictly closed appearance selectors do not change identity-derived shape/color or runtime state. Descriptors include both resolved values. The One family is a disc with one bar for an eye, drawn only from agent-eye geometry (eye style agent-eye-v1): its kinds are twelve agent colours and charcoal (Digital One), and an omitted kind selects one of the twelve colours from the DID. A One renders the held face of its resolved state as a still glyph without animation or element identifiers, decorative (aria-hidden), at 16\u20132048 px, and keeps finish, eyePlacement and accessories in the descriptor without drawing them. theme selects light (default) or dark surface tones; it is presentation only, is never stored appearance, and changes only the One family today."
+    "description": "Public, unauthenticated stateless deterministic agent decoration. Autos is the default rounded pill family. The catalog contains 18 families and 77 distinct character kinds, including Halloween, Thanksgiving, Christmas and One. Avatar rendering frames the face by default; view=full restores the complete character. Skin controls body and face geometry; expressions are shared across skins, and the two-eyed families share live-v1 eyes. This API neither mints identities nor verifies possession, ownership, lineage, revocation or permissions. No secrets, external assets, JavaScript, CSS or fonts. Every response including errors and 304 includes wildcard CORS; credentials are not required. Unknown and duplicate query parameters are rejected. Input, streamed body chunks and geometry are bounded; hosted infrastructure supplies request rate and duration limits. Runtime state resolves state.expression before status mapping, then outer preferred expression, then neutral. Status is presentation state only and establishes no agent activity or authority. Independent glasses and headphones can be combined on every family. Accessories default to an empty selection, do not change identity-derived shape/color or live-eye state, and normalize to catalog order. Unknown, duplicate or malformed selections are refused. Every family supports shared finish (plush default, flat optional) and eyePlacement (face default, raised optional). These strictly closed appearance selectors do not change identity-derived shape/color or runtime state. Descriptors include both resolved values. The One family draws every head with one bar for an eye, placed by its shape library and drawn only from agent-eye geometry (eye style agent-eye-v1): its kinds are fourteen agent shapes (star, heart, flower, cloud, droplet, squircle, diamond, clover, gumdrop, hexagon, egg, blob, peanut, bean) and charcoal (Digital One, always the black circle), each agent shape worn in one of eighteen colours (color); an omitted shape and colour select the agent's default look from the DID, a shape alone wears its own colour, and a never pair is refused. A One renders the held face of its resolved state as a still glyph without animation or element identifiers, decorative (aria-hidden), at 16\u20132048 px, and keeps finish, eyePlacement and accessories in the descriptor without drawing them. theme selects light (default) or dark surface tones; it is presentation only, is never stored appearance, and changes only the One family today."
   },
   "servers": [
     {
@@ -835,6 +840,9 @@ export const characterApiOpenApi = {
             "$ref": "#/components/parameters/shape"
           },
           {
+            "$ref": "#/components/parameters/color"
+          },
+          {
             "$ref": "#/components/parameters/expression"
           },
           {
@@ -966,6 +974,9 @@ export const characterApiOpenApi = {
             "$ref": "#/components/parameters/shape"
           },
           {
+            "$ref": "#/components/parameters/color"
+          },
+          {
             "$ref": "#/components/parameters/expression"
           },
           {
@@ -1135,6 +1146,9 @@ export const characterApiOpenApi = {
             "$ref": "#/components/parameters/shape"
           },
           {
+            "$ref": "#/components/parameters/color"
+          },
+          {
             "$ref": "#/components/parameters/expression"
           },
           {
@@ -1240,6 +1254,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/color"
           },
           {
             "$ref": "#/components/parameters/expression"
@@ -1367,6 +1384,9 @@ export const characterApiOpenApi = {
             "$ref": "#/components/parameters/shape"
           },
           {
+            "$ref": "#/components/parameters/color"
+          },
+          {
             "$ref": "#/components/parameters/expression"
           },
           {
@@ -1528,6 +1548,9 @@ export const characterApiOpenApi = {
           },
           {
             "$ref": "#/components/parameters/shape"
+          },
+          {
+            "$ref": "#/components/parameters/color"
           },
           {
             "$ref": "#/components/parameters/expression"
@@ -2295,21 +2318,43 @@ export const characterApiOpenApi = {
               "snowman",
               "ornament",
               "gift",
-              "blue",
-              "red",
-              "sky",
-              "green",
-              "yellow",
-              "pink",
-              "plum",
-              "teal",
-              "lime",
-              "mint",
-              "lilac",
-              "coral",
+              "star",
+              "heart",
+              "flower",
+              "diamond",
+              "clover",
+              "gumdrop",
+              "egg",
+              "blob",
+              "peanut",
+              "bean",
               "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "berry",
+              "lime",
+              "blush",
+              "jade",
+              "periwinkle",
+              "cherry",
+              "indigo",
+              "mint",
+              "bubblegum",
+              "apricot",
+              "sky",
+              "lemon",
+              "grape",
+              "lavender",
+              "watermelon",
+              "lagoon",
+              "orchid",
+              "aqua"
+            ],
+            "description": "The One family only: the agent's colour, one of the eighteen agent colours in team order. With a shape and no colour the shape's own colour applies; with neither, the DID selects the agent's default look. Refused for every other family, for charcoal (Digital One, which is always black) and for a never pair: a shape in a colour that would turn it into a sign (star or gumdrop in cherry or watermelon; droplet in cherry, watermelon or berry; diamond in lemon, lime or apricot; cloud in sky)."
           },
           "accessories": {
             "$ref": "#/components/schemas/CharacterAccessoriesV1"
@@ -2787,18 +2832,20 @@ export const characterApiOpenApi = {
               "properties": {
                 "shape": {
                   "enum": [
-                    "blue",
-                    "red",
-                    "sky",
-                    "green",
-                    "yellow",
-                    "pink",
-                    "plum",
-                    "teal",
-                    "lime",
-                    "mint",
-                    "lilac",
-                    "coral",
+                    "star",
+                    "heart",
+                    "flower",
+                    "cloud",
+                    "droplet",
+                    "squircle",
+                    "diamond",
+                    "clover",
+                    "gumdrop",
+                    "hexagon",
+                    "egg",
+                    "blob",
+                    "peanut",
+                    "bean",
                     "charcoal"
                   ]
                 },
@@ -2960,21 +3007,43 @@ export const characterApiOpenApi = {
               "snowman",
               "ornament",
               "gift",
-              "blue",
-              "red",
-              "sky",
-              "green",
-              "yellow",
-              "pink",
-              "plum",
-              "teal",
-              "lime",
-              "mint",
-              "lilac",
-              "coral",
+              "star",
+              "heart",
+              "flower",
+              "diamond",
+              "clover",
+              "gumdrop",
+              "egg",
+              "blob",
+              "peanut",
+              "bean",
               "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "berry",
+              "lime",
+              "blush",
+              "jade",
+              "periwinkle",
+              "cherry",
+              "indigo",
+              "mint",
+              "bubblegum",
+              "apricot",
+              "sky",
+              "lemon",
+              "grape",
+              "lavender",
+              "watermelon",
+              "lagoon",
+              "orchid",
+              "aqua"
+            ],
+            "description": "The One family only: the agent's colour, one of the eighteen agent colours in team order. With a shape and no colour the shape's own colour applies; with neither, the DID selects the agent's default look. Refused for every other family, for charcoal (Digital One, which is always black) and for a never pair: a shape in a colour that would turn it into a sign (star or gumdrop in cherry or watermelon; droplet in cherry, watermelon or berry; diamond in lemon, lime or apricot; cloud in sky)."
           },
           "expression": {
             "type": "string",
@@ -3540,18 +3609,20 @@ export const characterApiOpenApi = {
               "properties": {
                 "shape": {
                   "enum": [
-                    "blue",
-                    "red",
-                    "sky",
-                    "green",
-                    "yellow",
-                    "pink",
-                    "plum",
-                    "teal",
-                    "lime",
-                    "mint",
-                    "lilac",
-                    "coral",
+                    "star",
+                    "heart",
+                    "flower",
+                    "cloud",
+                    "droplet",
+                    "squircle",
+                    "diamond",
+                    "clover",
+                    "gumdrop",
+                    "hexagon",
+                    "egg",
+                    "blob",
+                    "peanut",
+                    "bean",
                     "charcoal"
                   ]
                 },
@@ -3673,21 +3744,43 @@ export const characterApiOpenApi = {
               "snowman",
               "ornament",
               "gift",
-              "blue",
-              "red",
-              "sky",
-              "green",
-              "yellow",
-              "pink",
-              "plum",
-              "teal",
-              "lime",
-              "mint",
-              "lilac",
-              "coral",
+              "star",
+              "heart",
+              "flower",
+              "diamond",
+              "clover",
+              "gumdrop",
+              "egg",
+              "blob",
+              "peanut",
+              "bean",
               "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "berry",
+              "lime",
+              "blush",
+              "jade",
+              "periwinkle",
+              "cherry",
+              "indigo",
+              "mint",
+              "bubblegum",
+              "apricot",
+              "sky",
+              "lemon",
+              "grape",
+              "lavender",
+              "watermelon",
+              "lagoon",
+              "orchid",
+              "aqua"
+            ],
+            "description": "The One family only: the agent's colour, one of the eighteen agent colours in team order. With a shape and no colour the shape's own colour applies; with neither, the DID selects the agent's default look. Refused for every other family, for charcoal (Digital One, which is always black) and for a never pair: a shape in a colour that would turn it into a sign (star or gumdrop in cherry or watermelon; droplet in cherry, watermelon or berry; diamond in lemon, lime or apricot; cloud in sky)."
           },
           "expression": {
             "type": "string",
@@ -4253,18 +4346,20 @@ export const characterApiOpenApi = {
               "properties": {
                 "shape": {
                   "enum": [
-                    "blue",
-                    "red",
-                    "sky",
-                    "green",
-                    "yellow",
-                    "pink",
-                    "plum",
-                    "teal",
-                    "lime",
-                    "mint",
-                    "lilac",
-                    "coral",
+                    "star",
+                    "heart",
+                    "flower",
+                    "cloud",
+                    "droplet",
+                    "squircle",
+                    "diamond",
+                    "clover",
+                    "gumdrop",
+                    "hexagon",
+                    "egg",
+                    "blob",
+                    "peanut",
+                    "bean",
                     "charcoal"
                   ]
                 },
@@ -4375,6 +4470,30 @@ export const characterApiOpenApi = {
             "type": "string",
             "pattern": "^#[0-9a-fA-F]{6}$"
           },
+          "oneColor": {
+            "type": "string",
+            "enum": [
+              "berry",
+              "lime",
+              "blush",
+              "jade",
+              "periwinkle",
+              "cherry",
+              "indigo",
+              "mint",
+              "bubblegum",
+              "apricot",
+              "sky",
+              "lemon",
+              "grape",
+              "lavender",
+              "watermelon",
+              "lagoon",
+              "orchid",
+              "aqua"
+            ],
+            "description": "The One family's agents only: the colour id the head wears, as stored or defaulted. Absent for Digital One and for every other family."
+          },
           "svg": {
             "type": "string",
             "description": "Escaped, self-contained SVG on a transparent background. No external resources, JavaScript, CSS or fonts."
@@ -4432,18 +4551,16 @@ export const characterApiOpenApi = {
               "snowman",
               "ornament",
               "gift",
-              "blue",
-              "red",
-              "sky",
-              "green",
-              "yellow",
-              "pink",
-              "plum",
-              "teal",
-              "lime",
-              "mint",
-              "lilac",
-              "coral",
+              "star",
+              "heart",
+              "flower",
+              "diamond",
+              "clover",
+              "gumdrop",
+              "egg",
+              "blob",
+              "peanut",
+              "bean",
               "charcoal"
             ],
             "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
@@ -5012,18 +5129,20 @@ export const characterApiOpenApi = {
               "properties": {
                 "shape": {
                   "enum": [
-                    "blue",
-                    "red",
-                    "sky",
-                    "green",
-                    "yellow",
-                    "pink",
-                    "plum",
-                    "teal",
-                    "lime",
-                    "mint",
-                    "lilac",
-                    "coral",
+                    "star",
+                    "heart",
+                    "flower",
+                    "cloud",
+                    "droplet",
+                    "squircle",
+                    "diamond",
+                    "clover",
+                    "gumdrop",
+                    "hexagon",
+                    "egg",
+                    "blob",
+                    "peanut",
+                    "bean",
                     "charcoal"
                   ]
                 },
@@ -5142,18 +5261,16 @@ export const characterApiOpenApi = {
                 "snowman",
                 "ornament",
                 "gift",
-                "blue",
-                "red",
-                "sky",
-                "green",
-                "yellow",
-                "pink",
-                "plum",
-                "teal",
-                "lime",
-                "mint",
-                "lilac",
-                "coral",
+                "star",
+                "heart",
+                "flower",
+                "diamond",
+                "clover",
+                "gumdrop",
+                "egg",
+                "blob",
+                "peanut",
+                "bean",
                 "charcoal"
               ],
               "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
@@ -5799,23 +5916,25 @@ export const characterApiOpenApi = {
                 "shapes": {
                   "items": {
                     "enum": [
-                      "blue",
-                      "red",
-                      "sky",
-                      "green",
-                      "yellow",
-                      "pink",
-                      "plum",
-                      "teal",
-                      "lime",
-                      "mint",
-                      "lilac",
-                      "coral",
+                      "star",
+                      "heart",
+                      "flower",
+                      "cloud",
+                      "droplet",
+                      "squircle",
+                      "diamond",
+                      "clover",
+                      "gumdrop",
+                      "hexagon",
+                      "egg",
+                      "blob",
+                      "peanut",
+                      "bean",
                       "charcoal"
                     ]
                   },
-                  "minItems": 13,
-                  "maxItems": 13
+                  "minItems": 15,
+                  "maxItems": 15
                 },
                 "eyeStyles": {
                   "items": {
@@ -5989,7 +6108,7 @@ export const characterApiOpenApi = {
           "dark"
         ],
         "default": "light",
-        "description": "Surface the character is drawn on. Presentation only, never stored appearance. The One family uses lifted disc tones and no keyline on dark surfaces; other families render identically on both."
+        "description": "Surface the character is drawn on. Presentation only, never stored appearance. The One family keeps one disc colour on both surfaces, draws keylines on light surfaces only, and draws Digital One black on both with a chalk eye and rim on dark; other families render identically on both."
       },
       "CharacterEyeStyle": {
         "type": "string",
@@ -6174,22 +6293,48 @@ export const characterApiOpenApi = {
             "snowman",
             "ornament",
             "gift",
-            "blue",
-            "red",
-            "sky",
-            "green",
-            "yellow",
-            "pink",
-            "plum",
-            "teal",
-            "lime",
-            "mint",
-            "lilac",
-            "coral",
+            "star",
+            "heart",
+            "flower",
+            "diamond",
+            "clover",
+            "gumdrop",
+            "egg",
+            "blob",
+            "peanut",
+            "bean",
             "charcoal"
           ],
           "description": "Optional body override; must belong to the selected skin. Omitted shape is deterministically selected from the DID and skin."
         }
+      },
+      "color": {
+        "name": "color",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "berry",
+            "lime",
+            "blush",
+            "jade",
+            "periwinkle",
+            "cherry",
+            "indigo",
+            "mint",
+            "bubblegum",
+            "apricot",
+            "sky",
+            "lemon",
+            "grape",
+            "lavender",
+            "watermelon",
+            "lagoon",
+            "orchid",
+            "aqua"
+          ]
+        },
+        "description": "The One family only: the agent's colour, one of the eighteen agent colours in team order. With a shape and no colour the shape's own colour applies; with neither, the DID selects the agent's default look. Refused for every other family, for charcoal (Digital One, which is always black) and for a never pair: a shape in a colour that would turn it into a sign (star or gumdrop in cherry or watermelon; droplet in cherry, watermelon or berry; diamond in lemon, lime or apricot; cloud in sky)."
       },
       "expression": {
         "name": "expression",

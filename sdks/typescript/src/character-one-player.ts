@@ -9,8 +9,8 @@
  * shows its held face at once; hidden heads and hidden documents never tick. A head that follows the
  * pointer moves its eye only and is not counted.
  */
-import { GEOMETRY } from './agent-eye.js';
-import { oneKeylineWidth, onePaint, oneTier, type OneFace, type OneHeadColor, type OnePaint, type OneTheme } from './character-one.js';
+import { oneInsetPath, oneKeylineWidth, onePaint, oneRimWidth, oneShapeGeometry, oneShapeId, oneTier,
+  type OneFace, type OneHeadColor, type OneKind, type OnePaint, type OneTheme } from './character-one.js';
 import { OneMotion, type OneCadence, type OneGesture, type OneMomentRequest, type OneMotionFrame } from './character-one-motion.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -259,7 +259,9 @@ class OneStage {
 }
 
 export interface OneHeadOptions {
-  readonly kind: OneHeadColor;
+  /** The shape drawn, or 'charcoal' for Digital One's circle. A blank head takes the shape the agent will get. */
+  readonly kind: OneKind;
+  readonly color: OneHeadColor;
   readonly theme: OneTheme;
   readonly size: number;
   readonly label?: string;
@@ -294,7 +296,8 @@ export class OneHead {
   visible = false;
   private readonly stage: OneStage;
   private readonly doc: Document;
-  private kind: OneHeadColor;
+  private kind: OneKind;
+  private color: OneHeadColor;
   private theme: OneTheme;
   private label: string | undefined;
   private px: number;
@@ -307,7 +310,7 @@ export class OneHead {
   private disposed = false;
   private wash: { readonly from: OnePaint; readonly start: number } | null = null;
   private gesture: { readonly request: OneMomentRequest; readonly at: number } | null = null;
-  private parts!: { disc: SVGElement; eye: SVGElement; bar: SVGElement; mouth: SVGElement; body: SVGElement; keyline: SVGElement | null };
+  private parts!: { disc: SVGElement; eye: SVGElement; bar: SVGElement; mouth: SVGElement; body: SVGElement; keyline: SVGElement | null; rim: SVGElement | null };
   private written: Record<string, string> = {};
   private readonly instance: string;
 
@@ -315,7 +318,9 @@ export class OneHead {
     this.doc = host.ownerDocument!;
     const win = this.doc.defaultView!;
     this.stage = OneStage.for(win);
+    if (options.color === 'charcoal' ? options.kind !== 'charcoal' : options.kind === 'charcoal') throw new TypeError('Digital One is charcoal in shape and colour alike');
     this.kind = options.kind;
+    this.color = options.color;
     this.theme = options.theme;
     this.label = options.label;
     this.px = options.size;
@@ -327,7 +332,7 @@ export class OneHead {
     this.instance = 'oaid-one-' + Array.from(win.crypto.getRandomValues(new Uint32Array(2)), value => value.toString(16)).join('-');
     this.group = options.group ?? host.closest(LIST_CONTAINERS) ?? this;
     this.motion = new OneMotion({ face: options.face, gaze: options.gaze, px: this.px,
-      temperament: onePaint(this.kind, this.theme).temperament, random: options.random, cadence: options.cadence,
+      kind: this.kind, random: options.random, cadence: options.cadence,
       ...(options.voiceLevel ? { level: options.voiceLevel } : {}), motion: this.motionAllowed, at: this.stage.now() });
     this.motion.setBlink(options.blink);
     this.build();
@@ -347,12 +352,17 @@ export class OneHead {
     return element;
   }
 
-  /** The head's DOM: 5–7 nodes, plus a mask for Digital One's knocked-out eye. Sets `root`. */
+  /**
+   * The head's DOM: 5–8 nodes, plus a mask for Digital One's knocked-out eye on light surfaces. The body is the shape's
+   * path, the eye sits in the shape's eye group, and a keyline or Digital One's rim is the outline inset by half its
+   * width, stroked, never a clip. Sets `root`.
+   */
   private build(): void {
-    const paint = onePaint(this.kind, this.theme);
+    const paint = onePaint(this.color, this.theme);
+    const shape = oneShapeGeometry(this.kind);
     const root = this.node('svg', { xmlns: SVG, viewBox: '-100 -100 200 200', width: String(this.px), height: String(this.px),
       overflow: 'visible', 'data-character-player': 'agent-eye-v1', 'data-character-skin': 'one', 'data-character-version': '1',
-      'data-character-shape': this.kind, 'data-character-theme': this.theme, 'data-one-color': this.kind }) as SVGSVGElement;
+      'data-character-shape': this.kind, 'data-character-theme': this.theme, 'data-one-shape': oneShapeId(this.kind), 'data-one-color': this.color }) as SVGSVGElement;
     if (this.label === undefined) { root.setAttribute('aria-hidden', 'true'); root.setAttribute('focusable', 'false'); }
     else {
       root.setAttribute('role', 'img');
@@ -362,13 +372,13 @@ export class OneHead {
       root.append(title);
     }
     const body = this.node('g', { 'data-character-body': 'true' });
-    const disc = this.node('circle', { 'data-one-disc': 'true', r: String(GEOMETRY.radius), fill: paint.disc });
+    const disc = this.node('path', { 'data-one-disc': 'true', d: shape.path, fill: paint.disc });
     const eye = this.node('g', { 'data-character-eyes': 'agent-eye-v1' });
     const ink = paint.eye ?? '#000000';
     const bar = this.node('path', { 'data-one-eye': 'true', fill: ink, stroke: ink, 'stroke-linejoin': 'round' });
     const mouth = this.node('rect', { 'data-one-mouth': 'true', fill: ink, display: 'none' });
     eye.append(bar);
-    let keyline: SVGElement | null = null;
+    let keyline: SVGElement | null = null, rim: SVGElement | null = null;
     if (paint.eye === null) {
       const mask = this.node('mask', { id: this.instance, maskUnits: 'userSpaceOnUse', x: '-100', y: '-100', width: '200', height: '200' });
       mask.append(this.node('rect', { x: '-100', y: '-100', width: '200', height: '200', fill: '#ffffff' }), eye, mouth);
@@ -380,25 +390,33 @@ export class OneHead {
     } else {
       body.append(disc);
       if (paint.keyline !== null) {
-        keyline = this.node('circle', { 'data-one-keyline': 'true', fill: 'none', stroke: paint.keyline });
+        keyline = this.node('path', { 'data-one-keyline': 'true', fill: 'none', stroke: paint.keyline });
         body.append(keyline);
+      }
+      if (paint.rim !== null) {
+        rim = this.node('path', { 'data-one-rim': 'true', fill: 'none', stroke: paint.rim.color, 'stroke-opacity': String(paint.rim.opacity) });
+        body.append(rim);
       }
       body.append(eye, mouth);
     }
     root.append(body);
     this.root = root;
-    this.parts = { disc, eye, bar, mouth, body, keyline };
+    this.parts = { disc, eye, bar, mouth, body, keyline, rim };
     this.written = {};
     this.keyline();
     // Repaint without advancing time: a moment that ends now still finishes on the ticker and frees its slot.
     this.paint(this.motion.peek(this.stage.now()), true);
   }
 
+  /** The keyline and the rim follow the rendered size: an inset outline at half the stroke's width. */
   private keyline(): void {
-    if (!this.parts.keyline) return;
-    const width = oneKeylineWidth(this.px, this.doc.defaultView?.devicePixelRatio ?? 1);
-    this.parts.keyline.setAttribute('r', String(Number((GEOMETRY.radius - width / 2).toFixed(4))));
-    this.parts.keyline.setAttribute('stroke-width', String(Number(width.toFixed(4))));
+    const path = oneShapeGeometry(this.kind).path;
+    const inset = (element: SVGElement, width: number): void => {
+      element.setAttribute('d', oneInsetPath(path, width / 2));
+      element.setAttribute('stroke-width', String(Number(width.toFixed(4))));
+    };
+    if (this.parts.keyline) inset(this.parts.keyline, oneKeylineWidth(this.px, this.doc.defaultView?.devicePixelRatio ?? 1));
+    if (this.parts.rim) inset(this.parts.rim, oneRimWidth(this.px));
   }
 
   private write(element: Element, key: string, attribute: string, value: string | null): void {
@@ -427,7 +445,7 @@ export class OneHead {
 
   /** The disc's colour: a blank head's tint, the colour itself, or the First blink wash between them. */
   private paintColour(): void {
-    const paint = onePaint(this.kind, this.theme);
+    const paint = onePaint(this.color, this.theme);
     const wash = this.wash;
     const u = wash ? ui(Math.min(1, Math.max(0, (this.stage.now() - wash.start) / WASH_MS))) : 1;
     if (wash && u >= 1) this.wash = null;
@@ -436,6 +454,7 @@ export class OneHead {
     this.write(this.parts.disc, 'disc', 'fill', mix(from.disc, paint.disc, u));
     this.write(this.parts.disc, 'disc-opacity', 'fill-opacity', opacity >= 1 ? null : String(Number(opacity.toFixed(3))));
     if (this.parts.keyline) this.write(this.parts.keyline, 'keyline', 'stroke-opacity', u >= 1 ? null : String(Number(u.toFixed(3))));
+    if (this.parts.rim && paint.rim) this.write(this.parts.rim, 'rim', 'stroke-opacity', String(Number((paint.rim.opacity * u).toFixed(3))));
     if (paint.eye !== null) {
       const ink = from.eye === null ? paint.eye : mix(from.eye, paint.eye, u);
       this.write(this.parts.bar, 'ink', 'fill', ink);
@@ -661,23 +680,26 @@ export class OneHead {
   }
 
   /**
-   * Recolour, change surface, size or name. A new colour waves at 40 px and up; a blank head that is given a
-   * colour plays First blink instead (its disc washes to the colour while the eye opens for the first time).
+   * Change the look, the surface, the size or the name. A new shape or colour waves at 40 px and up; a blank head
+   * that is given a colour plays First blink instead (its disc washes to the colour while the eye opens for the first
+   * time).
    */
-  setPaint(kind: OneHeadColor, theme: OneTheme, size: number, label: string | undefined): void {
-    const recolour = kind !== this.kind;
-    if (kind === this.kind && theme === this.theme && label === this.label) {
+  setPaint(kind: OneKind, color: OneHeadColor, theme: OneTheme, size: number, label: string | undefined): void {
+    if (color === 'charcoal' ? kind !== 'charcoal' : kind === 'charcoal') throw new TypeError('Digital One is charcoal in shape and colour alike');
+    const recolour = kind !== this.kind || color !== this.color;
+    if (!recolour && theme === this.theme && label === this.label) {
       if (size !== this.px) { this.root.setAttribute('width', String(size)); this.root.setAttribute('height', String(size)); this.setRenderedSize(size); }
       return;
     }
-    const before = onePaint(this.kind, this.theme);
-    const firstBlink = this.kind === 'blank' && kind !== 'blank';
+    const before = onePaint(this.color, this.theme);
+    const firstBlink = this.color === 'blank' && color !== 'blank';
     this.kind = kind;
+    this.color = color;
     this.theme = theme;
     this.label = label;
     this.px = size;
     this.motion.setSize(size);
-    this.motion.setTemperament(onePaint(kind, theme).temperament);
+    this.motion.setKind(kind);
     const previous = this.root;
     this.build();
     for (const name of ['data-character-status', 'data-character-expression', 'data-moving'] as const) {
