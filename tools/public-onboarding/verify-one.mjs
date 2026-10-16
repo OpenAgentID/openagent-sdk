@@ -11,8 +11,8 @@
  * blink, eye-only pointer follow, repaints at a moment's end that never strand a
  * moving head, a dropped moment that shows its face without moving, host gestures
  * (taps at once, arrivals once in view, never a gag on a head that needs you or
- * under reduced motion), and Digital One stills that match the live head pixel for
- * pixel.
+ * under reduced motion), viewer moments that never move two heads in one list, and
+ * Digital One stills that match the live head pixel for pixel.
  * Evidence goes to OAID_ONE_ARTIFACT_DIR (default .public-tooling-artifacts/one):
  * receipt.json and PNG screenshots.
  *
@@ -442,6 +442,28 @@ try {
     await frames();
     await tab.waitForTimeout(600);
     assert.deepEqual(await frames(), []);
+  });
+
+  await check('viewer-moments-never-move-two-heads-in-one-list', async () => {
+    // Two ready-made agents added together: each First blink is the viewer's own act, so it ignores the window's cap,
+    // but the second waits for the first (or shows its colour at once if it misses its turn), never both at once.
+    await tab.evaluate(() => {
+      const list = document.createElement('ul');
+      list.id = 'added';
+      list.className = 'team';
+      list.innerHTML = '<li><span class="head" id="added-0"></span>Tutor</li><li><span class="head" id="added-1"></span>Coach</li>';
+      document.body.prepend(list);
+      for (const id of ['added-0', 'added-1']) window.oaidHeads.set(id, window.oaidMount(document.getElementById(id), { color: 'blank', size: 44, state: { gaze: { x: 0.4, y: 0.1 } } }));
+    });
+    await tab.waitForTimeout(300);
+    await tab.evaluate(() => { window.oaidHeads.get('added-0').setAppearance({ color: 'lime' }); window.oaidHeads.get('added-1').setAppearance({ color: 'mint' }); });
+    let peak = 0;
+    const start = Date.now();
+    while (Date.now() - start < 3500) { peak = Math.max(peak, await moving('#added')); await tab.waitForTimeout(20); }
+    assert.equal(peak, 1);
+    await tab.waitForFunction(() => !document.querySelector('svg[data-moving]'), null, { timeout: 4000 });
+    assert.equal(await tab.locator('#added-0 [data-one-disc]').getAttribute('fill'), '#a9c21a');
+    assert.equal(await tab.locator('#added-1 [data-one-disc]').getAttribute('fill'), '#3df0b0');
   });
 
   await shot('one-light-runtime.png');

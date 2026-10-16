@@ -334,7 +334,10 @@ its element (a server-rendered head, say); otherwise mount into an empty element
   move (attention, then error, then success) cuts an ongoing cadence short: the
   cut head settles in 160 ms while keeping its slot, and the move starts after it,
   so two heads never move in one group. A move that cannot start within 1.5 s is
-  dropped and the head shows its held face at once, without moving to it.
+  dropped and the head shows its held face at once, without moving to it. The
+  viewer's own acts (a tap, a new colour, First blink) are not held to the
+  window's cap, but they wait for their group the same way: two heads added
+  together blink open one after the other.
   Recolouring, a theme switch or a size change mid-move never strands a head as
   moving: repaints do not advance its timeline, so the move ends on the ticker and
   frees its slot.
@@ -391,7 +394,7 @@ self-contained and minified for a browser: `mountOne` and the palette helpers.
   a DID.
 - **Budgets** (`npm run size`, run in CI): the live runtime is at most 16 KB
   gzipped (15.1 KB in 0.8.0), the One app's script budget for animated heads; the
-  all-family browser bundle stays at most 65 KB gzipped (62.7 KB in 0.8.0, 63.1 KB
+  all-family browser bundle stays at most 65 KB gzipped (62.8 KB in 0.8.0, 63.1 KB
   in 0.7.3).
 
 ### Provenance of agent-eye

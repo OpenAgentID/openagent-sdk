@@ -156,7 +156,16 @@ class OneStage {
   /** Ask for a moment. It starts now, waits for a slot, or is dropped after 1.5 s. */
   request(head: OneHead, request: OneMomentRequest): void {
     if (!head.motionAllowed || this.hidden) { head.snap(); return; }
-    if (request.uncounted || request.user) { this.begin(head, request); return; }
+    if (request.uncounted) { this.begin(head, request); return; }
+    if (request.user) {
+      // The viewer's own act (a tap, a new colour, First blink) is not held to the window's cap, but it never moves
+      // beside another head of its group: a cadence there is cut short, anything else finishes first.
+      const other = this.groupMover(head);
+      if (!other) { this.begin(head, request); return; }
+      if (other.motion.request?.cadence) other.cutCadence();
+      this.enqueue(head, request);
+      return;
+    }
     if (this.movers.has(head)) {
       const current = head.motion.request;
       if (current && !current.cadence && current.priority > request.priority) { this.enqueue(head, request); return; }
@@ -195,7 +204,7 @@ class OneStage {
       // Missed is missed: the head shows its held face at once rather than performing late, and it takes no slot,
       // so no second head in its group moves while it gets there.
       if (now - item.at > 1500) { item.head.drop(); continue; }
-      if (this.canStart(item.head)) { this.begin(item.head, item.request); continue; }
+      if (item.request.user ? !this.hidden && !this.groupMover(item.head) : this.canStart(item.head)) { this.begin(item.head, item.request); continue; }
       keep.push(item);
     }
     this.queue = keep;

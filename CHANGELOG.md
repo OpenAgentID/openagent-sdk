@@ -72,7 +72,7 @@
   helpers) and `@openagentid/sdk/browser/one`, the live runtime alone at 15.1 KB
   gzipped, with blank heads for ready-made agents and their First blink. `npm run
   size` enforces 16 KB for it and 65 KB for the all-family browser bundle, which is
-  62.7 KB (63.1 KB in 0.7.3) because avatar DID parsing no longer loads zod.
+  62.8 KB (63.1 KB in 0.7.3) because avatar DID parsing no longer loads zod.
 - Add `typing`, `attention`, `paused` and `offline` statuses for every family,
   `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
   CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the
@@ -111,7 +111,9 @@
 - Typing repeats in headers and heroes like every ongoing state, one cluster every
   six to ten seconds, instead of back to back. A dropped move shows the held face
   at once instead of gliding to it, and a cut cadence keeps its slot while it
-  settles, so two heads never move in one group.
+  settles, so two heads never move in one group. The viewer's own acts (a tap, a
+  new colour, First blink) still skip the window's cap but now wait for their
+  group too, so agents added together blink open one at a time.
 
 ## 0.7.3 — current package compatibility, 2026-10-12
 
