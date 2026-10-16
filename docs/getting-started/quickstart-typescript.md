@@ -1,6 +1,6 @@
 # Quickstart — TypeScript and JavaScript
 
-The SDK 0.7.3 developer path runs on Node 20.19+ without a Life account, API key,
+The SDK 0.8.0 developer path runs on Node 20.19+ without a Life account, API key,
 hosted resolver or private package. Keys and trust stay on your infrastructure.
 The [developer-tooling guide](../developer-tooling.md) includes the complete CLI,
 verification, OIDC/OATS and current browser integration map.
@@ -8,7 +8,7 @@ verification, OIDC/OATS and current browser integration map.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.5.3 my-agent-app --yes
+npx create-openagent@0.6.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -31,7 +31,7 @@ your HTTPS transport and storage/authorization policy deliberately.
 ## Add identity to an existing Node application
 
 ```sh
-npm install @openagentid/sdk@0.7.3
+npm install @openagentid/sdk@0.8.0
 ```
 
 This complete first-run example uses two separate persistent workspaces. Run it
@@ -95,7 +95,7 @@ avatar.dispose();
 Feed `update` from the application's authorized activity channel. It changes the
 presentation, not identity, permissions or the agent's saved profile. The player
 preserves its animation timeline and honors system reduced motion. The catalog
-contains 17 families, 62 kinds and 18 shared expressions. `view: 'avatar'` frames
+contains 18 families, 75 kinds and 18 shared expressions, including the One family. `view: 'avatar'` frames
 the face by default; use `view: 'full'` for the body. Stored appearance, render
 framing and current activity remain independent. Map only real authorized phases
 to status; a running process does not establish that it is reasoning.

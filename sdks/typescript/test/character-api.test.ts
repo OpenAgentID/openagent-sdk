@@ -23,7 +23,10 @@ const familyKinds = {
   halloween: ['pumpkin', 'ghost', 'bat', 'witch-hat', 'candy-corn'],
   thanksgiving: ['turkey', 'acorn', 'squash', 'pie', 'corn'],
   christmas: ['light', 'tree', 'snowman', 'ornament', 'gift'],
+  one: ['blue', 'red', 'sky', 'green', 'yellow', 'pink', 'plum', 'teal', 'lime', 'mint', 'lilac', 'coral', 'charcoal'],
 } as const;
+// Two-eyed families; One heads are a disc with a single bar and keep wearables without drawing them.
+const classicSkins = () => getCharacterSkins().filter(skin => skin.id !== 'one');
 
 function post(body: unknown, headers: HeadersInit = jsonHeaders): Request {
   return new Request(`${base}/generate`, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -50,7 +53,7 @@ describe('public stateless character API', () => {
       new URL('../../../docs/character-api.openapi.json', import.meta.url), 'utf8',
     )));
     expect(characterApiOpenApi.openapi).toBe('3.1.0');
-    expect(characterApiOpenApi.info.version).toBe('0.7.2');
+    expect(characterApiOpenApi.info.version).toBe('0.8.0');
     expect(characterApiOpenApi.security).toEqual([]);
     expect(characterApiOpenApi.components.schemas.CharacterGenerateRequestV1.additionalProperties).toBe(false);
     expect(characterApiOpenApi.components.schemas.LiveEyeStateV1.additionalProperties).toBe(false);
@@ -117,6 +120,38 @@ describe('public stateless character API', () => {
     expect(defaults.headers.get('etag')).toBe(explicit.headers.get('etag'));
   });
 
+  it('carries the presentation theme through GET, SVG and POST, never accepts labels, and refuses unknown themes', async () => {
+    const options = { skin: 'one' as const, shape: 'plum' as const, theme: 'dark' as const, animated: false, state: { status: 'working' as const } };
+    const dark = generateCharacter(did, options);
+    expect(dark).toMatchObject({ theme: 'dark', color: '#a94cac' });
+    const query = '?skin=one&shape=plum&theme=dark&animated=false&status=working';
+    expect(await (await handler(new Request(path() + query))).json()).toEqual(dark);
+    expect(await (await handler(new Request(path(did, true) + query))).text()).toBe(dark.svg);
+    expect(await (await handler(post({ did, ...options }))).json()).toEqual(dark);
+    expect((await handler(new Request(path() + query, { method: 'OPTIONS' }))).status).toBe(204);
+    // Theme defaults to light and changes no other family's pixels.
+    expect(await (await handler(new Request(path() + '?theme=light'))).json()).toEqual(generateCharacter(did));
+    expect(generateCharacter(did).theme).toBe('light');
+    expect(generateCharacter(did, { theme: 'dark' }).svg).toBe(generateCharacter(did).svg);
+    for (const bad of ['?theme=night', '?theme=', '?theme=dark&theme=light', '?label=Scout', '?skin=one&label=Scout']) {
+      expect((await handler(new Request(path() + bad))).status).toBe(400);
+    }
+    for (const body of [{ did, theme: 'dim' }, { did, theme: null }, { did, label: 'Scout' }, { did, skin: 'one', label: 'Scout' }]) {
+      expect((await handler(post(body))).status).toBe(400);
+    }
+    const schemas = characterApiOpenApi.components.schemas;
+    expect(schemas.CharacterTheme).toMatchObject({ type: 'string', enum: ['light', 'dark'], default: 'light' });
+    for (const schema of [schemas.CharacterOptionsV1, schemas.CharacterGenerateRequestV1, schemas.CharacterDescriptorV1]) {
+      expect(schema.properties.theme).toEqual({ $ref: '#/components/schemas/CharacterTheme' });
+      expect(schema.properties).not.toHaveProperty('label');
+    }
+    expect(schemas.CharacterDescriptorV1.required).toContain('theme');
+    expect(schemas.CharacterAppearanceV1.properties).not.toHaveProperty('theme');
+    for (const route of ['/{did}', '/svg/{did}'] as const) for (const method of ['get', 'head', 'options'] as const) {
+      expect(characterApiOpenApi.paths[route][method].parameters).toContainEqual({ $ref: '#/components/parameters/theme' });
+    }
+  });
+
   it('serves the independent accessory catalog with a closed schema and credential-free catalog semantics', async () => {
     const response = await handler(new Request(`${base}/accessories`));
     expect(response.status).toBe(200);
@@ -159,9 +194,9 @@ describe('public stateless character API', () => {
     }
   });
 
-  it('combines either accessory on every family kind in avatar/full JSON, SVG and POST without changing identity or eye state', async () => {
+  it('combines either accessory on every two-eyed family kind in avatar/full JSON, SVG and POST without changing identity or eye state', async () => {
     const selections: readonly (readonly CharacterAccessory[])[] = [[], ['glasses'], ['headphones'], ['headphones', 'glasses']];
-    for (const skin of getCharacterSkins()) {
+    for (const skin of classicSkins()) {
       for (const shape of skin.shapes) {
         const common = { skin: skin.id, shape, animated: false,
           state: { status: 'reasoning' as const, blink: 0.5, gaze: { x: -1, y: 1 } } };
@@ -215,17 +250,17 @@ describe('public stateless character API', () => {
     expect(pair[0]!.tag).not.toBe(implicit.headers.get('etag'));
   });
 
-  it('publishes exactly 17 families and 62 family kinds with closed, cross-family OpenAPI schemas', () => {
+  it('publishes exactly 18 families and 75 family kinds with closed, cross-family OpenAPI schemas', () => {
     const catalog = getCharacterSkins();
     const families = Object.keys(familyKinds);
     const kinds = [...new Set(Object.values(familyKinds).flat())];
     expect(catalog.map(entry => entry.id)).toEqual(families);
-    expect(catalog).toHaveLength(17);
-    expect(catalog.reduce((total, entry) => total + entry.shapes.length, 0)).toBe(62);
+    expect(catalog).toHaveLength(18);
+    expect(catalog.reduce((total, entry) => total + entry.shapes.length, 0)).toBe(75);
     expect(Object.fromEntries(catalog.map(entry => [entry.id, entry.shapes]))).toEqual(familyKinds);
     for (const entry of catalog) {
       expect(entry.version).toBe(1);
-      expect(entry.eyeStyles).toEqual(['live-v1']);
+      expect(entry.eyeStyles).toEqual([entry.id === 'one' ? 'agent-eye-v1' : 'live-v1']);
       expect(entry.expressions).toEqual(getCharacterExpressions());
       expect(Object.isFrozen(entry)).toBe(true);
       expect(Object.isFrozen(entry.shapes)).toBe(true);
@@ -236,7 +271,7 @@ describe('public stateless character API', () => {
       expect(schema.additionalProperties).toBe(false);
       expect(schema.properties.skin.enum).toEqual(families);
       expect(schema.properties.shape.enum).toEqual(kinds);
-      expect(schema.allOf).toHaveLength(17);
+      expect(schema.allOf).toHaveLength(18);
       expect(Object.fromEntries(schema.allOf.map(rule => [
         rule.if.properties.skin.const, rule.then.properties.shape.enum,
       ]))).toEqual(familyKinds);
@@ -252,7 +287,7 @@ describe('public stateless character API', () => {
     expect(schemas.CharacterSkinV1.additionalProperties).toBe(false);
     expect(schemas.CharacterSkinV1.properties.id.enum).toEqual(families);
     expect(schemas.CharacterSkinV1.properties.shapes.items.enum).toEqual(kinds);
-    expect(schemas.CharacterSkinV1.allOf).toHaveLength(17);
+    expect(schemas.CharacterSkinV1.allOf).toHaveLength(18);
     for (const rule of schemas.CharacterSkinV1.allOf) {
       const expected = familyKinds[rule.if.properties.id.const];
       expect(rule.then.properties.shapes.items.enum).toEqual(expected);
@@ -276,8 +311,13 @@ describe('public stateless character API', () => {
         expect(cropped).toMatchObject({ did, skin: skin.id, shape, view: 'avatar' });
         expect(full).toMatchObject({ did, skin: skin.id, shape, view: 'full', color: cropped.color,
           expression: cropped.expression, state: cropped.state });
-        expect(full.svg).toContain('viewBox="0 0 512 512"');
-        expect(cropped.svg).not.toContain('viewBox="0 0 512 512"');
+        if (skin.id === 'one') {
+          // A One is the whole head in both views.
+          for (const value of [cropped, full]) expect(value.svg).toContain('viewBox="-100 -100 200 200"');
+        } else {
+          expect(full.svg).toContain('viewBox="0 0 512 512"');
+          expect(cropped.svg).not.toContain('viewBox="0 0 512 512"');
+        }
         // Framing changes only the square crop and its presentation attribute.
         const geometry = (svg: string): string => svg.replace(/viewBox="[^"]*"/, '')
           .replace(/data-character-view="[^"]*"/, '');
@@ -346,6 +386,7 @@ describe('public stateless character API', () => {
       ...Object.fromEntries(getCharacterExpressions().map(expression => [expression, expression])),
       idle: 'neutral', listening: 'attentive', reasoning: 'thoughtful', working: 'attentive',
       speaking: 'happy', success: 'happy', blocked: 'concerned', error: 'concerned',
+      typing: 'attentive', attention: 'attentive', paused: 'sleepy', offline: 'sleepy',
     });
     expect(characterApiOpenApi.components.schemas.AvatarStatus.enum).toEqual(statuses.map(entry => entry.status));
     expect(characterApiOpenApi.components.schemas.AvatarExpression.enum).toEqual(getCharacterExpressions());
@@ -353,7 +394,7 @@ describe('public stateless character API', () => {
     expect(characterApiOpenApi.components.schemas.AvatarExpression.enum).toContain('concerned');
   });
 
-  it.each(['autos', 'spacex'] as const)('maps every status in %s GET, SVG and POST without changing identity, shape or color', async skin => {
+  it.each(['autos', 'spacex', 'one'] as const)('maps every status in %s GET, SVG and POST without changing identity, shape or color', async skin => {
     const neutral = generateCharacter(did, { skin, animated: false });
     for (const { status, expression } of getCharacterStatuses()) {
       const options = { skin, animated: false, state: { status } };
@@ -552,6 +593,38 @@ describe('public stateless character API', () => {
       expect(response.status).toBe(200);
       const { did: identity, ...options } = body;
       expect(await response.json()).toEqual(generateCharacter(identity, options));
+    }
+  });
+
+  it('accepts One heads from 16 px and each family\'s own eye style through GET, SVG and POST', async () => {
+    for (const size of [16, 20, 24, 28]) {
+      const expected = generateCharacter(did, { skin: 'one', shape: 'teal', size, eyeStyle: 'agent-eye-v1' });
+      const query = `?skin=one&shape=teal&size=${size}&eyeStyle=agent-eye-v1`;
+      expect(await (await handler(new Request(path() + query))).json()).toEqual(expected);
+      expect(await (await handler(new Request(path(did, true) + query))).text()).toBe(expected.svg);
+      expect(await (await handler(post({ did, skin: 'one', shape: 'teal', size, eyeStyle: 'agent-eye-v1' }))).json()).toEqual(expected);
+    }
+    for (const bad of ['?skin=one&size=15', '?size=16', '?skin=spacex&size=31', '?skin=one&eyeStyle=live-v1', '?eyeStyle=agent-eye-v1',
+      '?skin=christmas&eyeStyle=agent-eye-v1']) {
+      expect((await handler(new Request(path() + bad))).status, bad).toBe(400);
+    }
+    for (const body of [{ did, skin: 'one', size: 15 }, { did, size: 16 }, { did, skin: 'one', eyeStyle: 'live-v1' }, { did, eyeStyle: 'agent-eye-v1' }]) {
+      expect((await handler(post(body))).status).toBe(400);
+    }
+    const schemas = characterApiOpenApi.components.schemas;
+    expect(schemas.CharacterEyeStyle).toMatchObject({ type: 'string', enum: ['live-v1', 'agent-eye-v1'] });
+    for (const schema of [schemas.CharacterAppearanceV1, schemas.CharacterOptionsV1, schemas.CharacterGenerateRequestV1, schemas.CharacterDescriptorV1]) {
+      expect(schema.properties.eyeStyle).toEqual({ $ref: '#/components/schemas/CharacterEyeStyle' });
+      for (const rule of schema.allOf) {
+        expect(rule.then.properties.eyeStyle).toEqual({ const: rule.if.properties.skin.const === 'one' ? 'agent-eye-v1' : 'live-v1' });
+      }
+    }
+    for (const schema of [schemas.CharacterOptionsV1, schemas.CharacterGenerateRequestV1, schemas.CharacterDescriptorV1]) {
+      expect(schema.properties.size).toMatchObject({ minimum: 16, maximum: 2048 });
+      for (const rule of schema.allOf) {
+        if (rule.if.properties.skin.const === 'one') expect(rule.then.properties).not.toHaveProperty('size');
+        else expect(rule.then.properties.size).toEqual({ minimum: 32 });
+      }
     }
   });
 

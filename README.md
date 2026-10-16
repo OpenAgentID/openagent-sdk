@@ -8,7 +8,7 @@ identity service. Your application controls keys, trust and access.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.5.3 my-agent-app --yes
+npx create-openagent@0.6.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -19,18 +19,18 @@ verifies a real signed request; its status updates the agent's live eyes. Autos
 is the default skin with a soft plush finish and on-face eyes. SpaceX, original
 crafted families and holiday characters are selectable; every family also offers
 flat material, raised eyes and glasses/headphones. Keys and trust survive restarts.
-The starter uses SDK 0.7.3 and public npm dependencies only.
+The starter uses SDK 0.8.0 and public npm dependencies only.
 Every character family shares a brighter color direction and soft plush finish;
 distinct silhouettes and signature details keep each family recognizable.
 
-For an existing application, install `@openagentid/sdk@0.7.3` and follow the
+For an existing application, install `@openagentid/sdk@0.8.0` and follow the
 [TypeScript/JavaScript quickstart](docs/getting-started/quickstart-typescript.md).
 The [developer-tooling guide](docs/developer-tooling.md) covers the current CLI,
 receiver trust/storage, portable verification, OIDC/OATS and browser state APIs.
 The included `oaid` CLI creates identities, exchanges public trust documents,
 issues challenges, signs and verifies proofs, revokes local trust and renders
 avatars. No command requires a Life service. See the
-[0.7.3 release contents](docs/release-0.7.3.md).
+[0.8.0 release contents](docs/release-0.8.0.md).
 
 Life sells optional hosted services around this core. Inside the Life ecosystem,
 LifeID authenticates humans, Blinds brokers credentials and Genesis KMS stores
@@ -95,9 +95,11 @@ compatibility beyond the qualified formats and cases.
 | Swift | Source package | Add [sdks/swift](sdks/swift/) as a local package, not the repository root |
 | Kotlin | Source module | [sdks/kotlin](sdks/kotlin/); no unified Maven Central release is asserted |
 
-Registry availability was checked on 12 October 2026. Each language has its own
+Registry availability was checked on 12 October 2026; SDK 0.8.0 and
+create-openagent 0.6.0 are listed above as source releases until they are
+published. Each language has its own
 API and release track. The TypeScript local workspace and browser player need
-no private repository. The starter is `create-openagent` 0.5.3; the separate
+no private repository. The starter is `create-openagent` 0.6.0; the separate
 OIDC provider is `@openagentid/oidc` 0.2.0.
 
 ## What's in the box
@@ -142,9 +144,21 @@ Use `accessories: ['glasses', 'headphones']` when rendering or mounting a charac
 and `player.setAppearance({ accessories: [] })` to remove them without resetting
 its live eyes. See the [accessory release guide](docs/release-0.6.0.md) for profile, API and CLI examples.
 
+### The One family
+
+`skin: 'one'` draws an agent as One: a round disc with one bar for an eye, in one
+of twelve colours, or Digital One (`charcoal`) for One itself, with its own eye
+style `agent-eye-v1`. It is still at rest and shows its live status with
+agent-eye's faces and moves. Hosts that draw only Ones can use the light
+`@openagentid/sdk/one` entry, whose live runtime is 15.1 KB gzipped. Autos
+remains the default family. Keep One colours in your own agent records until
+every reader of your identity documents runs SDK 0.8.0. See
+[the One family](docs/characters.md#the-one-family) and the
+[0.8.0 release contents](docs/release-0.8.0.md).
+
 ### Shared finish and eye placement
 
-All 17 character families default to `finish: 'plush'` and `eyePlacement: 'face'`.
+All 17 two-eyed character families default to `finish: 'plush'` and `eyePlacement: 'face'`.
 Select `finish: 'flat'` or `eyePlacement: 'raised'` when rendering, saving an
 appearance or calling `player.setAppearance`. Accessories and the live eye
 state persist across those changes. See the [0.7.3 release guide](docs/release-0.7.3.md).

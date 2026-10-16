@@ -58,6 +58,11 @@ jobs:
         env:
           OAID_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node tools/public-onboarding/verify.mjs
+      - name: Verify live One heads in real Chromium
+        env:
+          OAID_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          OAID_ONE_ARTIFACT_DIR: .public-tooling-artifacts/one
+        run: node tools/public-onboarding/verify-one.mjs
       - name: Preserve release archives and verification receipt
         if: always()
         uses: actions/upload-artifact@v4
@@ -175,6 +180,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Check browser bundle budgets
+        # The live One runtime stays within the One app's 16 KB gzipped script
+        # budget, and the all-family bundle within 65 KB gzipped.
+        if: matrix.package == 'sdks/typescript'
+        run: npm run size
 
       - name: Verify public character service over HTTP
         if: matrix.package == 'sdks/typescript'

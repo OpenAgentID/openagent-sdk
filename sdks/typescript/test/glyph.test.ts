@@ -113,11 +113,12 @@ describe('OAS Glyph avatars', () => {
         state: { blink: 0.5, gaze: { x: 1, y: -1 } } }));
       expect(full).toBe(renderCharacterSvg(did, { skin: skin.id, shape, view: 'full', expression: 'concerned', size: 128,
         animated: false, state: { blink: 0.5, gaze: { x: 1, y: -1 } } }));
-      expect(full).toContain('viewBox="0 0 512 512"');
+      // A One is the whole head in both views; the other families widen to the full character.
+      expect(full).toContain(skin.id === 'one' ? 'viewBox="-100 -100 200 200"' : 'viewBox="0 0 512 512"');
       expect(full).toContain('data-character-view="full"');
       kinds++;
     }
-    expect(kinds).toBe(62);
+    expect(kinds).toBe(75);
     // Explicit Glyph and human profiles retain the original Glyph framing/bytes.
     for (const view of ['avatar', 'full'] as const) {
       expect(decode(agentAvatar(did, { avatarSkin: null }, { view }))).toBe(oasGlyph(did));

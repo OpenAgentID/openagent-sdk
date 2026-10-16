@@ -4,7 +4,8 @@ export const CHARACTER_EXPRESSIONS = Object.freeze(['neutral', 'attentive', 'sur
   'proud', 'shy', 'unimpressed', 'sleepy', 'thoughtful', 'concerned'] as const);
 
 export type AvatarExpression = typeof CHARACTER_EXPRESSIONS[number];
-export type AgentActivity = 'idle' | 'listening' | 'reasoning' | 'working' | 'speaking' | 'success' | 'blocked' | 'error';
+export type AgentActivity = 'idle' | 'listening' | 'reasoning' | 'working' | 'speaking' | 'success' | 'blocked' | 'error' |
+  'typing' | 'attention' | 'paused' | 'offline';
 export type AvatarStatus = AvatarExpression | AgentActivity;
 
 export interface LiveEyeState {
@@ -32,6 +33,8 @@ export interface CharacterStateUpdate extends Omit<LiveEyeState, 'expression'> {
 const activityExpressions: Readonly<Record<AgentActivity, AvatarExpression>> = Object.freeze({
   idle: 'neutral', listening: 'attentive', reasoning: 'thoughtful', working: 'attentive',
   speaking: 'happy', success: 'happy', blocked: 'concerned', error: 'concerned',
+  // 0.8.0: presentation states for composing a reply, asking for the viewer, pausing and being offline.
+  typing: 'attentive', attention: 'attentive', paused: 'sleepy', offline: 'sleepy',
 });
 const statuses = Object.freeze([
   ...CHARACTER_EXPRESSIONS.map(expression => Object.freeze({ status: expression as AvatarStatus, expression })),
@@ -88,4 +91,24 @@ export function parseCharacterState(input: unknown, fallbackExpression: AvatarEx
     y = bounded(gaze.y, -1, 1);
   }
   return Object.freeze({ status: status as AvatarStatus, expression, blink, gaze: Object.freeze({ x, y }) });
+}
+
+/**
+ * Apply a controller update to a resolved state. A status update clears the previous explicit expression; an
+ * explicit expression overrides the status; null restores the status expression. The whole update is validated
+ * before anything is returned, so a refused update leaves the caller's state untouched.
+ */
+export function updateCharacterState(state: CharacterRuntimeState, override: AvatarExpression | undefined, input: unknown):
+  { readonly state: CharacterRuntimeState; readonly override: AvatarExpression | undefined } {
+  const patch = characterStateRecord(input);
+  if (patch.status === null) throw new TypeError('Unsupported avatar status');
+  const next = patch.expression === null ? undefined : patch.expression !== undefined
+    ? parseAvatarExpression(patch.expression) : patch.status !== undefined ? undefined : override;
+  return {
+    state: parseCharacterState({ status: patch.status ?? state.status,
+      ...(next === undefined ? {} : { expression: next }),
+      blink: patch.blink === undefined ? state.blink : patch.blink,
+      gaze: patch.gaze === undefined ? state.gaze : patch.gaze }),
+    override: next,
+  };
 }

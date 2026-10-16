@@ -1,21 +1,38 @@
 /** Clock-driven live eyes for browser, native, and harness clients. No DOM required. */
 import { blake3 } from '@noble/hashes/blake3';
 import { generateCharacter, expressionEyes, type CharacterOptions } from './characters.js';
-import { characterStateRecord, parseCharacterState, type AvatarExpression,
+import { parseCharacterState, updateCharacterState, type AvatarExpression,
   type CharacterRuntimeState, type CharacterStateUpdate } from './character-state.js';
+import { oneFaceFor, onePaint, type OneKind } from './character-one.js';
+import { OneMotion, parseOneLiveOptions, seededRandom, type OneCadence, type OneMotionFrame } from './character-one-motion.js';
+export type { OneCadence, OneMotionFrame } from './character-one-motion.js';
 
 export interface CharacterAnimatorOptions extends CharacterOptions {
   /** Approximate settling time. Valid range: 80–2000 ms; default: 420 ms. */
   readonly transitionMs?: number;
   readonly reducedMotion?: boolean;
   readonly now?: () => number;
+  /**
+   * One family: pacing for ongoing work (working, reasoning, typing). 'brief' (default, for lists)
+   * moves for at most five seconds after the state starts; 'repeat' (headers and heroes) plays a
+   * cluster every six to ten seconds and rests after a minute without updates. Other families ignore it.
+   */
+  readonly cadence?: OneCadence;
+  /** One family: the voice output level (0–1), read on each sample while speaking at 64 px and up. */
+  readonly voiceLevel?: () => number;
 }
+
 export interface CharacterEyeFrame {
   readonly x: number; readonly y: number; readonly width: number; readonly height: number;
   readonly rx: number; readonly rotation: number; readonly centerX: number; readonly centerY: number;
 }
 export interface CharacterFrame extends CharacterRuntimeState {
   readonly eyes: readonly [CharacterEyeFrame, CharacterEyeFrame];
+  /**
+   * One family only: the head's face, pose and drawn geometry in its `-100 -100 200 200` box. The
+   * two-bar `eyes` remain for compatibility; a One renderer draws `one.geometry` instead.
+   */
+  readonly one?: OneMotionFrame;
 }
 export interface CharacterAnimator {
   sample(atMs?: number): CharacterFrame;
@@ -35,7 +52,9 @@ function pose(state: CharacterRuntimeState): number[] {
 /** A single timeline: interruptions preserve both eye position and velocity. */
 export function createCharacterAnimator(did: string, options: CharacterAnimatorOptions = {}): CharacterAnimator {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Invalid animator options');
-  const { transitionMs = 420, reducedMotion = false, now = () => globalThis.performance?.now() ?? Date.now(), ...characterOptions } = options;
+  const { transitionMs = 420, reducedMotion = false, now = () => globalThis.performance?.now() ?? Date.now(),
+    cadence: cadenceOption, voiceLevel: voiceLevelOption, ...characterOptions } = options;
+  const live = parseOneLiveOptions(cadenceOption, voiceLevelOption);
   if (typeof transitionMs !== 'number' || !Number.isFinite(transitionMs) || transitionMs < 80 || transitionMs > 2000) {
     throw new RangeError('Character transitionMs must be from 80 to 2000');
   }
@@ -54,6 +73,31 @@ export function createCharacterAnimator(did: string, options: CharacterAnimatorO
   last = time(now());
   const start = last;
   const springs: Spring[] = pose(state).map(value => ({ value, target: value, velocity: 0 }));
+  // The One family's head runs its own moment timeline on the same clock.
+  const one = descriptor.skin === 'one' ? new OneMotion({ face: oneFaceFor(state), gaze: state.gaze, px: descriptor.size,
+    temperament: onePaint(descriptor.shape as OneKind, descriptor.theme).temperament, random: seededRandom(seed, 8),
+    cadence: live.cadence, ...(live.voiceLevel ? { level: live.voiceLevel } : {}), motion: !(reduced || !descriptor.animated), at: start }) : undefined;
+  let nextCadence: number | null = one ? start : null;
+  if (one) { one.setBlink(state.blink); if (state.status === 'speaking') one.startTalk(start); }
+  function oneFrame(at: number): OneMotionFrame {
+    const head = one!;
+    for (let guard = 0; guard < 256; guard++) {
+      const end = head.timelineEnd;
+      if (end !== null && end <= at) {
+        if (head.sample(end).finished) { const delay = head.nextCadence(end); nextCadence = delay === null ? null : end + delay; }
+        continue;
+      }
+      if (end === null && nextCadence !== null && nextCadence <= at) {
+        const begin = nextCadence;
+        nextCadence = null;
+        const request = head.cadenceRequest();
+        if (request) head.start(request, begin);
+        continue;
+      }
+      break;
+    }
+    return head.sample(at).frame;
+  }
   function time(value: number): number {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || (last !== undefined && value < last)) {
       throw new RangeError('Character timestamps must be finite, nonnegative, and nondecreasing');
@@ -113,27 +157,29 @@ export function createCharacterAnimator(did: string, options: CharacterAnimatorO
         const height = openHeight - blink * (openHeight - 2);
         return Object.freeze({ x: centerX - width / 2, y: centerY - height / 2, width, height, rx: width / 2, rotation, centerX, centerY });
       }) as [CharacterEyeFrame, CharacterEyeFrame];
-      return Object.freeze({ status: state.status, expression: state.expression, blink, gaze, eyes: Object.freeze(eyes) });
+      return Object.freeze({ status: state.status, expression: state.expression, blink, gaze, eyes: Object.freeze(eyes),
+        ...(one ? { one: oneFrame(at) } : {}) });
     },
     update(input, atMs = now()) {
-      const patch = characterStateRecord(input);
-      const nextOverride = patch.expression === null ? undefined : patch.expression !== undefined
-        ? patch.expression as AvatarExpression : patch.status !== undefined ? undefined : override;
-      const next = parseCharacterState({ status: patch.status ?? state.status,
-        ...(nextOverride === undefined ? {} : { expression: nextOverride }),
-        blink: patch.blink === undefined ? state.blink : patch.blink,
-        gaze: patch.gaze === undefined ? state.gaze : patch.gaze });
       // Validate the entire patch and timestamp before modifying the clock or springs.
-      if (patch.status === null) throw new TypeError('Unsupported avatar status');
+      const next = updateCharacterState(state, override, input);
       const at = time(atMs);
       advance(at);
-      state = next;
-      override = nextOverride;
+      state = next.state;
+      override = next.override;
       pose(state).forEach((target, index) => {
         const spring = springs[index]!;
         spring.target = target;
         if (instant()) { spring.value = target; spring.velocity = 0; }
       });
+      if (one) {
+        oneFrame(at);
+        one.noteInput(at);
+        one.setBlink(state.blink);
+        const request = one.setFace(oneFaceFor(state), state.gaze, at);
+        if (request) { one.start(request, at); nextCadence = null; }
+        if (state.status === 'speaking') one.startTalk(at);
+      }
       return state;
     },
     getState() { return state; },
@@ -143,6 +189,15 @@ export function createCharacterAnimator(did: string, options: CharacterAnimatorO
       advance(at);
       reduced = value;
       if (instant()) for (const spring of springs) { spring.value = spring.target; spring.velocity = 0; }
+      if (one) {
+        one.setMotion(!instant());
+        nextCadence = null;
+        if (!instant()) {
+          one.restartWindow(at);
+          if (one.cadenceRequest()) nextCadence = at;
+          if (state.status === 'speaking') one.startTalk(at);
+        }
+      }
     },
   };
   return Object.freeze(api);

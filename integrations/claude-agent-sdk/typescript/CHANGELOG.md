@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — 2026-10-15
+
+- Accept `@openagentid/sdk` 0.8.0 beside 0.7.x (peer range `^0.7.2 || ^0.8.0`). No API change: the
+  package's typecheck, tests and build are qualified against a packed SDK 0.8.0 as well as the published 0.7.2.
+
 ## 0.2.0 — 2026-10-12
 
 - Add real Claude Agent SDK options.hooks adapter with per-session state, native deny decisions, skill policy and tool failure audit. Adapt current SDK signer custody explicitly. Replace the fictional plugins example with executable real-key hook checks.

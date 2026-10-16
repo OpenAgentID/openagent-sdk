@@ -5,7 +5,7 @@ explicit receiver trust, authenticated HTTP requests and animated avatars run
 locally without a Life account or a hosted identity service.
 
 ```sh
-npx create-openagent@0.5.3 my-agent-app --yes
+npx create-openagent@0.6.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -13,13 +13,14 @@ npm run dev
 
 In a second terminal, run `npm run agent`. It signs an actual server-issued
 challenge; the receiver verifies the signature and current trust and consumes
-the challenge exactly once. The viewer uses Autos by default, offers all 17 families and 62 kinds with face
-framing (including SpaceX and holiday characters), and updates from actual verified requests. It uses the same SDK player you can
-mount in your own UI. SDK 0.7.2 includes soft plush as the default finish, flat material
-as an option, and on-face or raised eye placement on every family. Those controls
+the challenge exactly once. The viewer uses Autos by default, offers all 18 families and 75 kinds with face
+framing (including SpaceX, holiday characters and the One family), and updates from actual verified requests. It uses the same SDK player you can
+mount in your own UI. Soft plush is the default finish, with flat material
+as an option, and on-face or raised eye placement on every two-eyed family. Those controls
 keep the selected accessories and actual verified-request state intact. Glasses
-and headphones use refined metal frames and soft cushions. SDK 0.7.2 adds the
-brighter family palette and pigment-preserving plush finish.
+and headphones use refined metal frames and soft cushions. SDK 0.8.0 adds the
+One family: a coloured disc with one bar for an eye that shows the same verified
+status and keeps the selected wearables for when you switch back.
 
 Node 20.19+ is required. Private keys and receiver state stay in the generated
 application's ignored local data directory. Preserve this directory across

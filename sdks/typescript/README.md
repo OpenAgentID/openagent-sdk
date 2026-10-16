@@ -8,7 +8,7 @@ roots have no reduced access tier; each application controls its permissions.
 
 ## Local identity, no hosted service required
 
-Use the Node-only local module in SDK 0.7.3 to keep identity
+Use the Node-only local module in SDK 0.8.0 to keep identity
 keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
@@ -38,6 +38,21 @@ that bring distributed storage or different trust authorities.
 The `OpenAgent` facade still wraps separately configured OAS identity, Arsenal
 credentials and AEGIS verification clients. It fails closed if a required client
 is missing. Its endpoint options do not create those clients automatically.
+
+## Version 0.8.0
+
+Adds the One family: a round disc with one bar for an eye, drawn from agent-eye,
+One's animated mark, with its own eye style `agent-eye-v1`. Twelve agent colours
+and Digital One (`charcoal`); a DID selects a colour when none is stored. Hosts
+that draw only Ones can use the light `@openagentid/sdk/one` entry, whose live
+runtime is 15.1 KB gzipped. Autos remains the default family, and every existing
+family renders exactly as before. Four statuses join the shared timeline for
+every family (`typing`, `attention`, `paused`, `offline`), and `theme` and
+`label` join the rendering options. Identity documents that store a One
+appearance do not parse in SDK 0.7.3 and earlier: keep One colours in the
+application's own agent records until every reader upgrades. See
+[the One family](#the-one-family) and the
+[0.8.0 release contents](../../docs/release-0.8.0.md).
 
 ## Version 0.7.3
 
@@ -241,6 +256,53 @@ Character generation is public decoration, not identity authentication.
 
 See [the full API contract](../../docs/characters.md) and
 [OpenAPI 3.1 schema](../../docs/character-api.openapi.json).
+
+### The One family
+
+Choose `skin: 'one'` to draw an agent as One: a round disc with one bar for an
+eye, in its own colour. Its kinds (`shape`) are the twelve agent colours
+`blue`, `red`, `sky`, `green`, `yellow`, `pink`, `plum`, `teal`, `lime`, `mint`,
+`lilac` and `coral`, plus `charcoal`, Digital One, for One itself. The head is
+still at rest and moves only when its state changes: working reads along,
+reasoning ponders, typing taps, attention looks straight at you, success
+smiles, paused dozes, error goes dizzy.
+
+```ts
+import { generateCharacter, nextOneColor, oneColorForDid } from '@openagentid/sdk';
+import { mountCharacter } from '@openagentid/sdk/browser';
+
+const color = nextOneColor(teamColors);        // first free colour in the default order (groups: { color, group })
+oneColorForDid(agent.did);                     // the DID default when no colour is stored
+const still = generateCharacter(agent.did, { skin: 'one', shape: color, size: 44,
+  state: { status: 'working', gaze: { x: 0.4, y: 0.1 } } }).svg; // server render or reduced motion
+const player = mountCharacter(element, agent.did, { skin: 'one', shape: color, size: 44,
+  label: agent.name, state: { gaze: { x: 0.4, y: 0.1 } } });
+player.update({ status: 'attention' });
+player.setAppearance({ shape: 'teal', theme: 'dark' });
+```
+
+```ts
+import { renderOne } from '@openagentid/sdk/one';          // server: stills, DID defaults, blank heads
+import { mountOne } from '@openagentid/sdk/browser/one';  // client: the live runtime alone
+
+const html = renderOne({ did: agent.did, color, size: 44, state });
+const head = mountOne(element, { color, size: 44, label: agent.name, follow: false, state }); // replaces the still
+head.setAppearance({ color: 'teal' });                    // a blank head plays First blink instead
+head.play('shrug', { viewer: true });                     // a tap on a hero; arrivals omit `viewer`
+```
+
+`state.gaze` is where the head's content is, and a One at rest looks there.
+One heads render from 16 px. The still glyph is decorative unless `label` names
+it, never embeds animation or element identifiers, and keeps finish, eye
+placement and accessories in its descriptor without drawing them. Live heads
+share one ticker per window that sleeps at rest, move at most one per list and
+three per window, and hold still under reduced motion. The geometry is a
+TypeScript port of agent-eye, written by JR and contributed by its copyright
+holder, L1fe Labs, Inc., under Apache-2.0 OR MIT; the port is checked against
+the byte-identical master in `test/fixtures/agent-eye` (sha256
+`83cc379a…bba4`). See
+[the One family](../../docs/characters.md#the-one-family) for the palette,
+faces, calm rules and provenance.
 
 ## Runtime support
 

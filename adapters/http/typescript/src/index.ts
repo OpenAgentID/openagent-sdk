@@ -84,6 +84,6 @@ export {
 export { AuthenticatedSession } from './session.js';
 
 /** SDK version — kept in sync with `package.json`. */
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
 
 export { createSdkIdentityKeyResolver } from './sdk.js';

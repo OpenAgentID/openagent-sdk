@@ -9,7 +9,7 @@ export function generateStarterTemplate(projectName: string): TemplateFile[] {
       type: 'module', engines: { node: '>=20.19.0' }, scripts: {
         dev: 'node src/server.mjs', agent: 'node src/agent.mjs', identity: 'node src/identity.mjs',
         test: 'node --test test/*.test.mjs',
-      }, dependencies: { '@openagentid/sdk': '0.7.3' } }, null, 2) + '\n' },
+      }, dependencies: { '@openagentid/sdk': '0.8.0' } }, null, 2) + '\n' },
     { path: '.gitignore', content: 'node_modules/\n.openagent/\ncoverage/\n.env\n' },
     { path: 'src/workspaces.mjs', content: workspaces },
     { path: 'src/server.mjs', content: server },
@@ -367,7 +367,7 @@ Requires Node 20.19+. Run npm install, then npm run dev. Open the numeric loopba
 
     npm run agent -- "Hello from my agent"
 
-The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, 16 optional families (including SpaceX and seasonal characters), distinct kinds, face framing, combinable glasses/headphones, soft plush by default with a flat-vector option, on-face or raised eyes and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
+The command obtains a receiver-issued challenge, signs it with a persisted Ed25519 key, and sends a proof. After verification, the receiver hashes and echoes the message. The browser shows the real completed-request count, animated Autos by default, 17 optional families (including SpaceX, seasonal characters and the One family of coloured heads), distinct kinds, face framing, combinable glasses/headphones, soft plush by default with a flat-vector option, on-face or raised eyes and selectable expressions. It does not simulate work or broadcast runtime state elsewhere. Reduced motion follows your browser preference.
 
 On first setup, src/workspaces.mjs creates two separate local authorities, persists a unique receiver audience and explicitly imports the signer's public DID/key document into the receiver with trustIdentity. The receiver has no signing key for that agent. The public export is .openagent/identity.json. Private keys, challenge and replay state remain under .openagent/ and are excluded from git. Inspect public identity with npm run identity -- export. Never publish .openagent/ or serve it as static assets.
 

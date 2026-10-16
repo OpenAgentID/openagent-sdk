@@ -104,15 +104,20 @@ describe('public local CLI integration', () => {
     expect(space.out).toContain('happy');
     expect((await command(['avatar', did, '--skin', 'unknown'])).code).toBe(1);
     expect((await command(['avatar', did, '--status', 'made-up'])).code).toBe(1);
+    // One heads go down to the One app's 16 px avatars; the bodied families keep their 32 px minimum.
+    const small = await command(['avatar', did, '--skin', 'one', '--shape', 'teal', '--theme', 'dark', '--size', '16']);
+    expect(small.code, small.err).toBe(0);
+    expect(small.out).toContain('data-one-tier="XS"');
+    expect((await command(['avatar', did, '--size', '16'])).code).toBe(1);
   });
 
-  it('lists independent accessories and renders either or both on every family without remote access', async () => {
+  it('lists independent accessories and renders either or both on every two-eyed family without remote access', async () => {
     const catalog = await command(['avatar', 'accessories']);
     expect(catalog.code, catalog.err).toBe(0);
     expect(JSON.parse(catalog.out)).toEqual(getCharacterAccessories());
     expect(JSON.parse(catalog.out).map((entry: { id: string }) => entry.id)).toEqual(['glasses', 'headphones']);
     const did = 'did:oas:openagent:agent:cli-accessories';
-    for (const skin of getCharacterSkins()) {
+    for (const skin of getCharacterSkins().filter(entry => entry.id !== 'one')) {
       for (const view of ['avatar', 'full'] as const) {
         for (const selection of ['', 'glasses', 'headphones', 'headphones,glasses']) {
           const result = await command(['avatar', did, '--skin', skin.id, '--shape', skin.shapes[0]!,
@@ -193,8 +198,8 @@ describe('public local CLI integration', () => {
     const catalog = await command(['avatar', 'skins']);
     expect(catalog.code, catalog.err).toBe(0);
     const families = JSON.parse(catalog.out) as { id: string; shapes: string[] }[];
-    expect(families).toHaveLength(17);
-    expect(families.reduce((sum, family) => sum + family.shapes.length, 0)).toBe(62);
+    expect(families).toHaveLength(18);
+    expect(families.reduce((sum, family) => sum + family.shapes.length, 0)).toBe(75);
     for (const family of families) {
       const result = await command(['avatar', 'did:oas:openagent:agent:cli-family', '--skin', family.id,
         '--shape', family.shapes[0]!, '--status', 'reasoning']);
@@ -229,5 +234,21 @@ describe('public local CLI integration', () => {
     expect((await command(['--help'])).out).toContain('--accessories glasses,headphones');
     expect((await command(['--help'])).out).toContain('--finish plush|flat');
     expect((await command(['--help'])).out).toContain('--eye-placement face|raised');
+    expect((await command(['--help'])).out).toContain('--theme light|dark');
+  });
+
+  it('renders One heads in either theme from the same options as the SDK', async () => {
+    const did = 'did:oas:openagent:agent:cli-one';
+    for (const theme of ['light', 'dark'] as const) for (const shape of ['teal', 'charcoal'] as const) {
+      const result = await command(['avatar', did, '--skin', 'one', '--shape', shape, '--theme', theme, '--status', 'working', '--size', '44']);
+      expect(result.code, result.err).toBe(0);
+      expect(result.out).toBe(generateCharacter(did, { skin: 'one', shape, theme, size: 44, state: { status: 'working' } }).svg + '\n');
+      expect(result.out).toContain('data-one-face="working"');
+    }
+    const fromIdentity = await command(['avatar', did, '--skin', 'one']);
+    expect(fromIdentity.out).toBe(generateCharacter(did, { skin: 'one' }).svg + '\n');
+    for (const flags of [['--theme', 'night'], ['--theme', ''], ['--theme', 'dark', '--theme', 'light'], ['--skin', 'one', '--shape', 'orange']]) {
+      expect((await command(['avatar', did, ...flags])).code).toBe(1);
+    }
   });
 });

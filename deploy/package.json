@@ -25,7 +25,7 @@
     "docker:start": "node --env-file=.receiver-example/receiver.env docker/dist/server.js"
   },
   "dependencies": {
-    "@openagentid/sdk": "^0.7.2",
+    "@openagentid/sdk": "^0.7.2 || ^0.8.0",
     "@openagentid/crypto-wasm": "^0.1.1"
   },
   "devDependencies": {

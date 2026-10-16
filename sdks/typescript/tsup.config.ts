@@ -19,6 +19,7 @@ export default defineConfig([{
     'src/character-state.ts',
     'src/character-animation.ts',
     'src/character-player.ts',
+    'src/one.ts',
     'src/local-workspace.ts',
     'src/integrations.ts',
     'src/integrations/oas.ts',

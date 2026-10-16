@@ -1,3 +1,8 @@
+# 0.2.1 — 2026-10-15
+
+- Accept `@openagentid/sdk` 0.8.0 beside 0.7.x (peer range `^0.7.2 || ^0.8.0`). No API change: the
+  package's typecheck, tests and build are qualified against a packed SDK 0.8.0 as well as the published 0.7.2.
+
 # 0.2.0 — 2026-10-12
 
 - Bind every proof and session to an authoritative DID authentication key; add

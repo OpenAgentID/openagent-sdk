@@ -47,7 +47,8 @@ independent `@openagentid/oidc@0.2.0`. See the
 crates have separate feature/version tracks; this version statement does not
 claim public availability of all their dependencies.
 
-The browser catalog contains 17 families, 62 kinds and 18 shared expressions.
+The browser catalog contains 18 families, 75 kinds and 18 shared expressions,
+including the One family of coloured heads with one bar for an eye.
 Autos, plush material, on-face eyes and face crop are the defaults. Appearance
 choices preserve the live eye timeline; they convey no identity authority or
 application permissions.

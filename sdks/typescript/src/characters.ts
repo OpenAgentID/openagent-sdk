@@ -1,4 +1,4 @@
-/** OpenAgent character profile v1: deterministic bodies and shared live-v1 eyes. */
+/** OpenAgent character profile v1: deterministic bodies, live-v1 eyes on the two-eyed families and agent-eye-v1 on One. */
 import { characterBody, characterFraming, characterArt, serializeCharacterBody } from './character-body.js';
 import { characterAccessories, parseCharacterAccessories, type CharacterAccessory } from './character-accessories.js';
 export { getCharacterAccessories, parseCharacterAccessories } from './character-accessories.js';
@@ -8,16 +8,21 @@ import { characterEyeMount } from './character-eye-mount.js';
 export type { CharacterFinish } from './character-material.js';
 import { blake3 } from '@noble/hashes/blake3';
 import { isAgentAvatarDid } from './avatar-did.js';
+import { parseCharacterLabel } from './character-label.js';
 export { isAgentAvatarDid } from './avatar-did.js';
 import { CHARACTER_EXPRESSIONS, parseCharacterState, type AvatarExpression, type LiveEyeState } from './character-state.js';
+import { ONE_KINDS, oneColorForDid, onePaint, oneStillSvg, escapeXml, type OneKind } from './character-one.js';
+export { getOneColors, oneColorForDid, nextOneColor } from './character-one.js';
+export type { OneColor, OneKind, OneHeadColor, OneColorHolder, OneColorDescription, OneTemperament, OneFace, OnePose, OneTier, OneGeometry } from './character-one.js';
 export { getCharacterExpressions, getCharacterStatuses, parseCharacterState, expressionForStatus } from './character-state.js';
 export type { AvatarExpression, AvatarStatus, AgentActivity, LiveEyeState, CharacterRuntimeState, CharacterStateUpdate } from './character-state.js';
 
 export type CharacterSkin = 'autos' | 'spacex' | 'fold' | 'sprig' | 'ripple' | 'halo' |
   'purl' | 'prism' | 'coil' | 'kiln' | 'wisp' | 'relay' | 'cairn' | 'tuft' |
-  'halloween' | 'thanksgiving' | 'christmas';
+  'halloween' | 'thanksgiving' | 'christmas' | 'one';
 export type CharacterView = 'avatar' | 'full';
-export type CharacterEyeStyle = 'live-v1';
+/** Eye geometry identifiers: `live-v1` (two pill bars) on the two-eyed families, `agent-eye-v1` (agent-eye's single bar) on One. */
+export type CharacterEyeStyle = 'live-v1' | 'agent-eye-v1';
 export type CharacterEyePlacement = 'face' | 'raised';
 export type CharacterShape = 'standard' | 'slender' | 'wide' | 'circle' | 'pebble' |
   'squircle' | 'capsule' | 'triangle' | 'hexagon' | 'cloud' | 'droplet' |
@@ -25,7 +30,9 @@ export type CharacterShape = 'standard' | 'slender' | 'wide' | 'circle' | 'pebbl
   'mitt' | 'hood' | 'crystal' | 'obelisk' | 'spring' | 'bellows' | 'vase' | 'teapot' |
   'flame' | 'curl' | 'radio' | 'beacon' | 'tower' | 'arch' | 'pom' | 'bear' |
   'pumpkin' | 'ghost' | 'bat' | 'witch-hat' | 'candy-corn' |
-  'turkey' | 'acorn' | 'squash' | 'pie' | 'corn' | 'light' | 'tree' | 'snowman' | 'ornament' | 'gift';
+  'turkey' | 'acorn' | 'squash' | 'pie' | 'corn' | 'light' | 'tree' | 'snowman' | 'ornament' | 'gift' | OneKind;
+/** The surface a character is drawn on. Only the One family has surface-specific tones today. */
+export type CharacterTheme = 'light' | 'dark';
 
 export interface CharacterAppearance {
   readonly skin: CharacterSkin;
@@ -45,17 +52,25 @@ export interface CharacterOptions extends Omit<CharacterAppearance, 'skin'> {
   readonly expression?: AvatarExpression;
   /** Face crop by default; full includes the complete character for illustrations. */
   readonly view?: CharacterView;
-  /** Square pixel dimensions, 32–2048; framing is independent of output size. */
+  /** Square pixel dimensions, 32–2048 (16–2048 for the One family); framing is independent of output size. */
   readonly size?: number;
   /** Set false for a static runtime-controlled pose or reduced-motion display. */
   readonly animated?: boolean;
   readonly state?: LiveEyeState;
+  /** Light (default) or dark surface; presentation only, never stored appearance. */
+  readonly theme?: CharacterTheme;
+  /**
+   * Accessible name, normally the agent's own name. Without one, a One head is decorative
+   * (aria-hidden); other families keep their generic title.
+   */
+  readonly label?: string;
 }
 
 export interface CharacterSkinDescription {
   readonly id: CharacterSkin;
   readonly label: string;
   readonly version: 1;
+  /** The family's eye styles; the first is its default. */
   readonly eyeStyles: readonly CharacterEyeStyle[];
   readonly shapes: readonly CharacterShape[];
   readonly expressions: readonly AvatarExpression[];
@@ -73,6 +88,7 @@ export interface CharacterDescriptor {
   readonly expression: AvatarExpression;
   readonly color: string;
   readonly view: CharacterView;
+  readonly theme: CharacterTheme;
   readonly size: number;
   readonly animated: boolean;
   readonly state: {
@@ -86,6 +102,7 @@ export interface CharacterDescriptor {
 
 const encoder = new TextEncoder();
 const eyeStyles: readonly CharacterEyeStyle[] = Object.freeze(['live-v1'] as const);
+const oneEyeStyles: readonly CharacterEyeStyle[] = Object.freeze(['agent-eye-v1'] as const);
 const autosShapes = Object.freeze(['standard', 'slender', 'wide'] as const);
 const spaceShapes = Object.freeze(['circle', 'pebble', 'squircle', 'capsule', 'triangle', 'hexagon', 'cloud', 'droplet'] as const);
 const expressions = CHARACTER_EXPRESSIONS;
@@ -95,6 +112,7 @@ const catalog: readonly CharacterSkinDescription[] = Object.freeze([
   ...Object.entries(characterArt).map(([id, family]) => Object.freeze({ id: id as CharacterSkin,
     label: family.label, version: 1 as const, eyeStyles,
     shapes: Object.freeze(Object.keys(family.shapes) as CharacterShape[]), expressions })),
+  Object.freeze({ id: 'one' as const, label: 'One', version: 1 as const, eyeStyles: oneEyeStyles, shapes: ONE_KINDS, expressions }),
 ]);
 // Eight stable seed slots in the shared bright collection; colors are decoration, not identity.
 const palette = Object.freeze(['#3478ed', '#169acb', '#f07825', '#ea493f', '#18a260', '#c58d12', '#8157dc', '#e44887']);
@@ -114,16 +132,21 @@ function record(value: unknown, keys: readonly string[], label: string): Record<
 }
 
 function normalizedOptions(options: CharacterOptions | undefined): {
-  skin: CharacterSkin; finish: CharacterFinish; eyePlacement: CharacterEyePlacement; shape?: CharacterShape; accessories: readonly CharacterAccessory[]; expression: AvatarExpression;
-  view: CharacterView; size: number; animated: boolean; state: CharacterDescriptor['state'];
+  skin: CharacterSkin; eyeStyle: CharacterEyeStyle; finish: CharacterFinish; eyePlacement: CharacterEyePlacement; shape?: CharacterShape; accessories: readonly CharacterAccessory[]; expression: AvatarExpression;
+  view: CharacterView; theme: CharacterTheme; label?: string; size: number; animated: boolean; state: CharacterDescriptor['state'];
+  status: import('./character-state.js').AvatarStatus;
 } {
   const value: Record<string, unknown> = options === undefined ? {} : record(options,
-    ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'accessories', 'view', 'expression', 'size', 'animated', 'state'], 'options');
+    ['skin', 'skinVersion', 'eyeStyle', 'finish', 'eyePlacement', 'shape', 'accessories', 'view', 'expression', 'size', 'animated', 'state', 'theme', 'label'], 'options');
   const selection = catalog.find(entry => entry.id === (value.skin === undefined ? 'autos' : value.skin));
   if (!selection) throw new TypeError('Unsupported character skin');
   const skin = selection.id;
   if (value.skinVersion !== undefined && value.skinVersion !== 1) throw new TypeError('Unsupported character skin version');
-  if (value.eyeStyle !== undefined && value.eyeStyle !== 'live-v1') throw new TypeError('Unsupported character eye style');
+  // Each family has its own eye geometry; a stored style that belongs to another family is refused.
+  if (value.eyeStyle !== undefined && !selection.eyeStyles.includes(value.eyeStyle as CharacterEyeStyle)) {
+    throw new TypeError('Unsupported eye style for character skin');
+  }
+  const eyeStyle = selection.eyeStyles[0]!;
   const finish = value.finish === undefined ? 'plush' : value.finish;
   if (finish !== 'plush' && finish !== 'flat') throw new TypeError('Unsupported character finish');
   const eyePlacement = value.eyePlacement === undefined ? 'face' : value.eyePlacement;
@@ -134,18 +157,23 @@ function normalizedOptions(options: CharacterOptions | undefined): {
   }
   const view = value.view === undefined ? 'avatar' : value.view;
   if (view !== 'avatar' && view !== 'full') throw new TypeError('Unsupported character view');
+  const theme = value.theme === undefined ? 'light' : value.theme;
+  if (theme !== 'light' && theme !== 'dark') throw new TypeError('Unsupported character theme');
+  const label = value.label === undefined ? undefined : parseCharacterLabel(value.label);
   const expression = value.expression === undefined ? 'neutral' : value.expression;
   if (!expressions.includes(expression as AvatarExpression)) throw new TypeError('Unsupported avatar expression');
   const size = value.size === undefined ? 512 : value.size;
-  if (typeof size !== 'number' || !Number.isInteger(size) || size < 32 || size > 2048) {
-    throw new RangeError('Character size must be an integer from 32 to 2048');
+  // A One is a head, drawn in the One app's smallest avatar slots too; the bodied families need 32 px.
+  if (typeof size !== 'number' || !Number.isInteger(size) || size < (skin === 'one' ? 16 : 32) || size > 2048) {
+    throw new RangeError(skin === 'one' ? 'One size must be an integer from 16 to 2048' : 'Character size must be an integer from 32 to 2048');
   }
   const animated = value.animated === undefined ? true : value.animated;
   if (typeof animated !== 'boolean') throw new TypeError('Character animated must be boolean');
   const input = value.state === undefined ? {} : value.state;
   const resolved = parseCharacterState(input, expression as AvatarExpression);
   const supplied = input as Record<string, unknown>;
-  return { skin, finish, eyePlacement, view, shape: value.shape as CharacterShape | undefined, accessories: parseCharacterAccessories(value.accessories), expression: resolved.expression, size, animated,
+  return { skin, eyeStyle, finish, eyePlacement, view, theme, ...(label === undefined ? {} : { label }), shape: value.shape as CharacterShape | undefined, accessories: parseCharacterAccessories(value.accessories), expression: resolved.expression, size, animated,
+    status: resolved.status,
     state: Object.freeze({ blink: resolved.blink, gaze: resolved.gaze,
       ...(supplied.status === undefined ? {} : { status: resolved.status }),
       ...(supplied.expression === undefined ? {} : { expression: resolved.expression }) }) };
@@ -164,7 +192,7 @@ export function parseCharacterAppearance(value: unknown): CharacterAppearance {
     ...(selection.finish === undefined ? {} : { finish: normalized.finish }),
     ...(selection.eyePlacement === undefined ? {} : { eyePlacement: normalized.eyePlacement }),
     ...(selection.skinVersion === undefined ? {} : { skinVersion: 1 as const }),
-    ...(selection.eyeStyle === undefined ? {} : { eyeStyle: 'live-v1' as const }),
+    ...(selection.eyeStyle === undefined ? {} : { eyeStyle: normalized.eyeStyle }),
     ...(normalized.shape === undefined ? {} : { shape: normalized.shape }),
     ...(selection.accessories === undefined ? {} : { accessories: normalized.accessories }) });
 }
@@ -236,6 +264,7 @@ export function generateCharacter(did: string, options?: CharacterOptions): Char
     throw new TypeError('Characters require an agent or agent instance DID');
   }
   const normalized = normalizedOptions(options);
+  if (normalized.skin === 'one') return generateOne(did, normalized);
   // Literal legacy/current identifiers are deliberately distinct. Never rewrite them.
   const seed = blake3(encoder.encode(`oaid-character-v1\u0000${normalized.skin}\u0000${did}`));
   const family = catalog.find(entry => entry.id === normalized.skin)!;
@@ -253,10 +282,30 @@ export function generateCharacter(did: string, options?: CharacterOptions): Char
   const layers = normalized.accessories.length ? serializeCharacterBody(characterAccessories(normalized.accessories, framing.head, gaze, framing.eyeOffset, motion, (expressionEyes[normalized.expression][0][2] + expressionEyes[normalized.expression][1][2]) / 2)) : '';
   const eyeMount = normalized.eyePlacement === 'raised'
     ? serializeCharacterBody(characterEyeMount(framing.head, color, normalized.finish, instance, gaze, motion)) : '';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${framing.viewBox}" width="${normalized.size}" height="${normalized.size}" role="img" data-character-skin="${normalized.skin}" data-character-version="1" data-character-shape="${shape}" data-character-view="${normalized.view}" data-character-finish="${normalized.finish}" data-character-eye-placement="${normalized.eyePlacement}" data-character-expression="${normalized.expression}" data-character-seed="${fingerprint}"><title>OpenAgent ${family.label} character</title>${serializeCharacterBody(geometry)}<g data-character-face="true" transform="${framing.faceTransform}">${eyeMount}${layers}${eyes(normalized.expression, normalized.state, normalized.animated, seed, framing.eyeOffset)}</g></svg>`;
-  return Object.freeze({ did, skin: normalized.skin, skinVersion: 1, eyeStyle: 'live-v1',
-    shape, finish: normalized.finish, eyePlacement: normalized.eyePlacement, accessories: normalized.accessories, expression: normalized.expression, color, view: normalized.view, size: normalized.size, animated: normalized.animated,
+  const name = normalized.label === undefined ? undefined : escapeXml(normalized.label);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${framing.viewBox}" width="${normalized.size}" height="${normalized.size}" role="img"${name === undefined ? '' : ` aria-label="${name}"`} data-character-skin="${normalized.skin}" data-character-version="1" data-character-shape="${shape}" data-character-view="${normalized.view}" data-character-finish="${normalized.finish}" data-character-eye-placement="${normalized.eyePlacement}" data-character-expression="${normalized.expression}" data-character-seed="${fingerprint}"><title>${name ?? `OpenAgent ${family.label} character`}</title>${serializeCharacterBody(geometry)}<g data-character-face="true" transform="${framing.faceTransform}">${eyeMount}${layers}${eyes(normalized.expression, normalized.state, normalized.animated, seed, framing.eyeOffset)}</g></svg>`;
+  return Object.freeze({ did, skin: normalized.skin, skinVersion: 1, eyeStyle: normalized.eyeStyle,
+    shape, finish: normalized.finish, eyePlacement: normalized.eyePlacement, accessories: normalized.accessories, expression: normalized.expression, color, view: normalized.view, theme: normalized.theme, size: normalized.size, animated: normalized.animated,
     state: normalized.state, svg });
+}
+
+/**
+ * The One family: a disc and one bar for an eye (eye style agent-eye-v1), drawn as a still glyph of the state's
+ * held face. Finish, eye placement and accessories are kept in the descriptor (so switching back to another
+ * family restores them) but are not drawn: the head is agent-eye's geometry and nothing else. The SVG never
+ * embeds animation, because an embedded animation cannot follow the viewer's reduced-motion setting;
+ * motion comes from the live player or the clock-driven animator.
+ */
+function generateOne(did: string, normalized: ReturnType<typeof normalizedOptions>): CharacterDescriptor {
+  const shape = (normalized.shape ?? oneColorForDid(did)) as OneKind;
+  const svg = oneStillSvg({ did, kind: shape, theme: normalized.theme, size: normalized.size,
+    status: normalized.status, expression: normalized.expression, blink: normalized.state.blink, gaze: normalized.state.gaze,
+    view: normalized.view, finish: normalized.finish, eyePlacement: normalized.eyePlacement,
+    ...(normalized.label === undefined ? {} : { label: normalized.label }) });
+  return Object.freeze({ did, skin: 'one', skinVersion: 1, eyeStyle: normalized.eyeStyle,
+    shape, finish: normalized.finish, eyePlacement: normalized.eyePlacement, accessories: normalized.accessories,
+    expression: normalized.expression, color: onePaint(shape, normalized.theme).disc, view: normalized.view, theme: normalized.theme,
+    size: normalized.size, animated: normalized.animated, state: normalized.state, svg });
 }
 
 /** Render a character without retaining its descriptor. */

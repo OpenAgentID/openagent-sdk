@@ -82,7 +82,7 @@ export interface IdentityProvider {
 export const characterAppearanceSchema = z.object({
   skin: z.enum(getCharacterSkins().map(entry => entry.id) as [CharacterAppearance['skin'], ...CharacterAppearance['skin'][]]),
   skinVersion: z.literal(1).optional(),
-  eyeStyle: z.literal('live-v1').optional(),
+  eyeStyle: z.enum(['live-v1', 'agent-eye-v1']).optional(),
   finish: z.enum(['plush', 'flat']).optional(),
   eyePlacement: z.enum(['face', 'raised']).optional(),
   shape: z.enum([...new Set(getCharacterSkins().flatMap(entry => entry.shapes))] as [NonNullable<CharacterAppearance['shape']>, ...NonNullable<CharacterAppearance['shape']>[]]).optional(),
@@ -97,6 +97,9 @@ export const characterAppearanceSchema = z.object({
   const skin = getCharacterSkins().find(entry => entry.id === value.skin)!;
   if (value.shape !== undefined && !skin.shapes.includes(value.shape)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['shape'], message: 'Unsupported shape for skin' });
+  }
+  if (value.eyeStyle !== undefined && !skin.eyeStyles.includes(value.eyeStyle)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['eyeStyle'], message: 'Unsupported eye style for skin' });
   }
 });
 

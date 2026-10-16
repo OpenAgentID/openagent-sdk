@@ -31,6 +31,102 @@
   no SDK republish is part of this change. The OIDC browser entry is separate
   from the Node provider.
 
+## 0.8.0 — the One family, 2026-10-15
+
+- Add the opt-in `one` character family: a round disc with one bar for an eye,
+  drawn only from agent-eye geometry with its own eye style `agent-eye-v1`, in
+  twelve contrast- and colour-vision-gated agent colours plus `charcoal` (Digital
+  One). A DID selects one of the twelve colours when no kind is stored;
+  `getOneColors`, `oneColorForDid` and `nextOneColor` expose the palette, the DID
+  default and first-free assignment, repeating from the thirteenth agent
+  least-held first and, given `{ color, group }` holders, in another group first.
+  Autos stays the default; every existing family, kind, colour, stored profile
+  and DID seed renders exactly as in 0.7.3.
+- List eye styles per family in the catalog (`live-v1` on the two-eyed families,
+  `agent-eye-v1` on One) and refuse a style that belongs to another family in
+  options, stored appearance, identity documents, the HTTP API and OpenAPI.
+- Map the shared status timeline to One faces and moves: working reads along,
+  reasoning glances up and ponders, typing taps, attention looks at the viewer,
+  success smiles with a happy squint (40 px and up) or nods, paused dozes (a lid
+  and slumped body at 64 px and up), error goes dizzy, speaking talks with an
+  opaque mouth line under a full smile from an optional voice level. Idle with no
+  content direction is the warm face, so needs-you is the only face that looks
+  straight out. A blink at the viewer shuts tilted, never as a level bar. Every
+  move withdraws a visible smile line before it moves the eye.
+- Render One heads from 16 px (every other family keeps 32 px) in the SDK,
+  animator, player, CLI and HTTP API, with the plan's size tiers.
+- Render a decorative still glyph for servers, images and reduced motion, with
+  no element identifiers: Digital One's eye is cut out of its disc with the
+  even-odd rule. Stills carry `data-one-color` for forced-colours styles and keep
+  finish, eye placement and accessories in the descriptor without drawing them.
+- Run live One heads on one shared, sleeping animation-frame ticker per window
+  with one IntersectionObserver and one ResizeObserver: nothing moves at rest or
+  out of view, one head per list and three per window move at once, ongoing work
+  moves for at most five seconds in lists (`cadence: 'brief'`, each cluster
+  measured first) or in clusters in headers (`cadence: 'repeat'`), and reduced
+  motion holds every face still. Repaints never advance a move, so a head is
+  never stranded as moving. `follow: true` lets an eye follow a fine pointer
+  without counting as a move; a head takes over a still One rendered in its
+  element. The animator exposes `frame.one` for DOM-free renderers.
+- Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, palette
+  helpers) and `@openagentid/sdk/browser/one`, the live runtime alone at 15.1 KB
+  gzipped, with blank heads for ready-made agents and their First blink. `npm run
+  size` enforces 16 KB for it and 65 KB for the all-family browser bundle, which is
+  62.9 KB (63.1 KB in 0.7.3) because avatar DID parsing no longer loads zod.
+- Add `typing`, `attention`, `paused` and `offline` statuses for every family,
+  `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
+  CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the
+  family, its eye style, sizes, statuses and theme.
+- Port agent-eye's pure geometry and motion to TypeScript with its provenance:
+  the master (sha256 83cc379a…bba4), written by JR and contributed by its copyright
+  holder L1fe Labs, Inc. under Apache-2.0 OR MIT, is a byte-identical test
+  fixture; the port is compared with it and its containment check runs over
+  every held face and every frame of every move, from every face and when a move
+  cuts a smile or talk short.
+- Compatibility: SDK 0.7.3 and earlier reject identity documents whose
+  `avatarSkin` uses skin `one` or eye style `agent-eye-v1` (`IDENTITY_RESOLVE_FAILED`).
+  Keep One colours in the application's own agent records until every reader
+  upgrades.
+- Pin create-openagent 0.6.0 to SDK 0.8.0; its family picker lists One, and the
+  public onboarding verifier checks the One family in the generated starter.
+- Accept SDK 0.8.0 beside 0.7.x (`^0.7.2 || ^0.8.0`) in every package that
+  declares it: `@openagentid/http`, `mcp`, `claude-agent` and `scim` 0.2.1,
+  `sdk-testing` 0.1.3, the deployment templates 0.2.1 and the unreleased
+  `@openagentid/oidc` changes, each qualified against a packed SDK 0.8.0 and the
+  published 0.7.2. Publish them with the SDK.
+- Verify live One heads in real Chromium in the public onboarding CI job
+  (`tools/public-onboarding/verify-one.mjs`): one shared animation-frame ticker
+  that sleeps at rest, one moving head per list and three per window, brief
+  cadence, no motion out of view or under reduced motion, accessible names,
+  live family switching and disposal; on the light runtime, taking over a
+  server-rendered still, First blink, pointer follow, repaints at a move's end
+  and Digital One stills matching the live head pixel for pixel. CI also checks
+  the browser bundle budgets.
+- One heads take gestures from their host: `play(gesture, { viewer? })` on the
+  light entry's player plays `lookAtYou`, `nod`, `smile`, `wave`, `shrug` or
+  `popIn` and returns to the held face, for arrivals (which take a motion slot,
+  and wait up to 1.5 s for a head that is not yet in view) and a hero's tap ladder
+  (`viewer: true`, at once). Nothing plays under reduced motion or out of view,
+  and a head that needs the viewer only looks at them or nods.
+- Typing repeats in headers and heroes like every ongoing state, one cluster every
+  six to ten seconds, instead of back to back.
+- One mover per group now holds without exception. A dropped move no longer
+  glides to the held face beside the head that kept it waiting: it switches
+  straight to it, one held face per group at a time. A cadence cut short keeps
+  its slot while it settles. The viewer's own acts (a tap, a new colour, First
+  blink) still skip the window's cap but wait for their group, so agents added
+  together blink open one at a time. The next move in a group starts a beat
+  (about 100 ms) after the last one ends, never in the same frame.
+- The four Ones shared with the One website and the One app take their final
+  values on light and dark surfaces alike: Red `#e51e59`, Yellow `#ffe93f`
+  (keyline `#908207`, its own hue darkened to 3:1) and Green `#0e9076`, with
+  Blue `#3253e6` unchanged. Every agent colour stays at least CIEDE2000 10 from
+  Google's logo, Material, 2014–15 and 2015 logo colours. The other eight
+  colours, the default order and every DID default are unchanged. The smallest
+  colour-vision distance among Digital One and the first five colours is now
+  13.4 (Yellow beside Digital One's chalk on dark surfaces under tritanopia);
+  the first eight and all twelve keep 10.0 and 8.3.
+
 ## 0.7.3 — current package compatibility, 2026-10-12
 
 - Restore deterministic X25519 public keys from seeds with real WASM bindings;
