@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Use native private fields for the One player's internal state, so browser minification can shorten internal names without changing public shape, colour or player contracts. Compress browser output with a pinned Terser pass that shortens an explicit list of internal One implementation properties and preserve composed source maps; restore the One browser runtime's 16 KB gzip budget.
+- Use native private fields for the One player's internal state, so browser minification can shorten internal names without changing public shape, colour or player contracts. Compress browser output with a pinned Terser pass that shortens an explicit list of internal One implementation properties and preserve composed source maps; derive internal pose-channel keys from the neutral pose so they stay consistent under property minification, and restore the One browser runtime's 16 KB gzip budget.
 
 ## 0.8.0 — the One family, 2026-10-15
 

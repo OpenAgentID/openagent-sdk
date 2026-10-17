@@ -123,7 +123,7 @@ class Builder {
 
 /** agent-eye's saccade: 110 ms + 110 per unit of look, 7 % overshoot, 160 ms settle. */
 function saccade(b: Builder, t: number, to: number, extra: Partial<OnePose> = {}): number {
-  const from = b.cur('look'), d = 110 + 110 * Math.abs(to - from);
+  const from = b.cur(ONE_CHANNELS[0]!), d = 110 + 110 * Math.abs(to - from);
   b.mv(t, t + d, { look: to + (to - from) * 0.07, ...extra }, 'snap');
   b.mv(t + d, t + d + 160, { look: to }, 'settle');
   return t + d + 160;
@@ -133,8 +133,8 @@ function saccade(b: Builder, t: number, to: number, extra: Partial<OnePose> = {}
  * eye shuts tilted by 7°, so for those frames a disc never shows a level bar that reads as a No Entry sign.
  */
 function blinkAt(b: Builder, t: number, open: number, d: number): number {
-  const tilt = b.cur('tilt');
-  const level = Math.abs(tilt) < 4 && Math.abs(b.cur('look')) < 0.15;
+  const tilt = b.cur(ONE_CHANNELS[3]!);
+  const level = Math.abs(tilt) < 4 && Math.abs(b.cur(ONE_CHANNELS[0]!)) < 0.15;
   b.mv(t, t + 80, { open: 0, ...(level ? { tilt: tilt + 7 * d } : {}) }, 'shut');
   b.mv(t + 130, t + 300, { open: open * 1.04, ...(level ? { tilt } : {}) }, 'snap');
   b.mv(t + 300, t + 420, { open }, 'settle');
@@ -471,7 +471,7 @@ export class OneMotion {
         return { duration: 160, tail: false, noTempo: true };
       case 'home': {
         const t = saccade(b, 0, P.look, { lift: P.lift });
-        b.mv(0, Math.max(t, 300), pick(P, ['open', 'tilt', 'smile', 'mouth', 'squash', 'rotate', 'hop']), 'glide');
+        b.mv(0, Math.max(t, 300), pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!, ONE_CHANNELS[6]!, ONE_CHANNELS[7]!, ONE_CHANNELS[8]!]), 'glide');
         return { duration: Math.max(t, 300) };
       }
       case 'psst': {
@@ -500,8 +500,8 @@ export class OneMotion {
         const centred = Math.abs(this.#gaze.x) < 0.15;
         b.mv(0, 300, { look: (centred ? 0.12 : 0.2) * d, lift: 0, tilt: 10 * d, open: tier === 'L' ? 0.6 : 0.42,
           rotate: big ? 4 * d : 0 }, 'glide');
-        b.raw('smile', SMILE.smile, 300);
-        b.raw('mouth', SMILE.mouth, 300);
+        b.raw(ONE_CHANNELS[4]!, SMILE.smile, 300);
+        b.raw(ONE_CHANNELS[5]!, SMILE.mouth, 300);
         const pulse = 300 + 1460;
         if (t2 === 'bouncy') pulses(b, pulse, 3, 4, -2);
         else { b.cut(pulse, { squash: 3 }); b.mv(pulse, pulse + 300, { squash: 0 }, 'settle'); }
@@ -549,7 +549,7 @@ export class OneMotion {
         // Thinking starts with a quick glance up (agent-eye's saccade), then the slow drift of the master loop.
         const up = { look: 0.32 * d, open: 0.55, lift: -0.45, tilt: -8 * d };
         let t = 0;
-        const entering = Math.abs(b.cur('look') - up.look) > 0.1 || Math.abs(b.cur('lift') - up.lift) > 0.1;
+        const entering = Math.abs(b.cur(ONE_CHANNELS[0]!) - up.look) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[1]!) - up.lift) > 0.1;
         if (entering) t = saccade(b, 0, up.look, { lift: up.lift, open: up.open, tilt: up.tilt, smile: 0, mouth: 0 });
         const drift = [{ look: 0.22 * d, open: 0.58 }, { look: up.look, open: up.open }, { look: 0.22 * d, open: 0.58 }];
         if (!entering) drift.unshift({ look: up.look, open: up.open });
@@ -559,8 +559,8 @@ export class OneMotion {
       }
       case 'keys': {
         let t = 0;
-        const settled = pick(P, ['open', 'tilt', 'smile', 'mouth']);
-        if (Math.abs(b.cur('lift') - P.lift) > 0.1 || Math.abs(b.cur('look') - P.look) > 0.1) {
+        const settled = pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!]);
+        if (Math.abs(b.cur(ONE_CHANNELS[1]!) - P.lift) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[0]!) - P.look) > 0.1) {
           t = saccade(b, 0, P.look, { lift: P.lift, ...settled });
         } else if ((Object.keys(settled) as OneChannel[]).some(k => Math.abs(b.cur(k) - P[k]) > 1e-3)) {
           b.mv(0, 200, settled, 'glide');

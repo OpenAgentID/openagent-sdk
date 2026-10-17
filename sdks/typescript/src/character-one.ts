@@ -272,11 +272,13 @@ export interface OnePose {
   readonly hop: number;
 }
 export type OneChannel = keyof OnePose;
-export const ONE_FACE_CHANNELS: readonly OneChannel[] = Object.freeze(['look', 'lift', 'open', 'tilt', 'smile', 'mouth']);
-export const ONE_BODY_CHANNELS: readonly OneChannel[] = Object.freeze(['squash', 'rotate', 'hop']);
-export const ONE_CHANNELS: readonly OneChannel[] = Object.freeze([...ONE_FACE_CHANNELS, ...ONE_BODY_CHANNELS]);
-/** agent-eye's REST pose: the mark itself. */
+/** agent-eye's REST pose: the mark itself. Property order is the channel order. */
 export const ONE_NEUTRAL: OnePose = Object.freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0, squash: 0, rotate: 0, hop: 0 });
+// Derive internal property keys rather than repeating string literals. The standalone
+// browser build can then shorten pose properties without changing public state fields.
+export const ONE_CHANNELS: readonly OneChannel[] = Object.freeze(Object.keys(ONE_NEUTRAL) as OneChannel[]);
+export const ONE_FACE_CHANNELS: readonly OneChannel[] = Object.freeze(ONE_CHANNELS.slice(0, 6));
+export const ONE_BODY_CHANNELS: readonly OneChannel[] = Object.freeze(ONE_CHANNELS.slice(6));
 
 export type OneTier = 'XS' | 'S' | 'M' | 'L';
 /** Size tiers: XS 16–20 px holds faces only; S 24–36 moves the face; M 40–52 adds a little body; L 64+ is fully expressive. */
