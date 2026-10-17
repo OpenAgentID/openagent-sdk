@@ -93,33 +93,42 @@ const ms = (curve: readonly AgentEyeKey[]): Key[] => curve.map(([t, v, e]) => [t
 const blinkCurve = ms(BLINK);
 
 /** Moment builder, against the head's live values. */
-class Builder {
-  readonly curves: Curves = {};
-  constructor(private readonly live: OnePose) {}
-  private _oneChan(k: OneChannel): Key[] { return this.curves[k] ??= [[0, this.live[k]]]; }
-  cur(k: OneChannel): number { const c = this.curves[k]; return c ? c[c.length - 1]![1] : this.live[k]; }
-  mv(t0: number, t1: number, values: Partial<OnePose>, ease: Ease = 'linear'): void {
-    for (const k of objectKeys(values) as OneChannel[]) {
-      const c = this._oneChan(k);
-      const [lt, lv] = c[c.length - 1]!;
-      if (t0 > lt) c.push([t0, lv]);
-      c.push([mMax(t1, c[c.length - 1]![0]), values[k]!, ease]);
-    }
-  }
-  cut(t: number, values: Partial<OnePose>): void {
-    for (const k of objectKeys(values) as OneChannel[]) {
-      const c = this._oneChan(k);
-      const [lt, lv] = c[c.length - 1]!;
-      const t0 = mMax(lt, t - 0.5);
-      if (t0 > lt) c.push([t0, lv]);
-      c.push([mMax(t, t0), values[k]!, 'linear']);
-    }
-  }
-  raw(k: OneChannel, curve: readonly AgentEyeKey[], at: number): void {
-    const c = this._oneChan(k);
-    c.push([mMax(at, c[c.length - 1]![0]), curve[0]![1]]);
-    for (const [t, v, e] of curve.slice(1)) c.push([at + t * 1000, v, e]);
-  }
+interface Builder {
+  readonly curves: Curves;
+  cur(k: OneChannel): number;
+  mv(t0: number, t1: number, values: Partial<OnePose>, ease?: Ease): void;
+  cut(t: number, values: Partial<OnePose>): void;
+  raw(k: OneChannel, curve: readonly AgentEyeKey[], at: number): void;
+}
+function createBuilder(live: OnePose): Builder {
+  const curves: Curves = {};
+  const channel = (k: OneChannel): Key[] => curves[k] ??= [[0, live[k]]];
+  return {
+    curves,
+    cur(k) { const c = curves[k]; return c ? c[c.length - 1]![1] : live[k]; },
+    mv(t0, t1, values, ease = 'linear') {
+      for (const k of objectKeys(values) as OneChannel[]) {
+        const c = channel(k);
+        const [lt, lv] = c[c.length - 1]!;
+        if (t0 > lt) c.push([t0, lv]);
+        c.push([mMax(t1, c[c.length - 1]![0]), values[k]!, ease]);
+      }
+    },
+    cut(t, values) {
+      for (const k of objectKeys(values) as OneChannel[]) {
+        const c = channel(k);
+        const [lt, lv] = c[c.length - 1]!;
+        const t0 = mMax(lt, t - 0.5);
+        if (t0 > lt) c.push([t0, lv]);
+        c.push([mMax(t, t0), values[k]!, 'linear']);
+      }
+    },
+    raw(k, curve, at) {
+      const c = channel(k);
+      c.push([mMax(at, c[c.length - 1]![0]), curve[0]![1]]);
+      for (const [t, v, e] of curve.slice(1)) c.push([at + t * 1000, v, e]);
+    },
+  };
 }
 
 /** agent-eye's saccade: 110 ms + 110 per unit of look, 7 % overshoot, 160 ms settle. */
@@ -385,7 +394,7 @@ export class OneMotion {
     }
 
     function _call_onePlan(request: OneMomentRequest, live: OnePose): { curves: Curves; duration: number; twos: boolean } {
-        const b = new Builder(live);
+        const b = createBuilder(live);
         const P = _callheld();
         let index = 0;
         const draw = (): number => request.draws && index < request.draws.length ? request.draws[index++]! : _state_oneRandom();
