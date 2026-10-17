@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "OpenAgent SDK source package for GitHub installs. The implementation lives in sdks/typescript.",
   "private": true,
   "license": "Apache-2.0 OR MIT",
@@ -95,9 +95,18 @@
       "import": "./sdks/typescript/dist/character-player.js",
       "require": "./sdks/typescript/dist/character-player.cjs"
     },
+    "./one": {
+      "types": "./sdks/typescript/dist/one.d.ts",
+      "import": "./sdks/typescript/dist/one.js",
+      "require": "./sdks/typescript/dist/one.cjs"
+    },
     "./browser": {
       "types": "./sdks/typescript/dist/browser/character-player.d.ts",
       "import": "./sdks/typescript/dist/browser/character-player.js"
+    },
+    "./browser/one": {
+      "types": "./sdks/typescript/dist/browser/one.d.ts",
+      "import": "./sdks/typescript/dist/browser/one.js"
     },
     "./local": {
       "types": "./sdks/typescript/dist/local-workspace.d.ts",
@@ -147,10 +156,10 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "zod": "^3.23.8",
-    "jose": "^5.10.0",
     "@noble/hashes": "^1.8.0",
-    "@scure/base": "^1.2.6"
+    "@scure/base": "^1.2.6",
+    "jose": "^5.10.0",
+    "zod": "^3.23.8"
   },
   "bin": {
     "oaid": "./sdks/typescript/dist/cli.js"
@@ -158,8 +167,8 @@
   "peerDependencies": {
     "@openagentid/aegis-sdk": "^0.1.0",
     "@openagentid/arsenal-sdk": "^0.1.0",
-    "@openagentid/oas-sdk": "^1.0.2",
     "@openagentid/crypto-wasm": "^0.1.0",
+    "@openagentid/oas-sdk": "^1.0.2",
     "@openagentid/skills-policy": "^0.1.1"
   },
   "peerDependenciesMeta": {
