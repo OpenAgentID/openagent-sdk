@@ -168,7 +168,7 @@
     "size": "node scripts/check-size.mjs"
   },
   "dependencies": {
-    "@noble/hashes": "^1.8.0",
+    "@noble/hashes": "^2.4.0",
     "@scure/base": "^1.2.6",
     "jose": "^5.10.0",
     "zod": "^3.23.8"
