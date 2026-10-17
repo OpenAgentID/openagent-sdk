@@ -78,6 +78,32 @@ try {
     if (size < bytes) { compact = candidate; bytes = size; }
   }
   if (!compact) throw new Error('No One compression candidate');
+  // Gzip benefits from identifier spelling, not merely identifier length. Keep
+  // public property/export names intact and vary only a deterministic local alphabet.
+  const baseline = compact;
+  const letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_';
+  for (let shift = 0; shift < letters.length; shift++) {
+    const first = letters.slice(shift) + letters.slice(0, shift);
+    const tail = first + '0123456789';
+    const nth = {
+      get(index) {
+        let name = first[index % 54];
+        index = Math.floor(index / 54);
+        while (index > 0) { index--; name += tail[index % 64]; index = Math.floor(index / 64); }
+        return name;
+      },
+      reset() {}, sort() {}, consider() {},
+    };
+    const candidate = await minify({ 'one.js': baseline.code }, {
+      module: true, ecma: 2022, compress: false, mangle: { nth_identifier: nth },
+      format: { wrap_func_args: false },
+      sourceMap: { content: baseline.map, filename: 'one.js', url: 'one.js.map' },
+    });
+    if (!candidate.code || !candidate.map) throw new Error('One identifier compression failed');
+    const size = gzipSync(candidate.code).length;
+    if (size < bytes) { compact = candidate; bytes = size; console.log(`One identifier alphabet ${shift}: ${size} gzip bytes`); }
+  }
+
   const outputMap = new TraceMap(JSON.parse(compact.map));
   const used = new Set(decodedMappings(outputMap).flatMap(line => line.filter(segment => segment.length > 1).map(segment => segment[1])));
   const mapped = outputMap.sources.filter((_, index) => used.has(index));
