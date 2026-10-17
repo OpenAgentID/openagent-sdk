@@ -8,7 +8,7 @@
  */
 import { M_PI, clamp, freeze, mAbs, mCos, mExp, mFloor, mImul, mMax, mMin, mSin, mSqrt, objectEntries, objectFromEntries, objectKeys } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
-import { BLINK, EASE, SMILE, cubicBezier, type AgentEyeKey } from './agent-eye.js';
+import { BLINK, ONE_EASE as EASE, SMILE, cubicBezier, type AgentEyeKey } from './agent-eye.js';
 import {
   ONE_BODY_CHANNELS, ONE_CHANNELS, ONE_FACE_CHANNELS, oneGeometry, oneHeldPose, oneTemperament, oneTier,
   type OneChannel, type OneFace, type OneGeometry, type OneKind, type OnePose, type OneTemperament, type OneTier,
@@ -48,7 +48,7 @@ export interface OneMotionFrame {
   readonly moving: boolean;
 }
 
-type Ease = keyof typeof EASE | 'wind' | 'pop' | 'rise' | 'fall' | 'ui' |
+type Ease = Exclude<AgentEyeKey[2], undefined> | 'wind' | 'pop' | 'rise' | 'fall' | 'ui' |
   '~firm' | '~bounce' | '~soft';
 type Key = [number, number, Ease?];
 type Curves = Partial<Record<OneChannel, Key[]>>;

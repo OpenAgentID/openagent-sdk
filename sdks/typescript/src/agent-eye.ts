@@ -181,13 +181,18 @@ export function poseToFrame(pose: AgentEyePose): AgentEyeFrame {
   return { ...poseToBar(p), ...poseToMouth(p) };
 }
 
-export const EASE = freeze({
+/** Eases used by the live One timeline; additional general presets stay in EASE. */
+export const ONE_EASE = freeze({
   linear: [0, 0, 1, 1],
   shut: [0.6, 0, 0.9, 0.55],
   snap: [0.1, 0.9, 0.25, 1],
   settle: [0.3, 0, 0.3, 1],
   glide: [0.45, 0, 0.25, 1],
   emerge: [0.2, 0.6, 0.35, 1],
+} as const);
+
+export const EASE = freeze({
+  ...ONE_EASE,
   charge: [0.4, 0, 0.2, 1],
   exit: [0.45, 0, 0.7, 0.9],
 } as const);
