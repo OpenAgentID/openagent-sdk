@@ -22,6 +22,7 @@ const INPUTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
 const FOLLOW_RANGE = 240;
 const FOLLOW_REST_MS = 1600;
 const WASH_MS = 240;
+const decimal = (value: number, precision = 3): string => String(Number(value.toFixed(precision)));
 /** A gesture asked of a head that is not yet in view (an arrival on mount) plays when it is, within this long. */
 const GESTURE_WAIT_MS = 1500;
 const stages = new WeakMap<Window, OneStage>();
@@ -46,13 +47,13 @@ interface OneStage {
   tick(head: OneHead): void;
 }
 
-class OneStage {
-  static for(win: Window): OneStage {
-    let stage = stages.get(win);
-    if (!stage) { stage = new OneStage(win); stages.set(win, stage); }
-    return stage;
-  }
-  constructor(win: Window) {
+function stageFor(win: Window): OneStage {
+  let stage = stages.get(win);
+  if (!stage) { stage = createStage(win); stages.set(win, stage); }
+  return stage;
+}
+
+function createStage(win: Window): OneStage {
     let _statewin: Window = win;
     let _state_oneHeads = new Set<OneHead>();
     let _state_oneByRoot = new WeakMap<Element, OneHead>();
@@ -348,7 +349,6 @@ class OneStage {
       cancel: _callcancel,
       tick: _calltick
     };
-    Object.setPrototypeOf(api, new.target.prototype);
 
     _stateinputAt = _callnow();
     const IO = (win as unknown as {
@@ -373,7 +373,6 @@ class OneStage {
     }) : null;
 
     return api;
-  }
 }
 
 export interface OneHeadOptions {
@@ -527,7 +526,7 @@ export class OneHead {
     function _call_oneKeyline(): void {
         const inset = (element: SVGElement, width: number): void => {
             element.setAttribute('d', oneShapeInsetPath(_state_oneKind, width / 2));
-            element.setAttribute('stroke-width', String(Number(width.toFixed(4))));
+            element.setAttribute('stroke-width', decimal(width, 4));
         };
         if (_state_oneParts.keyline)
             inset(_state_oneParts.keyline, oneKeylineWidth(_state_onePx, _state_oneDoc.defaultView?.devicePixelRatio ?? 1));
@@ -572,11 +571,11 @@ export class OneHead {
         const from = wash && u < 1 ? wash.from : paint;
         const opacity = from.discOpacity + (paint.discOpacity - from.discOpacity) * u;
         _call_oneWrite(_state_oneParts.disc, 'disc', 'fill', mix(from.disc, paint.disc, u));
-        _call_oneWrite(_state_oneParts.disc, 'disc-opacity', 'fill-opacity', opacity >= 1 ? null : String(Number(opacity.toFixed(3))));
+        _call_oneWrite(_state_oneParts.disc, 'disc-opacity', 'fill-opacity', opacity >= 1 ? null : decimal(opacity));
         if (_state_oneParts.keyline)
-            _call_oneWrite(_state_oneParts.keyline, 'keyline', 'stroke-opacity', u >= 1 ? null : String(Number(u.toFixed(3))));
+            _call_oneWrite(_state_oneParts.keyline, 'keyline', 'stroke-opacity', u >= 1 ? null : decimal(u));
         if (_state_oneParts.rim && paint.rim)
-            _call_oneWrite(_state_oneParts.rim, 'rim', 'stroke-opacity', String(Number((paint.rim.opacity * u).toFixed(3))));
+            _call_oneWrite(_state_oneParts.rim, 'rim', 'stroke-opacity', decimal(paint.rim.opacity * u));
         if (paint.eye !== null) {
             const ink = from.eye === null ? paint.eye : mix(from.eye, paint.eye, u);
             _call_oneWrite(_state_oneParts.bar, 'ink', 'fill', ink);
@@ -919,7 +918,7 @@ export class OneHead {
 
     _state_oneDoc = host.ownerDocument!;
     const win = _state_oneDoc.defaultView!;
-    _state_oneStage = OneStage.for(win);
+    _state_oneStage = stageFor(win);
     if (options.color === 'charcoal' ? options.kind !== 'charcoal' : options.kind === 'charcoal')
         throw new TypeError(oneError(36, () => ('Digital One is charcoal in shape and colour alike')));
     _state_oneKind = options.kind;
