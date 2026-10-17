@@ -25,11 +25,11 @@ const extern = new URL('dist/browser/one.closure-externs.js', root);
 const output = new URL('dist/browser/one.closure-output.js', root);
 const map = new URL('dist/browser/one.closure-output.js.map', root);
 const api = ONE_PUBLIC_PROPERTIES;
-await writeFile(input, source.replace(match[0], exports.map(({ local, name }) => `__oneExports[${JSON.stringify(name)}]=${local};`).join('\n')).replace(/\/\/# sourceMappingURL=.*$/gm, ''));
+await writeFile(input, source.replace(match[0], `__oneExports=[${exports.map(({ local }) => local).join(',')}];`).replace(/\/\/# sourceMappingURL=.*$/gm, ''));
 await writeFile(extern, '/** @externs */\nvar __oneExports;\n/** @constructor */ function OnePublic() {}\n' + api.map(name => `OnePublic.prototype.${name};`).join('\n'));
 try {
-  const wrapper = 'const __oneApi={};(function(__oneExports){%output%})(__oneApi);\n' +
-    exports.map(({ name }) => `export const ${name}=__oneApi[${JSON.stringify(name)}];`).join('\n') + '\n//# sourceMappingURL=one.js.map';
+  const names = exports.map(({ name }) => name).join(',');
+  const wrapper = `const [${names}]=(function(){let __oneExports;%output%;return __oneExports;})();\nexport{${names}};\n//# sourceMappingURL=one.js.map`;
   execFileSync(fileURLToPath(new URL('node_modules/.bin/google-closure-compiler', root)), [
     '--compilation_level=ADVANCED', '--assume_function_wrapper', '--language_in=ECMASCRIPT_NEXT', '--language_out=ECMASCRIPT_NEXT', '--rewrite_polyfills=false',
     '--js=' + fileURLToPath(input), '--externs=' + fileURLToPath(extern), '--js_output_file=' + fileURLToPath(output),
@@ -37,7 +37,7 @@ try {
     '--output_wrapper=' + wrapper,
   ], { stdio: 'inherit' });
   const result = await readFile(output, 'utf8');
-  if (!exports.every(({ name }) => result.includes(`export const ${name}=`))) throw new Error('One export boundary lost');
+  if (!result.includes(`export{${names}}`)) throw new Error('One export boundary lost');
   // Compose explicitly: Closure's input-map composition drops later bundled sources.
   const closureMap = new TraceMap(JSON.parse(await readFile(map, 'utf8')));
   const originalMap = new TraceMap(inputMap);
@@ -80,6 +80,11 @@ try {
     if (!mapped.some(name => name.endsWith('/' + sourceName))) throw new Error('Missing One source mapping: ' + sourceName);
   }
   console.log('One output source map:', mapped.join(', '));
+  const namespace = await import('data:text/javascript;base64,' + Buffer.from(compact.code).toString('base64'));
+  const actualExports = Object.keys(namespace).sort().join(',');
+  const expectedExports = exports.map(({ name }) => name).sort().join(',');
+  if (actualExports !== expectedExports) throw new Error('One ESM exports changed');
+  console.log('One verified ESM exports:', actualExports);
   await writeFile(file, compact.code);
   await writeFile(new URL('dist/browser/one.js.map', root), compact.map);
 } finally {
