@@ -15,22 +15,22 @@ const inputMap = JSON.parse(await readFile(new URL('dist/browser/one.js.map', ro
 console.log('One input source map:', inputMap.sources.join(', '));
 const match = /export\s*\{([^}]+)\};?/.exec(source);
 if (!match) throw new Error('One bundle must have one named ESM export block');
-const exports = match[1].split(',').map(entry => {
+const exports = match[1].split(',').map((entry, index) => {
   const [local, name = local] = entry.trim().split(/\s+as\s+/);
   if (![local, name].every(value => /^[A-Za-z_$][\w$]*$/.test(value))) throw new Error('Unsupported One export');
-  return { local, name };
+  return { local, name, slot: `__oneExport_${index}` };
 });
 const input = new URL('dist/browser/one.closure-input.js', root);
 const extern = new URL('dist/browser/one.closure-externs.js', root);
 const output = new URL('dist/browser/one.closure-output.js', root);
 const map = new URL('dist/browser/one.closure-output.js.map', root);
 const api = ONE_PUBLIC_PROPERTIES;
-await writeFile(input, source.replace(match[0], `__oneExports=[${exports.map(({ local }) => local).join(',')}];`).replace(/\/\/# sourceMappingURL=.*$/gm, ''));
-await writeFile(extern, '/** @externs */\nvar __oneExports;\n/** @constructor */ function OnePublic() {}\n' + api.map(name => `OnePublic.prototype.${name};`).join('\n'));
+await writeFile(input, source.replace(match[0], exports.map(({ local, slot }) => `${slot}=${local};`).join('\n')).replace(/\/\/# sourceMappingURL=.*$/gm, ''));
+await writeFile(extern, '/** @externs */\n' + exports.map(({ slot }) => `var ${slot};`).join('\n') + '\n/** @constructor */ function OnePublic() {}\n' + api.map(name => `OnePublic.prototype.${name};`).join('\n'));
 try {
-  const names = exports.map(({ name }) => name).join(',');
-  // The named export makes this an ES module: top-level bindings are already private.
-  const wrapper = `let __oneExports;%output%;const [${names}]=__oneExports;\nexport{${names}};\n//# sourceMappingURL=one.js.map`;
+  const names = exports.map(({ slot, name }) => `${slot} as ${name}`).join(',');
+  // ES-module bindings keep initialization private without a container or wrapper.
+  const wrapper = `let ${exports.map(({ slot }) => slot).join(',')};%output%;\nexport{${names}};\n//# sourceMappingURL=one.js.map`;
   execFileSync(fileURLToPath(new URL('node_modules/.bin/google-closure-compiler', root)), [
     '--compilation_level=ADVANCED', '--assume_function_wrapper', '--language_in=ECMASCRIPT_NEXT', '--language_out=ECMASCRIPT_NEXT', '--rewrite_polyfills=false',
     '--js=' + fileURLToPath(input), '--externs=' + fileURLToPath(extern), '--js_output_file=' + fileURLToPath(output),
