@@ -204,7 +204,6 @@
     "@vitest/coverage-v8": "^4.1.11",
     "cborg": "6.1.3",
     "express": "^5.1.0",
-    "google-closure-compiler": "20261015.0.0",
     "terser": "5.51.2",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",

@@ -6,8 +6,6 @@
 
 - Share construction and clamping of held poses across faces without changing pose values; select least-held looks without temporary candidate arrays and keep private runtime fields separate from public descriptor names.
 
-- Optimize the closed One runtime with a pinned Closure compiler behind an explicit ESM, public-property, dynamic lookup and SVG attribute boundaries; retain the standard browser API and source map.
-
 - Compare the compressed live One entry with the all-family renderer across every allowed shape/colour pair and every public status in real Chromium.
 
 - Compress browser output with a pinned Terser pass that shortens an explicit list of internal One implementation properties and preserve composed source maps; derive internal pose-channel keys from the neutral pose so they stay consistent under property minification, and restore the One browser runtime's 16 KB gzip budget.

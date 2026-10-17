@@ -2,14 +2,17 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { minify } from 'terser';
 
-for (const name of ['character-player']) {
+// Only closed runtime properties are shortened. The pattern excludes public
+// shape/palette/state/options fields and DOM APIs; browser parity checks cover it.
+const internal = /^(?:_one[A-Z]\w*|inputAt|reach|scrolling|replaced|waitForInput|stopWaiting|release|cancel|tick|follows|visible|motionAllowed|setState|step|pointer|scheduleCadence|cutCadence|drop|snap|setVisible|show|hide|setRenderedSize|setReduced|setPaint|curves|cur|mv|cut|raw|face|tier|timelineEnd|setBlink|moving|request|following|held|setFace|entrance|cadenceRequest|nextCadence|restartWindow|noteInput|setSize|setKind|setMotion|startTalk|peek|sample|frame|geometry|finished|priority|uncounted|draws|duration|twos|tail|noTempo|scaled|px|kind|reduced|look|lift|open|tilt|smile|mouth|squash|rotate|hop|strokeWidth|discOpacity|start|level|pose|root|motion|win|head)$/;
+for (const name of ['one', 'character-player']) {
   const file = new URL(`../dist/browser/${name}.js`, import.meta.url);
   const map = new URL(`${file.href}.map`);
   const result = await minify({ [`${name}.js`]: await readFile(file, 'utf8') }, {
     module: true,
     ecma: 2022,
     compress: { passes: 3 },
-    mangle: true,
+    mangle: name === 'one' ? { properties: { regex: internal, builtins: true } } : true,
     format: { comments: false },
     sourceMap: { content: await readFile(map, 'utf8'), filename: `${name}.js`, url: `${name}.js.map` },
   });
@@ -18,4 +21,3 @@ for (const name of ['character-player']) {
   await writeFile(map, result.map);
 }
 
-await import('./minify-one.mjs');
