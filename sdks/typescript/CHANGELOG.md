@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Serve the exact standalone One browser module at `/one.js` with the same CSP, caching, and fixed asset routing as the all-family player.
+
 - Generate lossless shared command/value skeletons for the public SVG paths and live catalog insets; retain the general SVG helper and compare every catalog inset against it.
 
 - Share construction and clamping of held poses across faces without changing pose values; select least-held looks without temporary candidate arrays and keep private runtime fields separate from public descriptor names.

@@ -89,9 +89,12 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.ok(contract.paths['/generate'].post);
 });
 
-test('serves the exact built self-contained browser player with the existing CSP and fixed asset routing', async () => {
-  const path = '/character-player.js';
-  const source = readFileSync(new URL('../../sdks/typescript/dist/browser/character-player.js', import.meta.url));
+test('serves exact built browser players with the existing CSP and fixed asset routing', async () => {
+  for (const [path, names] of [
+    ['/character-player.js', ['mountCharacter', 'getCharacterExpressions', 'getCharacterStatuses', 'getCharacterSkins']],
+    ['/one.js', ['mountOne', 'getOneShapes', 'getOneColors', 'nextOneLook']],
+  ]) {
+  const source = readFileSync(new URL('../../sdks/typescript/dist/browser' + path, import.meta.url));
   const response = await fetch(endpoint(path));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('content-type'), 'text/javascript; charset=utf-8');
@@ -99,7 +102,7 @@ test('serves the exact built self-contained browser player with the existing CSP
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), source);
-  for (const name of ['mountCharacter', 'getCharacterExpressions', 'getCharacterStatuses', 'getCharacterSkins']) {
+  for (const name of names) {
     assert.ok(source.toString('utf8').includes(name));
   }
   for (const method of ['POST', 'OPTIONS']) {
@@ -107,8 +110,9 @@ test('serves the exact built self-contained browser player with the existing CSP
     assert.equal(refused.status, 405);
     assert.equal(refused.headers.get('allow'), 'GET, HEAD');
   }
-  for (const guessed of ['/sdks/typescript/dist/browser/character-player.js', '/character-player.js?code=untrusted']) {
+  for (const guessed of ['/sdks/typescript/dist/browser' + path, path + '?code=untrusted']) {
     assert.equal((await fetch(endpoint(guessed))).status, 404);
+  }
   }
 });
 
@@ -275,7 +279,7 @@ test('publishes the unchanged SDK Glyph SVG, HEAD, validators and refusal behavi
 });
 
 test('preserves GET/HEAD bytes, validators, conditional requests and CORS across the HTTP adapter', async () => {
-  for (const path of ['/', '/demo.js', '/demo.css', '/character-player.js', '/v1/characters/skins', didPath, svgPath]) {
+  for (const path of ['/', '/demo.js', '/demo.css', '/character-player.js', '/one.js', '/v1/characters/skins', didPath, svgPath]) {
     const get = await fetch(endpoint(path));
     const bytes = Buffer.from(await get.arrayBuffer());
     const etag = `"${createHash('sha256').update(bytes).digest('hex')}"`;
