@@ -1,0 +1,42 @@
+# Weekly dependency and security updates for every published npm package, the
+# public Rust crates, and the GitHub Actions the workflows pin by commit SHA.
+# sdks/rust and conformance/runner-rust resolve private OpenAgentID Git
+# dependencies that Dependabot cannot read; their lockfiles are updated by hand.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /sdks/typescript
+      - /sdks/testing
+      - /adapters/http/typescript
+      - /adapters/eas/typescript
+      - /integrations/mcp/typescript
+      - /integrations/claude-agent-sdk/typescript
+      - /bridges/scim/typescript
+      - /bridges/oidc/typescript
+      - /packages/create-openagent
+      - /tools/public-onboarding
+    schedule:
+      interval: weekly
+    groups:
+      development:
+        dependency-type: development
+    commit-message:
+      prefix: chore
+      include: scope
+  - package-ecosystem: cargo
+    directories:
+      - /crates/openagent-crypto-wasm
+      - /crates/openagent-auth-protocol
+      - /adapters/http/rust
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

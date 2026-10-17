@@ -30,11 +30,11 @@ jobs:
       matrix:
         node: ['20', '22']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ matrix.node }}
       - name: Build public SDK with no private repository credentials
@@ -45,7 +45,7 @@ jobs:
       - name: Build and test project generator
         working-directory: packages/create-openagent
         run: |
-          npm install --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
           npm run typecheck
           npm run build
           npm test
@@ -65,7 +65,7 @@ jobs:
         run: node tools/public-onboarding/verify-one.mjs
       - name: Preserve release archives and verification receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: public-onboarding-node-${{ matrix.node }}
           path: .public-tooling-artifacts/
@@ -93,31 +93,16 @@ jobs:
       run:
         working-directory: ${{ matrix.crate }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate git for private sibling dependencies
-        if: matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust'
-        # Requires the org-level secret OPENAGENTID_CI_PAT with contents:read
-        # on the private OpenAgentID siblings (oas, arsenal, aegis).
-        # Other matrix crates consume only registry packages or public ACT.
-        env:
-          CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
-        run: |
-          if [ -z "$CI_PAT" ]; then
-            echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
-            echo "Cargo fetches OAS, Arsenal, and AEGIS from private OpenAgentID repositories;"
-            echo "the default GITHUB_TOKEN cannot read them."
-            exit 1
-          fi
-          for repository in oas arsenal aegis; do
-            git config --global url."https://x-access-token:${CI_PAT}@github.com/OpenAgentID/${repository}".insteadOf "https://github.com/OpenAgentID/${repository}"
-          done
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+        with:
+          toolchain: stable
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: ${{ matrix.crate }}
 
@@ -125,13 +110,31 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Fetch locked dependencies
+        # sdks/rust and conformance/runner-rust fetch OAS, Arsenal and AEGIS from
+        # private OpenAgentID repositories with the org-level secret
+        # OPENAGENTID_CI_PAT (contents:read on oas, arsenal, aegis). The token
+        # exists only in this step's environment, never in a config file that
+        # later steps or actions could read. Other crates use registry packages.
         env:
           CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
-        run: cargo fetch --locked
-
-      - name: Remove private git credentials before compilation
-        if: always() && (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust')
-        run: rm -f ~/.gitconfig
+          PRIVATE_SIBLINGS: ${{ (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust') && 'oas arsenal aegis' || '' }}
+          CI_PAT: ${{ (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust') && secrets.OPENAGENTID_CI_PAT || '' }}
+        run: |
+          if [ -n "$PRIVATE_SIBLINGS" ]; then
+            if [ -z "$CI_PAT" ]; then
+              echo "::error::secrets.OPENAGENTID_CI_PAT is not set; the default GITHUB_TOKEN cannot read the private OAS, Arsenal and AEGIS repositories."
+              exit 1
+            fi
+            index=0
+            for repository in $PRIVATE_SIBLINGS; do
+              export "GIT_CONFIG_KEY_${index}=url.https://x-access-token:${CI_PAT}@github.com/OpenAgentID/${repository}.insteadOf"
+              export "GIT_CONFIG_VALUE_${index}=https://github.com/OpenAgentID/${repository}"
+              index=$((index + 1))
+            done
+            export GIT_CONFIG_COUNT=$index
+          fi
+          unset CI_PAT
+          cargo fetch --locked
 
       - name: Clippy (default features)
         run: cargo clippy --all-targets
@@ -147,27 +150,41 @@ jobs:
         # features would skip them silently.
         run: cargo test --all-features
 
-      - name: Remove git credentials
-        if: always() && (matrix.crate == 'sdks/rust' || matrix.crate == 'conformance/runner-rust')
-        run: rm -f ~/.gitconfig
-
   typescript:
     name: typescript typecheck, test, build (${{ matrix.package }})
     runs-on: depot-ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        package: [sdks/typescript, bridges/oidc/typescript]
+        # Every npm package the release workflow publishes
+        # (tools/release/release-set.json) except create-openagent, which the
+        # public-onboarding job builds and tests, plus the EAS anchor adapter.
+        package:
+          - sdks/typescript
+          - sdks/testing
+          - adapters/http/typescript
+          - integrations/mcp/typescript
+          - integrations/claude-agent-sdk/typescript
+          - bridges/scim/typescript
+          - bridges/oidc/typescript
+          - adapters/eas/typescript
     defaults:
       run:
         working-directory: ${{ matrix.package }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
+
+      - name: Use npm 11.21.0
+        # The npm the release workflow and the compatibility runner use.
+        working-directory: .
+        run: npm install --global npm@11.21.0 --ignore-scripts --no-audit --no-fund --loglevel=error
 
       - name: Install
         run: npm ci --ignore-scripts --no-audit --no-fund --loglevel=error
@@ -182,9 +199,9 @@ jobs:
         run: npm run build
 
       - name: Check browser bundle budgets
-        # The live One runtime stays within 20 KB gzipped (the shape library
-        # and palette on top of the One app's 16 KB script budget), and the
-        # all-family bundle within 65 KB gzipped.
+        # The live One runtime (@openagentid/sdk/browser/one) stays within
+        # 16 KiB gzipped, the One app's script budget, and the all-family
+        # bundle within 65 KiB gzipped (scripts/check-size.mjs).
         if: matrix.package == 'sdks/typescript'
         run: npm run size
 
@@ -193,43 +210,88 @@ jobs:
         working-directory: .
         run: node --test services/character-api/test.mjs
 
-      - name: Build and test anchor-eas adapter
-        if: matrix.package == 'sdks/typescript'
-        # The EAS lineage-anchor adapter (resolver + publisher surface).
-        working-directory: adapters/eas/typescript
+      - name: Test against the SDK built from this commit
+        # The companions declare @openagentid/sdk as a peer and develop
+        # against the published release; this runs them against the SDK they
+        # will be released with, as the release workflow does.
+        if: matrix.package != 'sdks/typescript' && matrix.package != 'adapters/eas/typescript'
         run: |
-          npm install --no-audit --no-fund --loglevel=error
-          npx tsc --noEmit
-          npx vitest run
-          npm run build
+          sdk="$GITHUB_WORKSPACE/sdks/typescript"
+          npm ci --prefix "$sdk" --ignore-scripts --no-audit --no-fund --loglevel=error
+          npm run build --prefix "$sdk"
+          tarball=$(cd "$sdk" && npm pack --json --ignore-scripts --pack-destination "$RUNNER_TEMP" | jq -r '.[0].filename')
+          npm install --no-save --ignore-scripts --no-audit --no-fund --loglevel=error "$RUNNER_TEMP/$tarball"
+          npm ls @openagentid/sdk
+          npm run typecheck
+          npm test
 
-      - name: Build and typecheck sdk-testing
-        if: matrix.package == 'sdks/typescript'
-        # The in-memory backends the SDK's own tests import. Built here so a
-        # break in the sibling package surfaces in the same run.
-        working-directory: sdks/testing
+  release-checks:
+    name: release metadata, changelogs, audit and commit messages
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Root manifest matches the SDK manifest
+        run: node tools/release/sync-root-manifest.mjs --check
+
+      - name: Changelogs are ordered and dated by npm
+        run: node tools/release/check-changelogs.mjs --registry
+
+      - name: Every LICENSE-APACHE is the verbatim Apache License 2.0
+        # sha256 of https://www.apache.org/licenses/LICENSE-2.0.txt
         run: |
-          npm install --no-audit --no-fund --loglevel=error
-          npx tsc --noEmit
-          npx tsup
+          expected=cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+          status=0
+          for file in $(git ls-files '*LICENSE-APACHE'); do
+            actual=$(sha256sum "$file" | cut -d' ' -f1)
+            if [ "$actual" != "$expected" ]; then echo "::error file=$file::not the verbatim Apache License 2.0 text"; status=1; fi
+          done
+          exit $status
+
+      - name: Released packages have no high or critical runtime advisories
+        run: |
+          for directory in $(jq -r '.packages[].directory' tools/release/release-set.json); do
+            echo "== $directory"
+            (cd "$directory" && npm audit --omit=dev --audit-level=high --package-lock-only)
+          done
+
+      - name: Conventional commits, no CI skipping, no attribution trailers
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: node tools/release/check-commits.mjs "$BASE_SHA" "$HEAD_SHA"
 
   wasm:
     name: crypto-wasm build and smoke test
     runs-on: depot-ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+        with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
+        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
         with:
-          version: 'latest'
+          version: 'v0.13.1'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
 
@@ -259,9 +321,11 @@ jobs:
       run:
         working-directory: sdks/kotlin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -279,7 +343,9 @@ jobs:
       run:
         working-directory: sdks/swift
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - uses: swift-actions/setup-swift@7ca6abe6b3b0e8b5421b88be48feee39cbf52c6a # v2
         with:
@@ -301,9 +367,11 @@ jobs:
       run:
         working-directory: sdks/go
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version: '1.26'
 
@@ -333,9 +401,11 @@ jobs:
       run:
         working-directory: sdks/python
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
 
@@ -363,45 +433,45 @@ jobs:
     runs-on: depot-ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - name: Authenticate git for private sibling dependencies
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
+        with:
+          version: 'v0.13.1'
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: conformance/runner-rust
+
+      - name: Fetch locked conformance dependencies
         # The Rust runner uses private OAS and public ACT at pinned revisions.
+        # The token exists only in this step's environment.
+        working-directory: conformance/runner-rust
         env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
           CI_PAT: ${{ secrets.OPENAGENTID_CI_PAT }}
         run: |
           if [ -z "$CI_PAT" ]; then
             echo "::error::secrets.OPENAGENTID_CI_PAT is not set."
             exit 1
           fi
-          git config --global url."https://x-access-token:${CI_PAT}@github.com/OpenAgentID/oas".insteadOf "https://github.com/OpenAgentID/oas"
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
-        with:
-          version: 'latest'
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: conformance/runner-rust
-
-      - name: Fetch locked conformance dependencies
-        working-directory: conformance/runner-rust
-        env:
-          CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
-        run: cargo fetch --locked
-
-      - name: Remove private git credentials before compilation
-        if: always()
-        run: rm -f ~/.gitconfig
+          export GIT_CONFIG_COUNT=1
+          export "GIT_CONFIG_KEY_0=url.https://x-access-token:${CI_PAT}@github.com/OpenAgentID/oas.insteadOf"
+          export "GIT_CONFIG_VALUE_0=https://github.com/OpenAgentID/oas"
+          unset CI_PAT
+          cargo fetch --locked
 
       - name: Build the crypto-wasm package
         # The TS runner's act-verify vectors run through this binding; it
@@ -417,23 +487,22 @@ jobs:
 
       - name: Upload conformance reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: conformance-reports
           path: conformance/.reports/
           if-no-files-found: ignore
           include-hidden-files: true
 
-      - name: Remove git credentials
-        if: always()
-        run: rm -f ~/.gitconfig
 
   codeowners:
     name: codeowners resolve
     runs-on: depot-ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Every owner handle resolves
         env:
