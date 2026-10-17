@@ -47,15 +47,18 @@ try {
   const closureMap = new TraceMap(JSON.parse(await readFile(map, 'utf8')));
   const originalMap = new TraceMap(inputMap);
   const combined = new GenMapping({ file: 'one.js' });
+  const tracedCounts = {};
   for (const [line, segments] of decodedMappings(closureMap).entries()) {
     for (const segment of segments) {
       const original = segment.length < 4 ? null : originalPositionFor(originalMap, { line: segment[2] + 1, column: segment[3] });
       if (original?.source != null && original.line != null && original.column != null) {
         addSegment(combined, line, segment[0], original.source, original.line - 1, original.column, original.name ?? undefined);
+        tracedCounts[original.source] = (tracedCounts[original.source] ?? 0) + 1;
       } else addSegment(combined, line, segment[0]);
     }
   }
   inputMap.sources.forEach((name, index) => setSourceContent(combined, name, inputMap.sourcesContent[index]));
+  console.log('One composed mappings:', JSON.stringify(tracedCounts));
   const content = toEncodedMap(combined);
   // Evaluate only semantics-preserving compression choices; gzip is the delivery budget.
   const profiles = [{}, { hoist_vars: true, hoist_funs: true }, { inline: false },
@@ -75,7 +78,9 @@ try {
     if (size < bytes) { compact = candidate; bytes = size; }
   }
   if (!compact) throw new Error('No One compression candidate');
-  const mapped = JSON.parse(compact.map).sources;
+  const outputMap = new TraceMap(JSON.parse(compact.map));
+  const used = new Set(decodedMappings(outputMap).flatMap(line => line.filter(segment => segment.length > 1).map(segment => segment[1])));
+  const mapped = outputMap.sources.filter((_, index) => used.has(index));
   for (const sourceName of ['character-one.ts', 'character-one-motion.ts', 'character-one-player.ts', 'character-state.ts', 'one.ts']) {
     if (!mapped.some(name => name.endsWith('/' + sourceName))) throw new Error('Missing One source mapping: ' + sourceName);
   }
