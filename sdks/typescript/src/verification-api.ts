@@ -203,7 +203,7 @@ export async function verifyIdentityRemote(
     return identity;
   } catch (error) {
     if (error instanceof IdentityVerificationError) throw error;
-    throw new IdentityVerificationError('authority_unavailable', 'Remote identity authority is unavailable');
+    throw new IdentityVerificationError('authority_unavailable', 'Remote identity authority is unavailable', { cause: error });
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener('abort', abort);

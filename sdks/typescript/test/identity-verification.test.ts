@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { decodeJwt, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
 import { describe, expect, it } from 'vitest';
 import {
+  IdentityVerificationError,
   IdentityVerifier,
   assertVerifiedIdentity,
   type IdentityVerifierConfig,
@@ -233,9 +234,12 @@ describe('IdentityVerifier real signed identity proofs', () => {
 
   it('fails closed for unavailable or stale revocation authority', async () => {
     const f = await fixture();
-    f.config.checkRevocation = async () => { throw new Error('Authority offline'); };
-    await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
-      .rejects.toMatchObject({ code: 'authority_unavailable' });
+    const offline = new Error('Authority offline');
+    f.config.checkRevocation = async () => { throw offline; };
+    const refusal = await new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(IdentityVerificationError);
+    expect(refusal).toMatchObject({ code: 'authority_unavailable', message: 'Identity authority is unavailable' });
+    expect((refusal as Error).cause).toBe(offline);
     f.config.checkRevocation = async () => ({ revoked: false, checkedAt: now - 61 });
     await expect(new IdentityVerifier(f.config).verify(f.proof, { audience, nonce }))
       .rejects.toMatchObject({ code: 'authority_unavailable' });
