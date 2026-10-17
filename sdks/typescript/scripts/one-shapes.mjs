@@ -53,7 +53,13 @@ const path = value => {
   if (!/^M[-0-9. AHVLZ]+Z$/.test(value)) throw new Error(`Unexpected path syntax: ${value}`);
   return quote(value);
 };
-const eye = value => `{ x: ${num(value.x)}, y: ${num(value.y)}, scale: ${num(value.scale)}, openScale: ${num(value.openScale)}, lookGain: ${num(value.lookGain)}, liftGain: ${num(value.liftGain)}, openMax: ${num(value.openMax)}, mouthMax: ${num(value.mouthMax)} }`;
+const title = id => id[0].toUpperCase() + id.slice(1);
+const eye = value => {
+  const args = [value.x, value.y, value.openScale, value.lookGain, value.openMax, value.mouthMax, value.scale, value.liftGain];
+  const defaults = [undefined, undefined, 1, 1, 1.35, 1, 0.8, 1];
+  while (args.length > 2 && args.at(-1) === defaults[args.length - 1]) args.pop();
+  return `makeEye(${args.map(num).join(', ')})`;
+};
 const point = value => `{ x: ${num(value.x)}, y: ${num(value.y)} }`;
 const colourIds = palette.order;
 const temperaments = new Set(['quick', 'bouncy', 'neat', 'slow']);
@@ -64,11 +70,11 @@ const shapeLines = shapes.shapes.map((shape, index) => {
   for (const never of shape.never) if (!colourIds.includes(never)) throw new Error(`${shape.id}: unknown never colour ${never}`);
   if (shape.never.includes(shape.colour)) throw new Error(`${shape.id}: its default colour is on its never list`);
   path(shape.d);
-  return `  shape(${quote(shape.id)}, ${quote(shape.label)}, catalogPath(ONE_PATHS[${index}]!), ${eye(shape.eye)}, ${num(shape.mouthDy)}, ${point(shape.pivot)}, ${quote(shape.temperament)}, ${quote(shape.colour)}, [${shape.never.map(quote).join(', ')}]),`;
+  return `  shape(${quote(shape.id)}, catalogPath(ONE_PATHS[${index}]!), ${eye(shape.eye)}, ${num(shape.mouthDy)}, ${point(shape.pivot)}, ${quote(shape.temperament)}, ${quote(shape.colour)}, [${shape.never.map(quote).join(', ')}]${shape.label === title(shape.id) ? '' : ', ' + quote(shape.label)}),`;
 });
 const colourLines = palette.colours.map(colour => {
   const keyline = colour.keyline === null ? 'null' : hex(colour.keyline);
-  return `  colour(${quote(colour.id)}, ${quote(colour.label)}, ${hex(colour.hex)}, ${hex(colour.eyeHex)}, ${keyline}),`;
+  return `  colour(${quote(colour.id)}, ${hex(colour.hex)}, ${hex(colour.eyeHex)}, ${keyline}${colour.label === title(colour.id) ? '' : ', ' + quote(colour.label)}),`;
 });
 const one = shapes.digitalOne;
 const digital = palette.digitalOne;
@@ -171,10 +177,13 @@ export interface OneColorDescription {
 }
 
 const freeze = <T>(value: T): Readonly<T> => Object.freeze(value);
-const shape = (id: OneShape, label: string, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
-  temperament: OneTemperament, color: OneColor, never: readonly OneColor[]): OneShapeDescription =>
+const title = (id: string): string => id[0]!.toUpperCase() + id.slice(1);
+const makeEye = (x: number, y: number, openScale = 1, lookGain = 1, openMax = 1.35, mouthMax = 1, scale = 0.8, liftGain = 1): OneShapeEye =>
+  ({ x, y, scale, openScale, lookGain, liftGain, openMax, mouthMax });
+const shape = (id: OneShape, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
+  temperament: OneTemperament, color: OneColor, never: readonly OneColor[], label = title(id)): OneShapeDescription =>
   freeze({ id, label, path, eye: freeze(eye), mouthDy, pivot: freeze(pivot), temperament, color, never: freeze(never) });
-const colour = (id: OneColor, label: string, disc: string, eye: string, keyline: string | null): OneColorDescription =>
+const colour = (id: OneColor, disc: string, eye: string, keyline: string | null, label = title(id)): OneColorDescription =>
   freeze({ id, label, disc, eye, keyline });
 
 /** Lossless command/value skeletons in library order, followed by Digital One. */

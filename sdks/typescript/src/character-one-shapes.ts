@@ -65,10 +65,13 @@ export interface OneColorDescription {
 }
 
 const freeze = <T>(value: T): Readonly<T> => Object.freeze(value);
-const shape = (id: OneShape, label: string, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
-  temperament: OneTemperament, color: OneColor, never: readonly OneColor[]): OneShapeDescription =>
+const title = (id: string): string => id[0]!.toUpperCase() + id.slice(1);
+const makeEye = (x: number, y: number, openScale = 1, lookGain = 1, openMax = 1.35, mouthMax = 1, scale = 0.8, liftGain = 1): OneShapeEye =>
+  ({ x, y, scale, openScale, lookGain, liftGain, openMax, mouthMax });
+const shape = (id: OneShape, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
+  temperament: OneTemperament, color: OneColor, never: readonly OneColor[], label = title(id)): OneShapeDescription =>
   freeze({ id, label, path, eye: freeze(eye), mouthDy, pivot: freeze(pivot), temperament, color, never: freeze(never) });
-const colour = (id: OneColor, label: string, disc: string, eye: string, keyline: string | null): OneColorDescription =>
+const colour = (id: OneColor, disc: string, eye: string, keyline: string | null, label = title(id)): OneColorDescription =>
   freeze({ id, label, disc, eye, keyline });
 
 /** Lossless command/value skeletons in library order, followed by Digital One. */
@@ -107,50 +110,50 @@ function catalogPath([commands, values]: readonly [string, readonly number[]]): 
 
 /** The fourteen shapes in library order. */
 export const ONE_SHAPES: readonly OneShapeDescription[] = freeze([
-  shape('star', 'Star', catalogPath(ONE_PATHS[0]!), { x: 0, y: 12, scale: 0.8, openScale: 0.8, lookGain: 1, liftGain: 1, openMax: 1.15, mouthMax: 1 }, -12.63, { x: 0, y: 96.16 }, 'bouncy', 'lemon', ['cherry', 'watermelon']),
-  shape('heart', 'Heart', catalogPath(ONE_PATHS[1]!), { x: 0, y: -15, scale: 0.8, openScale: 0.8, lookGain: 1, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -12.63, { x: 0, y: 93.03 }, 'bouncy', 'bubblegum', []),
-  shape('flower', 'Flower', catalogPath(ONE_PATHS[2]!), { x: 0, y: 9, scale: 0.8, openScale: 0.88, lookGain: 1, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -7.58, { x: 0, y: 97.24 }, 'bouncy', 'cherry', []),
-  shape('cloud', 'Cloud', catalogPath(ONE_PATHS[3]!), { x: 0, y: 6, scale: 0.8, openScale: 0.8, lookGain: 0.5, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -12.63, { x: -3.85, y: 76.09 }, 'slow', 'lavender', ['sky']),
-  shape('droplet', 'Drop', catalogPath(ONE_PATHS[4]!), { x: 0, y: 21, scale: 0.8, openScale: 0.92, lookGain: 0.5, liftGain: 1, openMax: 1.04, mouthMax: 0.6 }, -5.05, { x: 0, y: 100 }, 'quick', 'sky', ['cherry', 'watermelon', 'berry']),
-  shape('squircle', 'Square', catalogPath(ONE_PATHS[5]!), { x: 0, y: 0, scale: 0.8, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 91.66 }, 'neat', 'indigo', []),
-  shape('diamond', 'Diamond', catalogPath(ONE_PATHS[6]!), { x: 0, y: -1, scale: 0.8, openScale: 0.84, lookGain: 0.5, liftGain: 1, openMax: 1.25, mouthMax: 0.6 }, -10.11, { x: 0, y: 100 }, 'quick', 'aqua', ['lemon', 'lime', 'apricot']),
-  shape('clover', 'Clover', catalogPath(ONE_PATHS[7]!), { x: 0, y: -7, scale: 0.8, openScale: 1, lookGain: 0.6, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 100 }, 'slow', 'jade', []),
-  shape('gumdrop', 'Gumdrop', catalogPath(ONE_PATHS[8]!), { x: 0, y: 1, scale: 0.8, openScale: 0.94, lookGain: 1, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -3.79, { x: 0, y: 78 }, 'bouncy', 'orchid', ['cherry', 'watermelon']),
-  shape('hexagon', 'Hexagon', catalogPath(ONE_PATHS[9]!), { x: 0, y: 0, scale: 0.8, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 100 }, 'neat', 'apricot', []),
-  shape('egg', 'Egg', catalogPath(ONE_PATHS[10]!), { x: 0, y: 14, scale: 0.8, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 100 }, 'slow', 'blush', []),
-  shape('blob', 'Blob', catalogPath(ONE_PATHS[11]!), { x: 0, y: 7, scale: 0.8, openScale: 0.84, lookGain: 0.5, liftGain: 1, openMax: 1.04, mouthMax: 0.6 }, -10.11, { x: 10.29, y: 100 }, 'slow', 'mint', []),
-  shape('peanut', 'Peanut', catalogPath(ONE_PATHS[12]!), { x: 0, y: 13, scale: 0.8, openScale: 1, lookGain: 0.5, liftGain: 1, openMax: 1.35, mouthMax: 0.6 }, 0, { x: 0, y: 100 }, 'bouncy', 'watermelon', []),
-  shape('bean', 'Bean', catalogPath(ONE_PATHS[13]!), { x: 0, y: 8, scale: 0.8, openScale: 0.78, lookGain: 0.5, liftGain: 1, openMax: 1.35, mouthMax: 0.6 }, -13.9, { x: -9.73, y: 100 }, 'quick', 'grape', []),
+  shape('star', catalogPath(ONE_PATHS[0]!), makeEye(0, 12, 0.8, 1, 1.15), -12.63, { x: 0, y: 96.16 }, 'bouncy', 'lemon', ['cherry', 'watermelon']),
+  shape('heart', catalogPath(ONE_PATHS[1]!), makeEye(0, -15, 0.8, 1, 1.04), -12.63, { x: 0, y: 93.03 }, 'bouncy', 'bubblegum', []),
+  shape('flower', catalogPath(ONE_PATHS[2]!), makeEye(0, 9, 0.88, 1, 1.04), -7.58, { x: 0, y: 97.24 }, 'bouncy', 'cherry', []),
+  shape('cloud', catalogPath(ONE_PATHS[3]!), makeEye(0, 6, 0.8, 0.5, 1.04), -12.63, { x: -3.85, y: 76.09 }, 'slow', 'lavender', ['sky']),
+  shape('droplet', catalogPath(ONE_PATHS[4]!), makeEye(0, 21, 0.92, 0.5, 1.04, 0.6), -5.05, { x: 0, y: 100 }, 'quick', 'sky', ['cherry', 'watermelon', 'berry'], 'Drop'),
+  shape('squircle', catalogPath(ONE_PATHS[5]!), makeEye(0, 0), 0, { x: 0, y: 91.66 }, 'neat', 'indigo', [], 'Square'),
+  shape('diamond', catalogPath(ONE_PATHS[6]!), makeEye(0, -1, 0.84, 0.5, 1.25, 0.6), -10.11, { x: 0, y: 100 }, 'quick', 'aqua', ['lemon', 'lime', 'apricot']),
+  shape('clover', catalogPath(ONE_PATHS[7]!), makeEye(0, -7, 1, 0.6), 0, { x: 0, y: 100 }, 'slow', 'jade', []),
+  shape('gumdrop', catalogPath(ONE_PATHS[8]!), makeEye(0, 1, 0.94, 1, 1.04), -3.79, { x: 0, y: 78 }, 'bouncy', 'orchid', ['cherry', 'watermelon']),
+  shape('hexagon', catalogPath(ONE_PATHS[9]!), makeEye(0, 0), 0, { x: 0, y: 100 }, 'neat', 'apricot', []),
+  shape('egg', catalogPath(ONE_PATHS[10]!), makeEye(0, 14), 0, { x: 0, y: 100 }, 'slow', 'blush', []),
+  shape('blob', catalogPath(ONE_PATHS[11]!), makeEye(0, 7, 0.84, 0.5, 1.04, 0.6), -10.11, { x: 10.29, y: 100 }, 'slow', 'mint', []),
+  shape('peanut', catalogPath(ONE_PATHS[12]!), makeEye(0, 13, 1, 0.5, 1.35, 0.6), 0, { x: 0, y: 100 }, 'bouncy', 'watermelon', []),
+  shape('bean', catalogPath(ONE_PATHS[13]!), makeEye(0, 8, 0.78, 0.5, 1.35, 0.6), -13.9, { x: -9.73, y: 100 }, 'quick', 'grape', []),
 ]);
 
 /** Digital One's circle: the logo's disc, eye at the centre at full scale, standing on its base. */
 export const ONE_CIRCLE: OneShapeGeometry = freeze({
   path: catalogPath(ONE_PATHS[14]!),
-  eye: freeze({ x: 0, y: 0, scale: 1, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }),
+  eye: freeze(makeEye(0, 0, 1, 1, 1.35, 1, 1)),
   mouthDy: 0,
   pivot: freeze({ x: 0, y: 100 }),
 });
 
 /** The eighteen colours in team order: the first five, eight and twelve are the most distinct under every colour vision. */
 export const ONE_COLORS: readonly OneColorDescription[] = freeze([
-  colour('berry', 'Berry', '#c92fa3', '#fbfaf6', null),
-  colour('lime', 'Lime', '#b0dc3c', '#141b16', '#6e8d08'),
-  colour('blush', 'Blush', '#ffc2d4', '#141b16', '#aa7384'),
-  colour('jade', 'Jade', '#068368', '#fbfaf6', null),
-  colour('periwinkle', 'Periwinkle', '#9ba0ff', '#141b16', '#7679d4'),
-  colour('cherry', 'Cherry', '#e00d61', '#fbfaf6', null),
-  colour('indigo', 'Indigo', '#5660f6', '#fbfaf6', null),
-  colour('mint', 'Mint', '#5ee6a8', '#141b16', '#129564'),
-  colour('bubblegum', 'Bubblegum', '#ff7eb6', '#141b16', '#d3568f'),
-  colour('apricot', 'Apricot', '#ffa98c', '#141b16', '#bd6d52'),
-  colour('sky', 'Sky', '#5cc8ff', '#141b16', '#148bbd'),
-  colour('lemon', 'Lemon', '#ffe93f', '#141b16', '#918312'),
-  colour('grape', 'Grape', '#9f47dc', '#fbfaf6', null),
-  colour('lavender', 'Lavender', '#e9c8ff', '#141b16', '#9577a9'),
-  colour('watermelon', 'Watermelon', '#ff6075', '#141b16', '#e64861'),
-  colour('lagoon', 'Lagoon', '#067f89', '#fbfaf6', null),
-  colour('orchid', 'Orchid', '#d27cf2', '#141b16', '#b35ed2'),
-  colour('aqua', 'Aqua', '#2ad4d4', '#141b16', '#139191'),
+  colour('berry', '#c92fa3', '#fbfaf6', null),
+  colour('lime', '#b0dc3c', '#141b16', '#6e8d08'),
+  colour('blush', '#ffc2d4', '#141b16', '#aa7384'),
+  colour('jade', '#068368', '#fbfaf6', null),
+  colour('periwinkle', '#9ba0ff', '#141b16', '#7679d4'),
+  colour('cherry', '#e00d61', '#fbfaf6', null),
+  colour('indigo', '#5660f6', '#fbfaf6', null),
+  colour('mint', '#5ee6a8', '#141b16', '#129564'),
+  colour('bubblegum', '#ff7eb6', '#141b16', '#d3568f'),
+  colour('apricot', '#ffa98c', '#141b16', '#bd6d52'),
+  colour('sky', '#5cc8ff', '#141b16', '#148bbd'),
+  colour('lemon', '#ffe93f', '#141b16', '#918312'),
+  colour('grape', '#9f47dc', '#fbfaf6', null),
+  colour('lavender', '#e9c8ff', '#141b16', '#9577a9'),
+  colour('watermelon', '#ff6075', '#141b16', '#e64861'),
+  colour('lagoon', '#067f89', '#fbfaf6', null),
+  colour('orchid', '#d27cf2', '#141b16', '#b35ed2'),
+  colour('aqua', '#2ad4d4', '#141b16', '#139191'),
 ]);
 
 /**
