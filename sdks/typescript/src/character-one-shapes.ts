@@ -89,6 +89,9 @@ export const ONE_SHAPES: readonly OneShapeDescription[] = freeze([
   shape('bean', 'Bean', 'M0 -98.45A60.19 60.19 0 0 1 71.92 -24.94L52.39 51.74A64.08 64.08 0 0 1 -39.88 92.46A64.08 64.08 0 0 1 -57.42 -6.85A42.72 42.72 0 0 0 -46.55 -37.21A60.19 60.19 0 0 1 0 -98.45Z', { x: 0, y: 8, scale: 0.8, openScale: 0.78, lookGain: 0.5, liftGain: 1, openMax: 1.35, mouthMax: 0.6 }, -13.9, { x: -9.73, y: 100 }, 'quick', 'grape', []),
 ]);
 
+/** Validated command skeletons in library order, followed by Digital One. */
+export const ONE_PATH_COMMANDS: readonly string[] = freeze(['ALALALALALALALALALALA', 'AALALAA', 'AAAAAAAAAAA', 'AAAHAAHA', 'ALAALA', 'AAAAAAAAA', 'ALALALALA', 'AAAAAAAAA', 'AAHAA', 'ALAVALALAVALA', 'AAAAAA', 'AAAHAAHAAAA', 'AAAAAA', 'ALAAAA', 'AAAA']);
+
 /** Digital One's circle: the logo's disc, eye at the centre at full scale, standing on its base. */
 export const ONE_CIRCLE: OneShapeGeometry = freeze({
   path: 'M0 -100A100 100 0 0 1 100 0A100 100 0 0 1 0 100A100 100 0 0 1 -100 0A100 100 0 0 1 0 -100Z',

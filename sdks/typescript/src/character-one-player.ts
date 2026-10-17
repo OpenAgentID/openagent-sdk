@@ -9,7 +9,7 @@
  * shows its held face at once; hidden heads and hidden documents never tick. A head that follows the
  * pointer moves its eye only and is not counted.
  */
-import { oneInsetPath, oneKeylineWidth, onePaint, oneRimWidth, oneShapeGeometry, oneShapeId, oneTier,
+import { oneShapeInsetPath, oneKeylineWidth, onePaint, oneRimWidth, oneShapeGeometry, oneShapeId, oneTier,
   type OneFace, type OneHeadColor, type OneKind, type OnePaint, type OneTheme } from './character-one.js';
 import { OneMotion, type OneCadence, type OneGesture, type OneMomentRequest, type OneMotionFrame } from './character-one-motion.js';
 
@@ -410,9 +410,8 @@ export class OneHead {
 
   /** The keyline and the rim follow the rendered size: an inset outline at half the stroke's width. */
   private _oneKeyline(): void {
-    const path = oneShapeGeometry(this._oneKind).path;
     const inset = (element: SVGElement, width: number): void => {
-      element.setAttribute('d', oneInsetPath(path, width / 2));
+      element.setAttribute('d', oneShapeInsetPath(this._oneKind, width / 2));
       element.setAttribute('stroke-width', String(Number(width.toFixed(4))));
     };
     if (this._oneParts.keyline) inset(this._oneParts.keyline, oneKeylineWidth(this._onePx, this._oneDoc.defaultView?.devicePixelRatio ?? 1));

@@ -12,7 +12,7 @@
 import { blake3 } from '@noble/hashes/blake3';
 import { barPath, barShape, GEOMETRY, poseToFrame, r2, type AgentEyeFrame } from './agent-eye.js';
 import { isAgentAvatarDid } from './avatar-did.js';
-import { ONE_CIRCLE, ONE_COLORS, ONE_DIGITAL, ONE_SHAPES, ONE_SHAPE_ORDER,
+import { ONE_CIRCLE, ONE_COLORS, ONE_DIGITAL, ONE_SHAPES, ONE_SHAPE_ORDER, ONE_PATH_COMMANDS,
   type OneColor, type OneColorDescription, type OneShape, type OneShapeDescription, type OneShapeEye, type OneShapeGeometry, type OneTemperament } from './character-one-shapes.js';
 import { expressionForStatus, type AvatarExpression, type AvatarStatus } from './character-state.js';
 
@@ -539,8 +539,41 @@ export function oneOutlineSegments(path: string): readonly Segment[] {
  * so the pieces still meet. Stroked at `2 × delta`, this is a keyline or a rim that never grows the silhouette.
  */
 export function oneInsetPath(path: string, delta: number): string {
+  return insetSegments(oneOutlineSegments(path), delta);
+}
+
+const catalogSegments = new Map<OneKind, readonly Segment[]>();
+
+/** Inset a validated catalog kind without loading the general SVG path grammar. */
+export function oneShapeInsetPath(kind: OneKind, delta: number): string {
+  let segments = catalogSegments.get(kind);
+  if (!segments) {
+    const shape = oneShapeGeometry(kind);
+    const values = shape.path.match(number)!.map(Number);
+    const commands = ONE_PATH_COMMANDS[kind === 'charcoal' ? shapeIds.length : shapeIds.indexOf(kind)]!;
+    let current: Point = [values[0]!, values[1]!], offset = 2;
+    const built: Segment[] = [];
+    for (const command of commands) {
+      if (command === 'A') {
+        const r = values[offset]!, large = values[offset + 3]! as 0 | 1, sweep = values[offset + 4]! as 0 | 1;
+        const to: Point = [values[offset + 5]!, values[offset + 6]!];
+        offset += 7;
+        if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'A', from: current, to, r, large, sweep, centre: arcCentre(current, to, r, large, sweep) });
+        current = to;
+      } else {
+        const to: Point = command === 'L' ? [values[offset++]!, values[offset++]!] : command === 'H' ? [values[offset++]!, current[1]] : [current[0], values[offset++]!];
+        if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'L', from: current, to });
+        current = to;
+      }
+    }
+    segments = built;
+    catalogSegments.set(kind, segments);
+  }
+  return insetSegments(segments, delta);
+}
+
+function insetSegments(segments: readonly Segment[], delta: number): string {
   if (!(delta >= 0) || !Number.isFinite(delta)) throw new RangeError('One inset must be a finite, non-negative number');
-  const segments = oneOutlineSegments(path);
   const moved = (segment: Segment, point: Point): Point => {
     if (segment.type === 'L') {
       const dx = segment.to[0] - segment.from[0], dy = segment.to[1] - segment.from[1], length = Math.hypot(dx, dy);
