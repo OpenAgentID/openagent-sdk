@@ -34,7 +34,7 @@ const artifacts = resolve(process.env.OAID_ONE_ARTIFACT_DIR ?? join(root, '.publ
 await mkdir(artifacts, { recursive: true });
 const checks = [];
 const screenshots = [];
-let server, browser, failure, source = null, parityResult = null;
+let server, browser, failure, source = null, parityResult = null, optimizerParity = null;
 
 async function check(name, operation) {
   await operation();
@@ -134,11 +134,13 @@ const lean = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>
   window.oaidReady = true;
 </script></body></html>`;
 
-function serveFixture(bundle, runtime) {
+function serveFixture(bundle, runtime, reference) {
   return createServer((request, response) => {
     const path = new URL(request.url, 'http://127.0.0.1').pathname;
     if (request.method !== 'GET') { response.statusCode = 405; response.end(); return; }
     if (path === '/') { response.setHeader('content-type', 'text/html; charset=utf-8'); response.end(page); return; }
+    if (path === '/optimizer') { response.setHeader('content-type', 'text/html; charset=utf-8'); response.end('<!doctype html><body></body>'); return; }
+    if (path === '/one-reference.js') { response.setHeader('content-type', 'text/javascript; charset=utf-8'); response.end(reference); return; }
     if (path === '/one') { response.setHeader('content-type', 'text/html; charset=utf-8'); response.end(lean); return; }
     if (path === '/character-player.js') { response.setHeader('content-type', 'text/javascript; charset=utf-8'); response.end(bundle); return; }
     if (path === '/one.js') { response.setHeader('content-type', 'text/javascript; charset=utf-8'); response.end(runtime); return; }
@@ -152,7 +154,8 @@ try {
   assert.match(source, /^[0-9a-f]{40}$/);
   const bundle = await readFile(join(root, 'sdks/typescript/dist/browser/character-player.js'), 'utf8');
   const runtime = await readFile(join(root, 'sdks/typescript/dist/browser/one.js'), 'utf8');
-  server = serveFixture(bundle, runtime);
+  const reference = await readFile(join(root, 'sdks/typescript/node_modules/.cache/openagentid/one-reference.js'), 'utf8');
+  server = serveFixture(bundle, runtime, reference);
   server.listen(0, '127.0.0.1');
   await new Promise(done => server.once('listening', done));
   const url = `http://127.0.0.1:${server.address().port}/`;
@@ -584,6 +587,72 @@ try {
 
   await shot('one-light-runtime.png');
 
+  await check('optimized-runtime-matches-unminified-motion-with-a-controlled-clock', async () => {
+    const probe = await context.newPage();
+    probe.on('pageerror', error => errors.push(error.message));
+    await probe.goto(url + 'optimizer');
+    optimizerParity = await probe.evaluate(async () => {
+      let now = 0, sequence = 0, frames = 0;
+      const pending = new Map(), timers = new Map();
+      Object.defineProperty(performance, 'now', { value: () => now });
+      Math.random = () => 0.5;
+      window.IntersectionObserver = undefined;
+      window.ResizeObserver = undefined;
+      window.requestAnimationFrame = callback => { pending.set(++sequence, callback); return sequence; };
+      window.cancelAnimationFrame = id => pending.delete(id);
+      window.setTimeout = (callback, delay = 0) => { timers.set(++sequence, { callback, at: now + delay }); return sequence; };
+      window.clearTimeout = id => timers.delete(id);
+      const reference = await import('/one-reference.js');
+      const optimized = await import('/one.js');
+      const snapshot = host => JSON.stringify([host.querySelector('svg'), ...host.querySelectorAll('svg *')].map(node =>
+        [node.tagName, [...node.attributes].map(attribute => [attribute.name,
+          attribute.name === 'id' ? 'mask' : attribute.value.replace(/url\(#[^)]+\)/g, 'url(#mask)')]).sort()]));
+      function advance(target) {
+        for (let count = 0; count < 1000; count++) {
+          const next = [...timers].filter(([, timer]) => timer.at <= target).sort((a, b) => a[1].at - b[1].at)[0];
+          if (!next) break;
+          timers.delete(next[0]); now = next[1].at; next[1].callback();
+          if (count === 999) throw new Error('Unbounded timer cycle');
+        }
+        now = target;
+        const callbacks = [...pending.values()]; pending.clear();
+        for (const callback of callbacks) callback(now);
+      }
+      const states = ['idle', 'listening', 'reasoning', 'working', 'speaking', 'success', 'blocked', 'error', 'typing', 'attention', 'paused', 'offline'];
+      const gestures = ['lookAtYou', 'nod', 'smile', 'wave', 'shrug', 'popIn'];
+      const kinds = [...reference.getOneShapes().map(shape => ({ shape: shape.id, color: shape.color })), { color: 'charcoal' }];
+      for (const look of kinds) {
+        const hosts = [document.createElement('div'), document.createElement('div')];
+        for (const host of hosts) { host.style.cssText = 'width:64px;height:64px'; document.body.append(host); }
+        const options = { ...look, size: 64, reducedMotion: false, voiceLevel: () => 0.4 };
+        const players = [reference.mountOne(hosts[0], options), optimized.mountOne(hosts[1], options)];
+        function compare(label) {
+          frames++;
+          if (snapshot(hosts[0]) !== snapshot(hosts[1]) || JSON.stringify(players[0].getState()) !== JSON.stringify(players[1].getState())) {
+            throw new Error('Optimized motion differs: ' + JSON.stringify(look) + '/' + label + '/' + now);
+          }
+        }
+        function sample(label) {
+          const start = now;
+          for (const offset of [0, 16, 80, 160, 300, 640, 1200, 2400, 5000, 6500]) { advance(start + offset); compare(label); }
+        }
+        for (const status of states) { for (const player of players) player.update({ status }); sample(status); }
+        for (const gesture of gestures) {
+          for (const player of players) player.update({ status: 'idle' });
+          advance(now + 1000);
+          const results = players.map(player => player.play(gesture, { viewer: true }));
+          if (results[0] !== results[1]) throw new Error('Optimized gesture acceptance differs: ' + gesture);
+          sample(gesture);
+        }
+        for (const player of players) player.dispose();
+        for (const host of hosts) host.remove();
+      }
+      return { kinds: kinds.length, statuses: states.length, gestures: gestures.length, frames };
+    });
+    assert.equal(optimizerParity.frames, 2700);
+    await probe.close();
+  });
+
   assert.deepEqual(errors, []);
   assert.deepEqual(external, []);
   checks.push({ name: 'no-browser-errors-or-external-requests', passed: true });
@@ -595,6 +664,6 @@ try {
   await browser?.close();
   await new Promise(done => server ? server.close(done) : done());
   await writeFile(join(artifacts, 'receipt.json'), JSON.stringify({ passed: !failure, node: process.version, source,
-    checks, screenshots, digitalOneParity: parityResult, failure }, null, 2) + '\n');
+    checks, screenshots, digitalOneParity: parityResult, optimizerParity, failure }, null, 2) + '\n');
   console.log(failure ? `One head verification failed: ${failure}` : `One head verification passed: ${checks.length} checks`);
 }

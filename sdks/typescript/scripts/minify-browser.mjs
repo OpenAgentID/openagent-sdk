@@ -1,5 +1,5 @@
 /** Final, semantics-preserving compression of the self-contained browser entries. */
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { minify } from 'terser';
 import { gzipSync } from 'node:zlib';
 import { ONE_INTERNAL_PROPERTIES, ONE_PUBLIC_PROPERTIES } from './one-properties.mjs';
@@ -12,6 +12,12 @@ for (const name of ['one', 'character-player']) {
   const map = new URL(`${file.href}.map`);
   const input = { [`${name}.js`]: await readFile(file, 'utf8') };
   const content = await readFile(map, 'utf8');
+  if (name === 'one') {
+    // Development-only reference for browser equivalence tests; outside package files.
+    const directory = new URL('../node_modules/.cache/openagentid/', import.meta.url);
+    await mkdir(directory, { recursive: true });
+    await writeFile(new URL('one-reference.js', directory), input['one.js'].replace(/\/\/# sourceMappingURL=.*$/gm, ''));
+  }
   const profiles = name === 'one'
     ? [{}, { hoist_vars: true, hoist_funs: true }, { inline: false }, { keep_fargs: false }, { collapse_vars: false, reduce_vars: false }]
     : [{}];
