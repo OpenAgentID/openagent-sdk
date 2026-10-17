@@ -636,8 +636,13 @@ try {
           const start = now;
           for (const offset of [0, 16, 80, 160, 300, 640, 1200, 2400, 5000, 6500]) { advance(start + offset); compare(label); }
         }
-        for (const status of states) { for (const player of players) player.update({ status }); sample(status); }
+        for (const status of states) {
+          window.dispatchEvent(new Event('pointerdown'));
+          for (const player of players) player.update({ status });
+          sample(status);
+        }
         for (const gesture of gestures) {
+          window.dispatchEvent(new Event('pointerdown'));
           for (const player of players) player.update({ status: 'idle' });
           advance(now + 1000);
           const results = players.map(player => player.play(gesture, { viewer: true }));
