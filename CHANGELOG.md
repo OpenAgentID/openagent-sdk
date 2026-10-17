@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Document stable production error codes for the standalone One browser entry; retain exception classes, validation guards, and verbose messages in the full SDK.
+
 - Create the DID text encoder lazily so the live-only entry has no unused encoder initialization.
 
 - Keep motion, stage, and head state in each constructor scope while retaining their constructable interfaces and independent head state and the existing SVG-root initialization invariant.

@@ -9,6 +9,7 @@
  * shows its held face at once; hidden heads and hidden documents never tick. A head that follows the
  * pointer moves its eye only and is not counted.
  */
+import { oneError } from './one-error.js';
 import { oneShapeInsetPath, oneKeylineWidth, onePaint, oneRimWidth, oneShapeGeometry, oneShapeId, oneTier,
   type OneFace, type OneHeadColor, type OneKind, type OnePaint, type OneTheme } from './character-one.js';
 import { OneMotion, type OneCadence, type OneGesture, type OneMomentRequest, type OneMotionFrame } from './character-one-motion.js';
@@ -840,7 +841,7 @@ export class OneHead {
 
     function _callsetPaint(kind: OneKind, color: OneHeadColor, theme: OneTheme, size: number, label: string | undefined): void {
         if (color === 'charcoal' ? kind !== 'charcoal' : kind === 'charcoal')
-            throw new TypeError('Digital One is charcoal in shape and colour alike');
+            throw new TypeError(oneError(35, () => ('Digital One is charcoal in shape and colour alike')));
         const recolour = kind !== _state_oneKind || color !== _state_oneColor;
         if (!recolour && theme === _state_oneTheme && label === _state_oneLabel) {
             if (size !== _state_onePx) {
@@ -919,7 +920,7 @@ export class OneHead {
     const win = _state_oneDoc.defaultView!;
     _state_oneStage = OneStage.for(win);
     if (options.color === 'charcoal' ? options.kind !== 'charcoal' : options.kind === 'charcoal')
-        throw new TypeError('Digital One is charcoal in shape and colour alike');
+        throw new TypeError(oneError(36, () => ('Digital One is charcoal in shape and colour alike')));
     _state_oneKind = options.kind;
     _state_oneColor = options.color;
     _state_oneTheme = options.theme;

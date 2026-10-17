@@ -6,6 +6,7 @@
  * Moments use agent-eye's curve format and eases, ported from the One app avatar prototype
  * (AVATARS.md §2.4), which in turn ports the website mascot's motion vocabulary.
  */
+import { oneError } from './one-error.js';
 import { BLINK, EASE, SMILE, cubicBezier, type AgentEyeKey } from './agent-eye.js';
 import {
   ONE_BODY_CHANNELS, ONE_CHANNELS, ONE_FACE_CHANNELS, oneGeometry, oneHeldPose, oneTemperament, oneTier,
@@ -766,8 +767,8 @@ export class OneMotion {
 
 /** Validate One-family live options shared by the animator and the browser player. */
 export function parseOneLiveOptions(cadence: unknown, voiceLevel: unknown): { cadence: OneCadence; voiceLevel?: () => number } {
-  if (cadence !== undefined && cadence !== 'brief' && cadence !== 'repeat') throw new TypeError('Character cadence must be brief or repeat');
-  if (voiceLevel !== undefined && typeof voiceLevel !== 'function') throw new TypeError('Character voiceLevel must be a function');
+  if (cadence !== undefined && cadence !== 'brief' && cadence !== 'repeat') throw new TypeError(oneError(33, () => ('Character cadence must be brief or repeat')));
+  if (voiceLevel !== undefined && typeof voiceLevel !== 'function') throw new TypeError(oneError(34, () => ('Character voiceLevel must be a function')));
   return { cadence: cadence ?? 'brief', ...(voiceLevel === undefined ? {} : { voiceLevel: voiceLevel as () => number }) };
 }
 

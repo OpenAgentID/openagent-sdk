@@ -353,3 +353,5 @@ Glasses and headphones are optional, combinable layers on every character family
 Use `accessories: ['glasses', 'headphones']` when rendering or mounting a character,
 and `player.setAppearance({ accessories: [] })` to remove them without resetting
 its live eyes. See the [accessory release guide](../../docs/release-0.6.0.md) for profile, API and CLI examples.
+
+The standalone One browser entry reports stable production error codes; see [the code reference](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/browser-one-errors.md). Exception classes and validation guards are unchanged. The full SDK retains descriptive error messages.

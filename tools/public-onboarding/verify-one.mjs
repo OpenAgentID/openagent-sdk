@@ -362,6 +362,22 @@ try {
     assert.ok(result > 500);
   });
 
+  await check('light-runtime-keeps-validation-types-with-documented-error-codes', async () => {
+    const failures = await tab.evaluate(() => {
+      const cases = [
+        [{ shape: 'invalid' }, 'TypeError'],
+        [{ shape: 'star', size: 0 }, 'RangeError'],
+        [{ shape: 'star', color: 'cherry' }, 'TypeError'],
+        [{ shape: 'star', state: { status: 'invalid' } }, 'TypeError'],
+      ];
+      return cases.map(([options, expected]) => {
+        try { window.oaidMount(document.createElement('div'), options); return 'accepted'; }
+        catch (error) { return error.name === expected && /^O[0-9]+$/.test(error.message) ? null : error.name + ':' + error.message; }
+      }).filter(Boolean);
+    });
+    assert.deepEqual(failures, []);
+  });
+
   await check('digital-one-stills-match-the-live-head-pixel-for-pixel', async () => {
     const result = await tab.evaluate(async () => {
       const raster = async svg => {

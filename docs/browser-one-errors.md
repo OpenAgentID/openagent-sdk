@@ -1,0 +1,60 @@
+# One browser error codes
+
+The standalone production `@openagentid/sdk/browser/one` entry uses these stable codes to keep its download small. Exception classes and validation are unchanged. The full SDK and all-family entry retain descriptive messages. Codes require no network request to throw; this is a lookup reference.
+
+- `O1` — `TypeError`: Character label must be 1–200 characters of plain text
+- `O2` — `TypeError`: Unsupported avatar expression
+- `O3` — `TypeError`: Unsupported avatar status
+- `O4` — `TypeError`: Invalid character state
+- `O5` — `RangeError`: Character state coordinates must be finite and in range
+- `O6` — `TypeError`: Invalid character gaze
+- `O7` — `TypeError`: Unsupported avatar status
+- `O8` — `TypeError`: Unsupported One shape
+- `O9` — `TypeError`: ${shape.id} allows no colour
+- `O10` — `TypeError`: One looks require an agent or agent instance DID
+- `O11` — `TypeError`: One look groups must be 1–200 characters
+- `O12` — `TypeError`: Held One looks must be iterable
+- `O13` — `TypeError`: Invalid One look options
+- `O14` — `TypeError`: Invalid One look holder
+- `O15` — `TypeError`: Unsupported One shape
+- `O16` — `TypeError`: Unsupported One colour
+- `O17` — `TypeError`: A ${holder.shape} is never ${holder.color}
+- `O18` — `TypeError`: Unsupported One colour
+- `O19` — `TypeError`: Unsupported One face
+- `O20` — `TypeError`: One shape arc radius is smaller than its chord
+- `O21` — `TypeError`: One shape paths have one subpath
+- `O22` — `TypeError`: One shape paths start with one M
+- `O23` — `TypeError`: One shape paths start with M
+- `O24` — `TypeError`: Z takes no values
+- `O25` — `TypeError`: One shape arcs take seven values
+- `O26` — `TypeError`: One shape arcs are circular
+- `O27` — `TypeError`: One shape lines take finite values
+- `O28` — `TypeError`: One shape paths are closed
+- `O29` — `RangeError`: One inset must be a finite, non-negative number
+- `O30` — `RangeError`: One inset is wider than the shape\'s smallest round
+- `O31` — `TypeError`: Digital One is charcoal in shape and colour alike
+- `O32` — `TypeError`: A still One shows a held face, which has no mouth
+- `O33` — `TypeError`: Character cadence must be brief or repeat
+- `O34` — `TypeError`: Character voiceLevel must be a function
+- `O35` — `TypeError`: Digital One is charcoal in shape and colour alike
+- `O36` — `TypeError`: Digital One is charcoal in shape and colour alike
+- `O37` — `TypeError`: Invalid One ${label}
+- `O38` — `RangeError`: One size must be an integer from 16 to 2048
+- `O39` — `TypeError`: Unsupported character theme
+- `O40` — `TypeError`: Digital One is color: 'charcoal' and takes no shape
+- `O41` — `TypeError`: Unsupported One shape
+- `O42` — `TypeError`: Unsupported One colour
+- `O43` — `TypeError`: Digital One is always the circle: give it no shape
+- `O44` — `TypeError`: A One head needs a shape, a colour or an agent DID
+- `O45` — `TypeError`: A coloured One head needs a shape or an agent DID
+- `O46` — `TypeError`: A ${kind} is never ${resolved}
+- `O47` — `TypeError`: One heads require an agent or agent instance DID
+- `O48` — `TypeError`: One head requires a browser element
+- `O49` — `TypeError`: A live One head needs a shape or a colour
+- `O50` — `TypeError`: Character group must be 1–200 characters
+- `O51` — `TypeError`: Character animated must be boolean
+- `O52` — `TypeError`: One follow must be boolean
+- `O53` — `TypeError`: Invalid character motion preference
+- `O54` — `Error`: One head is disposed
+- `O55` — `TypeError`: Unsupported One gesture
+- `O56` — `TypeError`: One play viewer must be boolean

@@ -4,6 +4,7 @@
  * bundlers; `@openagentid/sdk/browser/one` is the same entry built self-contained for a browser. Importing it
  * does not touch a DOM. Heads are identical to `generateCharacter` and `mountCharacter` with `skin: 'one'`.
  */
+import { oneError } from './one-error.js';
 import { isAgentAvatarDid } from './avatar-did.js';
 import { parseCharacterLabel } from './character-label.js';
 import { ONE_BLANK_SHAPE, getOneShapes, isOneColorAllowed, isOneHeadColor, isOneShape, oneFaceFor, oneLookForDid, oneStillSvg,
@@ -99,29 +100,29 @@ const mountKeys = ['shape', 'color', 'size', 'theme', 'label', 'expression', 'st
 
 function record(value: unknown, keys: readonly string[], label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !keys.includes(key))) {
-    throw new TypeError(`Invalid One ${label}`);
+    throw new TypeError(oneError(37, () => (`Invalid One ${label}`)));
   }
   return value as Record<string, unknown>;
 }
 
 function parseSize(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 16 || value > 2048) throw new RangeError('One size must be an integer from 16 to 2048');
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 16 || value > 2048) throw new RangeError(oneError(38, () => ('One size must be an integer from 16 to 2048')));
   return value;
 }
 
 function parseTheme(value: unknown): OneTheme {
-  if (value !== 'light' && value !== 'dark') throw new TypeError('Unsupported character theme');
+  if (value !== 'light' && value !== 'dark') throw new TypeError(oneError(39, () => ('Unsupported character theme')));
   return value;
 }
 
 function parseShape(value: unknown): OneShape {
-  if (value === 'charcoal') throw new TypeError("Digital One is color: 'charcoal' and takes no shape");
-  if (!isOneShape(value)) throw new TypeError('Unsupported One shape');
+  if (value === 'charcoal') throw new TypeError(oneError(40, () => ("Digital One is color: 'charcoal' and takes no shape")));
+  if (!isOneShape(value)) throw new TypeError(oneError(41, () => ('Unsupported One shape')));
   return value;
 }
 
 function parseColor(value: unknown): OneHeadColor {
-  if (!isOneHeadColor(value)) throw new TypeError('Unsupported One colour');
+  if (!isOneHeadColor(value)) throw new TypeError(oneError(42, () => ('Unsupported One colour')));
   return value;
 }
 
@@ -132,19 +133,19 @@ function parseColor(value: unknown): OneHeadColor {
  */
 function resolveLook(shape: OneShape | undefined, color: OneHeadColor | undefined, fallback: (() => OneLook) | undefined): Look {
   if (color === 'charcoal') {
-    if (shape !== undefined) throw new TypeError('Digital One is always the circle: give it no shape');
+    if (shape !== undefined) throw new TypeError(oneError(43, () => ('Digital One is always the circle: give it no shape')));
     return { kind: 'charcoal', color };
   }
   if (color === 'blank') return { kind: shape ?? ONE_BLANK_SHAPE, color };
   if (shape === undefined && color === undefined) {
-    if (fallback === undefined) throw new TypeError('A One head needs a shape, a colour or an agent DID');
+    if (fallback === undefined) throw new TypeError(oneError(44, () => ('A One head needs a shape, a colour or an agent DID')));
     const look = fallback();
     return { kind: look.shape, color: look.color };
   }
-  if (shape === undefined && fallback === undefined) throw new TypeError('A coloured One head needs a shape or an agent DID');
+  if (shape === undefined && fallback === undefined) throw new TypeError(oneError(45, () => ('A coloured One head needs a shape or an agent DID')));
   const kind = shape ?? fallback!().shape;
   const resolved = color ?? getOneShapes().find(entry => entry.id === kind)!.color;
-  if (!isOneColorAllowed(kind, resolved)) throw new TypeError(`A ${kind} is never ${resolved}`);
+  if (!isOneColorAllowed(kind, resolved)) throw new TypeError(oneError(46, () => (`A ${kind} is never ${resolved}`)));
   return { kind, color: resolved };
 }
 
@@ -169,7 +170,7 @@ function initialState(value: Record<string, unknown>): { state: CharacterRuntime
 /** The still glyph: identical to `generateCharacter(did, { skin: 'one', shape, color, ... }).svg`. */
 export function renderOne(options: OneOptions): string {
   const value = record(options, stillKeys, 'options');
-  if (value.did !== undefined && !isAgentAvatarDid(value.did)) throw new TypeError('One heads require an agent or agent instance DID');
+  if (value.did !== undefined && !isAgentAvatarDid(value.did)) throw new TypeError(oneError(47, () => ('One heads require an agent or agent instance DID')));
   const did = value.did as string | undefined;
   const shape = value.shape === undefined ? undefined : parseShape(value.shape);
   const color = value.color === undefined ? undefined : parseColor(value.color);
@@ -187,19 +188,19 @@ export function renderOne(options: OneOptions): string {
  * (or `oneLookForDid(did)` from the server), 'charcoal' for Digital One, or 'blank' for a ready-made agent.
  */
 export function mountOne(element: Element, options: OneMountOptions): OnePlayer {
-  if (!element || element.nodeType !== 1 || !element.ownerDocument?.defaultView) throw new TypeError('One head requires a browser element');
+  if (!element || element.nodeType !== 1 || !element.ownerDocument?.defaultView) throw new TypeError(oneError(48, () => ('One head requires a browser element')));
   const value = record(options, mountKeys, 'options');
   const shape = value.shape === undefined ? undefined : parseShape(value.shape);
   const color = value.color === undefined ? undefined : parseColor(value.color);
-  if (shape === undefined && color === undefined) throw new TypeError('A live One head needs a shape or a colour');
+  if (shape === undefined && color === undefined) throw new TypeError(oneError(49, () => ('A live One head needs a shape or a colour')));
   let look = parsePaint(value, resolveLook(shape, color, undefined));
   let { state, override } = initialState(value);
   const live = parseOneLiveOptions(value.cadence, value.voiceLevel);
-  if (value.group !== undefined && (typeof value.group !== 'string' || !value.group || value.group.length > 200)) throw new TypeError('Character group must be 1–200 characters');
-  if (value.animated !== undefined && typeof value.animated !== 'boolean') throw new TypeError('Character animated must be boolean');
-  if (value.follow !== undefined && typeof value.follow !== 'boolean') throw new TypeError('One follow must be boolean');
+  if (value.group !== undefined && (typeof value.group !== 'string' || !value.group || value.group.length > 200)) throw new TypeError(oneError(50, () => ('Character group must be 1–200 characters')));
+  if (value.animated !== undefined && typeof value.animated !== 'boolean') throw new TypeError(oneError(51, () => ('Character animated must be boolean')));
+  if (value.follow !== undefined && typeof value.follow !== 'boolean') throw new TypeError(oneError(52, () => ('One follow must be boolean')));
   const preference = (input: unknown): boolean | 'system' => {
-    if (input !== true && input !== false && input !== 'system') throw new TypeError('Invalid character motion preference');
+    if (input !== true && input !== false && input !== 'system') throw new TypeError(oneError(53, () => ('Invalid character motion preference')));
     return input;
   };
   let selected = preference(value.reducedMotion ?? 'system');
@@ -216,7 +217,7 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
   let disposed = false;
   const motionChanged = (): void => { if (!disposed) head.setReduced(reduced()); };
   media.addEventListener('change', motionChanged);
-  const active = (): void => { if (disposed) throw new Error('One head is disposed'); };
+  const active = (): void => { if (disposed) throw new Error(oneError(54, () => ('One head is disposed'))); };
   return Object.freeze({
     update(input: CharacterStateUpdate) {
       active();
@@ -248,9 +249,9 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
     },
     play(gesture: OneGesture, options: OnePlayOptions = {}) {
       active();
-      if (!ONE_GESTURES.includes(gesture)) throw new TypeError('Unsupported One gesture');
+      if (!ONE_GESTURES.includes(gesture)) throw new TypeError(oneError(55, () => ('Unsupported One gesture')));
       const value = record(options, ['viewer'], 'play options');
-      if (value.viewer !== undefined && typeof value.viewer !== 'boolean') throw new TypeError('One play viewer must be boolean');
+      if (value.viewer !== undefined && typeof value.viewer !== 'boolean') throw new TypeError(oneError(56, () => ('One play viewer must be boolean')));
       return head.play(gesture, value.viewer === true);
     },
     getState() { return state; },

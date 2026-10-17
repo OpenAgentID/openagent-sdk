@@ -1,4 +1,6 @@
 /** Portable presentation state. Status never grants identity or application authority. */
+import { oneError } from './one-error.js';
+
 export const CHARACTER_EXPRESSIONS = Object.freeze(['neutral', 'attentive', 'surprised', 'excited',
   'happy', 'laughing', 'angry', 'sad', 'scared', 'suspicious', 'confused', 'curious',
   'proud', 'shy', 'unimpressed', 'sleepy', 'thoughtful', 'concerned'] as const);
@@ -48,7 +50,7 @@ export function getCharacterStatuses(): readonly { readonly status: AvatarStatus
 
 export function parseAvatarExpression(value: unknown): AvatarExpression {
   if (typeof value !== 'string' || !CHARACTER_EXPRESSIONS.includes(value as AvatarExpression)) {
-    throw new TypeError('Unsupported avatar expression');
+    throw new TypeError(oneError(2, () => ('Unsupported avatar expression')));
   }
   return value as AvatarExpression;
 }
@@ -58,20 +60,20 @@ export function expressionForStatus(value: unknown): AvatarExpression {
     if (CHARACTER_EXPRESSIONS.includes(value as AvatarExpression)) return value as AvatarExpression;
     if (Object.hasOwn(activityExpressions, value)) return activityExpressions[value as AgentActivity];
   }
-  throw new TypeError('Unsupported avatar status');
+  throw new TypeError(oneError(3, () => ('Unsupported avatar status')));
 }
 
 export function characterStateRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.keys(value).some(key => !['status', 'expression', 'blink', 'gaze'].includes(key))) {
-    throw new TypeError('Invalid character state');
+    throw new TypeError(oneError(4, () => ('Invalid character state')));
   }
   return value as Record<string, unknown>;
 }
 
 function bounded(value: unknown, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
-    throw new RangeError('Character state coordinates must be finite and in range');
+    throw new RangeError(oneError(5, () => ('Character state coordinates must be finite and in range')));
   }
   return value === 0 ? 0 : value;
 }
@@ -88,7 +90,7 @@ export function parseCharacterState(input: unknown, fallbackExpression: AvatarEx
   let y = 0;
   if (value.gaze !== undefined) {
     if (!value.gaze || typeof value.gaze !== 'object' || Array.isArray(value.gaze) ||
-        Object.keys(value.gaze).some(key => key !== 'x' && key !== 'y')) throw new TypeError('Invalid character gaze');
+        Object.keys(value.gaze).some(key => key !== 'x' && key !== 'y')) throw new TypeError(oneError(6, () => ('Invalid character gaze')));
     const gaze = value.gaze as Record<string, unknown>;
     x = bounded(gaze.x, -1, 1);
     y = bounded(gaze.y, -1, 1);
@@ -104,7 +106,7 @@ export function parseCharacterState(input: unknown, fallbackExpression: AvatarEx
 export function updateCharacterState(state: CharacterRuntimeState, override: AvatarExpression | undefined, input: unknown):
   { readonly state: CharacterRuntimeState; readonly override: AvatarExpression | undefined } {
   const patch = characterStateRecord(input);
-  if (patch.status === null) throw new TypeError('Unsupported avatar status');
+  if (patch.status === null) throw new TypeError(oneError(7, () => ('Unsupported avatar status')));
   const next = patch.expression === null ? undefined : patch.expression !== undefined
     ? parseAvatarExpression(patch.expression) : patch.status !== undefined ? undefined : override;
   return {
@@ -115,3 +117,4 @@ export function updateCharacterState(state: CharacterRuntimeState, override: Ava
     override: next,
   };
 }
+

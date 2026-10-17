@@ -1,6 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig([{
+  define: { __OAID_ONE_COMPACT_ERRORS__: 'false' },
   entry: [
     'src/index.ts',
     'src/agent.ts',

@@ -12,7 +12,7 @@ for (const name of ['one', 'character-player']) {
   const input = { [`${name}.js`]: await readFile(file, 'utf8') };
   const content = await readFile(map, 'utf8');
   const profiles = name === 'one'
-    ? [{}, { hoist_vars: true, hoist_funs: true }, { inline: false }, { collapse_vars: false, reduce_vars: false }]
+    ? [{}, { hoist_vars: true, hoist_funs: true }, { inline: false }, { keep_fargs: false }, { collapse_vars: false, reduce_vars: false }]
     : [{}];
   let result, bytes = Infinity;
   for (const [profile, options] of profiles.entries()) {

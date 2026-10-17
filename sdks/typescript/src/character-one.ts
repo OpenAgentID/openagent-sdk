@@ -9,6 +9,7 @@
  * the face. Digital One is always the circle and always `#141b16`, on every surface; no agent is a circle and no
  * agent is black. A never pair (a shape in a colour that would turn it into a sign) is refused, never changed.
  */
+import { oneError } from './one-error.js';
 import { blake3 } from '@noble/hashes/blake3';
 import { barPath, barShape, GEOMETRY, poseToFrame, r2, type AgentEyeFrame } from './agent-eye.js';
 import { isAgentAvatarDid } from './avatar-did.js';
@@ -84,7 +85,7 @@ export function isOneColorAllowed(shape: unknown, color: unknown): boolean {
 
 function shapeOf(shape: OneShape): OneShapeDescription {
   const entry = shapeById.get(shape);
-  if (!entry) throw new TypeError('Unsupported One shape');
+  if (!entry) throw new TypeError(oneError(8, () => ('Unsupported One shape')));
   return entry;
 }
 
@@ -110,7 +111,7 @@ function colorAt(shape: OneShapeDescription, index: number): OneColor {
     const color = colorIds[(((index + step) % n) + n) % n]!;
     if (!shape.never.includes(color)) return color;
   }
-  throw new TypeError(`${shape.id} allows no colour`);
+  throw new TypeError(oneError(9, () => (`${shape.id} allows no colour`)));
 }
 
 let encoder: TextEncoder | undefined;
@@ -121,7 +122,7 @@ export function oneSeed(did: string): Uint8Array {
 }
 
 function agentSeed(did: string): Uint8Array {
-  if (!isAgentAvatarDid(did)) throw new TypeError('One looks require an agent or agent instance DID');
+  if (!isAgentAvatarDid(did)) throw new TypeError(oneError(10, () => ('One looks require an agent or agent instance DID')));
   return oneSeed(did);
 }
 
@@ -159,7 +160,7 @@ export interface OneLookHolder {
 }
 
 function parseGroup(value: unknown): string {
-  if (typeof value !== 'string' || !value || value.length > 200) throw new TypeError('One look groups must be 1–200 characters');
+  if (typeof value !== 'string' || !value || value.length > 200) throw new TypeError(oneError(11, () => ('One look groups must be 1–200 characters')));
   return value;
 }
 
@@ -184,21 +185,21 @@ function leastHeld<T extends string>(order: readonly T[], counts: ReadonlyMap<T,
  */
 export function nextOneLook(held: Iterable<OneLookHolder>, options?: { readonly group?: string }): OneLook {
   if (held === null || typeof held !== 'object' || typeof (held as Iterable<unknown>)[Symbol.iterator] !== 'function') {
-    throw new TypeError('Held One looks must be iterable');
+    throw new TypeError(oneError(12, () => ('Held One looks must be iterable')));
   }
   if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options) ||
-      Object.keys(options).some(key => key !== 'group'))) throw new TypeError('Invalid One look options');
+      Object.keys(options).some(key => key !== 'group'))) throw new TypeError(oneError(13, () => ('Invalid One look options')));
   const group = options?.group === undefined ? undefined : parseGroup(options.group);
   const shapeCounts = new Map<OneShape, number>(shapeIds.map(id => [id, 0]));
   const colorCounts = new Map<OneColor, number>(colorIds.map(id => [id, 0]));
   const sharedShapes = new Set<OneShape>(), sharedColors = new Set<OneColor>();
   for (const entry of held as Iterable<unknown>) {
     if (entry === null || typeof entry !== 'object' || Array.isArray(entry) ||
-        Object.keys(entry).some(key => key !== 'shape' && key !== 'color' && key !== 'group')) throw new TypeError('Invalid One look holder');
+        Object.keys(entry).some(key => key !== 'shape' && key !== 'color' && key !== 'group')) throw new TypeError(oneError(14, () => ('Invalid One look holder')));
     const holder = entry as Record<string, unknown>;
-    if (!isOneShape(holder.shape)) throw new TypeError('Unsupported One shape');
-    if (!isOneColor(holder.color)) throw new TypeError('Unsupported One colour');
-    if (!isOneColorAllowed(holder.shape, holder.color)) throw new TypeError(`A ${holder.shape} is never ${holder.color}`);
+    if (!isOneShape(holder.shape)) throw new TypeError(oneError(15, () => ('Unsupported One shape')));
+    if (!isOneColor(holder.color)) throw new TypeError(oneError(16, () => ('Unsupported One colour')));
+    if (!isOneColorAllowed(holder.shape, holder.color)) throw new TypeError(oneError(17, () => (`A ${holder.shape} is never ${holder.color}`)));
     const holderGroup = holder.group === undefined ? undefined : parseGroup(holder.group);
     shapeCounts.set(holder.shape, shapeCounts.get(holder.shape)! + 1);
     colorCounts.set(holder.color, colorCounts.get(holder.color)! + 1);
@@ -234,7 +235,7 @@ export function onePaint(color: OneHeadColor, theme: OneTheme): OnePaint {
     return { disc: blank.disc, discOpacity: blank.discOpacity, eye: blank.eye, keyline: null, rim: null };
   }
   const entry = colorById.get(color);
-  if (!entry) throw new TypeError('Unsupported One colour');
+  if (!entry) throw new TypeError(oneError(18, () => ('Unsupported One colour')));
   return { disc: entry.disc, discOpacity: 1, eye: entry.eye, keyline: theme === 'light' ? entry.keyline : null, rim: null };
 }
 
@@ -336,7 +337,7 @@ export function oneHeldPose(face: OneFace, gaze: { readonly x: number; readonly 
     case 'shy': return heldPose(-0.45 * d, 0.45, 0.8, 8 * d);
     case 'unimpressed': return heldPose(gx, gy, 0.45);
     case 'concerned': return heldPose(gx * 0.5, 0.2, 0.9, -7 * d);
-    default: throw new TypeError('Unsupported One face');
+    default: throw new TypeError(oneError(19, () => ('Unsupported One face')));
   }
 }
 
@@ -488,7 +489,7 @@ const number = /-?(?:\d+\.?\d*|\.\d+)/g;
 function arcCentre(from: Point, to: Point, r: number, large: 0 | 1, sweep: 0 | 1): Point {
   const hx = (from[0] - to[0]) / 2, hy = (from[1] - to[1]) / 2;
   const d2 = hx * hx + hy * hy;
-  if (d2 > r * r * (1 + 1e-6)) throw new TypeError('One shape arc radius is smaller than its chord');
+  if (d2 > r * r * (1 + 1e-6)) throw new TypeError(oneError(20, () => ('One shape arc radius is smaller than its chord')));
   const k = (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, r * r - d2) / d2);
   return [k * hy + (from[0] + to[0]) / 2, -k * hx + (from[1] + to[1]) / 2];
 }
@@ -500,23 +501,23 @@ export function oneOutlineSegments(path: string): readonly Segment[] {
   for (const match of path.matchAll(/([MLHVAZ])([^MLHVAZ]*)/g)) {
     const command = match[1]!;
     const values = (match[2]!.match(number) ?? []).map(Number);
-    if (closed) throw new TypeError('One shape paths have one subpath');
+    if (closed) throw new TypeError(oneError(21, () => ('One shape paths have one subpath')));
     if (command === 'M') {
-      if (start !== null || values.length !== 2) throw new TypeError('One shape paths start with one M');
+      if (start !== null || values.length !== 2) throw new TypeError(oneError(22, () => ('One shape paths start with one M')));
       start = current = [values[0]!, values[1]!];
       continue;
     }
-    if (current === null || start === null) throw new TypeError('One shape paths start with M');
+    if (current === null || start === null) throw new TypeError(oneError(23, () => ('One shape paths start with M')));
     if (command === 'Z') {
-      if (values.length) throw new TypeError('Z takes no values');
+      if (values.length) throw new TypeError(oneError(24, () => ('Z takes no values')));
       if (Math.hypot(current[0] - start[0], current[1] - start[1]) > 1e-9) segments.push({ type: 'L', from: current, to: start });
       closed = true;
       continue;
     }
     if (command === 'A') {
-      if (values.length !== 7) throw new TypeError('One shape arcs take seven values');
+      if (values.length !== 7) throw new TypeError(oneError(25, () => ('One shape arcs take seven values')));
       const [rx, ry, rotation, large, sweep, x, y] = values as [number, number, number, number, number, number, number];
-      if (rx !== ry || rx <= 0 || rotation !== 0 || (large !== 0 && large !== 1) || (sweep !== 0 && sweep !== 1)) throw new TypeError('One shape arcs are circular');
+      if (rx !== ry || rx <= 0 || rotation !== 0 || (large !== 0 && large !== 1) || (sweep !== 0 && sweep !== 1)) throw new TypeError(oneError(26, () => ('One shape arcs are circular')));
       const to: Point = [x, y];
       if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) {
         segments.push({ type: 'A', from: current, to, r: rx, large: large as 0 | 1, sweep: sweep as 0 | 1, centre: arcCentre(current, to, rx, large as 0 | 1, sweep as 0 | 1) });
@@ -525,11 +526,11 @@ export function oneOutlineSegments(path: string): readonly Segment[] {
       continue;
     }
     const to: Point = command === 'L' ? [values[0]!, values[1]!] : command === 'H' ? [values[0]!, current[1]] : [current[0], values[0]!];
-    if (values.length !== (command === 'L' ? 2 : 1) || values.some(value => !Number.isFinite(value))) throw new TypeError('One shape lines take finite values');
+    if (values.length !== (command === 'L' ? 2 : 1) || values.some(value => !Number.isFinite(value))) throw new TypeError(oneError(27, () => ('One shape lines take finite values')));
     if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) segments.push({ type: 'L', from: current, to });
     current = to;
   }
-  if (!closed || segments.length === 0) throw new TypeError('One shape paths are closed');
+  if (!closed || segments.length === 0) throw new TypeError(oneError(28, () => ('One shape paths are closed')));
   return segments;
 }
 
@@ -572,14 +573,14 @@ export function oneShapeInsetPath(kind: OneKind, delta: number): string {
 }
 
 function insetSegments(segments: readonly Segment[], delta: number): string {
-  if (!(delta >= 0) || !Number.isFinite(delta)) throw new RangeError('One inset must be a finite, non-negative number');
+  if (!(delta >= 0) || !Number.isFinite(delta)) throw new RangeError(oneError(29, () => ('One inset must be a finite, non-negative number')));
   const moved = (segment: Segment, point: Point): Point => {
     if (segment.type === 'L') {
       const dx = segment.to[0] - segment.from[0], dy = segment.to[1] - segment.from[1], length = Math.hypot(dx, dy);
       return [point[0] - dy / length * delta, point[1] + dx / length * delta];
     }
     const radius = segment.sweep === 1 ? segment.r - delta : segment.r + delta;
-    if (radius <= 0) throw new RangeError('One inset is wider than the shape\'s smallest round');
+    if (radius <= 0) throw new RangeError(oneError(30, () => ('One inset is wider than the shape\'s smallest round')));
     const ux = point[0] - segment.centre[0], uy = point[1] - segment.centre[1], length = Math.hypot(ux, uy);
     return [segment.centre[0] + ux / length * radius, segment.centre[1] + uy / length * radius];
   };
@@ -626,11 +627,11 @@ export function escapeXml(value: string): string {
  * Digital One's rim is the outline inset by half its width, stroked, never a clip.
  */
 export function renderOneSvg(input: OneSvgInput): string {
-  if (input.color === 'charcoal' ? input.kind !== 'charcoal' : input.kind === 'charcoal') throw new TypeError('Digital One is charcoal in shape and colour alike');
+  if (input.color === 'charcoal' ? input.kind !== 'charcoal' : input.kind === 'charcoal') throw new TypeError(oneError(31, () => ('Digital One is charcoal in shape and colour alike')));
   const paint = onePaint(input.color, input.theme);
   const tier = oneTier(input.size);
   const geometry = oneGeometry(input.pose, tier, input.kind, input.blink);
-  if (geometry.mouth !== null) throw new TypeError('A still One shows a held face, which has no mouth');
+  if (geometry.mouth !== null) throw new TypeError(oneError(32, () => ('A still One shows a held face, which has no mouth')));
   const shape = oneShapeGeometry(input.kind);
   const name = input.label === undefined ? undefined : escapeXml(input.label);
   const access = name === undefined ? ' aria-hidden="true" focusable="false"' : ` role="img" aria-label="${name}"`;
