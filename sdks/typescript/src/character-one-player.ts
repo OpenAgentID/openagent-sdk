@@ -83,14 +83,17 @@ class OneStage {
 
   private _oneHeadFor(target: Element): OneHead | undefined { return this._oneByRoot.get(target); }
 
+  private _oneListen(active: boolean): void {
+    const method = active ? 'addEventListener' : 'removeEventListener';
+    const options = { capture: true, passive: true } as const;
+    this.win[method]('scroll', this._oneOnScroll, options);
+    this.win[method]('pointermove', this._oneOnPointer, options);
+    for (const type of INPUTS) this.win[method](type, this._oneOnInput, options);
+    this.win.document[method]('visibilitychange', this._oneOnVisibility);
+  }
+
   add(head: OneHead): void {
-    if (!this._oneHeads.size) {
-      const options = { capture: true, passive: true } as const;
-      this.win.addEventListener('scroll', this._oneOnScroll, options);
-      this.win.addEventListener('pointermove', this._oneOnPointer, options);
-      for (const type of INPUTS) this.win.addEventListener(type, this._oneOnInput, options);
-      this.win.document.addEventListener('visibilitychange', this._oneOnVisibility);
-    }
+    if (!this._oneHeads.size) this._oneListen(true);
     this._oneHeads.add(head);
     if (head.follows) this._oneFollowers.add(head);
     this._oneByRoot.set(head.root, head);
@@ -119,11 +122,7 @@ class OneStage {
     this._oneQueue = this._oneQueue.filter(item => item.head !== head);
     this.release(head);
     if (!this._oneHeads.size) {
-      const options = { capture: true } as const;
-      this.win.removeEventListener('scroll', this._oneOnScroll, options);
-      this.win.removeEventListener('pointermove', this._oneOnPointer, options);
-      for (const type of INPUTS) this.win.removeEventListener(type, this._oneOnInput, options);
-      this.win.document.removeEventListener('visibilitychange', this._oneOnVisibility);
+      this._oneListen(false);
       if (this._oneRaf) this.win.cancelAnimationFrame(this._oneRaf);
       this._oneRaf = 0;
       if (this._onePumpTimer) this.win.clearTimeout(this._onePumpTimer);

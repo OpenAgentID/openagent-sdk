@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Share appearance validation and listener wiring; create the full status catalog only when requested while preserving status validation.
+
 - Serve the exact standalone One browser module at `/one.js` with the same CSP, caching, and fixed asset routing as the all-family player.
 
 - Generate lossless shared command/value skeletons for the public SVG paths and live catalog insets; retain the general SVG helper and compare every catalog inset against it.

@@ -148,12 +148,14 @@ function resolveLook(shape: OneShape | undefined, color: OneHeadColor | undefine
   return { kind, color: resolved };
 }
 
-function parsePaint(value: Record<string, unknown>, look: Look): Paint {
+function parsePaint(value: Record<string, unknown>, look: Look, previous?: Paint): Paint {
+  const label = value.label === undefined ? previous?.label : value.label === null && previous
+    ? undefined : parseCharacterLabel(value.label);
   return {
     ...look,
-    theme: value.theme === undefined ? 'light' : parseTheme(value.theme),
-    size: value.size === undefined ? 512 : parseSize(value.size),
-    ...(value.label === undefined ? {} : { label: parseCharacterLabel(value.label) }),
+    theme: value.theme === undefined ? previous?.theme ?? 'light' : parseTheme(value.theme),
+    size: value.size === undefined ? previous?.size ?? 512 : parseSize(value.size),
+    ...(label === undefined ? {} : { label }),
   };
 }
 
@@ -235,13 +237,7 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
       if (nextShape === undefined && nextColor === undefined) resolved = { kind: look.kind, color: look.color };
       else if (nextColor === 'charcoal') resolved = resolveLook(nextShape, 'charcoal', undefined);
       else resolved = resolveLook(nextShape ?? (look.kind === 'charcoal' ? undefined : look.kind), nextColor ?? (look.color === 'charcoal' ? undefined : look.color), undefined);
-      const next: Paint = {
-        ...resolved,
-        theme: update.theme === undefined ? look.theme : parseTheme(update.theme),
-        size: update.size === undefined ? look.size : parseSize(update.size),
-        ...(update.label === null ? {} : update.label !== undefined ? { label: parseCharacterLabel(update.label) }
-          : look.label === undefined ? {} : { label: look.label }),
-      };
+      const next = parsePaint(update, resolved, look);
       look = next;
       head.setPaint(next.kind, next.color, next.theme, next.size, next.label);
     },

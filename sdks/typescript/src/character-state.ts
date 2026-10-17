@@ -36,13 +36,15 @@ const activityExpressions: Readonly<Record<AgentActivity, AvatarExpression>> = O
   // 0.8.0: presentation states for composing a reply, asking for the viewer, pausing and being offline.
   typing: 'attentive', attention: 'attentive', paused: 'sleepy', offline: 'sleepy',
 });
-const statuses = Object.freeze([
-  ...CHARACTER_EXPRESSIONS.map(expression => Object.freeze({ status: expression as AvatarStatus, expression })),
-  ...Object.entries(activityExpressions).map(([status, expression]) => Object.freeze({ status: status as AvatarStatus, expression })),
-]);
+let statuses: readonly { readonly status: AvatarStatus; readonly expression: AvatarExpression }[] | undefined;
 
 export function getCharacterExpressions(): readonly AvatarExpression[] { return CHARACTER_EXPRESSIONS; }
-export function getCharacterStatuses(): readonly { readonly status: AvatarStatus; readonly expression: AvatarExpression }[] { return statuses; }
+export function getCharacterStatuses(): readonly { readonly status: AvatarStatus; readonly expression: AvatarExpression }[] {
+  return statuses ??= Object.freeze([
+    ...CHARACTER_EXPRESSIONS.map(expression => Object.freeze({ status: expression as AvatarStatus, expression })),
+    ...Object.entries(activityExpressions).map(([status, expression]) => Object.freeze({ status: status as AvatarStatus, expression })),
+  ]);
+}
 
 export function parseAvatarExpression(value: unknown): AvatarExpression {
   if (typeof value !== 'string' || !CHARACTER_EXPRESSIONS.includes(value as AvatarExpression)) {
@@ -52,10 +54,11 @@ export function parseAvatarExpression(value: unknown): AvatarExpression {
 }
 
 export function expressionForStatus(value: unknown): AvatarExpression {
-  if (typeof value !== 'string') throw new TypeError('Unsupported avatar status');
-  const entry = statuses.find(entry => entry.status === value);
-  if (!entry) throw new TypeError('Unsupported avatar status');
-  return entry.expression;
+  if (typeof value === 'string') {
+    if (CHARACTER_EXPRESSIONS.includes(value as AvatarExpression)) return value as AvatarExpression;
+    if (Object.hasOwn(activityExpressions, value)) return activityExpressions[value as AgentActivity];
+  }
+  throw new TypeError('Unsupported avatar status');
 }
 
 export function characterStateRecord(value: unknown): Record<string, unknown> {
