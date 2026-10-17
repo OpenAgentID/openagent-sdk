@@ -6,6 +6,7 @@
  * Moments use agent-eye's curve format and eases, ported from the One app avatar prototype
  * (AVATARS.md §2.4), which in turn ports the website mascot's motion vocabulary.
  */
+import { M_PI, clamp, freeze, mAbs, mCos, mExp, mFloor, mImul, mMax, mMin, mSin, mSqrt, objectEntries, objectFromEntries, objectKeys } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 import { BLINK, EASE, SMILE, cubicBezier, type AgentEyeKey } from './agent-eye.js';
 import {
@@ -22,7 +23,7 @@ export type OneMomentName = 'settle' | 'home' | 'psst' | 'aha' | 'smile' | 'nod'
  * play from 24 px; the others need a body, from 40 px.
  */
 export type OneGesture = 'lookAtYou' | 'nod' | 'smile' | 'wave' | 'shrug' | 'popIn';
-export const ONE_GESTURES: readonly OneGesture[] = Object.freeze(['lookAtYou', 'nod', 'smile', 'wave', 'shrug', 'popIn']);
+export const ONE_GESTURES: readonly OneGesture[] = freeze(['lookAtYou', 'nod', 'smile', 'wave', 'shrug', 'popIn']);
 
 export interface OneMomentRequest {
   readonly name: OneMomentName;
@@ -47,8 +48,8 @@ export interface OneMotionFrame {
   readonly moving: boolean;
 }
 
-type Ease = keyof typeof EASE | 'wind' | 'pop' | 'brake' | 'rise' | 'fall' | 'ui' |
-  '~firm' | '~bounce' | '~boing' | '~jelly' | '~soft';
+type Ease = keyof typeof EASE | 'wind' | 'pop' | 'rise' | 'fall' | 'ui' |
+  '~firm' | '~bounce' | '~soft';
 type Key = [number, number, Ease?];
 type Curves = Partial<Record<OneChannel, Key[]>>;
 
@@ -58,20 +59,19 @@ export const ONE_MOUTH_RETRACT_MS = 120;
 /** How many uniform draws a moment may use; no moment uses more. */
 export const ONE_MOMENT_DRAWS = 16;
 const bodyEases: Readonly<Record<string, readonly [number, number, number, number]>> = {
-  wind: [0.45, 0, 0.55, 1], pop: [0.34, 1.56, 0.64, 1], brake: [0.16, 1, 0.3, 1],
+  wind: [0.45, 0, 0.55, 1], pop: [0.34, 1.56, 0.64, 1],
   rise: [0.5, 1, 0.89, 1], fall: [0.11, 0, 0.5, 0], ui: [0.16, 1, 0.3, 1],
 };
 const easeFns = new Map<string, (x: number) => number>(
-  [...Object.entries(EASE), ...Object.entries(bodyEases)].map(([name, v]) => [name, cubicBezier(v[0], v[1], v[2], v[3])]));
+  [...objectEntries(EASE), ...objectEntries(bodyEases)].map(([name, v]) => [name, cubicBezier(v[0], v[1], v[2], v[3])]));
 const springs: Readonly<Record<string, readonly [number, number]>> = {
-  firm: [0.26, 0.7], bounce: [0.36, 0.45], boing: [0.42, 0.32], jelly: [0.5, 0.25], soft: [0.6, 0.85],
+  firm: [0.26, 0.7], bounce: [0.36, 0.45], soft: [0.6, 0.85],
 };
 function springAt(name: string, sec: number): number {
   const [period, zeta] = springs[name] ?? springs.firm!;
-  const w0 = 2 * Math.PI / period, wd = w0 * Math.sqrt(1 - zeta * zeta);
-  return 1 - Math.exp(-zeta * w0 * sec) * (Math.cos(wd * sec) + zeta * w0 / wd * Math.sin(wd * sec));
+  const w0 = 2 * M_PI / period, wd = w0 * mSqrt(1 - zeta * zeta);
+  return 1 - mExp(-zeta * w0 * sec) * (mCos(wd * sec) + zeta * w0 / wd * mSin(wd * sec));
 }
-const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 const smooth = (a: number, b: number, v: number): number => { const k = clamp((v - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
 function easeAt(ease: Ease, u: number, segment: number): number {
   if (ease.startsWith('~')) { const k = springAt(ease.slice(1), u * segment / 1000); return k + (1 - k) * smooth(0.8, 1, u); }
@@ -99,32 +99,32 @@ class Builder {
   private _oneChan(k: OneChannel): Key[] { return this.curves[k] ??= [[0, this.live[k]]]; }
   cur(k: OneChannel): number { const c = this.curves[k]; return c ? c[c.length - 1]![1] : this.live[k]; }
   mv(t0: number, t1: number, values: Partial<OnePose>, ease: Ease = 'linear'): void {
-    for (const k of Object.keys(values) as OneChannel[]) {
+    for (const k of objectKeys(values) as OneChannel[]) {
       const c = this._oneChan(k);
       const [lt, lv] = c[c.length - 1]!;
       if (t0 > lt) c.push([t0, lv]);
-      c.push([Math.max(t1, c[c.length - 1]![0]), values[k]!, ease]);
+      c.push([mMax(t1, c[c.length - 1]![0]), values[k]!, ease]);
     }
   }
   cut(t: number, values: Partial<OnePose>): void {
-    for (const k of Object.keys(values) as OneChannel[]) {
+    for (const k of objectKeys(values) as OneChannel[]) {
       const c = this._oneChan(k);
       const [lt, lv] = c[c.length - 1]!;
-      const t0 = Math.max(lt, t - 0.5);
+      const t0 = mMax(lt, t - 0.5);
       if (t0 > lt) c.push([t0, lv]);
-      c.push([Math.max(t, t0), values[k]!, 'linear']);
+      c.push([mMax(t, t0), values[k]!, 'linear']);
     }
   }
   raw(k: OneChannel, curve: readonly AgentEyeKey[], at: number): void {
     const c = this._oneChan(k);
-    c.push([Math.max(at, c[c.length - 1]![0]), curve[0]![1]]);
+    c.push([mMax(at, c[c.length - 1]![0]), curve[0]![1]]);
     for (const [t, v, e] of curve.slice(1)) c.push([at + t * 1000, v, e]);
   }
 }
 
 /** agent-eye's saccade: 110 ms + 110 per unit of look, 7 % overshoot, 160 ms settle. */
 function saccade(b: Builder, t: number, to: number, extra: Partial<OnePose> = {}): number {
-  const from = b.cur(ONE_CHANNELS[0]!), d = 110 + 110 * Math.abs(to - from);
+  const from = b.cur(ONE_CHANNELS[0]!), d = 110 + 110 * mAbs(to - from);
   b.mv(t, t + d, { look: to + (to - from) * 0.07, ...extra }, 'snap');
   b.mv(t + d, t + d + 160, { look: to }, 'settle');
   return t + d + 160;
@@ -135,7 +135,7 @@ function saccade(b: Builder, t: number, to: number, extra: Partial<OnePose> = {}
  */
 function blinkAt(b: Builder, t: number, open: number, d: number): number {
   const tilt = b.cur(ONE_CHANNELS[3]!);
-  const level = Math.abs(tilt) < 4 && Math.abs(b.cur(ONE_CHANNELS[0]!)) < 0.15;
+  const level = mAbs(tilt) < 4 && mAbs(b.cur(ONE_CHANNELS[0]!)) < 0.15;
   b.mv(t, t + 80, { open: 0, ...(level ? { tilt: tilt + 7 * d } : {}) }, 'shut');
   b.mv(t + 130, t + 300, { open: open * 1.04, ...(level ? { tilt } : {}) }, 'snap');
   b.mv(t + 300, t + 420, { open }, 'settle');
@@ -148,11 +148,11 @@ function pulses(b: Builder, t: number, n: number, up: number, down: number): num
   return e + 160;
 }
 const pick = (pose: OnePose, keys: readonly OneChannel[]): Partial<OnePose> =>
-  Object.fromEntries(keys.map(k => [k, pose[k]])) as Partial<OnePose>;
+  objectFromEntries(keys.map(k => [k, pose[k]])) as Partial<OnePose>;
 
-const tempo: Readonly<Record<OneTemperament, number>> = Object.freeze({ quick: 0.85, bouncy: 0.95, neat: 1, slow: 1.18, dry: 1.075 });
-const tierTempo: Readonly<Record<OneTier, number>> = Object.freeze({ XS: 1, S: 0.9, M: 1, L: 1.1 });
-const ongoing: Readonly<Record<string, OneMomentName>> = Object.freeze({ working: 'read', thinking: 'ponder', typing: 'keys' });
+const tempo: Readonly<Record<OneTemperament, number>> = freeze({ quick: 0.85, bouncy: 0.95, neat: 1, slow: 1.18, dry: 1.075 });
+const tierTempo: Readonly<Record<OneTier, number>> = freeze({ XS: 1, S: 0.9, M: 1, L: 1.1 });
+const ongoing: Readonly<Record<string, OneMomentName>> = freeze({ working: 'read', thinking: 'ponder', typing: 'keys' });
 const asleep = new Set<OneFace>(['paused', 'offline', 'sleepy']);
 const pondering = new Set<OneFace>(['thinking', 'thoughtful']);
 /** Faces whose eye may follow a fine pointer: at rest, warm or listening. */
@@ -317,7 +317,7 @@ export class OneMotion {
             return null;
         if (_state_oneCadenceMode === 'brief') {
             const gap = 300 + _state_oneRandom() * 400;
-            const measured = { ...request, draws: Object.freeze(Array.from({ length: ONE_MOMENT_DRAWS }, () => _state_oneRandom())) };
+            const measured = { ...request, draws: freeze(Array.from({ length: ONE_MOMENT_DRAWS }, () => _state_oneRandom())) };
             const length = _call_onePlan(measured, _callheld()).duration;
             if (_state_oneEntered + 5000 - at < gap + length)
                 return null;
@@ -374,14 +374,14 @@ export class OneMotion {
         const lead = _state_oneValue.mouth > 0 ? ONE_MOUTH_RETRACT_MS : 0;
         const planned = _call_onePlan(request, lead ? { ..._state_oneValue, mouth: 0 } : { ..._state_oneValue });
         const curves: Curves = {};
-        for (const k of Object.keys(planned.curves) as OneChannel[])
+        for (const k of objectKeys(planned.curves) as OneChannel[])
             curves[k] = planned.curves[k]!.map(([t, v, e]) => [t + lead, v, e] as Key);
         if (lead)
             curves.mouth = [[0, _state_oneValue.mouth], [lead, 0, 'glide'], ...(curves.mouth ?? []).slice(1)];
         _state_oneTimeline = { curves, start: at, duration: planned.duration + lead, twos: planned.twos };
         _state_oneCurrent = request;
         _state_oneTarget = null;
-        _state_oneLast = Math.max(_state_oneLast, at);
+        _state_oneLast = mMax(_state_oneLast, at);
     }
 
     function _call_onePlan(request: OneMomentRequest, live: OnePose): { curves: Curves; duration: number; twos: boolean } {
@@ -397,7 +397,7 @@ export class OneMotion {
             const t0 = duration, t1 = duration + 320 * (result.scaled ? scale : 1);
             let any = false;
             for (const k of ONE_CHANNELS) {
-                if (Math.abs(b.cur(k) - P[k]) > 1e-3) {
+                if (mAbs(b.cur(k) - P[k]) > 1e-3) {
                     b.mv(t0, t1, { [k]: P[k] }, 'glide');
                     any = true;
                 }
@@ -406,7 +406,7 @@ export class OneMotion {
                 duration = t1;
         }
         const curves: Curves = {};
-        for (const k of Object.keys(b.curves) as OneChannel[])
+        for (const k of objectKeys(b.curves) as OneChannel[])
             curves[k] = b.curves[k]!.map(([t, v, e]) => [t * factor, v, e] as Key);
         return { curves, duration: duration * factor, twos: result.twos === true };
     }
@@ -425,7 +425,7 @@ export class OneMotion {
             return false;
         _state_oneTalk = { mouth: 0, quiet: 0, blinked: false };
         _state_oneTarget = null;
-        _state_oneLast = Math.max(_state_oneLast, at);
+        _state_oneLast = mMax(_state_oneLast, at);
         return true;
     }
 
@@ -440,9 +440,9 @@ export class OneMotion {
         const tl = _state_oneTimeline;
         if (!tl)
             return;
-        const t = Math.min(at - tl.start, tl.duration);
-        const quantized = tl.twos ? Math.floor(t / (2 * F) + 1e-6) * 2 * F : t;
-        for (const k of Object.keys(tl.curves) as OneChannel[]) {
+        const t = mMin(at - tl.start, tl.duration);
+        const quantized = tl.twos ? mFloor(t / (2 * F) + 1e-6) * 2 * F : t;
+        for (const k of objectKeys(tl.curves) as OneChannel[]) {
             value[k] = sampleCurve(tl.curves[k]!, ONE_BODY_CHANNELS.includes(k) ? quantized : t);
         }
     }
@@ -455,25 +455,25 @@ export class OneMotion {
     }
 
     function _call_oneFrame(value: OnePose, blink: number): OneMotionFrame {
-        const pose = Object.freeze({ ...value });
-        return Object.freeze({ face: _stateface, tier: _gettier(), pose, geometry: oneGeometry(pose, _gettier(), _state_oneKind, blink), moving: _getmoving() });
+        const pose = freeze({ ...value });
+        return freeze({ face: _stateface, tier: _gettier(), pose, geometry: oneGeometry(pose, _gettier(), _state_oneKind, blink), moving: _getmoving() });
     }
 
     function _callpeek(at: number): OneMotionFrame {
         const value = { ..._state_oneValue };
-        _call_onePose(Math.max(at, _state_oneLast), value);
-        return _call_oneFrame(value, _call_oneBlinkFactor(Math.max(at, _state_oneLast)));
+        _call_onePose(mMax(at, _state_oneLast), value);
+        return _call_oneFrame(value, _call_oneBlinkFactor(mMax(at, _state_oneLast)));
     }
 
     function _callsample(at: number): { frame: OneMotionFrame; finished: OneMomentRequest | null } {
         const dt = clamp(at - _state_oneLast, 0, 100);
-        _state_oneLast = Math.max(_state_oneLast, at);
+        _state_oneLast = mMax(_state_oneLast, at);
         let finished: OneMomentRequest | null = null;
         const tl = _state_oneTimeline;
         if (tl) {
             _call_onePose(at, _state_oneValue);
             if (at - tl.start >= tl.duration) {
-                for (const k of Object.keys(tl.curves) as OneChannel[]) {
+                for (const k of objectKeys(tl.curves) as OneChannel[]) {
                     const c = tl.curves[k]!;
                     _state_oneValue[k] = c[c.length - 1]![1];
                 }
@@ -495,7 +495,7 @@ export class OneMotion {
     function _call_oneFollowStep(dt: number): void {
         const target = _state_oneTarget!;
         const P = _callheld();
-        const k = 1 - Math.exp(-dt / (Math.abs(target.x - _state_oneValue.look) > 0.15 ? 40 : 80));
+        const k = 1 - mExp(-dt / (mAbs(target.x - _state_oneValue.look) > 0.15 ? 40 : 80));
         _state_oneValue.look += (target.x - _state_oneValue.look) * k;
         _state_oneValue.lift += (target.y - _state_oneValue.lift) * k;
         _state_oneValue.open += (P.open - _state_oneValue.open) * k;
@@ -506,9 +506,9 @@ export class OneMotion {
         const talk = _state_oneTalk!;
         const level = clamp(Number(_state_oneLevel!()) || 0, 0, 1);
         const target = level < 0.08 ? 0 : clamp(level * 1.4, 0, 1);
-        talk.mouth += (target - talk.mouth) * (1 - Math.exp(-dt / (target > talk.mouth ? 30 : 90)));
+        talk.mouth += (target - talk.mouth) * (1 - mExp(-dt / (target > talk.mouth ? 30 : 90)));
         if (!_state_oneTimeline) {
-            const k = 1 - Math.exp(-dt / 80);
+            const k = 1 - mExp(-dt / 80);
             _state_oneValue.smile += (1 - _state_oneValue.smile) * k;
             _state_oneValue.open += (0.6 - _state_oneValue.open) * k;
             _state_oneValue.look += (0 - _state_oneValue.look) * k;
@@ -535,8 +535,8 @@ export class OneMotion {
                 return { duration: 160, tail: false, noTempo: true };
             case 'home': {
                 const t = saccade(b, 0, P.look, { lift: P.lift });
-                b.mv(0, Math.max(t, 300), pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!, ONE_CHANNELS[6]!, ONE_CHANNELS[7]!, ONE_CHANNELS[8]!]), 'glide');
-                return { duration: Math.max(t, 300) };
+                b.mv(0, mMax(t, 300), pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!, ONE_CHANNELS[6]!, ONE_CHANNELS[7]!, ONE_CHANNELS[8]!]), 'glide');
+                return { duration: mMax(t, 300) };
             }
             case 'psst': {
                 if (!big) {
@@ -561,7 +561,7 @@ export class OneMotion {
             case 'smile': {
                 // agent-eye's SMILE plays exactly while the eye narrows into a happy squint, turned toward its content
                 // and tilted warm: a tall bar over the smile line would read as "!" on a coloured disc.
-                const centred = Math.abs(_state_oneGaze.x) < 0.15;
+                const centred = mAbs(_state_oneGaze.x) < 0.15;
                 b.mv(0, 300, { look: (centred ? 0.12 : 0.2) * d, lift: 0, tilt: 10 * d, open: tier === 'L' ? 0.6 : 0.42,
                     rotate: big ? 4 * d : 0 }, 'glide');
                 b.raw(ONE_CHANNELS[4]!, SMILE.smile, 300);
@@ -585,9 +585,9 @@ export class OneMotion {
                 b.mv(0, 80, { open: 1.15, tilt: 0 }, 'snap');
                 const n = big ? 18 : 10, turns = big ? 2 : 1;
                 for (let i = 0; i <= n; i++) {
-                    const th = i / n * turns * 2 * Math.PI, t = 80 + i * F;
-                    b.cut(t, { look: 0.45 * Math.cos(th), lift: 0.8 * Math.sin(th), tilt: 16 * Math.sin(th), open: 0.82,
-                        ...(big ? { rotate: 5 * Math.cos(th) } : {}) });
+                    const th = i / n * turns * 2 * M_PI, t = 80 + i * F;
+                    b.cut(t, { look: 0.45 * mCos(th), lift: 0.8 * mSin(th), tilt: 16 * mSin(th), open: 0.82,
+                        ...(big ? { rotate: 5 * mCos(th) } : {}) });
                 }
                 const t = 80 + n * F + 20;
                 b.mv(t, t + 270, { ...pick(P, ONE_FACE_CHANNELS), rotate: 0 }, 'settle');
@@ -608,7 +608,7 @@ export class OneMotion {
                 // Tempo paces the gaps between jumps; the jumps themselves stay agent-eye's saccades.
                 b.mv(0, 400 * scale, { open: 0.72, tilt: 0, smile: 0, mouth: 0 }, 'glide');
                 let t = saccade(b, 0, -0.55, { lift: P.lift });
-                const steps = 3 + Math.floor(draw() * 3);
+                const steps = 3 + mFloor(draw() * 3);
                 for (let i = 1; i <= steps; i++) {
                     t += (160 + draw() * 180) * scale;
                     saccade(b, t, -0.55 + 1.1 * i / steps);
@@ -623,7 +623,7 @@ export class OneMotion {
                 // Thinking starts with a quick glance up (agent-eye's saccade), then the slow drift of the master loop.
                 const up = { look: 0.32 * d, open: 0.55, lift: -0.45, tilt: -8 * d };
                 let t = 0;
-                const entering = Math.abs(b.cur(ONE_CHANNELS[0]!) - up.look) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[1]!) - up.lift) > 0.1;
+                const entering = mAbs(b.cur(ONE_CHANNELS[0]!) - up.look) > 0.1 || mAbs(b.cur(ONE_CHANNELS[1]!) - up.lift) > 0.1;
                 if (entering)
                     t = saccade(b, 0, up.look, { lift: up.lift, open: up.open, tilt: up.tilt, smile: 0, mouth: 0 });
                 const drift = [{ look: 0.22 * d, open: 0.58 }, { look: up.look, open: up.open }, { look: 0.22 * d, open: 0.58 }];
@@ -640,16 +640,16 @@ export class OneMotion {
             case 'keys': {
                 let t = 0;
                 const settled = pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!]);
-                if (Math.abs(b.cur(ONE_CHANNELS[1]!) - P.lift) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[0]!) - P.look) > 0.1) {
+                if (mAbs(b.cur(ONE_CHANNELS[1]!) - P.lift) > 0.1 || mAbs(b.cur(ONE_CHANNELS[0]!) - P.look) > 0.1) {
                     t = saccade(b, 0, P.look, { lift: P.lift, ...settled });
                 }
-                else if ((Object.keys(settled) as OneChannel[]).some(k => Math.abs(b.cur(k) - P[k]) > 1e-3)) {
+                else if ((objectKeys(settled) as OneChannel[]).some(k => mAbs(b.cur(k) - P[k]) > 1e-3)) {
                     b.mv(0, 200, settled, 'glide');
                     t = 200;
                 }
                 // Keystrokes: about a pixel or two of eye travel on twos, with a 2 % squash where the body may move.
                 for (let burst = 0; burst < 2; burst++) {
-                    const n = 4 + Math.floor(draw() * 4);
+                    const n = 4 + mFloor(draw() * 4);
                     for (let i = 0; i < n; i++) {
                         b.cut(t, { lift: P.lift + 0.25, ...(big ? { squash: P.squash - 2 } : {}) });
                         b.cut(t + 2 * F, { lift: P.lift, squash: P.squash });
@@ -719,7 +719,7 @@ export class OneMotion {
                 b.mv(80 + 3 * F, 80 + 5 * F, { squash: land, open: 1.06, tilt: 0 }, 'snap');
                 b.mv(80 + 5 * F, 80 + 7 * F, { squash: 4, open: 1 });
                 b.mv(80 + 7 * F, 80 + 10 * F, { squash: 0 }, 'settle');
-                return { duration: Math.max(saccade(b, 80 + 10 * F, P.look, { lift: P.lift }), 680), twos: true };
+                return { duration: mMax(saccade(b, 80 + 10 * F, P.look, { lift: P.lift }), 680), twos: true };
             }
         }
     }
@@ -778,8 +778,8 @@ export function seededRandom(seed: Uint8Array, offset = 0): () => number {
   return () => {
     state = state + 0x6d2b79f5 >>> 0;
     let t = state;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    t = mImul(t ^ t >>> 15, t | 1);
+    t ^= t + mImul(t ^ t >>> 7, t | 61);
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }

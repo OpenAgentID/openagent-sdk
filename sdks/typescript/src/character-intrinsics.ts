@@ -1,0 +1,24 @@
+/** Shared, captured ECMAScript intrinsics for the presentation runtimes. */
+export const mAbs = Math.abs;
+export const mMin = Math.min;
+export const mMax = Math.max;
+export const mPow = Math.pow;
+export const mRound = Math.round;
+export const mHypot = Math.hypot;
+export const mSin = Math.sin;
+export const mCos = Math.cos;
+export const mSqrt = Math.sqrt;
+export const mFloor = Math.floor;
+export const mCeil = Math.ceil;
+export const mExp = Math.exp;
+export const mTanh = Math.tanh;
+export const mImul = Math.imul;
+export const presentationRandom = Math.random;
+export const M_PI = Math.PI;
+export const freeze = Object.freeze;
+export const objectKeys = Object.keys;
+export const objectEntries = Object.entries;
+export const objectFromEntries = Object.fromEntries;
+export const numberIsFinite = Number.isFinite;
+export const numberIsInteger = Number.isInteger;
+export const clamp = (value: number, min: number, max: number): number => mMin(max, mMax(min, value));

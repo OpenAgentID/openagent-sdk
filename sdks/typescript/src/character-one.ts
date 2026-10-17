@@ -9,6 +9,7 @@
  * the face. Digital One is always the circle and always `#141b16`, on every surface; no agent is a circle and no
  * agent is black. A never pair (a shape in a colour that would turn it into a sign) is refused, never changed.
  */
+import { M_PI, clamp, freeze, mAbs, mCeil, mCos, mHypot, mMax, mMin, mPow, mSin, mSqrt, numberIsFinite, objectKeys } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 import { blake3 } from '@noble/hashes/blake3';
 import { barPath, barShape, GEOMETRY, poseToFrame, r2, type AgentEyeFrame } from './agent-eye.js';
@@ -38,19 +39,19 @@ export interface OneLook {
 export const ONE_EYE_LIGHT = '#fbfaf6';
 export const ONE_EYE_INK = '#141b16';
 /** A blank head: the surface's ink at 10 % for the disc and the muted text tone for the eye (AVATARS.md §1.1). */
-export const ONE_BLANK = Object.freeze({
-  light: Object.freeze({ disc: '#141b16', discOpacity: 0.1, eye: '#5a6256' }),
-  dark: Object.freeze({ disc: '#f2f1ea', discOpacity: 0.1, eye: '#a9b2a2' }),
+export const ONE_BLANK = freeze({
+  light: freeze({ disc: '#141b16', discOpacity: 0.1, eye: '#5a6256' }),
+  dark: freeze({ disc: '#f2f1ea', discOpacity: 0.1, eye: '#a9b2a2' }),
 });
 /** The shape a blank head is drawn as when the agent's own shape is not known yet. */
 export const ONE_BLANK_SHAPE: OneShape = 'squircle';
 
-const shapeIds: readonly OneShape[] = Object.freeze(ONE_SHAPES.map(entry => entry.id));
-const colorIds: readonly OneColor[] = Object.freeze(ONE_COLORS.map(entry => entry.id));
+const shapeIds: readonly OneShape[] = freeze(ONE_SHAPES.map(entry => entry.id));
+const colorIds: readonly OneColor[] = freeze(ONE_COLORS.map(entry => entry.id));
 const shapeById = new Map<OneShape, OneShapeDescription>(ONE_SHAPES.map(entry => [entry.id, entry]));
 const colorById = new Map<OneColor, OneColorDescription>(ONE_COLORS.map(entry => [entry.id, entry]));
 /** Catalog kinds for the One family: the fourteen shapes in library order, then Digital One. */
-export const ONE_KINDS: readonly OneKind[] = Object.freeze([...shapeIds, 'charcoal'] as const);
+export const ONE_KINDS: readonly OneKind[] = freeze([...shapeIds, 'charcoal'] as const);
 
 /** The fourteen shapes in library order, each with its path, eye placement and limits, pivot, temperament, own colour and never list. */
 export function getOneShapes(): readonly OneShapeDescription[] {
@@ -149,7 +150,7 @@ export function oneColorForDid(did: string): OneColor {
 
 /** The deterministic default look for an agent DID: `oneShapeForDid` and `oneColorForDid` together. */
 export function oneLookForDid(did: string): OneLook {
-  return Object.freeze({ shape: oneShapeForDid(did), color: oneColorForDid(did) });
+  return freeze({ shape: oneShapeForDid(did), color: oneColorForDid(did) });
 }
 
 /** An agent that already holds a look, with the group it sits in (for example a team or a company). */
@@ -188,14 +189,14 @@ export function nextOneLook(held: Iterable<OneLookHolder>, options?: { readonly 
     throw new TypeError(oneError(12, () => ('Held One looks must be iterable')));
   }
   if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options) ||
-      Object.keys(options).some(key => key !== 'group'))) throw new TypeError(oneError(13, () => ('Invalid One look options')));
+      objectKeys(options).some(key => key !== 'group'))) throw new TypeError(oneError(13, () => ('Invalid One look options')));
   const group = options?.group === undefined ? undefined : parseGroup(options.group);
   const shapeCounts = new Map<OneShape, number>(shapeIds.map(id => [id, 0]));
   const colorCounts = new Map<OneColor, number>(colorIds.map(id => [id, 0]));
   const sharedShapes = new Set<OneShape>(), sharedColors = new Set<OneColor>();
   for (const entry of held as Iterable<unknown>) {
     if (entry === null || typeof entry !== 'object' || Array.isArray(entry) ||
-        Object.keys(entry).some(key => key !== 'shape' && key !== 'color' && key !== 'group')) throw new TypeError(oneError(14, () => ('Invalid One look holder')));
+        objectKeys(entry).some(key => key !== 'shape' && key !== 'color' && key !== 'group')) throw new TypeError(oneError(14, () => ('Invalid One look holder')));
     const holder = entry as Record<string, unknown>;
     if (!isOneShape(holder.shape)) throw new TypeError(oneError(15, () => ('Unsupported One shape')));
     if (!isOneColor(holder.color)) throw new TypeError(oneError(16, () => ('Unsupported One colour')));
@@ -208,7 +209,7 @@ export function nextOneLook(held: Iterable<OneLookHolder>, options?: { readonly 
   const shape = shapeOf(leastHeld(ONE_SHAPE_ORDER, shapeCounts, sharedShapes, group !== undefined));
   const allowed = colorIds.filter(id => !shape.never.includes(id));
   const color = colorCounts.get(shape.color) === 0 ? shape.color : leastHeld(allowed, colorCounts, sharedColors, group !== undefined);
-  return Object.freeze({ shape: shape.id, color });
+  return freeze({ shape: shape.id, color });
 }
 
 export interface OnePaint {
@@ -246,7 +247,7 @@ export type OneActivityFace = 'idle' | 'listening' | 'thinking' | 'working' | 't
   'done' | 'attention' | 'waiting' | 'paused' | 'offline' | 'error';
 export type OneFace = OneActivityFace | AvatarExpression;
 
-const activityFaces: Readonly<Record<string, OneActivityFace>> = Object.freeze({
+const activityFaces: Readonly<Record<string, OneActivityFace>> = freeze({
   idle: 'idle', listening: 'listening', reasoning: 'thinking', working: 'working', typing: 'typing',
   speaking: 'speaking', success: 'done', attention: 'attention', blocked: 'waiting', paused: 'paused',
   offline: 'offline', error: 'error',
@@ -277,12 +278,12 @@ export interface OnePose {
 }
 export type OneChannel = keyof OnePose;
 /** agent-eye's REST pose: the mark itself. Property order is the channel order. */
-export const ONE_NEUTRAL: OnePose = Object.freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0, squash: 0, rotate: 0, hop: 0 });
+export const ONE_NEUTRAL: OnePose = freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0, squash: 0, rotate: 0, hop: 0 });
 // Derive internal property keys rather than repeating string literals. The standalone
 // browser build can then shorten pose properties without changing public state fields.
-export const ONE_CHANNELS: readonly OneChannel[] = Object.freeze(Object.keys(ONE_NEUTRAL) as OneChannel[]);
-export const ONE_FACE_CHANNELS: readonly OneChannel[] = Object.freeze(ONE_CHANNELS.slice(0, 6));
-export const ONE_BODY_CHANNELS: readonly OneChannel[] = Object.freeze(ONE_CHANNELS.slice(6));
+export const ONE_CHANNELS: readonly OneChannel[] = freeze(objectKeys(ONE_NEUTRAL) as OneChannel[]);
+export const ONE_FACE_CHANNELS: readonly OneChannel[] = freeze(ONE_CHANNELS.slice(0, 6));
+export const ONE_BODY_CHANNELS: readonly OneChannel[] = freeze(ONE_CHANNELS.slice(6));
 
 export type OneTier = 'XS' | 'S' | 'M' | 'L';
 /** Size tiers: XS 16–20 px holds faces only; S 24–36 moves the face; M 40–52 adds a little body; L 64+ is fully expressive. */
@@ -290,10 +291,9 @@ export function oneTier(px: number): OneTier {
   return px <= 20 ? 'XS' : px <= 36 ? 'S' : px <= 52 ? 'M' : 'L';
 }
 
-const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
 function heldPose(look = 0, lift = 0, open = 1, tilt = 0, squash = 0, rotate = 0): OnePose {
-  return Object.freeze({ look: clamp(look, -1, 1), lift: clamp(lift, -1, 1), open, tilt,
+  return freeze({ look: clamp(look, -1, 1), lift: clamp(lift, -1, 1), open, tilt,
     smile: 0, mouth: 0, squash, rotate, hop: 0 });
 }
 
@@ -315,7 +315,7 @@ export function oneHeldPose(face: OneFace, gaze: { readonly x: number; readonly 
     case 'working': return heldPose(0.3 * d, 0.3, 0.72);
     case 'typing': return heldPose(0.15 * d, 0.55, 0.8);
     case 'speaking': return heldPose(0.08 * d, 0, 0.92, 5 * d);
-    case 'done': case 'happy': return heldPose(Math.abs(gx) < 0.08 ? 0.08 * d : gx, gy, 0.92, 5 * d);
+    case 'done': case 'happy': return heldPose(mAbs(gx) < 0.08 ? 0.08 * d : gx, gy, 0.92, 5 * d);
     case 'attention': return heldPose(0, 0, 1.06);
     case 'waiting': return heldPose(0.2 * d, -0.4);
     case 'paused': case 'sleepy':
@@ -356,7 +356,7 @@ export interface OneGeometry {
   readonly body: string;
 }
 
-const temperamentSquash: Readonly<Record<OneTemperament, number>> = Object.freeze({ quick: 16, bouncy: 12, neat: 8, slow: 7, dry: 8 });
+const temperamentSquash: Readonly<Record<OneTemperament, number>> = freeze({ quick: 16, bouncy: 12, neat: 8, slow: 7, dry: 8 });
 
 /**
  * A pose with a shape's limits applied, as agent-eye is asked for it: look × lookGain, lift × liftGain, open capped at
@@ -366,7 +366,7 @@ export function limitPose<P extends { readonly look?: number; readonly lift?: nu
   const limited = { ...pose } as { -readonly [K in keyof P]: P[K] } & { open: number };
   if (limited.look !== undefined) limited.look = (limited.look as number) * eye.lookGain as P['look'];
   if (limited.lift !== undefined) limited.lift = (limited.lift as number) * eye.liftGain as P['lift'];
-  limited.open = Math.min(pose.open ?? 1, eye.openMax) * eye.openScale;
+  limited.open = mMin(pose.open ?? 1, eye.openMax) * eye.openScale;
   if (limited.mouth !== undefined) limited.mouth = (limited.mouth as number) * eye.mouthMax as P['mouth'];
   return limited;
 }
@@ -381,14 +381,14 @@ const WIDE = 1.04;
  */
 export function levelTilt(tilt: number, open: number, eye: OneShapeEye, kind: OneKind): number {
   if (kind === 'charcoal' || open <= WIDE || eye.openMax <= WIDE) return tilt;
-  return tilt * Math.max(0, 1 - (Math.min(open, eye.openMax) - WIDE) / (eye.openMax - WIDE));
+  return tilt * mMax(0, 1 - (mMin(open, eye.openMax) - WIDE) / (eye.openMax - WIDE));
 }
 
 /** agent-eye's frame for a pose in a kind's shape: the shape's limits and its level wide eye applied, then `blink` (1 is open). */
 export function oneFrame(pose: OnePose, blink: number, kind: OneKind): AgentEyeFrame {
   const eye = oneShapeGeometry(kind).eye;
   const limited = limitPose(pose, eye);
-  const tilt = levelTilt(pose.tilt, Math.min(pose.open, eye.openMax) * blink, eye, kind);
+  const tilt = levelTilt(pose.tilt, mMin(pose.open, eye.openMax) * blink, eye, kind);
   return poseToFrame({ look: limited.look, lift: limited.lift, open: limited.open * blink, tilt, smile: pose.smile, mouth: limited.mouth });
 }
 
@@ -407,7 +407,7 @@ export function oneGeometry(pose: OnePose, tier: OneTier, kind: OneKind, blink =
   const cap = tier === 'XS' ? 0 : tier === 'S' ? 3 : tier === 'M' ? 8 : temperamentSquash[oneTemperament(kind)];
   const squash = clamp(pose.squash, -cap, cap);
   const sy = 1 + squash / 100;
-  const sx = Math.pow(sy, -0.5);
+  const sx = mPow(sy, -0.5);
   const rotate = tier === 'XS' || tier === 'S' ? 0 : tier === 'M' ? clamp(pose.rotate, -8, 8) : pose.rotate;
   const hop = tier === 'XS' || tier === 'S' ? 0 : (tier === 'M' ? clamp(pose.hop, -0.08, 0.08) : clamp(pose.hop, -0.2, 0.2)) * 2 * GEOMETRY.radius;
   const pivot = geometry.pivot;
@@ -438,28 +438,28 @@ export function oneEyeOutline(frame: AgentEyeFrame, eye: OneShapeEye = ONE_CIRCL
   const flat = b < 1e-6;
   const c = flat ? 0 : k / (b * b);
   // A bar with no straight sides is a segment at y = 0 whose quadratic ends reach out to ±a.
-  const left = (y: number): number => flat ? Math.min(-a - k, -a) : -a - c * y * y;
-  const right = (y: number): number => flat ? Math.max(a - k, a) : a - c * y * y;
+  const left = (y: number): number => flat ? mMin(-a - k, -a) : -a - c * y * y;
+  const right = (y: number): number => flat ? mMax(a - k, a) : a - c * y * y;
   const rows: number[] = [];
-  const caps = 10, middle = Math.max(2, Math.ceil(2 * b / 3));
-  for (let i = 0; i < caps; i++) rows.push(-b - r * Math.cos(i / caps * Math.PI / 2));
+  const caps = 10, middle = mMax(2, mCeil(2 * b / 3));
+  for (let i = 0; i < caps; i++) rows.push(-b - r * mCos(i / caps * M_PI / 2));
   for (let i = 0; i <= middle; i++) rows.push(-b + 2 * b * i / middle);
-  for (let i = caps - 1; i >= 0; i--) rows.push(b + r * Math.cos(i / caps * Math.PI / 2));
+  for (let i = caps - 1; i >= 0; i--) rows.push(b + r * mCos(i / caps * M_PI / 2));
   const extent = (row: number, side: 1 | -1): number => {
-    const lo = Math.max(-b, row - r), hi = Math.min(b, row + r);
+    const lo = mMax(-b, row - r), hi = mMin(b, row + r);
     let best = side * -Infinity;
     for (let i = 0; i <= 48; i++) {
       const y = lo + (hi - lo) * i / 48;
-      const reach = Math.sqrt(Math.max(0, r * r - (y - row) * (y - row)));
+      const reach = mSqrt(mMax(0, r * r - (y - row) * (y - row)));
       const x = side === 1 ? right(y) + reach : left(y) - reach;
-      best = side === 1 ? Math.max(best, x) : Math.min(best, x);
+      best = side === 1 ? mMax(best, x) : mMin(best, x);
     }
     return best;
   };
   const local: [number, number][] = [];
   for (const row of rows) local.push([extent(row, 1), row]);
   for (let i = rows.length - 1; i >= 0; i--) local.push([extent(rows[i]!, -1), rows[i]!]);
-  const cos = Math.cos(frame.tilt * Math.PI / 180), sin = Math.sin(frame.tilt * Math.PI / 180);
+  const cos = mCos(frame.tilt * M_PI / 180), sin = mSin(frame.tilt * M_PI / 180);
   const points = local.map(([x, y]) => `${r2(eye.x + eye.scale * (frame.x + x * cos - y * sin))} ${r2(eye.y + eye.scale * (frame.y + x * sin + y * cos))}`);
   return `M${points.join('L')}Z`;
 }
@@ -467,7 +467,7 @@ export function oneEyeOutline(frame: AgentEyeFrame, eye: OneShapeEye = ONE_CIRCL
 
 /** Keyline width in viewBox units: one CSS pixel, two at 96 px and above, one device pixel below 24 px. */
 export function oneKeylineWidth(px: number, devicePixelRatio = 1): number {
-  const width = px < 24 ? 1 / Math.max(1, devicePixelRatio) : px >= 96 ? 2 : 1;
+  const width = px < 24 ? 1 / mMax(1, devicePixelRatio) : px >= 96 ? 2 : 1;
   return width * 2 * GEOMETRY.radius / px;
 }
 
@@ -490,7 +490,7 @@ function arcCentre(from: Point, to: Point, r: number, large: 0 | 1, sweep: 0 | 1
   const hx = (from[0] - to[0]) / 2, hy = (from[1] - to[1]) / 2;
   const d2 = hx * hx + hy * hy;
   if (d2 > r * r * (1 + 1e-6)) throw new TypeError(oneError(20, () => ('One shape arc radius is smaller than its chord')));
-  const k = (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, r * r - d2) / d2);
+  const k = (large === sweep ? -1 : 1) * mSqrt(mMax(0, r * r - d2) / d2);
   return [k * hy + (from[0] + to[0]) / 2, -k * hx + (from[1] + to[1]) / 2];
 }
 
@@ -510,7 +510,7 @@ export function oneOutlineSegments(path: string): readonly Segment[] {
     if (current === null || start === null) throw new TypeError(oneError(23, () => ('One shape paths start with M')));
     if (command === 'Z') {
       if (values.length) throw new TypeError(oneError(24, () => ('Z takes no values')));
-      if (Math.hypot(current[0] - start[0], current[1] - start[1]) > 1e-9) segments.push({ type: 'L', from: current, to: start });
+      if (mHypot(current[0] - start[0], current[1] - start[1]) > 1e-9) segments.push({ type: 'L', from: current, to: start });
       closed = true;
       continue;
     }
@@ -519,15 +519,15 @@ export function oneOutlineSegments(path: string): readonly Segment[] {
       const [rx, ry, rotation, large, sweep, x, y] = values as [number, number, number, number, number, number, number];
       if (rx !== ry || rx <= 0 || rotation !== 0 || (large !== 0 && large !== 1) || (sweep !== 0 && sweep !== 1)) throw new TypeError(oneError(26, () => ('One shape arcs are circular')));
       const to: Point = [x, y];
-      if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) {
+      if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) {
         segments.push({ type: 'A', from: current, to, r: rx, large: large as 0 | 1, sweep: sweep as 0 | 1, centre: arcCentre(current, to, rx, large as 0 | 1, sweep as 0 | 1) });
       }
       current = to;
       continue;
     }
     const to: Point = command === 'L' ? [values[0]!, values[1]!] : command === 'H' ? [values[0]!, current[1]] : [current[0], values[0]!];
-    if (values.length !== (command === 'L' ? 2 : 1) || values.some(value => !Number.isFinite(value))) throw new TypeError(oneError(27, () => ('One shape lines take finite values')));
-    if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) segments.push({ type: 'L', from: current, to });
+    if (values.length !== (command === 'L' ? 2 : 1) || values.some(value => !numberIsFinite(value))) throw new TypeError(oneError(27, () => ('One shape lines take finite values')));
+    if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) segments.push({ type: 'L', from: current, to });
     current = to;
   }
   if (!closed || segments.length === 0) throw new TypeError(oneError(28, () => ('One shape paths are closed')));
@@ -558,11 +558,11 @@ export function oneShapeInsetPath(kind: OneKind, delta: number): string {
         const r = values[offset]!, large = values[offset + 1]! as 0 | 1, sweep = values[offset + 2]! as 0 | 1;
         const to: Point = [values[offset + 3]!, values[offset + 4]!];
         offset += 5;
-        if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'A', from: current, to, r, large, sweep, centre: arcCentre(current, to, r, large, sweep) });
+        if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'A', from: current, to, r, large, sweep, centre: arcCentre(current, to, r, large, sweep) });
         current = to;
       } else {
         const to: Point = command === 'L' ? [values[offset++]!, values[offset++]!] : command === 'H' ? [values[offset++]!, current[1]] : [current[0], values[offset++]!];
-        if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'L', from: current, to });
+        if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'L', from: current, to });
         current = to;
       }
     }
@@ -573,15 +573,15 @@ export function oneShapeInsetPath(kind: OneKind, delta: number): string {
 }
 
 function insetSegments(segments: readonly Segment[], delta: number): string {
-  if (!(delta >= 0) || !Number.isFinite(delta)) throw new RangeError(oneError(29, () => ('One inset must be a finite, non-negative number')));
+  if (!(delta >= 0) || !numberIsFinite(delta)) throw new RangeError(oneError(29, () => ('One inset must be a finite, non-negative number')));
   const moved = (segment: Segment, point: Point): Point => {
     if (segment.type === 'L') {
-      const dx = segment.to[0] - segment.from[0], dy = segment.to[1] - segment.from[1], length = Math.hypot(dx, dy);
+      const dx = segment.to[0] - segment.from[0], dy = segment.to[1] - segment.from[1], length = mHypot(dx, dy);
       return [point[0] - dy / length * delta, point[1] + dx / length * delta];
     }
     const radius = segment.sweep === 1 ? segment.r - delta : segment.r + delta;
     if (radius <= 0) throw new RangeError(oneError(30, () => ('One inset is wider than the shape\'s smallest round')));
-    const ux = point[0] - segment.centre[0], uy = point[1] - segment.centre[1], length = Math.hypot(ux, uy);
+    const ux = point[0] - segment.centre[0], uy = point[1] - segment.centre[1], length = mHypot(ux, uy);
     return [segment.centre[0] + ux / length * radius, segment.centre[1] + uy / length * radius];
   };
   const first = segments[0]!;

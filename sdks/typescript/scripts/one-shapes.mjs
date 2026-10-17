@@ -176,7 +176,7 @@ export interface OneColorDescription {
   readonly keyline: string | null;
 }
 
-const freeze = <T>(value: T): Readonly<T> => Object.freeze(value);
+import { freeze } from './character-intrinsics.js';
 const title = (id: string): string => id[0]!.toUpperCase() + id.slice(1);
 const makeEye = (x: number, y: number, openScale = 1, lookGain = 1, openMax = 1.35, mouthMax = 1, scale = 0.8, liftGain = 1): OneShapeEye =>
   ({ x, y, scale, openScale, lookGain, liftGain, openMax, mouthMax });

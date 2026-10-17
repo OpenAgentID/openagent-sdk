@@ -1,7 +1,8 @@
 /** Portable presentation state. Status never grants identity or application authority. */
+import { freeze, numberIsFinite, objectEntries, objectKeys } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 
-export const CHARACTER_EXPRESSIONS = Object.freeze(['neutral', 'attentive', 'surprised', 'excited',
+export const CHARACTER_EXPRESSIONS = freeze(['neutral', 'attentive', 'surprised', 'excited',
   'happy', 'laughing', 'angry', 'sad', 'scared', 'suspicious', 'confused', 'curious',
   'proud', 'shy', 'unimpressed', 'sleepy', 'thoughtful', 'concerned'] as const);
 
@@ -32,7 +33,7 @@ export interface CharacterStateUpdate extends Omit<LiveEyeState, 'expression'> {
   readonly expression?: AvatarExpression | null;
 }
 
-const activityExpressions: Readonly<Record<AgentActivity, AvatarExpression>> = Object.freeze({
+const activityExpressions: Readonly<Record<AgentActivity, AvatarExpression>> = freeze({
   idle: 'neutral', listening: 'attentive', reasoning: 'thoughtful', working: 'attentive',
   speaking: 'happy', success: 'happy', blocked: 'concerned', error: 'concerned',
   // 0.8.0: presentation states for composing a reply, asking for the viewer, pausing and being offline.
@@ -42,9 +43,9 @@ let statuses: readonly { readonly status: AvatarStatus; readonly expression: Ava
 
 export function getCharacterExpressions(): readonly AvatarExpression[] { return CHARACTER_EXPRESSIONS; }
 export function getCharacterStatuses(): readonly { readonly status: AvatarStatus; readonly expression: AvatarExpression }[] {
-  return statuses ??= Object.freeze([
-    ...CHARACTER_EXPRESSIONS.map(expression => Object.freeze({ status: expression as AvatarStatus, expression })),
-    ...Object.entries(activityExpressions).map(([status, expression]) => Object.freeze({ status: status as AvatarStatus, expression })),
+  return statuses ??= freeze([
+    ...CHARACTER_EXPRESSIONS.map(expression => freeze({ status: expression as AvatarStatus, expression })),
+    ...objectEntries(activityExpressions).map(([status, expression]) => freeze({ status: status as AvatarStatus, expression })),
   ]);
 }
 
@@ -65,14 +66,14 @@ export function expressionForStatus(value: unknown): AvatarExpression {
 
 export function characterStateRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).some(key => !['status', 'expression', 'blink', 'gaze'].includes(key))) {
+      objectKeys(value).some(key => !['status', 'expression', 'blink', 'gaze'].includes(key))) {
     throw new TypeError(oneError(4, () => ('Invalid character state')));
   }
   return value as Record<string, unknown>;
 }
 
 function bounded(value: unknown, min: number, max: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+  if (typeof value !== 'number' || !numberIsFinite(value) || value < min || value > max) {
     throw new RangeError(oneError(5, () => ('Character state coordinates must be finite and in range')));
   }
   return value === 0 ? 0 : value;
@@ -90,12 +91,12 @@ export function parseCharacterState(input: unknown, fallbackExpression: AvatarEx
   let y = 0;
   if (value.gaze !== undefined) {
     if (!value.gaze || typeof value.gaze !== 'object' || Array.isArray(value.gaze) ||
-        Object.keys(value.gaze).some(key => key !== 'x' && key !== 'y')) throw new TypeError(oneError(6, () => ('Invalid character gaze')));
+        objectKeys(value.gaze).some(key => key !== 'x' && key !== 'y')) throw new TypeError(oneError(6, () => ('Invalid character gaze')));
     const gaze = value.gaze as Record<string, unknown>;
     x = bounded(gaze.x, -1, 1);
     y = bounded(gaze.y, -1, 1);
   }
-  return Object.freeze({ status: status as AvatarStatus, expression, blink, gaze: Object.freeze({ x, y }) });
+  return freeze({ status: status as AvatarStatus, expression, blink, gaze: freeze({ x, y }) });
 }
 
 /**

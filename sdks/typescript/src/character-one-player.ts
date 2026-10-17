@@ -9,6 +9,7 @@
  * shows its held face at once; hidden heads and hidden documents never tick. A head that follows the
  * pointer moves its eye only and is not counted.
  */
+import { mHypot, mMax, mMin, mPow, mRound, mTanh, numberIsFinite, objectEntries } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 import { oneShapeInsetPath, oneKeylineWidth, onePaint, oneRimWidth, oneShapeGeometry, oneShapeId, oneTier,
   type OneFace, type OneHeadColor, type OneKind, type OnePaint, type OneTheme } from './character-one.js';
@@ -86,7 +87,7 @@ class OneStage {
     }
 
     function _getreach(): number {
-        return Math.max(_statewin.innerWidth, _statewin.innerHeight) * 0.4;
+        return mMax(_statewin.innerWidth, _statewin.innerHeight) * 0.4;
     }
 
     function _callscrolling(): boolean {
@@ -398,10 +399,10 @@ export interface OneHeadOptions {
   readonly random: () => number;
 }
 
-const ui = (u: number): number => 1 - Math.pow(1 - u, 3);
+const ui = (u: number): number => 1 - mPow(1 - u, 3);
 function mix(from: string, to: string, u: number): string {
   const channel = (value: string, i: number): number => parseInt(value.slice(1 + 2 * i, 3 + 2 * i), 16);
-  return '#' + [0, 1, 2].map(i => Math.round(channel(from, i) + (channel(to, i) - channel(from, i)) * u).toString(16).padStart(2, '0')).join('');
+  return '#' + [0, 1, 2].map(i => mRound(channel(from, i) + (channel(to, i) - channel(from, i)) * u).toString(16).padStart(2, '0')).join('');
 }
 
 /** One live head inside a host element. */
@@ -463,7 +464,7 @@ export class OneHead {
 
     function _call_oneNode(tag: string, attributes: Readonly<Record<string, string>> = {}): SVGElement {
         const element = _state_oneDoc.createElementNS(SVG, tag);
-        for (const [key, value] of Object.entries(attributes))
+        for (const [key, value] of objectEntries(attributes))
             element.setAttribute(key, value);
         return element;
     }
@@ -565,7 +566,7 @@ export class OneHead {
     function _call_onePaintColour(): void {
         const paint = onePaint(_state_oneColor, _state_oneTheme);
         const wash = _state_oneWash;
-        const u = wash ? ui(Math.min(1, Math.max(0, (_state_oneStage.now() - wash.start) / WASH_MS))) : 1;
+        const u = wash ? ui(mMin(1, mMax(0, (_state_oneStage.now() - wash.start) / WASH_MS))) : 1;
         if (wash && u >= 1)
             _state_oneWash = null;
         const from = wash && u < 1 ? wash.from : paint;
@@ -658,13 +659,13 @@ export class OneHead {
             return;
         const box = _stateroot.getBoundingClientRect();
         const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
-        if (Math.hypot(x - cx, y - cy) > FOLLOW_RANGE + box.width / 2) {
+        if (mHypot(x - cx, y - cy) > FOLLOW_RANGE + box.width / 2) {
             if (_statemotion.following)
                 _call_oneEndFollow();
             return;
         }
         const reach = _state_oneStage.reach;
-        if (!_statemotion.follow({ x: Math.tanh((x - cx) / reach * 1.4), y: Math.tanh((y - cy) / reach * 1.4) }))
+        if (!_statemotion.follow({ x: mTanh((x - cx) / reach * 1.4), y: mTanh((y - cy) / reach * 1.4) }))
             return;
         _stateroot.setAttribute('data-moving', '');
         _state_oneStage.tick(api);
@@ -817,8 +818,8 @@ export class OneHead {
     }
 
     function _callsetRenderedSize(px: number): void {
-        const rounded = Math.round(px);
-        if (!Number.isFinite(rounded) || rounded <= 0 || rounded === _state_onePx)
+        const rounded = mRound(px);
+        if (!numberIsFinite(rounded) || rounded <= 0 || rounded === _state_onePx)
             return;
         const tier = oneTier(_state_onePx) !== oneTier(rounded);
         _state_onePx = rounded;

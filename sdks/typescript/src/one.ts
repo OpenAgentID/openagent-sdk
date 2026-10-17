@@ -4,12 +4,13 @@
  * bundlers; `@openagentid/sdk/browser/one` is the same entry built self-contained for a browser. Importing it
  * does not touch a DOM. Heads are identical to `generateCharacter` and `mountCharacter` with `skin: 'one'`.
  */
+import { freeze, numberIsInteger, objectKeys, presentationRandom } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 import { isAgentAvatarDid } from './avatar-did.js';
 import { parseCharacterLabel } from './character-label.js';
 import { ONE_BLANK_SHAPE, getOneShapes, isOneColorAllowed, isOneHeadColor, isOneShape, oneFaceFor, oneLookForDid, oneStillSvg,
   type OneHeadColor, type OneKind, type OneLook, type OneShape, type OneTheme } from './character-one.js';
-import { ONE_GESTURES, parseOneLiveOptions, seededRandom, type OneCadence, type OneGesture } from './character-one-motion.js';
+import { ONE_GESTURES, parseOneLiveOptions, type OneCadence, type OneGesture } from './character-one-motion.js';
 import { OneHead } from './character-one-player.js';
 import { parseAvatarExpression, parseCharacterState, updateCharacterState, type AvatarExpression,
   type CharacterRuntimeState, type CharacterStateUpdate, type LiveEyeState } from './character-state.js';
@@ -99,14 +100,14 @@ const stillKeys = ['did', 'shape', 'color', 'size', 'theme', 'label', 'expressio
 const mountKeys = ['shape', 'color', 'size', 'theme', 'label', 'expression', 'state', 'animated', 'reducedMotion', 'cadence', 'group', 'voiceLevel', 'follow'];
 
 function record(value: unknown, keys: readonly string[], label: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !keys.includes(key))) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || objectKeys(value).some(key => !keys.includes(key))) {
     throw new TypeError(oneError(37, () => (`Invalid One ${label}`)));
   }
   return value as Record<string, unknown>;
 }
 
 function parseSize(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 16 || value > 2048) throw new RangeError(oneError(38, () => ('One size must be an integer from 16 to 2048')));
+  if (typeof value !== 'number' || !numberIsInteger(value) || value < 16 || value > 2048) throw new RangeError(oneError(38, () => ('One size must be an integer from 16 to 2048')));
   return value;
 }
 
@@ -212,13 +213,13 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
     face: oneFaceFor(state), gaze: state.gaze, blink: state.blink, status: state.status, expression: state.expression,
     speaking: state.status === 'speaking', cadence: live.cadence, ...(live.voiceLevel ? { voiceLevel: live.voiceLevel } : {}),
     ...(value.group === undefined ? {} : { group: value.group as string }), follow: value.follow === true,
-    reduced: reduced(), animated: value.animated !== false, random: seededRandom(win.crypto.getRandomValues(new Uint8Array(4))),
+    reduced: reduced(), animated: value.animated !== false, random: presentationRandom,
   });
   let disposed = false;
   const motionChanged = (): void => { if (!disposed) head.setReduced(reduced()); };
   media.addEventListener('change', motionChanged);
   const active = (): void => { if (disposed) throw new Error(oneError(54, () => ('One head is disposed'))); };
-  return Object.freeze({
+  return freeze({
     update(input: CharacterStateUpdate) {
       active();
       const next = updateCharacterState(state, override, input);

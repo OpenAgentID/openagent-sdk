@@ -8,20 +8,21 @@
  * written by JR and is copyright L1fe Labs, Inc., which contributes it to this
  * repository under Apache-2.0 OR MIT. The byte-identical master is kept
  * as a test fixture (test/fixtures/agent-eye) and the port is checked against
- * it. Only the pure functions are ported: the master's <agent-eye> custom
+ * it. Pure arithmetic is unchanged; shared native intrinsics avoid repeated browser bindings. Only the pure functions are ported: the master's <agent-eye> custom
  * element is not part of the SDK, so importing this module never touches a DOM.
  *
  * Coordinates: the disc has radius 100 in a `-100 -100 200 200` viewBox.
- */
+ */import { M_PI, clamp, freeze, mAbs, mCos, mHypot, mMax, mMin, mRound, mSin, mSqrt } from './character-intrinsics.js';
 
-export const GEOMETRY = Object.freeze({
+
+export const GEOMETRY = freeze({
   radius: 100,
   barWidth: 200 / 9,
   barHeight: 400 / 3,
   cornerRadius: 200 / 45,
 });
 
-export const MOTION = Object.freeze({
+export const MOTION = freeze({
   maxTurn: 55,
   turnRadius: 70,
   foreshorten: 0.8,
@@ -35,7 +36,7 @@ export const MOTION = Object.freeze({
   bend: 1,
 });
 
-export const MOUTH = Object.freeze({
+export const MOUTH = freeze({
   y: 66,
   halfWidth: 44,
   birthHalfWidth: 20,
@@ -75,38 +76,37 @@ export interface AgentEyeMouth {
 
 export type AgentEyeFrame = AgentEyeBar & AgentEyeMouth;
 
-export const REST = Object.freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0 });
+export const REST = freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0 });
 
-const DEG = Math.PI / 180;
-const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+const DEG = M_PI / 180;
 
 /** Two-decimal rounding, as the master writes path numbers. */
 export function r2(n: number): number {
-  const v = Math.round(n * 100) / 100;
+  const v = mRound(n * 100) / 100;
   return Object.is(v, -0) ? 0 : v;
 }
 
 export function poseToBar({ look = 0, lift = 0, open = 1, tilt = 0, smile = 0 }: AgentEyePose = {}): AgentEyeBar {
   const turn = clamp(look, -1, 1) * MOTION.maxTurn * DEG;
-  const x = MOTION.turnRadius * Math.sin(turn);
+  const x = MOTION.turnRadius * mSin(turn);
   const y = clamp(lift, -1, 1) * MOTION.maxLift - (MOTION.smileLift + MOTION.smileSquint / 2) * smile;
   const shut = 1 - clamp(open, 0, 1);
   const w =
     GEOMETRY.barWidth *
-    (1 - MOTION.foreshorten * (1 - Math.cos(turn))) *
+    (1 - MOTION.foreshorten * (1 - mCos(turn))) *
     (1 + MOTION.lidSquash * shut);
-  let h = Math.max(
+  let h = mMax(
     MOTION.closedHeight,
-    MOTION.closedHeight + (GEOMETRY.barHeight - MOTION.closedHeight) * Math.max(0, open) - MOTION.smileSquint * smile,
+    MOTION.closedHeight + (GEOMETRY.barHeight - MOTION.closedHeight) * mMax(0, open) - MOTION.smileSquint * smile,
   );
-  h *= 1 - MOTION.squeeze * (1 - Math.sqrt(1 - (x / GEOMETRY.radius) ** 2));
+  h *= 1 - MOTION.squeeze * (1 - mSqrt(1 - (x / GEOMETRY.radius) ** 2));
   h = fitHeight(x, y, w, h, tilt);
   return { x, y, w, h, k: bendAt(x, h), tilt };
 }
 
 function bendAt(x: number, h: number): number {
-  const lat = Math.asin(Math.min(1, h / 2 / GEOMETRY.radius));
-  return MOTION.bend * x * (1 - Math.cos(lat));
+  const lat = Math.asin(mMin(1, h / 2 / GEOMETRY.radius));
+  return MOTION.bend * x * (1 - mCos(lat));
 }
 
 export interface AgentEyeBarShape {
@@ -117,7 +117,7 @@ export interface AgentEyeBarShape {
 }
 
 export function barShape({ w, h, k = 0 }: { readonly w: number; readonly h: number; readonly k?: number }): AgentEyeBarShape {
-  const r = Math.min(GEOMETRY.cornerRadius, h / 2, w / 2);
+  const r = mMin(GEOMETRY.cornerRadius, h / 2, w / 2);
   const a = w / 2 - r;
   const b = h / 2 - r;
   return { r, a, b, n: [-a - k, -b, a - k, a + k, b, -a + k] };
@@ -130,8 +130,8 @@ export function barPath([left, top, right, bulge, bottom, back]: readonly number
 function barExtents(x: number, y: number, w: number, h: number, tilt: number): { r: number; points: [number, number][] } {
   const { r, a, b } = barShape({ w, h });
   const k = bendAt(x, h);
-  const c = Math.cos(tilt * DEG);
-  const s = Math.sin(tilt * DEG);
+  const c = mCos(tilt * DEG);
+  const s = mSin(tilt * DEG);
   const local: [number, number][] = [[a - k, -b], [a - k, b], [-a - k, -b], [-a - k, b], [a, 0], [-a, 0]];
   return { r, points: local.map(([px, py]) => [x + px * c - py * s, y + px * s + py * c]) };
 }
@@ -139,7 +139,7 @@ function barExtents(x: number, y: number, w: number, h: number, tilt: number): {
 function fitHeight(x: number, y: number, w: number, h: number, tilt: number): number {
   const inside = (hh: number): boolean => {
     const { r, points } = barExtents(x, y, w, hh, tilt);
-    return points.every(([px, py]) => Math.hypot(px, py) + r <= MOTION.safeRadius);
+    return points.every(([px, py]) => mHypot(px, py) + r <= MOTION.safeRadius);
   };
   if (inside(h)) return h;
   let lo = 0;
@@ -154,15 +154,15 @@ function fitHeight(x: number, y: number, w: number, h: number, tilt: number): nu
 
 export function poseToMouth({ look = 0, lift = 0, mouth = 0 }: AgentEyePose = {}): AgentEyeMouth {
   const M = MOUTH;
-  const m = Math.max(0, mouth);
+  const m = mMax(0, mouth);
   if (m === 0) return { mx: 0, my: M.y + M.born, ma: M.birthHalfWidth, mt: M.thickness, mo: 0 };
   const turn = clamp(look, -1, 1) * MOTION.maxTurn * DEG;
-  const mx = M.follow * MOTION.turnRadius * Math.sin(turn);
-  const my = M.y + M.born * (1 - Math.min(1, m)) + 0.5 * clamp(lift, -1, 1) * MOTION.maxLift;
+  const mx = M.follow * MOTION.turnRadius * mSin(turn);
+  const my = M.y + M.born * (1 - mMin(1, m)) + 0.5 * clamp(lift, -1, 1) * MOTION.maxLift;
   const mt = M.thickness;
   const r = GEOMETRY.cornerRadius;
-  let ma = (M.birthHalfWidth + (M.halfWidth - M.birthHalfWidth) * m) * (1 - 0.5 * (1 - Math.cos(turn)));
-  const reach = (a: number): number => Math.hypot(Math.abs(mx) + a - r, my + mt / 2 - r) + r;
+  let ma = (M.birthHalfWidth + (M.halfWidth - M.birthHalfWidth) * m) * (1 - 0.5 * (1 - mCos(turn)));
+  const reach = (a: number): number => mHypot(mAbs(mx) + a - r, my + mt / 2 - r) + r;
   if (reach(ma) > MOTION.safeRadius) {
     let lo = 0, hi = ma;
     for (let k = 0; k < 24; k++) {
@@ -181,7 +181,7 @@ export function poseToFrame(pose: AgentEyePose): AgentEyeFrame {
   return { ...poseToBar(p), ...poseToMouth(p) };
 }
 
-export const EASE = Object.freeze({
+export const EASE = freeze({
   linear: [0, 0, 1, 1],
   shut: [0.6, 0, 0.9, 0.55],
   snap: [0.1, 0.9, 0.25, 1],
@@ -204,9 +204,9 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (x:
     let t = x;
     for (let i = 0; i < 8; i++) {
       const err = sx(t) - x;
-      if (Math.abs(err) < 1e-7) return sy(t);
+      if (mAbs(err) < 1e-7) return sy(t);
       const d = dx(t);
-      if (Math.abs(d) < 1e-6) break;
+      if (mAbs(d) < 1e-6) break;
       t -= err / d;
     }
     let lo = 0, hi = 1;
@@ -224,10 +224,10 @@ export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (x:
 export type AgentEyeKey = readonly [number, number, (keyof typeof EASE)?];
 
 /** One blink: 80 ms close, 50 ms shut, 170 ms open with a little overshoot. Values multiply openness. */
-export const BLINK: readonly AgentEyeKey[] = Object.freeze([[0, 1], [0.08, 0, 'shut'], [0.13, 0], [0.3, 1.04, 'snap'], [0.42, 1, 'settle']] as const);
+export const BLINK: readonly AgentEyeKey[] = freeze([[0, 1], [0.08, 0, 'shut'], [0.13, 0], [0.3, 1.04, 'snap'], [0.42, 1, 'settle']] as const);
 
 /** The smile, 2.9 s: the eye shortens upward while a second line grows under it, one happy pulse, then back. */
-export const SMILE: Readonly<{ smile: readonly AgentEyeKey[]; mouth: readonly AgentEyeKey[] }> = Object.freeze({
-  smile: Object.freeze([[0, 0], [0.36, 1, 'glide'], [1.3, 1], [1.46, 1.12, 'snap'], [1.76, 1, 'settle'], [2.2, 1], [2.7, -0.06, 'glide'], [2.9, 0, 'settle']] as const),
-  mouth: Object.freeze([[0, 0], [0.2, 0], [0.46, 0.8, 'emerge'], [0.62, 1.04, 'snap'], [0.82, 1, 'settle'], [1.3, 1], [1.46, 1.05, 'snap'], [1.76, 1, 'settle'], [2.05, 1], [2.26, 0.12, 'glide'], [2.32, 0]] as const),
+export const SMILE: Readonly<{ smile: readonly AgentEyeKey[]; mouth: readonly AgentEyeKey[] }> = freeze({
+  smile: freeze([[0, 0], [0.36, 1, 'glide'], [1.3, 1], [1.46, 1.12, 'snap'], [1.76, 1, 'settle'], [2.2, 1], [2.7, -0.06, 'glide'], [2.9, 0, 'settle']] as const),
+  mouth: freeze([[0, 0], [0.2, 0], [0.46, 0.8, 'emerge'], [0.62, 1.04, 'snap'], [0.82, 1, 'settle'], [1.3, 1], [1.46, 1.05, 'snap'], [1.76, 1, 'settle'], [2.05, 1], [2.26, 0.12, 'glide'], [2.32, 0]] as const),
 });
