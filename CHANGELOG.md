@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Share construction and clamping of held poses across faces without changing pose values.
+- Share construction and clamping of held poses across faces without changing pose values; select least-held looks without temporary candidate arrays and keep private runtime fields separate from public descriptor names.
 
 - Optimize the closed One runtime with a pinned Closure compiler behind an explicit ESM, public-property, dynamic lookup and SVG attribute boundaries; retain the standard browser API and source map.
 

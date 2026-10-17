@@ -95,11 +95,11 @@ const blinkCurve = ms(BLINK);
 class Builder {
   readonly curves: Curves = {};
   constructor(private readonly live: OnePose) {}
-  private chan(k: OneChannel): Key[] { return this.curves[k] ??= [[0, this.live[k]]]; }
+  private _oneChan(k: OneChannel): Key[] { return this.curves[k] ??= [[0, this.live[k]]]; }
   cur(k: OneChannel): number { const c = this.curves[k]; return c ? c[c.length - 1]![1] : this.live[k]; }
   mv(t0: number, t1: number, values: Partial<OnePose>, ease: Ease = 'linear'): void {
     for (const k of Object.keys(values) as OneChannel[]) {
-      const c = this.chan(k);
+      const c = this._oneChan(k);
       const [lt, lv] = c[c.length - 1]!;
       if (t0 > lt) c.push([t0, lv]);
       c.push([Math.max(t1, c[c.length - 1]![0]), values[k]!, ease]);
@@ -107,7 +107,7 @@ class Builder {
   }
   cut(t: number, values: Partial<OnePose>): void {
     for (const k of Object.keys(values) as OneChannel[]) {
-      const c = this.chan(k);
+      const c = this._oneChan(k);
       const [lt, lv] = c[c.length - 1]!;
       const t0 = Math.max(lt, t - 0.5);
       if (t0 > lt) c.push([t0, lv]);
@@ -115,7 +115,7 @@ class Builder {
     }
   }
   raw(k: OneChannel, curve: readonly AgentEyeKey[], at: number): void {
-    const c = this.chan(k);
+    const c = this._oneChan(k);
     c.push([Math.max(at, c[c.length - 1]![0]), curve[0]![1]]);
     for (const [t, v, e] of curve.slice(1)) c.push([at + t * 1000, v, e]);
   }
@@ -180,60 +180,60 @@ interface Composed { duration: number; tail?: false; noTempo?: true; scaled?: tr
 /** One head's live state. Hosts decide when a requested moment may start. */
 export class OneMotion {
   face: OneFace;
-  private gaze: { x: number; y: number };
-  private px: number;
-  private kind: OneKind;
-  private readonly random: () => number;
-  private readonly cadenceMode: OneCadence;
-  private readonly level: (() => number) | undefined;
-  private motion: boolean;
-  private value: { -readonly [K in OneChannel]: number };
-  private timeline: Timeline | null = null;
-  private current: OneMomentRequest | null = null;
-  private pending: OneMomentRequest | null = null;
-  private talk: { mouth: number; quiet: number; blinked: boolean } | null = null;
-  private target: { x: number; y: number } | null = null;
-  private blinkStart: number | null = null;
-  private manualBlink = 0;
-  private last: number;
-  private entered: number;
-  private input: number;
+  private _oneGaze: { x: number; y: number };
+  private _onePx: number;
+  private _oneKind: OneKind;
+  private readonly _oneRandom: () => number;
+  private readonly _oneCadenceMode: OneCadence;
+  private readonly _oneLevel: (() => number) | undefined;
+  private _oneMotion: boolean;
+  private _oneValue: { -readonly [K in OneChannel]: number };
+  private _oneTimeline: Timeline | null = null;
+  private _oneCurrent: OneMomentRequest | null = null;
+  private _onePending: OneMomentRequest | null = null;
+  private _oneTalk: { mouth: number; quiet: number; blinked: boolean } | null = null;
+  private _oneTarget: { x: number; y: number } | null = null;
+  private _oneBlinkStart: number | null = null;
+  private _oneManualBlink = 0;
+  private _oneLast: number;
+  private _oneEntered: number;
+  private _oneInput: number;
 
   constructor(options: OneMotionOptions) {
     this.face = options.face;
-    this.gaze = { ...options.gaze };
-    this.px = options.px;
-    this.kind = options.kind;
-    this.random = options.random;
-    this.cadenceMode = options.cadence;
-    this.level = options.level;
-    this.motion = options.motion;
-    this.last = this.entered = this.input = options.at;
-    this.value = { ...this.held() };
+    this._oneGaze = { ...options.gaze };
+    this._onePx = options.px;
+    this._oneKind = options.kind;
+    this._oneRandom = options.random;
+    this._oneCadenceMode = options.cadence;
+    this._oneLevel = options.level;
+    this._oneMotion = options.motion;
+    this._oneLast = this._oneEntered = this._oneInput = options.at;
+    this._oneValue = { ...this.held() };
   }
 
-  get tier(): OneTier { return oneTier(this.px); }
+  get tier(): OneTier { return oneTier(this._onePx); }
   /** When the current moment ends on this clock, or null when none is playing. */
-  get timelineEnd(): number | null { return this.timeline ? this.timeline.start + this.timeline.duration : null; }
+  get timelineEnd(): number | null { return this._oneTimeline ? this._oneTimeline.start + this._oneTimeline.duration : null; }
   /** An explicit runtime blink, 0 open … 1 shut, multiplies the drawn openness. */
-  setBlink(blink: number): void { this.manualBlink = clamp(blink, 0, 1); }
-  get moving(): boolean { return this.timeline !== null || this.talk !== null || this.blinkStart !== null || this.target !== null; }
-  get request(): OneMomentRequest | null { return this.current; }
-  get following(): boolean { return this.target !== null; }
-  held(): OnePose { return oneHeldPose(this.face, this.gaze, this.px); }
+  setBlink(blink: number): void { this._oneManualBlink = clamp(blink, 0, 1); }
+  get moving(): boolean { return this._oneTimeline !== null || this._oneTalk !== null || this._oneBlinkStart !== null || this._oneTarget !== null; }
+  get request(): OneMomentRequest | null { return this._oneCurrent; }
+  get following(): boolean { return this._oneTarget !== null; }
+  held(): OnePose { return oneHeldPose(this.face, this._oneGaze, this._onePx); }
 
   /** Change the face or the content direction; returns the entrance moment to request, if any. */
   setFace(face: OneFace, gaze: { readonly x: number; readonly y: number }, at: number): OneMomentRequest | null {
     const previous = this.face;
-    const aimed = gaze.x !== this.gaze.x || gaze.y !== this.gaze.y;
+    const aimed = gaze.x !== this._oneGaze.x || gaze.y !== this._oneGaze.y;
     if (face === previous && !aimed) return null;
     this.face = face;
-    this.gaze = { ...gaze };
-    this.pending = null;
-    if (face !== previous) this.entered = at;
-    this.stopTalk();
-    if (!followable.has(face)) this.target = null;
-    if (!this.motion) { this.snap(); return null; }
+    this._oneGaze = { ...gaze };
+    this._onePending = null;
+    if (face !== previous) this._oneEntered = at;
+    this._oneStopTalk();
+    if (!followable.has(face)) this._oneTarget = null;
+    if (!this._oneMotion) { this.snap(); return null; }
     return face === previous ? { name: 'home', priority: 0 } : this.entrance(previous, face);
   }
 
@@ -256,8 +256,8 @@ export class OneMotion {
   /** The moment for an ongoing state, if its cadence allows one now (the one measured by `nextCadence`, when there is one). */
   cadenceRequest(): OneMomentRequest | null {
     const name = ongoing[this.face];
-    if (!name || !this.motion || this.tier === 'XS') return null;
-    if (this.pending?.name === name) return this.pending;
+    if (!name || !this._oneMotion || this.tier === 'XS') return null;
+    if (this._onePending?.name === name) return this._onePending;
     return { name, priority: this.face === 'thinking' ? 1 : 2, cadence: true };
   }
 
@@ -266,34 +266,34 @@ export class OneMotion {
    * the next cluster now and measures it, so the cluster ends within five seconds of the state starting.
    */
   nextCadence(at: number): number | null {
-    this.pending = null;
+    this._onePending = null;
     const request = this.cadenceRequest();
     if (!request) return null;
-    if (this.cadenceMode === 'brief') {
-      const gap = 300 + this.random() * 400;
-      const measured = { ...request, draws: Object.freeze(Array.from({ length: ONE_MOMENT_DRAWS }, () => this.random())) };
-      const length = this.plan(measured, this.held()).duration;
-      if (this.entered + 5000 - at < gap + length) return null;
-      this.pending = measured;
+    if (this._oneCadenceMode === 'brief') {
+      const gap = 300 + this._oneRandom() * 400;
+      const measured = { ...request, draws: Object.freeze(Array.from({ length: ONE_MOMENT_DRAWS }, () => this._oneRandom())) };
+      const length = this._onePlan(measured, this.held()).duration;
+      if (this._oneEntered + 5000 - at < gap + length) return null;
+      this._onePending = measured;
       return gap;
     }
-    if (at - this.input > 60_000) return null;
+    if (at - this._oneInput > 60_000) return null;
     // Every ongoing state, typing included, repeats one cluster every six to ten seconds (AVATARS.md §2.3 rule 6).
-    return 6000 + this.random() * 4000;
+    return 6000 + this._oneRandom() * 4000;
   }
 
   /** Restart the brief cadence window, as when a head comes back into view. */
-  restartWindow(at: number): void { this.entered = at; }
+  restartWindow(at: number): void { this._oneEntered = at; }
   /** User input keeps repeating cadences alive; they stop after a minute without it. */
-  noteInput(at: number): void { this.input = at; }
+  noteInput(at: number): void { this._oneInput = at; }
 
   /** A new rendered size can change the tier, and so the held face (a lid at 64 px and up). */
-  setSize(px: number): void { this.px = px; if (!this.moving) this.value = { ...this.held() }; }
+  setSize(px: number): void { this._onePx = px; if (!this.moving) this._oneValue = { ...this.held() }; }
   /** A new shape places and limits the eye differently and may change the pace. */
-  setKind(kind: OneKind): void { this.kind = kind; }
-  get temperament(): OneTemperament { return oneTemperament(this.kind); }
+  setKind(kind: OneKind): void { this._oneKind = kind; }
+  get temperament(): OneTemperament { return oneTemperament(this._oneKind); }
   setMotion(allowed: boolean): void {
-    this.motion = allowed;
+    this._oneMotion = allowed;
     if (!allowed) this.snap();
   }
 
@@ -303,37 +303,37 @@ export class OneMotion {
    * Returns whether the head now follows.
    */
   follow(target: { readonly x: number; readonly y: number } | null): boolean {
-    if (target === null || !this.motion || !followable.has(this.face) || (this.tier !== 'M' && this.tier !== 'L')) {
-      this.target = null;
+    if (target === null || !this._oneMotion || !followable.has(this.face) || (this.tier !== 'M' && this.tier !== 'L')) {
+      this._oneTarget = null;
       return false;
     }
-    this.target = { x: clamp(target.x, -1, 1), y: clamp(target.y, -1, 1) };
+    this._oneTarget = { x: clamp(target.x, -1, 1), y: clamp(target.y, -1, 1) };
     return true;
   }
 
   /** Start a moment now. */
   start(request: OneMomentRequest, at: number): void {
-    if (!this.motion) return;
+    if (!this._oneMotion) return;
     // A visible smile line is withdrawn first, so no moment moves the eye toward it.
-    const lead = this.value.mouth > 0 ? ONE_MOUTH_RETRACT_MS : 0;
-    const planned = this.plan(request, lead ? { ...this.value, mouth: 0 } : { ...this.value });
+    const lead = this._oneValue.mouth > 0 ? ONE_MOUTH_RETRACT_MS : 0;
+    const planned = this._onePlan(request, lead ? { ...this._oneValue, mouth: 0 } : { ...this._oneValue });
     const curves: Curves = {};
     for (const k of Object.keys(planned.curves) as OneChannel[]) curves[k] = planned.curves[k]!.map(([t, v, e]) => [t + lead, v, e] as Key);
-    if (lead) curves.mouth = [[0, this.value.mouth], [lead, 0, 'glide'], ...(curves.mouth ?? []).slice(1)];
-    this.timeline = { curves, start: at, duration: planned.duration + lead, twos: planned.twos };
-    this.current = request;
-    this.target = null;
-    this.last = Math.max(this.last, at);
+    if (lead) curves.mouth = [[0, this._oneValue.mouth], [lead, 0, 'glide'], ...(curves.mouth ?? []).slice(1)];
+    this._oneTimeline = { curves, start: at, duration: planned.duration + lead, twos: planned.twos };
+    this._oneCurrent = request;
+    this._oneTarget = null;
+    this._oneLast = Math.max(this._oneLast, at);
   }
 
   /** Compose a moment against live values, scaled by temperament and tier. Uses the request's draws first. */
-  private plan(request: OneMomentRequest, live: OnePose): { curves: Curves; duration: number; twos: boolean } {
+  private _onePlan(request: OneMomentRequest, live: OnePose): { curves: Curves; duration: number; twos: boolean } {
     const b = new Builder(live);
     const P = this.held();
     let index = 0;
-    const draw = (): number => request.draws && index < request.draws.length ? request.draws[index++]! : this.random();
+    const draw = (): number => request.draws && index < request.draws.length ? request.draws[index++]! : this._oneRandom();
     const scale = tempo[this.temperament] * tierTempo[this.tier];
-    const result = this.compose(request.name, b, P, scale, draw);
+    const result = this._oneCompose(request.name, b, P, scale, draw);
     const factor = result.noTempo || result.scaled ? 1 : scale;
     let duration = result.duration;
     if (result.tail !== false) {
@@ -351,30 +351,30 @@ export class OneMotion {
 
   /** Jump to the held face, ending any moment, talk, blink or follow. */
   snap(): void {
-    this.timeline = null;
-    this.current = null;
-    this.talk = null;
-    this.target = null;
-    this.blinkStart = null;
-    this.value = { ...this.held() };
+    this._oneTimeline = null;
+    this._oneCurrent = null;
+    this._oneTalk = null;
+    this._oneTarget = null;
+    this._oneBlinkStart = null;
+    this._oneValue = { ...this.held() };
   }
 
   /** Begin following the voice level while speaking (largest tier, motion allowed). */
   startTalk(at: number): boolean {
-    if (!this.motion || this.face !== 'speaking' || !this.level || this.tier !== 'L' || this.talk) return false;
-    this.talk = { mouth: 0, quiet: 0, blinked: false };
-    this.target = null;
-    this.last = Math.max(this.last, at);
+    if (!this._oneMotion || this.face !== 'speaking' || !this._oneLevel || this.tier !== 'L' || this._oneTalk) return false;
+    this._oneTalk = { mouth: 0, quiet: 0, blinked: false };
+    this._oneTarget = null;
+    this._oneLast = Math.max(this._oneLast, at);
     return true;
   }
-  private stopTalk(): void {
-    if (!this.talk) return;
-    this.talk = null;
-    this.value.mouth = 0;
+  private _oneStopTalk(): void {
+    if (!this._oneTalk) return;
+    this._oneTalk = null;
+    this._oneValue.mouth = 0;
   }
 
-  private pose(at: number, value: { -readonly [K in OneChannel]: number }): void {
-    const tl = this.timeline;
+  private _onePose(at: number, value: { -readonly [K in OneChannel]: number }): void {
+    const tl = this._oneTimeline;
     if (!tl) return;
     const t = Math.min(at - tl.start, tl.duration);
     const quantized = tl.twos ? Math.floor(t / (2 * F) + 1e-6) * 2 * F : t;
@@ -383,22 +383,22 @@ export class OneMotion {
     }
   }
 
-  private blinkFactor(at: number): number {
-    let blink = 1 - this.manualBlink;
-    if (this.blinkStart !== null && at - this.blinkStart <= 420) blink *= sampleCurve(blinkCurve, at - this.blinkStart);
+  private _oneBlinkFactor(at: number): number {
+    let blink = 1 - this._oneManualBlink;
+    if (this._oneBlinkStart !== null && at - this._oneBlinkStart <= 420) blink *= sampleCurve(blinkCurve, at - this._oneBlinkStart);
     return blink;
   }
 
-  private frame(value: OnePose, blink: number): OneMotionFrame {
+  private _oneFrame(value: OnePose, blink: number): OneMotionFrame {
     const pose = Object.freeze({ ...value });
-    return Object.freeze({ face: this.face, tier: this.tier, pose, geometry: oneGeometry(pose, this.tier, this.kind, blink), moving: this.moving });
+    return Object.freeze({ face: this.face, tier: this.tier, pose, geometry: oneGeometry(pose, this.tier, this._oneKind, blink), moving: this.moving });
   }
 
   /** The frame at `at` without advancing: nothing finishes, eases or blinks. Safe for repainting mid-moment. */
   peek(at: number): OneMotionFrame {
-    const value = { ...this.value };
-    this.pose(Math.max(at, this.last), value);
-    return this.frame(value, this.blinkFactor(Math.max(at, this.last)));
+    const value = { ...this._oneValue };
+    this._onePose(Math.max(at, this._oneLast), value);
+    return this._oneFrame(value, this._oneBlinkFactor(Math.max(at, this._oneLast)));
   }
 
   /**
@@ -406,35 +406,35 @@ export class OneMotion {
    * Times must not decrease.
    */
   sample(at: number): { frame: OneMotionFrame; finished: OneMomentRequest | null } {
-    const dt = clamp(at - this.last, 0, 100);
-    this.last = Math.max(this.last, at);
+    const dt = clamp(at - this._oneLast, 0, 100);
+    this._oneLast = Math.max(this._oneLast, at);
     let finished: OneMomentRequest | null = null;
-    const tl = this.timeline;
+    const tl = this._oneTimeline;
     if (tl) {
-      this.pose(at, this.value);
+      this._onePose(at, this._oneValue);
       if (at - tl.start >= tl.duration) {
-        for (const k of Object.keys(tl.curves) as OneChannel[]) { const c = tl.curves[k]!; this.value[k] = c[c.length - 1]![1]; }
-        this.timeline = null;
-        finished = this.current;
-        this.current = null;
+        for (const k of Object.keys(tl.curves) as OneChannel[]) { const c = tl.curves[k]!; this._oneValue[k] = c[c.length - 1]![1]; }
+        this._oneTimeline = null;
+        finished = this._oneCurrent;
+        this._oneCurrent = null;
       }
     }
-    if (this.talk) this.talkStep(dt);
-    else if (this.target && !this.timeline) this.followStep(dt);
-    const blink = this.blinkFactor(at);
-    if (this.blinkStart !== null && at - this.blinkStart > 420) this.blinkStart = null;
-    return { frame: this.frame(this.value, blink), finished };
+    if (this._oneTalk) this._oneTalkStep(dt);
+    else if (this._oneTarget && !this._oneTimeline) this._oneFollowStep(dt);
+    const blink = this._oneBlinkFactor(at);
+    if (this._oneBlinkStart !== null && at - this._oneBlinkStart > 420) this._oneBlinkStart = null;
+    return { frame: this._oneFrame(this._oneValue, blink), finished };
   }
 
   /** The eye eases toward the pointer, at the face's own openness and level. */
-  private followStep(dt: number): void {
-    const target = this.target!;
+  private _oneFollowStep(dt: number): void {
+    const target = this._oneTarget!;
     const P = this.held();
-    const k = 1 - Math.exp(-dt / (Math.abs(target.x - this.value.look) > 0.15 ? 40 : 80));
-    this.value.look += (target.x - this.value.look) * k;
-    this.value.lift += (target.y - this.value.lift) * k;
-    this.value.open += (P.open - this.value.open) * k;
-    this.value.tilt += (0 - this.value.tilt) * k;
+    const k = 1 - Math.exp(-dt / (Math.abs(target.x - this._oneValue.look) > 0.15 ? 40 : 80));
+    this._oneValue.look += (target.x - this._oneValue.look) * k;
+    this._oneValue.lift += (target.y - this._oneValue.lift) * k;
+    this._oneValue.open += (P.open - this._oneValue.open) * k;
+    this._oneValue.tilt += (0 - this._oneValue.tilt) * k;
   }
 
   /**
@@ -442,28 +442,28 @@ export class OneMotion {
    * there is voice, fully opaque (0.45–1 of agent-eye's mouth), so a quiet syllable never flickers like a status
    * light. The mouth waits until the smile is half up, which keeps it at least 6 units from the eye.
    */
-  private talkStep(dt: number): void {
-    const talk = this.talk!;
-    const level = clamp(Number(this.level!()) || 0, 0, 1);
+  private _oneTalkStep(dt: number): void {
+    const talk = this._oneTalk!;
+    const level = clamp(Number(this._oneLevel!()) || 0, 0, 1);
     const target = level < 0.08 ? 0 : clamp(level * 1.4, 0, 1);
     talk.mouth += (target - talk.mouth) * (1 - Math.exp(-dt / (target > talk.mouth ? 30 : 90)));
-    if (!this.timeline) {
+    if (!this._oneTimeline) {
       const k = 1 - Math.exp(-dt / 80);
-      this.value.smile += (1 - this.value.smile) * k;
-      this.value.open += (0.6 - this.value.open) * k;
-      this.value.look += (0 - this.value.look) * k;
-      this.value.lift += (0 - this.value.lift) * k;
-      this.value.tilt += (0 - this.value.tilt) * k;
-      this.value.mouth = talk.mouth < 0.02 || this.value.smile < 0.5 ? 0 : 0.45 + 0.55 * talk.mouth;
+      this._oneValue.smile += (1 - this._oneValue.smile) * k;
+      this._oneValue.open += (0.6 - this._oneValue.open) * k;
+      this._oneValue.look += (0 - this._oneValue.look) * k;
+      this._oneValue.lift += (0 - this._oneValue.lift) * k;
+      this._oneValue.tilt += (0 - this._oneValue.tilt) * k;
+      this._oneValue.mouth = talk.mouth < 0.02 || this._oneValue.smile < 0.5 ? 0 : 0.45 + 0.55 * talk.mouth;
     }
     talk.quiet = level < 0.08 ? talk.quiet + dt : 0;
-    if (talk.quiet > 600 && !talk.blinked && this.blinkStart === null) { this.blinkStart = this.last; talk.blinked = true; }
+    if (talk.quiet > 600 && !talk.blinked && this._oneBlinkStart === null) { this._oneBlinkStart = this._oneLast; talk.blinked = true; }
     if (talk.quiet === 0) talk.blinked = false;
   }
 
-  private compose(name: OneMomentName, b: Builder, P: OnePose, scale: number, draw: () => number): Composed {
+  private _oneCompose(name: OneMomentName, b: Builder, P: OnePose, scale: number, draw: () => number): Composed {
     const tier = this.tier, big = tier === 'M' || tier === 'L';
-    const d = this.gaze.x < 0 ? -1 : 1;
+    const d = this._oneGaze.x < 0 ? -1 : 1;
     const t2 = this.temperament;
     switch (name) {
       case 'settle':
@@ -497,7 +497,7 @@ export class OneMotion {
       case 'smile': {
         // agent-eye's SMILE plays exactly while the eye narrows into a happy squint, turned toward its content
         // and tilted warm: a tall bar over the smile line would read as "!" on a coloured disc.
-        const centred = Math.abs(this.gaze.x) < 0.15;
+        const centred = Math.abs(this._oneGaze.x) < 0.15;
         b.mv(0, 300, { look: (centred ? 0.12 : 0.2) * d, lift: 0, tilt: 10 * d, open: tier === 'L' ? 0.6 : 0.42,
           rotate: big ? 4 * d : 0 }, 'glide');
         b.raw(ONE_CHANNELS[4]!, SMILE.smile, 300);

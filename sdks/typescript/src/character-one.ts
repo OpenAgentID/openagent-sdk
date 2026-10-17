@@ -165,10 +165,13 @@ function parseGroup(value: unknown): string {
 
 /** The least-held candidate; among those, with a group, one whose holders all sit in other groups; ties by `order`. */
 function leastHeld<T extends string>(order: readonly T[], counts: ReadonlyMap<T, number>, shared: ReadonlySet<T>, grouped: boolean): T {
-  const least = Math.min(...order.map(id => counts.get(id)!));
-  const candidates = order.filter(id => counts.get(id) === least);
-  if (!grouped) return candidates[0]!;
-  return candidates.find(id => !shared.has(id)) ?? candidates[0]!;
+  let chosen = order[0]!;
+  for (const id of order) {
+    const count = counts.get(id)!;
+    const best = counts.get(chosen)!;
+    if (count < best || (count === best && grouped && shared.has(chosen) && !shared.has(id))) chosen = id;
+  }
+  return chosen;
 }
 
 /**
@@ -288,6 +291,11 @@ export function oneTier(px: number): OneTier {
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
+function heldPose(look = 0, lift = 0, open = 1, tilt = 0, squash = 0, rotate = 0): OnePose {
+  return Object.freeze({ look: clamp(look, -1, 1), lift: clamp(lift, -1, 1), open, tilt,
+    smile: 0, mouth: 0, squash, rotate, hop: 0 });
+}
+
 /**
  * The held face. `gaze` is where the head's content is: a One at rest looks there, so a row passes
  * the direction of its name (for example `{ x: 0.4, y: 0.1 }`) and a centred header looks down at
@@ -295,10 +303,6 @@ const clamp = (value: number, min: number, max: number): number => Math.min(max,
  * neutral show the warm face at the viewer, so the centred, slightly wide needs-you face stays the only
  * one that looks straight out. A negative gaze.x mirrors every face for right-to-left content.
  */
-function heldPose(look = 0, lift = 0, open = 1, tilt = 0, squash = 0, rotate = 0): OnePose {
-  return Object.freeze({ look: clamp(look, -1, 1), lift: clamp(lift, -1, 1), open, tilt,
-    smile: 0, mouth: 0, squash, rotate, hop: 0 });
-}
 
 export function oneHeldPose(face: OneFace, gaze: { readonly x: number; readonly y: number }, px: number): OnePose {
   const d = gaze.x < 0 ? -1 : 1;
