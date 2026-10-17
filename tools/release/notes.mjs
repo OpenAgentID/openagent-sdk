@@ -32,7 +32,7 @@ for (const item of plan.packages) {
   if (!entry) throw new Error(`${item.name}@${item.version} is not on npm; publish before writing notes.`);
   const link = `[\`${item.name}\`](https://www.npmjs.com/package/${item.name}/v/${item.version})`;
   const fresh = item.status === 'publish' || item.status === 'published';
-  rows.push(`| ${link} | ${item.version} | ${fresh ? 'published with this tag' : `unchanged since ${plan.previousTag ?? 'its last release'}`} |`);
+  rows.push(`| ${link} | ${item.version} | ${fresh ? 'published with this tag' : 'already on npm; no change in this release'} |`);
   if (fresh) integrity.push(`- \`${item.name}@${item.version}\`: \`${entry.dist.integrity}\``);
   if (item === sdk) publishedAt = document.time?.[item.version] ?? null;
 }
