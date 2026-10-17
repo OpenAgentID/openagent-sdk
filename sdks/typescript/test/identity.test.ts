@@ -100,7 +100,7 @@ describe('stored character appearance', () => {
   it('persists every family kind separately from shared preferred eye expressions', () => {
     const catalog = getCharacterSkins();
     expect(catalog).toHaveLength(18);
-    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(75);
+    expect(catalog.reduce((total, skin) => total + skin.shapes.length, 0)).toBe(77);
     for (const skin of catalog) {
       for (const shape of skin.shapes) {
         const appearance = { skin: skin.id, skinVersion: 1 as const, eyeStyle: skin.eyeStyles[0]!, shape };
@@ -232,6 +232,11 @@ describe('stored character appearance', () => {
     { skin: 'christmas', skinVersion: 2 }, { skin: 'christmas', skinVersion: '1' },
     { skin: 'christmas', skinVersion: null }, { skin: 'christmas', eyeStyle: 'other' },
     { skin: 'christmas', eyeStyle: null }, { skin: 'christmas', eyeStyle: 'agent-eye-v1' }, { skin: 'one', eyeStyle: 'live-v1' },
+    { skin: 'one', shape: 'teal' }, { skin: 'one', shape: 'blue' }, { skin: 'one', shape: 'circle' }, { skin: 'one', color: 'lemon' },
+    { skin: 'one', shape: 'star', color: 'cherry' }, { skin: 'one', shape: 'droplet', color: 'berry' }, { skin: 'one', shape: 'cloud', color: 'sky' },
+    { skin: 'one', shape: 'charcoal', color: 'lemon' }, { skin: 'one', shape: 'star', color: 'teal' }, { skin: 'one', shape: 'star', color: 'charcoal' },
+    { skin: 'one', shape: 'star', color: 'blank' }, { skin: 'one', shape: 'star', color: 'Lemon' }, { skin: 'one', shape: 'star', color: null },
+    { skin: 'autos', color: 'lemon' }, { skin: 'spacex', shape: 'cloud', color: 'lavender' },
     { skin: 'christmas', view: 'avatar' },
     { skin: 'christmas', view: 'full' }, { skin: 'christmas', size: 128 },
     { skin: 'christmas', animated: false }, { skin: 'christmas', expression: 'happy' },
@@ -241,6 +246,14 @@ describe('stored character appearance', () => {
   ])('refuses malformed appearance or rendering/live-state fields in a stored profile: %j', avatarSkin => {
     expect(characterAppearanceSchema.safeParse(avatarSkin).success).toBe(false);
     expect(() => parseIdentityDocument({ ...document, avatarSkin })).toThrow(IdentityError);
+  });
+
+  it('stores a One look as a shape and a colour the shape allows, or Digital One', () => {
+    for (const avatarSkin of [{ skin: 'one', shape: 'star', color: 'lemon' }, { skin: 'one', shape: 'droplet', color: 'lime' }, { skin: 'one', shape: 'star' },
+      { skin: 'one', shape: 'charcoal' }, { skin: 'one' }, { skin: 'one', skinVersion: 1, eyeStyle: 'agent-eye-v1', shape: 'bean', color: 'grape' }] as const) {
+      expect(characterAppearanceSchema.parse(avatarSkin)).toEqual(avatarSkin);
+      expect(parseIdentityDocument({ ...document, avatarSkin }).avatarSkin).toEqual(avatarSkin);
+    }
   });
 
   it.each([null, '', 'Happy', 'happy\n', 'working', true, [], {}, 'unknown'])

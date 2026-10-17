@@ -3,7 +3,7 @@ import { blake3 } from '@noble/hashes/blake3';
 import { generateCharacter, expressionEyes, type CharacterOptions } from './characters.js';
 import { parseCharacterState, updateCharacterState, type AvatarExpression,
   type CharacterRuntimeState, type CharacterStateUpdate } from './character-state.js';
-import { oneFaceFor, onePaint, type OneKind } from './character-one.js';
+import { oneFaceFor, type OneKind } from './character-one.js';
 import { OneMotion, parseOneLiveOptions, seededRandom, type OneCadence, type OneMotionFrame } from './character-one-motion.js';
 export type { OneCadence, OneMotionFrame } from './character-one-motion.js';
 
@@ -75,7 +75,7 @@ export function createCharacterAnimator(did: string, options: CharacterAnimatorO
   const springs: Spring[] = pose(state).map(value => ({ value, target: value, velocity: 0 }));
   // The One family's head runs its own moment timeline on the same clock.
   const one = descriptor.skin === 'one' ? new OneMotion({ face: oneFaceFor(state), gaze: state.gaze, px: descriptor.size,
-    temperament: onePaint(descriptor.shape as OneKind, descriptor.theme).temperament, random: seededRandom(seed, 8),
+    kind: descriptor.shape as OneKind, random: seededRandom(seed, 8),
     cadence: live.cadence, ...(live.voiceLevel ? { level: live.voiceLevel } : {}), motion: !(reduced || !descriptor.animated), at: start }) : undefined;
   let nextCadence: number | null = one ? start : null;
   if (one) { one.setBlink(state.blink); if (state.status === 'speaking') one.startTalk(start); }

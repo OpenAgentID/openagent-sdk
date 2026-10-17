@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { importJWK, type JWK } from 'jose';
 import { verifyIdentityRemote } from './verification-api.js';
 import { oasGlyph } from './glyph.js';
-import { generateCharacter, getCharacterSkins, type CharacterShape, type CharacterView, type CharacterSkin, type CharacterFinish, type CharacterEyePlacement, type CharacterTheme } from './characters.js';
+import { generateCharacter, getCharacterSkins, type CharacterShape, type CharacterView, type CharacterSkin, type CharacterFinish, type CharacterEyePlacement, type CharacterTheme, type OneColor } from './characters.js';
 import { parseCharacterState } from './character-state.js';
 import { getCharacterAccessories, parseCharacterAccessories } from './character-accessories.js';
 import { OpenAgentWorkspace, type LocalAgentDocument } from './local-workspace.js';
@@ -25,7 +25,7 @@ oaid verify --local --proof FILE --nonce ISSUED_NONCE [--directory PATH]
 oaid doctor [--directory PATH]
 oaid avatar skins
 oaid avatar accessories
-oaid avatar DID [--skin FAMILY] [--shape KIND] [--view avatar|full] [--finish plush|flat] [--eye-placement face|raised] [--accessories glasses,headphones] [--status STATUS] [--expression EXPRESSION] [--theme light|dark] [--size N] [--output FILE]
+oaid avatar DID [--skin FAMILY] [--shape KIND] [--color COLOUR] [--view avatar|full] [--finish plush|flat] [--eye-placement face|raised] [--accessories glasses,headphones] [--status STATUS] [--expression EXPRESSION] [--theme light|dark] [--size N] [--output FILE]
 oaid verify --endpoint HTTPS_URL --proof FILE --nonce ISSUED_NONCE
 oaid glyph DID [--output FILE] [--size 32..2048]
 oaid oidc doctor --issuer HTTPS_ISSUER
@@ -224,7 +224,7 @@ export async function runCli(args: readonly string[], io: CliIO): Promise<number
     }
     if (args[0] === 'avatar') {
       if (!args[1]) throw new Error('avatar requires a DID');
-      const flags = options(args.slice(2), ['--skin', '--shape', '--view', '--finish', '--eye-placement', '--accessories', '--status', '--expression', '--theme', '--size', '--output']);
+      const flags = options(args.slice(2), ['--skin', '--shape', '--color', '--view', '--finish', '--eye-placement', '--accessories', '--status', '--expression', '--theme', '--size', '--output']);
       const state = parseCharacterState({
         ...(flags['--status'] === undefined ? {} : { status: flags['--status'] }),
         ...(flags['--expression'] === undefined ? {} : { expression: flags['--expression'] }),
@@ -233,7 +233,7 @@ export async function runCli(args: readonly string[], io: CliIO): Promise<number
         skin: (flags['--skin'] ?? 'autos') as CharacterSkin,
         finish: flags['--finish'] as CharacterFinish | undefined,
         eyePlacement: flags['--eye-placement'] as CharacterEyePlacement | undefined,
-        shape: flags['--shape'] as CharacterShape | undefined, view: flags['--view'] as CharacterView | undefined,
+        shape: flags['--shape'] as CharacterShape | undefined, color: flags['--color'] as OneColor | undefined, view: flags['--view'] as CharacterView | undefined,
         theme: flags['--theme'] as CharacterTheme | undefined,
         accessories: parseCharacterAccessories(flags['--accessories'] === undefined ? undefined
           : flags['--accessories'] === '' ? [] : flags['--accessories'].split(',')),

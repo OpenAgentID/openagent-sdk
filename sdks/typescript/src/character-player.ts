@@ -1,5 +1,5 @@
 /** A mounted inline-SVG character; importing this module does not require a DOM. */
-import { generateCharacter, getCharacterSkins, type CharacterFinish, type CharacterEyePlacement, type CharacterView, type CharacterOptions, type CharacterSkin, type CharacterShape, type CharacterDescriptor, type CharacterTheme } from './characters.js';
+import { generateCharacter, getCharacterSkins, type CharacterFinish, type CharacterEyePlacement, type CharacterView, type CharacterOptions, type CharacterSkin, type CharacterShape, type CharacterDescriptor, type CharacterTheme, type OneColor } from './characters.js';
 import { characterBody, characterFraming, type CharacterFraming } from './character-body.js';
 import { characterAccessories, characterGlassesPose, type CharacterAccessory } from './character-accessories.js';
 import { characterMaterial } from './character-material.js';
@@ -35,6 +35,8 @@ export interface CharacterAppearanceUpdate {
   readonly skin?: CharacterSkin;
   /** null restores the identity-selected shape. */
   readonly shape?: CharacterShape | null;
+  /** The One family only: the agent's colour; null restores the shape's own colour, or the identity-selected one. */
+  readonly color?: OneColor | null;
   readonly size?: number;
   readonly finish?: CharacterFinish;
   readonly eyePlacement?: CharacterEyePlacement;
@@ -200,7 +202,7 @@ export function mountCharacter(element: Element, did: string, options: Character
   function oneView(initial: CharacterDescriptor, attach: (root: Element) => void): Renderer {
     const state = animator.getState();
     const head = new OneHead(element, {
-      kind: initial.shape as OneKind, theme: initial.theme, size: initial.size,
+      kind: initial.shape as OneKind, color: initial.oneColor ?? 'charcoal', theme: initial.theme, size: initial.size,
       ...(appearance.label === undefined ? {} : { label: appearance.label }),
       face: oneFaceFor(state), gaze: state.gaze, blink: state.blink, status: state.status, expression: state.expression,
       speaking: state.status === 'speaking', cadence: live.cadence, ...(live.voiceLevel ? { voiceLevel: live.voiceLevel } : {}),
@@ -209,7 +211,7 @@ export function mountCharacter(element: Element, did: string, options: Character
     attach(head.root);
     return {
       get root() { return head.root; },
-      setDescriptor(next) { head.setPaint(next.shape as OneKind, next.theme, next.size, appearance.label); },
+      setDescriptor(next) { head.setPaint(next.shape as OneKind, next.oneColor ?? 'charcoal', next.theme, next.size, appearance.label); },
       stateChanged(next) { head.setState(oneFaceFor(next), next.gaze, next.blink, next.status, next.expression); },
       motionChanged(value) { head.setReduced(value); },
       dispose() { head.dispose(); },
@@ -243,14 +245,20 @@ export function mountCharacter(element: Element, did: string, options: Character
     setAppearance(input: CharacterAppearanceUpdate) {
       active();
       if (!input || typeof input !== 'object' || Array.isArray(input) ||
-          Object.keys(input).some(key => !['skin', 'shape', 'accessories', 'finish', 'eyePlacement', 'size', 'view', 'theme', 'label'].includes(key))) throw new TypeError('Invalid character appearance update');
+          Object.keys(input).some(key => !['skin', 'shape', 'color', 'accessories', 'finish', 'eyePlacement', 'size', 'view', 'theme', 'label'].includes(key))) throw new TypeError('Invalid character appearance update');
       const next: { -readonly [Key in keyof CharacterOptions]: CharacterOptions[Key] } = { ...appearance };
       if (input.skin !== undefined) {
-        if (input.skin !== descriptor.skin) delete next.shape;
+        if (input.skin !== descriptor.skin) { delete next.shape; delete next.color; }
         next.skin = input.skin;
       }
       if (input.shape === null) delete next.shape;
-      else if (input.shape !== undefined) next.shape = input.shape;
+      else if (input.shape !== undefined) {
+        // Becoming Digital One drops the colour: he has none. Leaving him for a shape wears that shape's own colour.
+        if (input.shape === 'charcoal' || next.shape === 'charcoal') delete next.color;
+        next.shape = input.shape;
+      }
+      if (input.color === null) delete next.color;
+      else if (input.color !== undefined) next.color = input.color;
       if (input.finish !== undefined) next.finish = input.finish;
       if (input.eyePlacement !== undefined) next.eyePlacement = input.eyePlacement;
       if (input.view !== undefined) next.view = input.view;

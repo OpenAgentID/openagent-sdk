@@ -146,12 +146,13 @@ its live eyes. See the [accessory release guide](docs/release-0.6.0.md) for prof
 
 ### The One family
 
-`skin: 'one'` draws an agent as One: a round disc with one bar for an eye, in one
-of twelve colours, or Digital One (`charcoal`) for One itself, with its own eye
-style `agent-eye-v1`. It is still at rest and shows its live status with
-agent-eye's faces and moves. Hosts that draw only Ones can use the light
-`@openagentid/sdk/one` entry, whose live runtime is 15.1 KB gzipped. Autos
-remains the default family. Keep One colours in your own agent records until
+`skin: 'one'` draws an agent as One: one of fourteen fun shapes in one of
+eighteen colours, with one bar for an eye, or Digital One (`charcoal`), the
+black circle, for One itself, with its own eye style `agent-eye-v1`. It is still
+at rest and shows its live status with agent-eye's faces and moves. Hosts that
+draw only Ones can use the light `@openagentid/sdk/one` entry, whose live runtime
+is 18.9 KB gzipped. Autos remains the default family. Keep One looks in your own
+agent records until
 every reader of your identity documents runs SDK 0.8.0. See
 [the One family](docs/characters.md#the-one-family) and the
 [0.8.0 release contents](docs/release-0.8.0.md).

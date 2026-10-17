@@ -182,8 +182,9 @@ jobs:
         run: npm run build
 
       - name: Check browser bundle budgets
-        # The live One runtime stays within the One app's 16 KB gzipped script
-        # budget, and the all-family bundle within 65 KB gzipped.
+        # The live One runtime stays within 20 KB gzipped (the shape library
+        # and palette on top of the One app's 16 KB script budget), and the
+        # all-family bundle within 65 KB gzipped.
         if: matrix.package == 'sdks/typescript'
         run: npm run size
 

@@ -41,15 +41,16 @@ is missing. Its endpoint options do not create those clients automatically.
 
 ## Version 0.8.0
 
-Adds the One family: a round disc with one bar for an eye, drawn from agent-eye,
-One's animated mark, with its own eye style `agent-eye-v1`. Twelve agent colours
-and Digital One (`charcoal`); a DID selects a colour when none is stored. Hosts
-that draw only Ones can use the light `@openagentid/sdk/one` entry, whose live
-runtime is 15.1 KB gzipped. Autos remains the default family, and every existing
+Adds the One family: fourteen fun shapes in eighteen colours for agents, and
+Digital One, the black circle, for One itself, every head with one bar for an eye
+drawn from agent-eye, One's animated mark, with its own eye style `agent-eye-v1`.
+A DID selects a shape and a colour when no look is stored; eleven never pairs are
+refused. Hosts that draw only Ones can use the light `@openagentid/sdk/one` entry,
+whose live runtime is 18.9 KB gzipped. Autos remains the default family, and every existing
 family renders exactly as before. Four statuses join the shared timeline for
 every family (`typing`, `attention`, `paused`, `offline`), and `theme` and
 `label` join the rendering options. Identity documents that store a One
-appearance do not parse in SDK 0.7.3 and earlier: keep One colours in the
+appearance do not parse in SDK 0.7.3 and earlier: keep One looks in the
 application's own agent records until every reader upgrades. See
 [the One family](#the-one-family) and the
 [0.8.0 release contents](../../docs/release-0.8.0.md).
@@ -259,35 +260,40 @@ See [the full API contract](../../docs/characters.md) and
 
 ### The One family
 
-Choose `skin: 'one'` to draw an agent as One: a round disc with one bar for an
-eye, in its own colour. Its kinds (`shape`) are the twelve agent colours
-`blue`, `red`, `sky`, `green`, `yellow`, `pink`, `plum`, `teal`, `lime`, `mint`,
-`lilac` and `coral`, plus `charcoal`, Digital One, for One itself. The head is
+Choose `skin: 'one'` to draw an agent as One: one of fourteen fun shapes, in one
+of eighteen colours, with one bar for an eye. Its kinds (`shape`) are `star`,
+`heart`, `flower`, `cloud`, `droplet` (Drop), `squircle` (Square), `diamond`,
+`clover`, `gumdrop`, `hexagon`, `egg`, `blob`, `peanut` and `bean`, plus
+`charcoal`, Digital One, the black circle, for One itself. An agent shape wears
+one of the colours `berry`, `lime`, `blush`, `jade`, `periwinkle`, `cherry`,
+`indigo`, `mint`, `bubblegum`, `apricot`, `sky`, `lemon`, `grape`, `lavender`,
+`watermelon`, `lagoon`, `orchid` and `aqua` (`color`); each shape has its own
+default, and the eleven pairs that would read as a sign are refused. The head is
 still at rest and moves only when its state changes: working reads along,
 reasoning ponders, typing taps, attention looks straight at you, success
 smiles, paused dozes, error goes dizzy.
 
 ```ts
-import { generateCharacter, nextOneColor, oneColorForDid } from '@openagentid/sdk';
+import { generateCharacter, nextOneLook, oneLookForDid } from '@openagentid/sdk';
 import { mountCharacter } from '@openagentid/sdk/browser';
 
-const color = nextOneColor(teamColors);        // first free colour in the default order (groups: { color, group })
-oneColorForDid(agent.did);                     // the DID default when no colour is stored
-const still = generateCharacter(agent.did, { skin: 'one', shape: color, size: 44,
+const look = nextOneLook(teamLooks);           // the next free shape in its own colour ({ shape, color, group? } holders)
+oneLookForDid(agent.did);                      // the DID default when no look is stored: { shape, color }
+const still = generateCharacter(agent.did, { skin: 'one', ...look, size: 44,
   state: { status: 'working', gaze: { x: 0.4, y: 0.1 } } }).svg; // server render or reduced motion
-const player = mountCharacter(element, agent.did, { skin: 'one', shape: color, size: 44,
+const player = mountCharacter(element, agent.did, { skin: 'one', ...look, size: 44,
   label: agent.name, state: { gaze: { x: 0.4, y: 0.1 } } });
 player.update({ status: 'attention' });
-player.setAppearance({ shape: 'teal', theme: 'dark' });
+player.setAppearance({ shape: 'star', color: 'lemon', theme: 'dark' });
 ```
 
 ```ts
 import { renderOne } from '@openagentid/sdk/one';          // server: stills, DID defaults, blank heads
 import { mountOne } from '@openagentid/sdk/browser/one';  // client: the live runtime alone
 
-const html = renderOne({ did: agent.did, color, size: 44, state });
-const head = mountOne(element, { color, size: 44, label: agent.name, follow: false, state }); // replaces the still
-head.setAppearance({ color: 'teal' });                    // a blank head plays First blink instead
+const html = renderOne({ did: agent.did, ...look, size: 44, state });
+const head = mountOne(element, { ...look, size: 44, label: agent.name, follow: false, state }); // replaces the still
+head.setAppearance({ color: 'periwinkle' });              // a blank head plays First blink instead
 head.play('shrug', { viewer: true });                     // a tap on a hero; arrivals omit `viewer`
 ```
 
@@ -301,8 +307,8 @@ TypeScript port of agent-eye, written by JR and contributed by its copyright
 holder, L1fe Labs, Inc., under Apache-2.0 OR MIT; the port is checked against
 the byte-identical master in `test/fixtures/agent-eye` (sha256
 `83cc379a…bba4`). See
-[the One family](../../docs/characters.md#the-one-family) for the palette,
-faces, calm rules and provenance.
+[the One family](../../docs/characters.md#the-one-family) for the shapes, the
+palette, faces, calm rules and provenance.
 
 ## Runtime support
 

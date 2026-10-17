@@ -42,9 +42,11 @@ async function check(name, operation) {
   console.log(`passed ${name}`);
 }
 
-const colors = ['blue', 'red', 'sky', 'green', 'yellow', 'pink', 'plum', 'teal', 'lime', 'mint', 'lilac', 'coral'];
+// The site's cast: every shape in its own colour, in the team shape order (the plan of record, §5.3).
+const looks = [['droplet', 'sky'], ['cloud', 'lavender'], ['heart', 'bubblegum'], ['diamond', 'aqua'], ['star', 'lemon'], ['bean', 'grape'], ['blob', 'mint'],
+  ['peanut', 'watermelon'], ['egg', 'blush'], ['gumdrop', 'orchid'], ['clover', 'jade'], ['hexagon', 'apricot'], ['squircle', 'indigo'], ['flower', 'cherry']];
 const list = (id, count, offset = 0) => `<ul id="${id}" class="team">${Array.from({ length: count }, (_, i) =>
-  `<li><span class="head" id="${id}-${i}" data-color="${colors[(i + offset) % colors.length]}"></span><span>Agent ${i + 1}</span></li>`).join('')}</ul>`;
+  `<li><span class="head" id="${id}-${i}" data-shape="${looks[(i + offset) % looks.length][0]}" data-color="${looks[(i + offset) % looks.length][1]}"></span><span>Agent ${i + 1}</span></li>`).join('')}</ul>`;
 const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>One heads</title>
 <style>
   body { margin: 0; padding: 16px; font: 14px system-ui; background: #f4f2ec; color: #141b16; }
@@ -73,7 +75,7 @@ ${list('below', 3)}
   window.oaidPlayers = new Map();
   for (const element of document.querySelectorAll('.head')) {
     window.oaidPlayers.set(element.id, mountCharacter(element, 'did:oas:openagent:agent:' + element.id, {
-      skin: 'one', shape: element.dataset.color, size: 44, label: element.nextElementSibling.textContent + ', agent',
+      skin: 'one', shape: element.dataset.shape, color: element.dataset.color, size: 44, label: element.nextElementSibling.textContent + ', agent',
       state: { gaze: row }, reducedMotion: 'system' }));
   }
   window.oaidPlayers.set('hero', mountCharacter(document.getElementById('hero'), 'did:oas:openagent:agent:one', {
@@ -81,8 +83,10 @@ ${list('below', 3)}
   window.oaidReady = true;
 </script></body></html>`;
 
-// The light One runtime. Stills are rendered on the "server" (this process) with the bundler entry, as a host would.
-const { renderOne } = await import(pathToFileURL(join(root, 'sdks/typescript/dist/one.js')).href);
+// The light One runtime. Stills are rendered on the "server" (this process) with the bundler entry, as a host would,
+// and the DID default look is computed there too: the browser runtime never hashes a DID.
+const { renderOne, oneLookForDid } = await import(pathToFileURL(join(root, 'sdks/typescript/dist/one.js')).href);
+const ssrLook = oneLookForDid('did:oas:openagent:agent:ssr');
 const parity = [
   { status: 'idle', gaze: { x: 0.4, y: 0.1 } }, { status: 'working', gaze: { x: 0.4, y: 0.1 } },
   { status: 'attention' }, { status: 'paused', gaze: { x: -0.4, y: 0.1 } }, { status: 'reasoning', gaze: { x: 0, y: 0.3 } },
@@ -110,19 +114,22 @@ const lean = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>
 <div id="header"></div>
 <div id="parity">${parity.map((_, i) => `<div id="live-${i}"></div>`).join('')}</div>
 <script type="module">
-  import { mountOne, getOneColors } from '/one.js';
+  import { mountOne, getOneColors, getOneShapes } from '/one.js';
   const row = { x: 0.4, y: 0.1 };
   window.oaidStills = ${JSON.stringify(stills)};
   window.oaidParity = ${JSON.stringify(parity)};
   window.oaidHeads = new Map();
-  window.oaidHeads.set('ssr', mountOne(document.getElementById('ssr'), { color: 'blue', size: 44, label: 'Scout, agent', state: { gaze: row } }));
-  window.oaidHeads.set('ready', mountOne(document.getElementById('ready'), { color: 'blank', size: 44, label: 'Planner, ready-made agent', state: { gaze: row } }));
-  window.oaidHeads.set('ghost', mountOne(document.getElementById('ghost'), { color: 'red', size: 44, label: 'Quill, agent', state: { gaze: row } }));
-  window.oaidHeads.set('peer', mountOne(document.getElementById('peer'), { color: 'sky', size: 44, label: 'Ledger, agent', state: { gaze: row } }));
+  window.oaidSsrLook = ${JSON.stringify(ssrLook)};
+  window.oaidHeads.set('ssr', mountOne(document.getElementById('ssr'), { ...window.oaidSsrLook, size: 44, label: 'Scout, agent', state: { gaze: row } }));
+  window.oaidHeads.set('ready', mountOne(document.getElementById('ready'), { shape: 'heart', color: 'blank', size: 44, label: 'Planner, ready-made agent', state: { gaze: row } }));
+  window.oaidHeads.set('ghost', mountOne(document.getElementById('ghost'), { shape: 'cloud', color: 'lavender', size: 44, label: 'Quill, agent', state: { gaze: row } }));
+  window.oaidHeads.set('peer', mountOne(document.getElementById('peer'), { shape: 'droplet', color: 'sky', size: 44, label: 'Ledger, agent', state: { gaze: row } }));
   window.oaidHeads.set('header', mountOne(document.getElementById('header'), { color: 'charcoal', size: 64, label: 'One', follow: true, state: { gaze: { x: 0, y: 0.3 } } }));
   window.oaidParity.forEach((state, i) => window.oaidHeads.set('live-' + i,
     mountOne(document.getElementById('live-' + i), { color: 'charcoal', size: 192, reducedMotion: true, state })));
   window.oaidColours = getOneColors().length;
+  window.oaidShapes = getOneShapes().length;
+  window.oaidSsrPath = getOneShapes().find(shape => shape.id === window.oaidSsrLook.shape).path;
   window.oaidMount = mountOne;
   window.oaidReady = true;
 </script></body></html>`;
@@ -200,7 +207,9 @@ try {
     assert.equal(await tab.locator('#hero svg').getAttribute('role'), null);
     assert.equal(await tab.locator('svg[data-character-skin="one"]').count(), 28);
     for (const value of await tab.locator('.team svg').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))) {
-      assert.doesNotMatch(value, /\b(?:blue|red|sky|green|yellow|pink|plum|teal|lime|mint|lilac|coral)\b/i);
+      // Shape and colour names appear only in pickers, never in an accessible name (R6).
+      assert.doesNotMatch(value, /\b(?:star|heart|flower|cloud|drop|droplet|square|squircle|diamond|clover|gumdrop|hexagon|egg|blob|peanut|bean)\b/i);
+      assert.doesNotMatch(value, /\b(?:berry|lime|blush|jade|periwinkle|cherry|indigo|mint|bubblegum|apricot|sky|lemon|grape|lavender|watermelon|lagoon|orchid|aqua)\b/i);
     }
   });
 
@@ -266,10 +275,24 @@ try {
     await tab.emulateMedia({ reducedMotion: 'no-preference' });
   });
 
-  await check('colour-switch-and-family-switch-keep-state', async () => {
-    await tab.evaluate(() => window.oaidPlayers.get('team-a-4').setAppearance({ shape: 'teal', theme: 'dark' }));
-    assert.equal(await tab.locator('#team-a-4 svg').getAttribute('data-one-color'), 'teal');
-    assert.equal(await tab.locator('#team-a-4 svg [data-one-disc]').getAttribute('fill'), '#0aaead');
+  await check('look-switch-and-family-switch-keep-state', async () => {
+    await tab.evaluate(() => window.oaidPlayers.get('team-a-4').setAppearance({ shape: 'squircle', color: 'indigo', theme: 'dark' }));
+    assert.equal(await tab.locator('#team-a-4 svg').getAttribute('data-one-shape'), 'squircle');
+    assert.equal(await tab.locator('#team-a-4 svg').getAttribute('data-one-color'), 'indigo');
+    assert.equal(await tab.locator('#team-a-4 svg [data-one-disc]').getAttribute('fill'), '#5660f6');
+    // The same disc on both surfaces; the keyline on light only; Digital One black on dark with its rim.
+    assert.equal(await tab.locator('#team-a-4 svg [data-one-keyline]').count(), 0);
+    await tab.evaluate(() => window.oaidPlayers.get('team-a-4').setAppearance({ shape: 'star', color: 'lemon', theme: 'light' }));
+    assert.equal(await tab.locator('#team-a-4 svg [data-one-disc]').getAttribute('fill'), '#ffe93f');
+    assert.equal(await tab.locator('#team-a-4 svg [data-one-keyline]').getAttribute('stroke'), '#918312');
+    // A never pair is refused and the head keeps its look.
+    assert.equal(await tab.evaluate(() => { try { window.oaidPlayers.get('team-a-4').setAppearance({ color: 'cherry' }); return 'changed'; } catch (error) { return error.name; } }), 'TypeError');
+    assert.equal(await tab.locator('#team-a-4 svg').getAttribute('data-one-color'), 'lemon');
+    await tab.evaluate(() => window.oaidPlayers.get('team-a-6').setAppearance({ shape: 'charcoal', theme: 'dark' }));
+    assert.equal(await tab.locator('#team-a-6 svg [data-one-disc]').getAttribute('fill'), '#141b16');
+    assert.equal(await tab.locator('#team-a-6 svg [data-one-rim]').getAttribute('stroke'), '#f2f1ea');
+    assert.equal(await tab.locator('#team-a-6 svg [data-one-eye]').getAttribute('fill'), '#f2f1ea');
+    assert.equal(await tab.locator('#team-a-6 mask').count(), 0);
     await tab.evaluate(() => window.oaidPlayers.get('team-a-5').setAppearance({ skin: 'autos' }));
     assert.equal(await tab.locator('#team-a-5 svg').count(), 1);
     assert.equal(await tab.locator('#team-a-5 [data-character-eye]').count(), 2);
@@ -294,11 +317,15 @@ try {
   await tab.waitForTimeout(600);
 
   await check('light-runtime-takes-over-a-server-rendered-still', async () => {
-    assert.equal(await tab.evaluate(() => window.oaidColours), 12);
+    assert.equal(await tab.evaluate(() => window.oaidColours), 18);
+    assert.equal(await tab.evaluate(() => window.oaidShapes), 14);
     assert.equal(await tab.locator('#ssr svg').count(), 1);
     assert.equal(await tab.locator('#ssr svg').getAttribute('data-character-player'), 'agent-eye-v1');
     assert.equal(await tab.locator('#ssr svg').getAttribute('aria-label'), 'Scout, agent');
-    assert.equal(await tab.locator('#ssr [data-one-disc]').getAttribute('fill'), '#3253e6');
+    assert.equal(await tab.locator('#ssr svg').getAttribute('data-one-shape'), ssrLook.shape);
+    assert.equal(await tab.locator('#ssr svg').getAttribute('data-one-color'), ssrLook.color);
+    // The live head draws the shape the server-rendered still had: the library's own path.
+    assert.equal(await tab.locator('#ssr [data-one-disc]').getAttribute('d'), await tab.evaluate(() => window.oaidSsrPath));
   });
 
   await check('digital-one-stills-match-the-live-head-pixel-for-pixel', async () => {
@@ -340,11 +367,13 @@ try {
   await check('a-blank-head-gets-its-colour-with-first-blink', async () => {
     assert.equal(await tab.locator('#ready svg').getAttribute('data-one-color'), 'blank');
     assert.equal(await tab.locator('#ready [data-one-disc]').getAttribute('fill-opacity'), '0.1');
-    await tab.evaluate(() => window.oaidHeads.get('ready').setAppearance({ color: 'teal' }));
+    assert.equal(await tab.locator('#ready svg').getAttribute('data-one-shape'), 'heart');
+    await tab.evaluate(() => window.oaidHeads.get('ready').setAppearance({ color: 'periwinkle' }));
     await tab.waitForFunction(() => document.querySelector('#ready svg[data-moving]') !== null, null, { timeout: 1000 });
     await tab.waitForFunction(() => !document.querySelector('#ready svg[data-moving]'), null, { timeout: 4000 });
-    assert.equal(await tab.locator('#ready svg').getAttribute('data-one-color'), 'teal');
-    assert.equal(await tab.locator('#ready [data-one-disc]').getAttribute('fill'), '#0aaead');
+    assert.equal(await tab.locator('#ready svg').getAttribute('data-one-shape'), 'heart');
+    assert.equal(await tab.locator('#ready svg').getAttribute('data-one-color'), 'periwinkle');
+    assert.equal(await tab.locator('#ready [data-one-disc]').getAttribute('fill'), '#9ba0ff');
     assert.equal(await tab.locator('#ready [data-one-disc]').getAttribute('fill-opacity'), null);
   });
 
@@ -353,7 +382,7 @@ try {
     // A colour change waves (a counted moment); theme repaints land in the same task as its end, many times over.
     await tab.evaluate(() => {
       const head = window.oaidHeads.get('ghost');
-      head.setAppearance({ color: 'plum' });
+      head.setAppearance({ color: 'grape' });
       const start = performance.now();
       let dark = false;
       while (performance.now() - start < 1200) { dark = !dark; head.setAppearance({ theme: dark ? 'dark' : 'light' }); }
@@ -363,6 +392,30 @@ try {
     // The list's slot was released: the next head in the same list moves at once.
     await tab.evaluate(() => window.oaidHeads.get('peer').update({ status: 'attention' }));
     await tab.waitForFunction(() => document.querySelector('#peer svg[data-moving]') !== null, null, { timeout: 500 });
+    await settled(8000);
+  });
+
+  await check('digital-one-and-agents-trade-places-through-set-appearance', async () => {
+    // Digital One given a shape wears that shape's own colour; a coloured head given charcoal becomes Digital One.
+    await tab.evaluate(() => window.oaidHeads.get('header').setAppearance({ shape: 'star' }));
+    assert.equal(await tab.locator('#header svg').getAttribute('data-one-shape'), 'star');
+    assert.equal(await tab.locator('#header svg').getAttribute('data-one-color'), 'lemon');
+    assert.equal(await tab.locator('#header mask').count(), 0);
+    await tab.evaluate(() => window.oaidHeads.get('header').setAppearance({ theme: 'dark' }));
+    assert.equal(await tab.locator('#header [data-one-disc]').getAttribute('fill'), '#ffe93f');
+    assert.equal(await tab.locator('#header [data-one-keyline]').count(), 0);
+    await tab.evaluate(() => window.oaidHeads.get('header').setAppearance({ color: 'charcoal' }));
+    assert.equal(await tab.locator('#header svg').getAttribute('data-one-shape'), 'circle');
+    assert.equal(await tab.locator('#header svg').getAttribute('data-one-color'), 'charcoal');
+    assert.equal(await tab.locator('#header [data-one-rim]').getAttribute('stroke'), '#f2f1ea');
+    await tab.evaluate(() => window.oaidHeads.get('header').setAppearance({ theme: 'light' }));
+    assert.equal(await tab.locator('#header mask').count(), 1);
+    assert.equal(await tab.locator('#header [data-one-rim]').count(), 0);
+    // A shape with charcoal, a never pair and an unknown colour are refused and the head keeps its look.
+    for (const update of [{ shape: 'star', color: 'charcoal' }, { shape: 'droplet', color: 'berry' }, { color: 'teal' }, { shape: 'circle' }]) {
+      assert.equal(await tab.evaluate(update => { try { window.oaidHeads.get('header').setAppearance(update); return 'changed'; } catch (error) { return error.name; } }, update), 'TypeError');
+    }
+    assert.equal(await tab.locator('#header svg').getAttribute('data-one-color'), 'charcoal');
     await settled(8000);
   });
 
@@ -466,7 +519,7 @@ try {
       list.className = 'team';
       list.innerHTML = '<li><span class="head" id="added-0"></span>Tutor</li><li><span class="head" id="added-1"></span>Coach</li>';
       document.body.prepend(list);
-      for (const id of ['added-0', 'added-1']) window.oaidHeads.set(id, window.oaidMount(document.getElementById(id), { color: 'blank', size: 44, state: { gaze: { x: 0.4, y: 0.1 } } }));
+      for (const id of ['added-0', 'added-1']) window.oaidHeads.set(id, window.oaidMount(document.getElementById(id), { shape: 'egg', color: 'blank', size: 44, state: { gaze: { x: 0.4, y: 0.1 } } }));
     });
     await tab.waitForTimeout(300);
     await tab.evaluate(() => { window.oaidHeads.get('added-0').setAppearance({ color: 'lime' }); window.oaidHeads.get('added-1').setAppearance({ color: 'mint' }); });
@@ -475,8 +528,8 @@ try {
     while (Date.now() - start < 3500) { peak = Math.max(peak, await moving('#added')); await tab.waitForTimeout(20); }
     assert.equal(peak, 1);
     await settled(8000);
-    assert.equal(await tab.locator('#added-0 [data-one-disc]').getAttribute('fill'), '#a9c21a');
-    assert.equal(await tab.locator('#added-1 [data-one-disc]').getAttribute('fill'), '#3df0b0');
+    assert.equal(await tab.locator('#added-0 [data-one-disc]').getAttribute('fill'), '#b0dc3c');
+    assert.equal(await tab.locator('#added-1 [data-one-disc]').getAttribute('fill'), '#5ee6a8');
   });
 
   await shot('one-light-runtime.png');

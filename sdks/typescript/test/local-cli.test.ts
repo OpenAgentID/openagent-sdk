@@ -105,7 +105,7 @@ describe('public local CLI integration', () => {
     expect((await command(['avatar', did, '--skin', 'unknown'])).code).toBe(1);
     expect((await command(['avatar', did, '--status', 'made-up'])).code).toBe(1);
     // One heads go down to the One app's 16 px avatars; the bodied families keep their 32 px minimum.
-    const small = await command(['avatar', did, '--skin', 'one', '--shape', 'teal', '--theme', 'dark', '--size', '16']);
+    const small = await command(['avatar', did, '--skin', 'one', '--shape', 'star', '--color', 'lemon', '--theme', 'dark', '--size', '16']);
     expect(small.code, small.err).toBe(0);
     expect(small.out).toContain('data-one-tier="XS"');
     expect((await command(['avatar', did, '--size', '16'])).code).toBe(1);
@@ -199,7 +199,7 @@ describe('public local CLI integration', () => {
     expect(catalog.code, catalog.err).toBe(0);
     const families = JSON.parse(catalog.out) as { id: string; shapes: string[] }[];
     expect(families).toHaveLength(18);
-    expect(families.reduce((sum, family) => sum + family.shapes.length, 0)).toBe(75);
+    expect(families.reduce((sum, family) => sum + family.shapes.length, 0)).toBe(77);
     for (const family of families) {
       const result = await command(['avatar', 'did:oas:openagent:agent:cli-family', '--skin', family.id,
         '--shape', family.shapes[0]!, '--status', 'reasoning']);
@@ -239,15 +239,19 @@ describe('public local CLI integration', () => {
 
   it('renders One heads in either theme from the same options as the SDK', async () => {
     const did = 'did:oas:openagent:agent:cli-one';
-    for (const theme of ['light', 'dark'] as const) for (const shape of ['teal', 'charcoal'] as const) {
-      const result = await command(['avatar', did, '--skin', 'one', '--shape', shape, '--theme', theme, '--status', 'working', '--size', '44']);
+    for (const theme of ['light', 'dark'] as const) for (const [shape, color] of [['star', 'lemon'], ['star', undefined], ['charcoal', undefined]] as const) {
+      const flags = color === undefined ? [] : ['--color', color];
+      const result = await command(['avatar', did, '--skin', 'one', '--shape', shape, ...flags, '--theme', theme, '--status', 'working', '--size', '44']);
       expect(result.code, result.err).toBe(0);
-      expect(result.out).toBe(generateCharacter(did, { skin: 'one', shape, theme, size: 44, state: { status: 'working' } }).svg + '\n');
+      expect(result.out).toBe(generateCharacter(did, { skin: 'one', shape, ...(color === undefined ? {} : { color }), theme, size: 44, state: { status: 'working' } }).svg + '\n');
       expect(result.out).toContain('data-one-face="working"');
+      expect(result.out).toContain(`data-one-color="${shape === 'charcoal' ? 'charcoal' : 'lemon'}"`);
     }
     const fromIdentity = await command(['avatar', did, '--skin', 'one']);
     expect(fromIdentity.out).toBe(generateCharacter(did, { skin: 'one' }).svg + '\n');
-    for (const flags of [['--theme', 'night'], ['--theme', ''], ['--theme', 'dark', '--theme', 'light'], ['--skin', 'one', '--shape', 'orange']]) {
+    for (const flags of [['--theme', 'night'], ['--theme', ''], ['--theme', 'dark', '--theme', 'light'], ['--skin', 'one', '--shape', 'orange'], ['--skin', 'one', '--shape', 'teal'],
+      ['--skin', 'one', '--shape', 'star', '--color', 'cherry'], ['--skin', 'one', '--shape', 'charcoal', '--color', 'lemon'], ['--skin', 'one', '--color', 'teal'],
+      ['--skin', 'autos', '--color', 'lemon'], ['--skin', 'one', '--shape', 'star', '--color', '']]) {
       expect((await command(['avatar', did, ...flags])).code).toBe(1);
     }
   });

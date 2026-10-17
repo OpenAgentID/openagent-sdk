@@ -1,0 +1,1158 @@
+{
+ "schema": "life/ones-agent-palette/v1",
+ "date": "2026-10-16",
+ "replaces": "PALETTE-FINAL.json (the twelve colours) and the shared four (Red, Yellow, Blue, Green): site, @openagentid/sdk 0.8.0 and the One app",
+ "method": "WCAG 2.x relative-luminance contrast; CIEDE2000 on sRGB D65 Lab; colour vision by Machado, Oliveira and Fernandes (2009) at severity 1.0 in linear RGB, rounded to 8-bit sRGB before Lab (the SDK's own palette-gate formulas); OKLCH for construction.",
+ "gates": {
+  "eye": 4.5,
+  "surfaceLight": 3,
+  "surfaceDark": 3,
+  "digitalOne": 25,
+  "amber": 18,
+  "amberSoft": 12,
+  "needsYou": 12,
+  "danger": 10,
+  "google": 10,
+  "normalPair": 10,
+  "prefix": {
+   "5": 15,
+   "8": 10,
+   "12": 4.5
+  }
+ },
+ "surfaces": {
+  "light": {
+   "paper": "#f4f2ec",
+   "stone": "#eae7df",
+   "paper-raised": "#fbfaf6",
+   "card (msgs-in)": "#e8e6de"
+  },
+  "dark": {
+   "night": "#0d1510",
+   "night-raised": "#152019",
+   "night-raised-2": "#1d2b22",
+   "card (msgs-in-dark)": "#262927",
+   "black": "#0b0c0c",
+   "black-raised": "#141615"
+  }
+ },
+ "eyes": {
+  "paper": "#fbfaf6",
+  "ink": "#141b16"
+ },
+ "references": {
+  "amber": "#c8793a",
+  "amberSoft": "#e9a867",
+  "needsYou": {
+   "light": "#2b6143",
+   "dark": "#bcd8a6"
+  },
+  "danger": {
+   "light": "#c2412d",
+   "dark": "#ff6b57"
+  },
+  "google": {
+   "logo blue": "#4285f4",
+   "logo red": "#ea4335",
+   "logo yellow": "#fbbc05",
+   "logo green": "#34a853",
+   "material blue": "#1a73e8",
+   "material red": "#d93025",
+   "material yellow": "#f9ab00",
+   "material green": "#1e8e3e",
+   "material green 2": "#188038",
+   "2014-15 red": "#db4437",
+   "2014-15 yellow": "#f4b400",
+   "2014-15 green": "#0f9d58",
+   "2015 logo blue": "#4885ed",
+   "2015 logo red": "#db3236",
+   "2015 logo yellow": "#f4c20d",
+   "2015 logo green": "#3cba54"
+  }
+ },
+ "digitalOne": {
+  "disc": "#141b16",
+  "eye": {
+   "light": "#fbfaf6",
+   "dark": "#f2f1ea"
+  },
+  "rim": {
+   "colour": "#f2f1ea",
+   "opacity": 0.44,
+   "widthPx": 1,
+   "surfaces": "dark only"
+  },
+  "eyeContrast": {
+   "light": 16.78,
+   "dark": 15.48
+  },
+  "discLightMin": 14.03,
+  "discDarkMin": 1.04,
+  "rimHex": "#767973",
+  "rimDarkMin": 3.33,
+  "rimOnDisc": 3.97
+ },
+ "order": [
+  "berry",
+  "lime",
+  "blush",
+  "jade",
+  "periwinkle",
+  "cherry",
+  "indigo",
+  "mint",
+  "bubblegum",
+  "apricot",
+  "sky",
+  "lemon",
+  "grape",
+  "lavender",
+  "watermelon",
+  "lagoon",
+  "orchid",
+  "aqua"
+ ],
+ "colours": [
+  {
+   "order": 1,
+   "id": "berry",
+   "label": "Berry",
+   "hex": "#c92fa3",
+   "eye": "paper",
+   "family": "magenta",
+   "oklch": {
+    "L": 0.5843,
+    "C": 0.22,
+    "h": 340
+   },
+   "luminance": 0.171,
+   "eyeHex": "#fbfaf6",
+   "eyeContrast": 4.55,
+   "otherEye": 3.69,
+   "surfaces": {
+    "paper": 4.25,
+    "stone": 3.85,
+    "paper-raised": 4.55,
+    "card (msgs-in)": 3.8,
+    "night": 3.9,
+    "night-raised": 3.53,
+    "night-raised-2": 3.11,
+    "card (msgs-in-dark)": 3.09,
+    "black": 4.12,
+    "black-raised": 3.82
+   },
+   "discLightMin": 3.8,
+   "discDarkMin": 3.09,
+   "keyline": null,
+   "keylineLightMin": null,
+   "deltaE00": {
+    "digitalOne": 48.7,
+    "amber": 44.78,
+    "amberSoft": 51.27,
+    "needsYou": 65.41,
+    "danger": 31.38,
+    "nearestGoogle": {
+     "name": "2015 logo red",
+     "value": "#db3236",
+     "deltaE00": 28.12
+    }
+   }
+  },
+  {
+   "order": 2,
+   "id": "lime",
+   "label": "Lime",
+   "hex": "#b0dc3c",
+   "eye": "ink",
+   "family": "lime",
+   "oklch": {
+    "L": 0.8347,
+    "C": 0.186,
+    "h": 124
+   },
+   "luminance": 0.607,
+   "eyeHex": "#141b16",
+   "eyeContrast": 10.97,
+   "otherEye": 1.53,
+   "surfaces": {
+    "paper": 1.43,
+    "stone": 1.29,
+    "paper-raised": 1.53,
+    "card (msgs-in)": 1.28,
+    "night": 11.62,
+    "night-raised": 10.5,
+    "night-raised-2": 9.25,
+    "card (msgs-in-dark)": 9.2,
+    "black": 12.26,
+    "black-raised": 11.38
+   },
+   "discLightMin": 1.28,
+   "discDarkMin": 9.2,
+   "keyline": "#6e8d08",
+   "keylineLightMin": 3.07,
+   "deltaE00": {
+    "digitalOne": 74.8,
+    "amber": 42.51,
+    "amberSoft": 32.78,
+    "needsYou": 15.63,
+    "danger": 59.88,
+    "nearestGoogle": {
+     "name": "2015 logo green",
+     "value": "#3cba54",
+     "deltaE00": 17.81
+    }
+   }
+  },
+  {
+   "order": 3,
+   "id": "blush",
+   "label": "Blush",
+   "hex": "#ffc2d4",
+   "eye": "ink",
+   "family": "pink",
+   "oklch": {
+    "L": 0.8737999999999999,
+    "C": 0.073,
+    "h": 359
+   },
+   "luminance": 0.646,
+   "eyeHex": "#141b16",
+   "eyeContrast": 11.62,
+   "otherEye": 1.44,
+   "surfaces": {
+    "paper": 1.35,
+    "stone": 1.22,
+    "paper-raised": 1.44,
+    "card (msgs-in)": 1.21,
+    "night": 12.3,
+    "night-raised": 11.11,
+    "night-raised-2": 9.8,
+    "card (msgs-in-dark)": 9.74,
+    "black": 12.98,
+    "black-raised": 12.05
+   },
+   "discLightMin": 1.21,
+   "discDarkMin": 9.74,
+   "keyline": "#aa7384",
+   "keylineLightMin": 3.06,
+   "deltaE00": {
+    "digitalOne": 78.89,
+    "amber": 33.79,
+    "amberSoft": 29.4,
+    "needsYou": 41.8,
+    "danger": 25.69,
+    "nearestGoogle": {
+     "name": "logo red",
+     "value": "#ea4335",
+     "deltaE00": 32.83
+    }
+   }
+  },
+  {
+   "order": 4,
+   "id": "jade",
+   "label": "Jade",
+   "hex": "#068368",
+   "eye": "paper",
+   "family": "green",
+   "oklch": {
+    "L": 0.5438000000000001,
+    "C": 0.105,
+    "h": 171
+   },
+   "luminance": 0.173,
+   "eyeHex": "#fbfaf6",
+   "eyeContrast": 4.51,
+   "otherEye": 3.72,
+   "surfaces": {
+    "paper": 4.21,
+    "stone": 3.82,
+    "paper-raised": 4.51,
+    "card (msgs-in)": 3.77,
+    "night": 3.94,
+    "night-raised": 3.56,
+    "night-raised-2": 3.13,
+    "card (msgs-in-dark)": 3.12,
+    "black": 4.15,
+    "black-raised": 3.86
+   },
+   "discLightMin": 3.77,
+   "discDarkMin": 3.12,
+   "keyline": null,
+   "keylineLightMin": null,
+   "deltaE00": {
+    "digitalOne": 35.58,
+    "amber": 44.69,
+    "amberSoft": 44.55,
+    "needsYou": 12.6,
+    "danger": 56.82,
+    "nearestGoogle": {
+     "name": "material green 2",
+     "value": "#188038",
+     "deltaE00": 11.88
+    }
+   }
+  },
+  {
+   "order": 5,
+   "id": "periwinkle",
+   "label": "Periwinkle",
+   "hex": "#9ba0ff",
+   "eye": "ink",
+   "family": "blue",
+   "oklch": {
+    "L": 0.7406,
+    "C": 0.136,
+    "h": 280
+   },
+   "luminance": 0.393,
+   "eyeHex": "#141b16",
+   "eyeContrast": 7.4,
+   "otherEye": 2.27,
+   "surfaces": {
+    "paper": 2.12,
+    "stone": 1.92,
+    "paper-raised": 2.27,
+    "card (msgs-in)": 1.9,
+    "night": 7.83,
+    "night-raised": 7.08,
+    "night-raised-2": 6.24,
+    "card (msgs-in-dark)": 6.2,
+    "black": 8.27,
+    "black-raised": 7.67
+   },
+   "discLightMin": 1.9,
+   "discDarkMin": 6.2,
+   "keyline": "#7679d4",
+   "keylineLightMin": 3.08,
+   "deltaE00": {
+    "digitalOne": 59.11,
+    "amber": 46.4,
+    "amberSoft": 46.29,
+    "needsYou": 45.26,
+    "danger": 40.68,
+    "nearestGoogle": {
+     "name": "2015 logo blue",
+     "value": "#4885ed",
+     "deltaE00": 14.07
+    }
+   }
+  },
+  {
+   "order": 6,
+   "id": "cherry",
+   "label": "Cherry",
+   "hex": "#e00d61",
+   "eye": "paper",
+   "family": "red",
+   "oklch": {
+    "L": 0.5838,
+    "C": 0.23,
+    "h": 8
+   },
+   "luminance": 0.17,
+   "eyeHex": "#fbfaf6",
+   "eyeContrast": 4.57,
+   "otherEye": 3.67,
+   "surfaces": {
+    "paper": 4.26,
+    "stone": 3.86,
+    "paper-raised": 4.57,
+    "card (msgs-in)": 3.82,
+    "night": 3.89,
+    "night-raised": 3.51,
+    "night-raised-2": 3.1,
+    "card (msgs-in-dark)": 3.08,
+    "black": 4.1,
+    "black-raised": 3.81
+   },
+   "discLightMin": 3.82,
+   "discDarkMin": 3.08,
+   "keyline": null,
+   "keylineLightMin": null,
+   "deltaE00": {
+    "digitalOne": 48.03,
+    "amber": 33.89,
+    "amberSoft": 42.09,
+    "needsYou": 63.3,
+    "danger": 18.18,
+    "nearestGoogle": {
+     "name": "2015 logo red",
+     "value": "#db3236",
+     "deltaE00": 13.85
+    }
+   }
+  },
+  {
+   "order": 7,
+   "id": "indigo",
+   "label": "Indigo",
+   "hex": "#5660f6",
+   "eye": "paper",
+   "family": "blue",
+   "oklch": {
+    "L": 0.5708,
+    "C": 0.221,
+    "h": 274
+   },
+   "luminance": 0.17,
+   "eyeHex": "#fbfaf6",
+   "eyeContrast": 4.57,
+   "otherEye": 3.67,
+   "surfaces": {
+    "paper": 4.26,
+    "stone": 3.86,
+    "paper-raised": 4.57,
+    "card (msgs-in)": 3.82,
+    "night": 3.89,
+    "night-raised": 3.51,
+    "night-raised-2": 3.1,
+    "card (msgs-in-dark)": 3.08,
+    "black": 4.1,
+    "black-raised": 3.81
+   },
+   "discLightMin": 3.82,
+   "discDarkMin": 3.08,
+   "keyline": null,
+   "keylineLightMin": null,
+   "deltaE00": {
+    "digitalOne": 44.48,
+    "amber": 51.46,
+    "amberSoft": 56.27,
+    "needsYou": 44.55,
+    "danger": 43.73,
+    "nearestGoogle": {
+     "name": "material blue",
+     "value": "#1a73e8",
+     "deltaE00": 10.22
+    }
+   }
+  },
+  {
+   "order": 8,
+   "id": "mint",
+   "label": "Mint",
+   "hex": "#5ee6a8",
+   "eye": "ink",
+   "family": "green",
+   "oklch": {
+    "L": 0.8338,
+    "C": 0.149,
+    "h": 161
+   },
+   "luminance": 0.618,
+   "eyeHex": "#141b16",
+   "eyeContrast": 11.15,
+   "otherEye": 1.5,
+   "surfaces": {
+    "paper": 1.4,
+    "stone": 1.27,
+    "paper-raised": 1.5,
+    "card (msgs-in)": 1.26,
+    "night": 11.8,
+    "night-raised": 10.67,
+    "night-raised-2": 9.4,
+    "card (msgs-in-dark)": 9.35,
+    "black": 12.46,
+    "black-raised": 11.56
+   },
+   "discLightMin": 1.26,
+   "discDarkMin": 9.35,
+   "keyline": "#129564",
+   "keylineLightMin": 3.05,
+   "deltaE00": {
+    "digitalOne": 74.12,
+    "amber": 50.94,
+    "amberSoft": 42.03,
+    "needsYou": 14.14,
+    "danger": 67.45,
+    "nearestGoogle": {
+     "name": "2015 logo green",
+     "value": "#3cba54",
+     "deltaE00": 14.28
+    }
+   }
+  },
+  {
+   "order": 9,
+   "id": "bubblegum",
+   "label": "Bubblegum",
+   "hex": "#ff7eb6",
+   "eye": "ink",
+   "family": "pink",
+   "oklch": {
+    "L": 0.7559,
+    "C": 0.167,
+    "h": 355
+   },
+   "luminance": 0.396,
+   "eyeHex": "#141b16",
+   "eyeContrast": 7.44,
+   "otherEye": 2.26,
+   "surfaces": {
+    "paper": 2.1,
+    "stone": 1.91,
+    "paper-raised": 2.26,
+    "card (msgs-in)": 1.89,
+    "night": 7.87,
+    "night-raised": 7.12,
+    "night-raised-2": 6.27,
+    "card (msgs-in-dark)": 6.24,
+    "black": 8.31,
+    "black-raised": 7.71
+   },
+   "discLightMin": 1.89,
+   "discDarkMin": 6.24,
+   "keyline": "#d3568f",
+   "keylineLightMin": 3.06,
+   "deltaE00": {
+    "digitalOne": 62.91,
+    "amber": 36.95,
+    "amberSoft": 38.47,
+    "needsYou": 55.19,
+    "danger": 23.06,
+    "nearestGoogle": {
+     "name": "logo red",
+     "value": "#ea4335",
+     "deltaE00": 27.34
+    }
+   }
+  },
+  {
+   "order": 10,
+   "id": "apricot",
+   "label": "Apricot",
+   "hex": "#ffa98c",
+   "eye": "ink",
+   "family": "orange",
+   "oklch": {
+    "L": 0.8123999999999999,
+    "C": 0.11,
+    "h": 39
+   },
+   "luminance": 0.515,
+   "eyeHex": "#141b16",
+   "eyeContrast": 9.44,
+   "otherEye": 1.78,
+   "surfaces": {
+    "paper": 1.66,
+    "stone": 1.5,
+    "paper-raised": 1.78,
+    "card (msgs-in)": 1.49,
+    "night": 9.99,
+    "night-raised": 9.03,
+    "night-raised-2": 7.96,
+    "card (msgs-in-dark)": 7.91,
+    "black": 10.55,
+    "black-raised": 9.79
+   },
+   "discLightMin": 1.49,
+   "discDarkMin": 7.91,
+   "keyline": "#bd6d52",
+   "keylineLightMin": 3.07,
+   "deltaE00": {
+    "digitalOne": 68.76,
+    "amber": 18.02,
+    "amberSoft": 13.03,
+    "needsYou": 36.27,
+    "danger": 14.04,
+    "nearestGoogle": {
+     "name": "logo red",
+     "value": "#ea4335",
+     "deltaE00": 22.25
+    }
+   }
+  },
+  {
+   "order": 11,
+   "id": "sky",
+   "label": "Sky",
+   "hex": "#5cc8ff",
+   "eye": "ink",
+   "family": "sky blue",
+   "oklch": {
+    "L": 0.7915000000000001,
+    "C": 0.126,
+    "h": 234
+   },
+   "luminance": 0.508,
+   "eyeHex": "#141b16",
+   "eyeContrast": 9.32,
+   "otherEye": 1.8,
+   "surfaces": {
+    "paper": 1.68,
+    "stone": 1.52,
+    "paper-raised": 1.8,
+    "card (msgs-in)": 1.51,
+    "night": 9.86,
+    "night-raised": 8.91,
+    "night-raised-2": 7.85,
+    "card (msgs-in-dark)": 7.81,
+    "black": 10.41,
+    "black-raised": 9.66
+   },
+   "discLightMin": 1.51,
+   "discDarkMin": 7.81,
+   "keyline": "#148bbd",
+   "keylineLightMin": 3.08,
+   "deltaE00": {
+    "digitalOne": 66.06,
+    "amber": 49.39,
+    "amberSoft": 46.58,
+    "needsYou": 39.02,
+    "danger": 55.03,
+    "nearestGoogle": {
+     "name": "logo blue",
+     "value": "#4285f4",
+     "deltaE00": 21.23
+    }
+   }
+  },
+  {
+   "order": 12,
+   "id": "lemon",
+   "label": "Lemon",
+   "hex": "#ffe93f",
+   "eye": "ink",
+   "family": "yellow",
+   "oklch": {
+    "L": 0.9246,
+    "C": 0.177,
+    "h": 102
+   },
+   "luminance": 0.799,
+   "eyeHex": "#141b16",
+   "eyeContrast": 14.17,
+   "otherEye": 1.18,
+   "surfaces": {
+    "paper": 1.1,
+    "stone": 1,
+    "paper-raised": 1.18,
+    "card (msgs-in)": 1.01,
+    "night": 15,
+    "night-raised": 13.56,
+    "night-raised-2": 11.95,
+    "card (msgs-in-dark)": 11.88,
+    "black": 15.84,
+    "black-raised": 14.7
+   },
+   "discLightMin": 1,
+   "discDarkMin": 11.88,
+   "keyline": "#918312",
+   "keylineLightMin": 3.08,
+   "deltaE00": {
+    "digitalOne": 87.26,
+    "amber": 35.81,
+    "amberSoft": 24.41,
+    "needsYou": 22.08,
+    "danger": 49.43,
+    "nearestGoogle": {
+     "name": "2015 logo yellow",
+     "value": "#f4c20d",
+     "deltaE00": 10.67
+    }
+   }
+  },
+  {
+   "order": 13,
+   "id": "grape",
+   "label": "Grape",
+   "hex": "#9f47dc",
+   "eye": "paper",
+   "family": "purple",
+   "oklch": {
+    "L": 0.5814,
+    "C": 0.22,
+    "h": 308
+   },
+   "luminance": 0.17,
+   "eyeHex": "#fbfaf6",
+   "eyeContrast": 4.56,
+   "otherEye": 3.68,
+   "surfaces": {
+    "paper": 4.25,
+    "stone": 3.85,
+    "paper-raised": 4.56,
+    "card (msgs-in)": 3.81,
+    "night": 3.9,
+    "night-raised": 3.52,
+    "night-raised-2": 3.1,
+    "card (msgs-in-dark)": 3.09,
+    "black": 4.11,
+    "black-raised": 3.82
+   },
+   "discLightMin": 3.81,
+   "discDarkMin": 3.09,
+   "keyline": null,
+   "keylineLightMin": null,
+   "deltaE00": {
+    "digitalOne": 44.02,
+    "amber": 50.14,
+    "amberSoft": 55.74,
+    "needsYou": 44.44,
+    "danger": 39.33,
+    "nearestGoogle": {
+     "name": "material blue",
+     "value": "#1a73e8",
+     "deltaE00": 23.96
+    }
+   }
+  },
+  {
+   "order": 14,
+   "id": "lavender",
+   "label": "Lavender",
+   "hex": "#e9c8ff",
+   "eye": "ink",
+   "family": "purple",
+   "oklch": {
+    "L": 0.8783,
+    "C": 0.082,
+    "h": 312
+   },
+   "luminance": 0.659,
+   "eyeHex": "#141b16",
+   "eyeContrast": 11.83,
+   "otherEye": 1.42,
+   "surfaces": {
+    "paper": 1.32,
+    "stone": 1.2,
+    "paper-raised": 1.42,
+    "card (msgs-in)": 1.19,
+    "night": 12.52,
+    "night-raised": 11.31,
+    "night-raised-2": 9.97,
+    "card (msgs-in-dark)": 9.92,
+    "black": 13.22,
+    "black-raised": 12.27
+   },
+   "discLightMin": 1.19,
+   "discDarkMin": 9.92,
+   "keyline": "#9577a9",
+   "keylineLightMin": 3.06,
+   "deltaE00": {
+    "digitalOne": 78.04,
+    "amber": 43.21,
+    "amberSoft": 39.8,
+    "needsYou": 46.42,
+    "danger": 35.44,
+    "nearestGoogle": {
+     "name": "2015 logo blue",
+     "value": "#4885ed",
+     "deltaE00": 31.63
+    }
+   }
+  },
+  {
+   "order": 15,
+   "id": "watermelon",
+   "label": "Watermelon",
+   "hex": "#ff6075",
+   "eye": "ink",
+   "family": "coral red",
+   "oklch": {
+    "L": 0.7001999999999999,
+    "C": 0.193,
+    "h": 16
+   },
+   "luminance": 0.309,
+   "eyeHex": "#141b16",
+   "eyeContrast": 5.99,
+   "otherEye": 2.8,
+   "surfaces": {
+    "paper": 2.61,
+    "stone": 2.37,
+    "paper-raised": 2.8,
+    "card (msgs-in)": 2.34,
+    "night": 6.35,
+    "night-raised": 5.73,
+    "night-raised-2": 5.05,
+    "card (msgs-in-dark)": 5.03,
+    "black": 6.7,
+    "black-raised": 6.22
+   },
+   "discLightMin": 2.34,
+   "discDarkMin": 5.03,
+   "keyline": "#e64861",
+   "keylineLightMin": 3.08,
+   "deltaE00": {
+    "digitalOne": 56.64,
+    "amber": 26.52,
+    "amberSoft": 31.03,
+    "needsYou": 54.21,
+    "danger": 10.68,
+    "nearestGoogle": {
+     "name": "logo red",
+     "value": "#ea4335",
+     "deltaE00": 13.96
+    }
+   }
+  },
+  {
+   "order": 16,
+   "id": "lagoon",
+   "label": "Lagoon",
+   "hex": "#067f89",
+   "eye": "paper",
+   "family": "teal",
+   "oklch": {
+    "L": 0.5446,
+    "C": 0.092,
+    "h": 205
+   },
+   "luminance": 0.17,
+   "eyeHex": "#fbfaf6",
+   "eyeContrast": 4.56,
+   "otherEye": 3.68,
+   "surfaces": {
+    "paper": 4.26,
+    "stone": 3.86,
+    "paper-raised": 4.56,
+    "card (msgs-in)": 3.82,
+    "night": 3.89,
+    "night-raised": 3.52,
+    "night-raised-2": 3.1,
+    "card (msgs-in-dark)": 3.08,
+    "black": 4.11,
+    "black-raised": 3.81
+   },
+   "discLightMin": 3.82,
+   "discDarkMin": 3.08,
+   "keyline": null,
+   "keylineLightMin": null,
+   "deltaE00": {
+    "digitalOne": 34.73,
+    "amber": 43.23,
+    "amberSoft": 45.11,
+    "needsYou": 20.6,
+    "danger": 48.78,
+    "nearestGoogle": {
+     "name": "2015 logo blue",
+     "value": "#4885ed",
+     "deltaE00": 26.21
+    }
+   }
+  },
+  {
+   "order": 17,
+   "id": "orchid",
+   "label": "Orchid",
+   "hex": "#d27cf2",
+   "eye": "ink",
+   "family": "purple",
+   "oklch": {
+    "L": 0.7232999999999999,
+    "C": 0.185,
+    "h": 316
+   },
+   "luminance": 0.345,
+   "eyeHex": "#141b16",
+   "eyeContrast": 6.6,
+   "otherEye": 2.54,
+   "surfaces": {
+    "paper": 2.37,
+    "stone": 2.15,
+    "paper-raised": 2.54,
+    "card (msgs-in)": 2.13,
+    "night": 6.98,
+    "night-raised": 6.31,
+    "night-raised-2": 5.56,
+    "card (msgs-in-dark)": 5.53,
+    "black": 7.37,
+    "black-raised": 6.84
+   },
+   "discLightMin": 2.13,
+   "discDarkMin": 5.53,
+   "keyline": "#b35ed2",
+   "keylineLightMin": 3.08,
+   "deltaE00": {
+    "digitalOne": 56.42,
+    "amber": 46.82,
+    "amberSoft": 48.81,
+    "needsYou": 50.34,
+    "danger": 35.65,
+    "nearestGoogle": {
+     "name": "2015 logo blue",
+     "value": "#4885ed",
+     "deltaE00": 27.06
+    }
+   }
+  },
+  {
+   "order": 18,
+   "id": "aqua",
+   "label": "Aqua",
+   "hex": "#2ad4d4",
+   "eye": "ink",
+   "family": "cyan",
+   "oklch": {
+    "L": 0.7909,
+    "C": 0.128,
+    "h": 195
+   },
+   "luminance": 0.523,
+   "eyeHex": "#141b16",
+   "eyeContrast": 9.57,
+   "otherEye": 1.75,
+   "surfaces": {
+    "paper": 1.64,
+    "stone": 1.48,
+    "paper-raised": 1.75,
+    "card (msgs-in)": 1.47,
+    "night": 10.13,
+    "night-raised": 9.15,
+    "night-raised-2": 8.07,
+    "card (msgs-in-dark)": 8.02,
+    "black": 10.7,
+    "black-raised": 9.92
+   },
+   "discLightMin": 1.47,
+   "discDarkMin": 8.02,
+   "keyline": "#139191",
+   "keylineLightMin": 3.06,
+   "deltaE00": {
+    "digitalOne": 66.48,
+    "amber": 48.63,
+    "amberSoft": 42.53,
+    "needsYou": 23.82,
+    "danger": 58.79,
+    "nearestGoogle": {
+     "name": "2014-15 green",
+     "value": "#0f9d58",
+     "deltaE00": 26.84
+    }
+   }
+  }
+ ],
+ "distinctness": {
+  "nearestNormal": [
+   {
+    "pair": [
+     "lavender",
+     "blush"
+    ],
+    "deltaE00": 13.6
+   },
+   {
+    "pair": [
+     "grape",
+     "berry"
+    ],
+    "deltaE00": 13.61
+   },
+   {
+    "pair": [
+     "indigo",
+     "grape"
+    ],
+    "deltaE00": 13.68
+   },
+   {
+    "pair": [
+     "watermelon",
+     "bubblegum"
+    ],
+    "deltaE00": 13.99
+   },
+   {
+    "pair": [
+     "cherry",
+     "watermelon"
+    ],
+    "deltaE00": 14.58
+   },
+   {
+    "pair": [
+     "jade",
+     "lagoon"
+    ],
+    "deltaE00": 14.95
+   }
+  ],
+  "prefix": {
+   "5": {
+    "deltaE00": 17.37,
+    "pair": [
+     "berry",
+     "periwinkle"
+    ]
+   },
+   "8": {
+    "deltaE00": 10.67,
+    "pair": [
+     "blush",
+     "mint"
+    ]
+   },
+   "12": {
+    "deltaE00": 4.88,
+    "pair": [
+     "lime",
+     "lemon"
+    ]
+   },
+   "18": {
+    "deltaE00": 1.18,
+    "pair": [
+     "blush",
+     "aqua"
+    ]
+   }
+  },
+  "confusableUnder5": {
+   "protan": [
+    {
+     "pair": [
+      "aqua",
+      "blush"
+     ],
+     "deltaE00": 1.18
+    },
+    {
+     "pair": [
+      "watermelon",
+      "jade"
+     ],
+     "deltaE00": 4.07
+    },
+    {
+     "pair": [
+      "sky",
+      "lavender"
+     ],
+     "deltaE00": 4.23
+    },
+    {
+     "pair": [
+      "lemon",
+      "lime"
+     ],
+     "deltaE00": 4.88
+    }
+   ],
+   "deutan": [
+    {
+     "pair": [
+      "periwinkle",
+      "orchid"
+     ],
+     "deltaE00": 2.16
+    },
+    {
+     "pair": [
+      "indigo",
+      "grape"
+     ],
+     "deltaE00": 4.32
+    }
+   ],
+   "tritan": [
+    {
+     "pair": [
+      "jade",
+      "lagoon"
+     ],
+     "deltaE00": 2.52
+    },
+    {
+     "pair": [
+      "aqua",
+      "sky"
+     ],
+     "deltaE00": 3.47
+    },
+    {
+     "pair": [
+      "mint",
+      "aqua"
+     ],
+     "deltaE00": 3.57
+    }
+   ]
+  }
+ },
+ "orangeBand": [
+  {
+   "h": 30,
+   "C": 0.12,
+   "L": 0.78,
+   "hex": "#fb9989",
+   "amber": 19.35,
+   "amberSoft": 18.07
+  },
+  {
+   "h": 36,
+   "C": 0.115,
+   "L": 0.8,
+   "hex": "#fea38a",
+   "amber": 18.19,
+   "amberSoft": 14.69
+  },
+  {
+   "h": 42,
+   "C": 0.095,
+   "L": 0.83,
+   "hex": "#fdb397",
+   "amber": 19.17,
+   "amberSoft": 12.29
+  },
+  {
+   "h": 48,
+   "C": 0.075,
+   "L": 0.87,
+   "hex": "#fec6aa",
+   "amber": 22.11,
+   "amberSoft": 12.36
+  },
+  {
+   "h": 54,
+   "C": 0.065,
+   "L": 0.87,
+   "hex": "#f7c9ad",
+   "amber": 22.57,
+   "amberSoft": 12.19
+  },
+  {
+   "h": 60,
+   "C": 0.065,
+   "L": 0.89,
+   "hex": "#fcd1b0",
+   "amber": 23.83,
+   "amberSoft": 12.36
+  },
+  {
+   "h": 66,
+   "C": 0.07,
+   "L": 0.9,
+   "hex": "#ffd6ad",
+   "amber": 24.62,
+   "amberSoft": 12.28
+  },
+  {
+   "h": 72,
+   "C": 0.075,
+   "L": 0.9,
+   "hex": "#fed7a8",
+   "amber": 24.94,
+   "amberSoft": 12.27
+  },
+  {
+   "h": 78,
+   "C": 0.085,
+   "L": 0.9,
+   "hex": "#fdd89e",
+   "amber": 25.6,
+   "amberSoft": 12.71
+  },
+  {
+   "h": 84,
+   "C": 0.11,
+   "L": 0.89,
+   "hex": "#fdd583",
+   "amber": 25.98,
+   "amberSoft": 13.27
+  }
+ ],
+ "allGatesPass": true,
+ "failures": []
+}

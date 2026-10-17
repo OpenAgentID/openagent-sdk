@@ -15,7 +15,7 @@ import { z } from 'zod';
 import { didSchema, scopeSchema, type CreateAgentInput } from './config.js';
 import { IdentityError, ErrorCode, wrapError } from './errors.js';
 import { parseAvatarOverride } from './glyph.js';
-import { getCharacterSkins, type CharacterAppearance, type AvatarExpression } from './characters.js';
+import { getCharacterSkins, getOneColors, isOneColorAllowed, type CharacterAppearance, type AvatarExpression } from './characters.js';
 import { parseCharacterAccessories } from './character-accessories.js';
 
 /** Fully qualified `did:oas` identifier. */
@@ -86,6 +86,7 @@ export const characterAppearanceSchema = z.object({
   finish: z.enum(['plush', 'flat']).optional(),
   eyePlacement: z.enum(['face', 'raised']).optional(),
   shape: z.enum([...new Set(getCharacterSkins().flatMap(entry => entry.shapes))] as [NonNullable<CharacterAppearance['shape']>, ...NonNullable<CharacterAppearance['shape']>[]]).optional(),
+  color: z.enum(getOneColors().map(entry => entry.id) as [NonNullable<CharacterAppearance['color']>, ...NonNullable<CharacterAppearance['color']>[]]).optional(),
   accessories: z.array(z.enum(['glasses', 'headphones'])).max(2).transform((value, context) => {
     try { return parseCharacterAccessories(value); }
     catch {
@@ -100,6 +101,12 @@ export const characterAppearanceSchema = z.object({
   }
   if (value.eyeStyle !== undefined && !skin.eyeStyles.includes(value.eyeStyle)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['eyeStyle'], message: 'Unsupported eye style for skin' });
+  }
+  // A colour belongs to the One family's agents alone, stored with its shape: never to another family, never to
+  // Digital One, never alone and never a never pair.
+  if (value.color !== undefined && (value.skin !== 'one' || value.shape === undefined || value.shape === 'charcoal' ||
+      !isOneColorAllowed(value.shape, value.color))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['color'], message: 'Unsupported colour for skin and shape' });
   }
 });
 
