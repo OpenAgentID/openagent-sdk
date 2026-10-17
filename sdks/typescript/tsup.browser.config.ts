@@ -11,7 +11,8 @@ const browser = {
   sourcemap: true,
   splitting: false,
   clean: false,
-  treeshake: true,
+  // Esbuild and the final minifier remove dead code; retain the direct esbuild source map.
+  treeshake: false,
   noExternal: [/.*/],
 };
 

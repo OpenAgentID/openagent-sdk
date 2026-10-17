@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 const root = new URL('../', import.meta.url);
 const file = new URL('dist/browser/one.js', root);
 const source = await readFile(file, 'utf8');
+const inputMap = JSON.parse(await readFile(new URL('dist/browser/one.js.map', root), 'utf8'));
+console.log('One input source map:', inputMap.sources.join(', '));
 const match = /export\s*\{([^}]+)\};?/.exec(source);
 if (!match) throw new Error('One bundle must have one named ESM export block');
 const exports = match[1].split(',').map(entry => {
@@ -59,6 +61,7 @@ try {
     if (size < bytes) { compact = candidate; bytes = size; }
   }
   if (!compact) throw new Error('No One compression candidate');
+  console.log('One output source map:', JSON.parse(compact.map).sources.join(', '));
   await writeFile(file, compact.code);
   await writeFile(new URL('dist/browser/one.js.map', root), compact.map);
 } finally {
