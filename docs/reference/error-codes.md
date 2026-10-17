@@ -50,3 +50,10 @@ verification uses `IdentityVerificationError`, local storage uses
 `LocalWorkspaceError`, and the HTTP/MCP/SCIM integrations translate failures into
 their own protocol responses. Use the exact module's API reference when handling
 those errors. Rust and other language SDKs keep their own error types.
+
+`LocalWorkspaceError.code` is one of `invalid_input`, `invalid_state`,
+`unavailable`, `locked`, `untrusted_identity`, `no_signer`, `revoked` or
+`capacity`. A workspace path that passes through a symlink is refused with
+`unavailable` ("Workspace paths may not contain symlinks"); on macOS this
+includes the system temporary directory, where `/var` links to `/private/var`.
+Pass a real directory, or resolve the path with `fs.realpath` first.

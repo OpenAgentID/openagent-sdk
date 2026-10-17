@@ -1,10 +1,10 @@
 # MCP Integration
 
 Authenticated Model Context Protocol tools using the current OpenAgentID SDK.
-Works with SDK `^0.7.2` and MCP SDK `^1.27.0`.
+Works with SDK 0.7 (from 0.7.2) and 0.8 (`^0.7.2 || ^0.8.0`) and MCP SDK `^1.27.0`.
 
 ```sh
-npm install @openagentid/sdk@^0.7.2 @openagentid/mcp@0.2.0 @modelcontextprotocol/sdk@^1.27.0 zod
+npm install @openagentid/sdk @openagentid/mcp @modelcontextprotocol/sdk@^1.27.0 zod
 ```
 
 ## Run a real server and client

@@ -1,14 +1,14 @@
 # OpenAgentID documentation
 
 OpenAgentID is free, open agent identity and developer tooling in the
-[Open Software](https://open.software) family. Create a real identity, verify a
+Open Software family. Create a real identity, verify a
 signed request and mount an animated avatar on infrastructure you control.
 Life provides optional hosted services around the same core.
 
 ## Start here
 
 ```sh
-npx create-openagent@0.5.2 my-agent-app --yes
+npx create-openagent@0.6.0 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -16,7 +16,7 @@ npm run dev
 
 Open the printed local URL, then run `npm run agent` in another terminal. The
 receiver verifies a real signed request and updates the local avatar. The starter
-uses public SDK 0.7.2; no account, hosted identity service or private package is
+uses public SDK 0.8.0; no account, hosted identity service or private package is
 required. Node 20+ and private persistent storage are required for local identity.
 
 The [developer-tooling guide](developer-tooling.md) covers the complete public
@@ -32,7 +32,7 @@ revocation, portable verification, browser state and optional OIDC/OATS.
 | Verify signature, lineage, current authority and replay | [Identity verifier and Fetch API](identity-verification.md) |
 | Authenticate HTTP requests with configured clients | [Request authentication](guides/authenticating-requests.md) |
 | Animate current agent state or render deterministic SVG | [Characters and live eyes](characters.md), [Glyph](glyph.md) and [character design](guides/character-design.md) |
-| Federate an agent into an OIDC relying party | [OIDC 0.2.0 provider](../bridges/oidc/typescript/README.md) |
+| Federate an agent into an OIDC relying party | [OIDC provider](../bridges/oidc/typescript/README.md) |
 | Score verified agent attestations | [OATS verified-ingestion contract](oats.md) |
 | Understand trust, ownership, scopes and presentation | [Core concepts](getting-started/core-concepts.md) |
 | Supply service or anchor adapters | [Architecture](architecture/overview.md) and [lineage/anchor authority](architecture/lineage-finality.md) |
@@ -41,13 +41,14 @@ revocation, portable verification, browser state and optional OIDC/OATS.
 
 ## Current release and boundaries
 
-Published packages are `@openagentid/sdk@0.7.2`, `create-openagent@0.5.2` and the
-independent `@openagentid/oidc@0.2.0`. See the
-[0.7.2 shipment list](release-0.7.2.md). Other language modules and integration
-crates have separate feature/version tracks; this version statement does not
-claim public availability of all their dependencies.
+The current release is `@openagentid/sdk` 0.8.0 with `create-openagent` 0.6.0;
+the [README's package table](../README.md#packages) lists every npm package and
+version, and the [0.8.0 release contents](release-0.8.0.md) describe what
+shipped. Releases are published as described in [RELEASING](RELEASING.md).
+Other language modules and integration crates have their own feature and
+version tracks.
 
-The browser catalog contains 18 families, 75 kinds and 18 shared expressions,
+The browser catalog contains 18 families, 77 kinds and 18 shared expressions,
 including the One family of coloured heads with one bar for an eye.
 Autos, plush material, on-face eyes and face crop are the defaults. Appearance
 choices preserve the live eye timeline; they convey no identity authority or

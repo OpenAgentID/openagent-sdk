@@ -156,8 +156,8 @@ The packages in this repository that declare `@openagentid/sdk` now accept
 published 0.7.2: `@openagentid/http` 0.2.1, `@openagentid/mcp` 0.2.1,
 `@openagentid/claude-agent` 0.2.1, `@openagentid/scim` 0.2.1,
 `@openagentid/sdk-testing` 0.1.3, the deployment templates (0.2.1) and the
-unreleased `@openagentid/oidc` changes. Publish them with the SDK, so an
-application can install SDK 0.8.0 beside them. `@openagentid/anchor-eas` does
+`@openagentid/oidc` source, whose widened range is released after 0.3.0. They
+were published with the SDK, so an application installs SDK 0.8.0 beside them. `@openagentid/anchor-eas` does
 not depend on the SDK and is unchanged.
 
 The OpenAPI contract is version 0.8.0: the One kinds in every `shape` enum, the
@@ -205,7 +205,6 @@ module is compared with them. See
 | `create-openagent` | `0.6.0` | Existing real-key starter pinned to SDK 0.8.0; its family picker lists One |
 | `@openagentid/http`, `mcp`, `claude-agent`, `scim` | `0.2.1` | SDK peer range `^0.7.2 \|\| ^0.8.0` |
 | `@openagentid/sdk-testing` | `0.1.3` | SDK peer range `^0.7.2 \|\| ^0.8.0` |
-| `@openagentid/oidc` | unreleased | SDK peer range `^0.7.2 \|\| ^0.8.0` beside its unreleased Continue as Agent changes |
+| `@openagentid/oidc` | after `0.3.0` | SDK peer range `^0.7.2 \|\| ^0.8.0`; 0.3.0 (2026-10-13) carries the Continue as Agent button with `^0.7.2` |
 
-Source qualification, npm publication and any hosted rollout are verified
-separately; this file describes release contents, not publication status.
+Published to npm on 2026-10-17; tag `v0.8.0`.

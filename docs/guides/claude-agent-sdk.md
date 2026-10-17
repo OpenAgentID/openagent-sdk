@@ -1,11 +1,11 @@
 # Claude Agent SDK Integration
 
 OpenAgentID identity, tool/skill policy and audit hooks for the Claude Agent SDK.
-Compatible with OpenAgentID SDK `^0.7.2`; the native hook adapter is qualified
+Compatible with OpenAgentID SDK 0.7 (from 0.7.2) and 0.8 (`^0.7.2 || ^0.8.0`); the native hook adapter is qualified
 against `@anthropic-ai/claude-agent-sdk@0.3.296` and supports that `0.3` line.
 
 ```sh
-npm install @openagentid/sdk@^0.7.2 @openagentid/claude-agent@0.2.0 @anthropic-ai/claude-agent-sdk@^0.3.296
+npm install @openagentid/sdk @openagentid/claude-agent @anthropic-ai/claude-agent-sdk@^0.3.296
 ```
 
 ## Run without a model account

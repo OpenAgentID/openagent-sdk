@@ -1,7 +1,7 @@
 # Hello Agent
 
 Run real Ed25519 identity verification locally with no hosted service or private
-repository. Node 20+ is required; this example targets SDK 0.4.0.
+repository. Node 20+ is required; this example uses SDK 0.8.0.
 
 ```sh
 npm install
@@ -16,7 +16,7 @@ workspace directories contain their own Git ignore rules; preserve and protect
 them rather than committing or serving their contents.
 
 This program exercises the SDK directly. For a complete HTTP application and
-live browser avatars, follow the [starter quickstart](../../../../docs/getting-started/quickstart-typescript.md).
+live browser avatars, follow the [starter quickstart](../../../docs/getting-started/quickstart-typescript.md).
 The verified identity does not itself grant application permissions.
 
 Licensed under Apache-2.0 OR MIT.

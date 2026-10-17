@@ -3,7 +3,8 @@
 This is a map of the current SDK 0.8.0 surfaces. The linked source declarations
 are authoritative for exact types and exports; the public
 [developer-tooling guide](../developer-tooling.md) supplies the complete first
-integration. The separate OIDC package remains version 0.2.0.
+integration. The separate OIDC package, `@openagentid/oidc`, has its own version;
+see the [README's package table](../../README.md#packages).
 
 ## Node local authority
 
@@ -80,7 +81,7 @@ Root exports include `VerifiedOatsScorer` and `createOatsEvidenceVerifier`.
 They require verified attestation evidence, explicit trusted issuers and current
 identity/credential authority. See [OATS](../oats.md).
 
-The separate `@openagentid/oidc@0.2.0` exports `createAgentOidcProvider` and its
+The separate `@openagentid/oidc` exports `createAgentOidcProvider` and its
 configuration/identity contracts. See the [provider reference](../../bridges/oidc/typescript/README.md).
 The SDK's `oaid oidc doctor` is diagnosis, not an OIDC login client.
 
@@ -110,7 +111,7 @@ possession, and no capability scope is inferred from a DID string.
 
 ## HTTP authentication adapter
 
-`@openagentid/http@0.2.0` exports `HttpAuthClient`,
+`@openagentid/http` exports `HttpAuthClient`,
 `createOpenAgentHandler`, `createOpenAgentMiddleware`, and
 `createSdkIdentityKeyResolver`. `@openagentid/http/node` exports
 `verifyNodeSignature` for real Ed25519/secp256k1 verification. The SDK bridge

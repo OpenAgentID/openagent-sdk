@@ -1,6 +1,6 @@
 # @openagentid/sdk
 
-Open agent identity for the [Open Software](https://open.software) family.
+Open agent identity for the Open Software family.
 The core is free and open, with no mandatory hosted service. Agents may have a
 person/organization owner or be explicitly authorized self roots. Life offers
 optional hosted integrations with LifeID, Blinds and Genesis KMS. Approved self
@@ -8,7 +8,7 @@ roots have no reduced access tier; each application controls its permissions.
 
 ## Local identity, no hosted service required
 
-Use the Node-only local module in SDK 0.8.0 to keep identity
+Use the Node-only local module to keep identity
 keys, public trust pins, single-use challenges and revocations on your own host:
 
 ```ts
@@ -31,7 +31,10 @@ The [complete quickstart](https://github.com/OpenAgentID/openagent-sdk/blob/main
 shows separate signer/receiver workspaces and the generated application.
 
 The local module needs Node 20.19+ and private persistent storage on one host.
-Keep its directory out of Git. No Life account, remote authority, private SDK or
+Keep its directory out of Git. The workspace path is a real directory: a path
+that passes through a symlink is refused with `LocalWorkspaceError` (code
+`unavailable`), which includes macOS's temporary directory (`/var` links to
+`/private/var`); resolve such a path with `fs.realpath` first. No Life account, remote authority, private SDK or
 telemetry is required. Existing `IdentityVerifier` callbacks support applications
 that bring distributed storage or different trust authorities.
 
@@ -39,14 +42,23 @@ The `OpenAgent` facade still wraps separately configured OAS identity, Arsenal
 credentials and AEGIS verification clients. It fails closed if a required client
 is missing. Its endpoint options do not create those clients automatically.
 
+## Version 0.8.1
+
+The standalone One browser entry, `@openagentid/sdk/browser/one`, carries the
+complete live runtime (every shape, colour, motion and public state) within
+16 KiB gzipped, a budget CI checks on every change. It reports stable error
+codes; see [the code reference](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/browser-one-errors.md).
+Exception classes and validation guards are the same as the full SDK, which
+keeps descriptive error messages.
+
 ## Version 0.8.0
 
 Adds the One family: fourteen fun shapes in eighteen colours for agents, and
 Digital One, the black circle, for One itself, every head with one bar for an eye
 drawn from agent-eye, One's animated mark, with its own eye style `agent-eye-v1`.
 A DID selects a shape and a colour when no look is stored; eleven never pairs are
-refused. Hosts that draw only Ones can use the light `@openagentid/sdk/one` entry,
-whose standalone live runtime has a 16,384-byte default-gzip budget. Autos remains the default family, and every existing
+refused. Hosts that draw only Ones can use the light `@openagentid/sdk/one` entry.
+Autos remains the default family, and every existing
 family renders exactly as before. Four statuses join the shared timeline for
 every family (`typing`, `attention`, `paused`, `offline`), and `theme` and
 `label` join the rendering options. Identity documents that store a One
@@ -57,9 +69,11 @@ application's own agent records until every reader upgrades. See
 
 ## Version 0.7.3
 
-The supported integrations now target the current SDK with real signature,
-request, replay and revocation coverage. Use HTTP/MCP/Claude/SCIM/EAS 0.2.0,
-sdk-testing 0.1.2 and crypto-wasm 0.1.2. OIDC remains 0.2.0.
+The supported integrations target the current SDK with real signature,
+request, replay and revocation coverage. SDK 0.7.3 shipped beside HTTP, MCP,
+Claude, SCIM and EAS 0.2.0, sdk-testing 0.1.2 and crypto-wasm 0.1.2; the
+[companion packages](#companion-packages) table lists the versions that pair
+with the current SDK.
 
 ACT verification reads the trusted receiver clock on every call; an explicit
 `.atTime()` is only needed for controlled replay or tests. Native `Request`
@@ -163,6 +177,25 @@ Peer dependencies (optional — production fails closed when a subsystem is unco
 - `@openagentid/arsenal-sdk` — Arsenal credential broker client
 - `@openagentid/aegis-sdk` — AEGIS verification client
 - `@openagentid/crypto-wasm` — Shared WASM crypto primitives
+- `@openagentid/skills-policy` — contextual skill grants for `agent.skillsPolicy()`; see
+  [`@openagentid/sdk/integrations/skills-policy`](INTEGRATION_NOTES.md)
+
+### Companion packages
+
+Each release of this SDK is published with the companion packages below
+([release history](https://github.com/OpenAgentID/openagent-sdk/releases)).
+`npm install @openagentid/sdk @openagentid/<companion>` resolves a matching pair.
+
+| Package | Version for SDK 0.8 |
+|---|---|
+| `@openagentid/sdk-testing` | 0.1.3 |
+| `@openagentid/http` | 0.2.1 |
+| `@openagentid/mcp` | 0.2.1 |
+| `@openagentid/claude-agent` | 0.2.1 |
+| `@openagentid/scim` | 0.2.1 |
+| `@openagentid/anchor-eas` | 0.2.0 (no SDK peer) |
+| `@openagentid/crypto-wasm` | 0.1.2 |
+| `@openagentid/oidc` | 0.3.0 pairs with SDK 0.7 (`^0.7.2`); its SDK 0.8 range ships in the next release |
 
 ## The three-function happy path
 
@@ -205,7 +238,10 @@ skills.assertCanInvoke('backend-write'); // throws SkillDeniedError if denied
 ```
 
 Skills are immutable — `agent.withSkillsPolicy(...)` returns a new agent
-with the updated policy, leaving the original untouched.
+with the updated policy, leaving the original untouched. Production grants come
+from the optional `@openagentid/skills-policy` peer through
+`@openagentid/sdk/integrations/skills-policy`; see
+[INTEGRATION_NOTES.md](INTEGRATION_NOTES.md).
 
 ## Escape hatches
 
@@ -257,6 +293,13 @@ Character generation is public decoration, not identity authentication.
 
 See [the full API contract](../../docs/characters.md) and
 [OpenAPI 3.1 schema](../../docs/character-api.openapi.json).
+
+### Character accessories
+
+Glasses and headphones are optional, combinable layers on every character family.
+Use `accessories: ['glasses', 'headphones']` when rendering or mounting a character,
+and `player.setAppearance({ accessories: [] })` to remove them without resetting
+its live eyes. See the [accessory release guide](../../docs/release-0.6.0.md) for profile, API and CLI examples.
 
 ### The One family
 
@@ -346,12 +389,3 @@ try {
 Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
 
 Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
-
-### Character accessories
-
-Glasses and headphones are optional, combinable layers on every character family.
-Use `accessories: ['glasses', 'headphones']` when rendering or mounting a character,
-and `player.setAppearance({ accessories: [] })` to remove them without resetting
-its live eyes. See the [accessory release guide](../../docs/release-0.6.0.md) for profile, API and CLI examples.
-
-The standalone One browser entry reports stable production error codes; see [the code reference](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/browser-one-errors.md). Exception classes and validation guards are unchanged. The full SDK retains descriptive error messages.

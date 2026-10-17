@@ -1,6 +1,7 @@
 # OpenAgentID 0.2.0 release contents
 
-Status: candidate; not published. This release uses the existing canonical
+Published to npm on 2026-10-11 (`@openagentid/sdk` and `@openagentid/oidc`
+0.2.0); tag `v0.2.0`. This release uses the existing canonical
 `OpenAgentID/openagent-sdk` repository and existing npm package names.
 
 | Package | Published baseline | Candidate | Contents |

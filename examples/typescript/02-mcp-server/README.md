@@ -14,6 +14,5 @@ remain in a new `.openagent-example/` directory under this example on every run.
 Never commit that directory. These deliberately authorized local receiver pins
 are local application trust, not claims of LifeID ownership or global registration.
 
-The main SDK is `@openagentid/sdk@0.7.2` or its compatible patch. The integration
-is `0.2.0`. Release qualification runs the same commands against packed artifacts
+The main SDK is `@openagentid/sdk@0.8.0`. The integration is `0.2.1`. Release qualification runs the same commands against packed artifacts
 before publication.
