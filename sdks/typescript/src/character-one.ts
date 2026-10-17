@@ -82,7 +82,8 @@ export function isOneHeadColor(value: unknown): value is OneHeadColor {
 
 /** Whether `shape` may wear `color`: a known shape, a known colour, and not a never pair. */
 export function isOneColorAllowed(shape: unknown, color: unknown): boolean {
-  return isOneShape(shape) && isOneColor(color) && !shapeById.get(shape)!.never.includes(color);
+  const entry = shapeById.get(shape as OneShape);
+  return entry !== undefined && isOneColor(color) && !entry.never.includes(color);
 }
 
 function shapeOf(shape: OneShape): OneShapeDescription {
