@@ -138,7 +138,7 @@ export function createCharacterServer() {
         return;
       }
       const headers = new Headers();
-      for (const key of ['content-type', 'content-length', 'content-encoding', 'if-none-match',
+      for (const key of ['content-type', 'content-length', 'content-encoding', 'accept-encoding', 'if-none-match',
         'origin', 'access-control-request-method', 'access-control-request-headers']) {
         const value = incoming.headers[key];
         if (typeof value === 'string') headers.set(key, value);
