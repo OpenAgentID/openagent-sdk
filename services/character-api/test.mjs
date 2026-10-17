@@ -4,7 +4,7 @@ import { request as httpRequest } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import { createCharacterServer } from './server.mjs';
-import { generateCharacter, getCharacterSkins } from '../../sdks/typescript/dist/characters.js';
+import { generateCharacter, getCharacterSkins, getOneShapes, isOneColorAllowed } from '../../sdks/typescript/dist/characters.js';
 import { glyphEndpoint } from '../../sdks/typescript/dist/glyph.js';
 
 const did = 'did:oas:openagent:agent:preview';
@@ -43,9 +43,11 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.match(html, /Local demo fixture/);
   assert.match(html, /State changes stay in this page/);
   assert.match(html, /value="did:oas:openagent:agent:preview"/);
-  for (const id of ['skin', 'shape', 'view', 'finish', 'eye-placement', 'accessories', 'activity', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated', 'replay', 'timeline', 'code-example']) {
+  for (const id of ['skin', 'shape', 'color', 'color-field', 'view', 'finish', 'eye-placement', 'accessories', 'activity', 'expression', 'blink', 'gaze-x', 'gaze-y', 'animated', 'replay', 'timeline', 'code-example']) {
     assert.ok(html.includes(`id="${id}"`));
   }
+  // The colour control is hidden until a One agent shape is in use.
+  assert.match(html, /<label class="field" id="color-field" hidden>Colour<select id="color" name="color">/);
   assert.match(html, /id="finish"[^>]*><option value="plush">Soft plush<\/option><option value="flat">Flat vector<\/option>/);
   assert.match(html, /id="eye-placement"[^>]*><option value="face">On face<\/option><option value="raised">Raised<\/option>/);
   assert.ok(!/https?:\/\//.test(html));
@@ -61,6 +63,16 @@ test('serves the first-party demo, controls, assets and versioned API schema ove
   assert.ok(javascript.includes('player.setAppearance({ eyePlacement: eyePlacement.value })'));
   assert.ok(javascript.includes('finish: finish.value, eyePlacement: eyePlacement.value'));
   assert.ok(javascript.includes("animated.checked ? 'system' : true"));
+  // The One family's colour: offered only from the shape's allowed colours, sent to the player, the query and the body.
+  assert.ok(javascript.includes('getOneShapes, getOneColors, isOneColorAllowed, oneShapeForDid'));
+  assert.ok(javascript.includes('if (isOneColorAllowed(current, entry.id)) color.add('));
+  assert.ok(javascript.includes("query.set('color', color.value)"));
+  assert.ok(javascript.includes('...(color.value ? { color: color.value } : {})'));
+  assert.ok(javascript.includes('player.setAppearance({ shape: shape.value || null, color: color.value || null })'));
+  assert.ok(javascript.includes('player.setAppearance({ color: color.value || null })'));
+  assert.ok(javascript.includes("'Digital One'"));
+  assert.ok(javascript.includes('oneShapes.find(entry => entry.id === id).label'));
+  assert.ok((await (await fetch(endpoint('/demo.css'))).text()).includes('.field[hidden] { display: none; }'));
   assert.ok(!javascript.includes('fetch('));
   assert.ok(javascript.includes('prefers-reduced-motion'));
   assert.ok(javascript.includes('expression.value'));
@@ -151,6 +163,51 @@ test('serves strict shared finish and eye placement through the actual HTTP adap
     const response = await fetch(endpoint(didPath + query), { headers: { 'if-none-match': '*' } });
     assert.equal(response.status, 400); assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.deepEqual(await response.json(), { error: 'invalid_request' });
+  }
+});
+
+test('serves One kinds in their colours over HTTP, names every kind the demo lists, and refuses never pairs', async () => {
+  const one = getCharacterSkins().find(entry => entry.id === 'one');
+  assert.deepEqual(one.shapes, [...getOneShapes().map(entry => entry.id), 'charcoal']);
+  assert.equal(getOneShapes().find(entry => entry.id === 'squircle').label, 'Square');
+  assert.equal(getOneShapes().find(entry => entry.id === 'droplet').label, 'Drop');
+  for (const [shape, color] of [['star', 'lemon'], ['squircle', 'cherry'], ['droplet', 'lagoon'], ['diamond', 'aqua']]) {
+    assert.ok(isOneColorAllowed(shape, color));
+    const options = { skin: 'one', shape, color, size: 128, animated: false, state: { status: 'working' } };
+    const expected = generateCharacter(did, options);
+    assert.equal(expected.shape, shape);
+    assert.equal(expected.oneColor, color);
+    assert.ok(expected.svg.includes(`data-one-color="${color}"`));
+    const query = `?skin=one&shape=${shape}&color=${color}&size=128&animated=false&status=working`;
+    const response = await fetch(endpoint(didPath + query));
+    assert.equal(response.status, 200);
+    cors(response);
+    assert.deepEqual(await response.json(), expected);
+    assert.equal(await (await fetch(endpoint(svgPath + query))).text(), expected.svg);
+    const generated = await fetch(endpoint('/v1/characters/generate'), {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ did, ...options }),
+    });
+    assert.equal(generated.status, 200);
+    assert.deepEqual(await generated.json(), expected);
+  }
+  const digital = await (await fetch(endpoint(didPath + '?skin=one&shape=charcoal&size=128&animated=false'))).json();
+  assert.equal(digital.shape, 'charcoal');
+  assert.equal(digital.oneColor, undefined);
+  assert.ok(digital.svg.includes('data-one-color="charcoal"'));
+  // Never pairs, a colour on Digital One and a colour outside the One family are refused, never changed.
+  for (const query of ['?skin=one&shape=star&color=cherry', '?skin=one&shape=droplet&color=berry', '?skin=one&shape=diamond&color=lemon',
+    '?skin=one&shape=cloud&color=sky', '?skin=one&shape=charcoal&color=lemon', '?skin=autos&color=lemon', '?skin=one&shape=star&color=Lemon']) {
+    const response = await fetch(endpoint(didPath + query), { headers: { 'if-none-match': '*' } });
+    assert.equal(response.status, 400);
+    cors(response);
+    assert.deepEqual(await response.json(), { error: 'invalid_request' });
+    const [shape, color] = [query.match(/shape=([a-z]+)/)?.[1], query.match(/color=([A-Za-z]+)/)[1]];
+    if (shape && shape !== 'charcoal') assert.equal(isOneColorAllowed(shape, color), false);
+    const generated = await fetch(endpoint('/v1/characters/generate'), {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ did, skin: query.includes('skin=autos') ? 'autos' : 'one', ...(shape ? { shape } : {}), color }),
+    });
+    assert.equal(generated.status, 400);
   }
 });
 
