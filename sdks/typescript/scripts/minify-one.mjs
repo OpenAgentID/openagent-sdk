@@ -29,7 +29,8 @@ await writeFile(input, source.replace(match[0], `__oneExports=[${exports.map(({ 
 await writeFile(extern, '/** @externs */\nvar __oneExports;\n/** @constructor */ function OnePublic() {}\n' + api.map(name => `OnePublic.prototype.${name};`).join('\n'));
 try {
   const names = exports.map(({ name }) => name).join(',');
-  const wrapper = `const [${names}]=(function(){let __oneExports;%output%;return __oneExports;})();\nexport{${names}};\n//# sourceMappingURL=one.js.map`;
+  // The named export makes this an ES module: top-level bindings are already private.
+  const wrapper = `let __oneExports;%output%;const [${names}]=__oneExports;\nexport{${names}};\n//# sourceMappingURL=one.js.map`;
   execFileSync(fileURLToPath(new URL('node_modules/.bin/google-closure-compiler', root)), [
     '--compilation_level=ADVANCED', '--assume_function_wrapper', '--language_in=ECMASCRIPT_NEXT', '--language_out=ECMASCRIPT_NEXT', '--rewrite_polyfills=false',
     '--js=' + fileURLToPath(input), '--externs=' + fileURLToPath(extern), '--js_output_file=' + fileURLToPath(output),
