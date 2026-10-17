@@ -72,7 +72,8 @@ for (const entry of releaseSet()) {
     }
     if (!name.startsWith('@openagentid/') && name !== 'create-openagent') errors.push(`${name}: packages live under @openagentid/*.`);
     const repository = entry.manifest.repository;
-    if (repository?.url !== 'https://github.com/OpenAgentID/openagent-sdk.git' || repository?.directory !== directory) {
+    const url = repository?.url?.replace(/^git\+/, '');
+    if (url !== 'https://github.com/OpenAgentID/openagent-sdk.git' || repository?.directory !== directory) {
       errors.push(`${name}: package.json repository must be { url: https://github.com/OpenAgentID/openagent-sdk.git, directory: ${directory} } for provenance.`);
     }
   } else if (onNpm.gitHead && sha && onNpm.gitHead === sha) {

@@ -55,7 +55,8 @@ is skipped, and an existing GitHub release is edited in place.
    - bump every other package in the release set whose directory changed since the previous tag
      (`git diff --stat vPREVIOUS -- <directory>`);
    - when `create-openagent` is bumped, pin the new SDK in
-     `packages/create-openagent/src/templates/starter.ts` and `tools/public-onboarding/verify.mjs`;
+     `packages/create-openagent/src/templates/starter.ts`, its test
+     `packages/create-openagent/test/scaffold.test.mjs` and `tools/public-onboarding/verify.mjs`;
    - run `npm install --package-lock-only --ignore-scripts` in each bumped package and
      `node tools/release/sync-root-manifest.mjs` at the root;
    - in each bumped package's `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` with
