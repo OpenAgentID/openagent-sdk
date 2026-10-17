@@ -113,11 +113,11 @@ function colorAt(shape: OneShapeDescription, index: number): OneColor {
   throw new TypeError(`${shape.id} allows no colour`);
 }
 
-const encoder = new TextEncoder();
+let encoder: TextEncoder | undefined;
 
 /** The character seed shared with every family: BLAKE3 over `oaid-character-v1\0one\0<did>`. */
 export function oneSeed(did: string): Uint8Array {
-  return blake3(encoder.encode(`oaid-character-v1\u0000one\u0000${did}`));
+  return blake3((encoder ??= new TextEncoder()).encode(`oaid-character-v1\u0000one\u0000${did}`));
 }
 
 function agentSeed(did: string): Uint8Array {

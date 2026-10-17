@@ -31,7 +31,7 @@ try {
   const wrapper = 'const __oneApi={};(function(__oneExports){%output%})(__oneApi);\n' +
     exports.map(({ name }) => `export const ${name}=__oneApi[${JSON.stringify(name)}];`).join('\n') + '\n//# sourceMappingURL=one.js.map';
   execFileSync(fileURLToPath(new URL('node_modules/.bin/google-closure-compiler', root)), [
-    '--compilation_level=ADVANCED', '--language_in=ECMASCRIPT_NEXT', '--language_out=ECMASCRIPT_NEXT', '--rewrite_polyfills=false',
+    '--compilation_level=ADVANCED', '--assume_function_wrapper', '--language_in=ECMASCRIPT_NEXT', '--language_out=ECMASCRIPT_NEXT', '--rewrite_polyfills=false',
     '--js=' + fileURLToPath(input), '--externs=' + fileURLToPath(extern), '--js_output_file=' + fileURLToPath(output),
     '--create_source_map=' + fileURLToPath(map), '--source_map_include_content',
     '--source_map_input=' + fileURLToPath(input) + '|' + fileURLToPath(new URL('dist/browser/one.js.map', root)),
