@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Keep motion, stage, and head state in each constructor scope while retaining their constructable interfaces and independent head state.
+- Keep motion, stage, and head state in each constructor scope while retaining their constructable interfaces and independent head state and the existing SVG-root initialization invariant.
 
 - Select the smallest gzip output from fixed compression profiles with explicit public and dynamic-key boundaries; keep its matching source map.
 

@@ -432,7 +432,7 @@ export interface OneHead {
 export class OneHead {
 
   constructor(host: Element, options: OneHeadOptions) {
-    let _stateroot: SVGSVGElement;
+    let _stateroot!: SVGSVGElement;
     let _statemotion: OneMotion;
     let _stategroup: unknown;
     let _statefollows: boolean;
