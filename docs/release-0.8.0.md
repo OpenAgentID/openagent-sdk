@@ -24,7 +24,7 @@ Hosts that draw only Ones can use the light entry instead:
 
 ```ts
 import { renderOne, oneLookForDid } from '@openagentid/sdk/one';   // server: stills, DID defaults, blank heads
-import { mountOne } from '@openagentid/sdk/browser/one';          // client: the live runtime, 18.9 KB gzipped
+import { mountOne } from '@openagentid/sdk/browser/one';          // client: the standalone live runtime
 
 const look = agent.look ?? oneLookForDid(agent.did);               // { shape: 'flower', color: 'bubblegum' }
 element.innerHTML = renderOne({ did: agent.did, ...look, size: 44, label: agent.name, state });
@@ -168,19 +168,16 @@ The OpenAPI contract is version 0.8.0: the One kinds in every `shape` enum, the
 Measured with zlib's default gzip level after `npm run build`; `npm run size`
 enforces the budgets in CI. Both browser bundles are minified, with source maps.
 
-| Entry | 0.7.3 | 0.8.0 | Budget |
-| --- | --- | --- | --- |
-| `@openagentid/sdk/browser` (every family) | 63.1 KB (unminified) | 53.6 KB | 65 KB |
-| `@openagentid/sdk/browser/one` (the live One runtime) | — | 18.9 KB | 20 KB |
+| Entry | Default-gzip budget |
+| --- | --- |
+| `@openagentid/sdk/browser` (every family) | 65 KB |
+| `@openagentid/sdk/browser/one` (the complete live One runtime) | 16,384 bytes |
 
-The One app's script budget for animated heads was 16 KB (AVATARS.md §4.2), and
-the circles-only runtime met it at 15.1 KB. The shape library costs 3.7 KB
-gzipped in the live runtime: the fourteen paths with their eye placements,
-pivots, temperaments, default colours and never lists, and the eighteen colours.
-No code change removes that, so the runtime's gate is its measured need with
-headroom, 20 KB, and the One app's own budget is to be revisited when it moves to
-looks. The all-family bundle is minified from this release, like the One
-runtime, so it carries the shape library and still shrinks from 0.7.3.
+The One limit includes every cold-load runtime byte, all fourteen shapes,
+the eighteen colours and Digital One. It does not rely on shared application
+imports or deferred downloads. `npm run size` reports the exact built output.
+Lossless catalog sharing and pinned compression preserve the complete runtime;
+[compact errors](browser-one-errors.md) preserve validation and exception classes.
 
 ## Provenance
 

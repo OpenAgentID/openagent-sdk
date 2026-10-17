@@ -119,7 +119,7 @@ family's art and no schema library (see [The light One entry](#the-light-one-ent
 
 ```ts
 import { renderOne } from '@openagentid/sdk/one';           // server: stills and DID defaults
-import { mountOne } from '@openagentid/sdk/browser/one';   // client: the live runtime, 18.9 KB gzipped
+import { mountOne } from '@openagentid/sdk/browser/one';   // client: the standalone live runtime
 
 const html = renderOne({ did: agent.did, ...look, size: 44, label: `${agent.name}, agent`, state });
 const head = mountOne(element, { ...look, size: 44, label: `${agent.name}, agent`, state }); // takes over the still
@@ -490,12 +490,13 @@ helpers and `nextOneLook`; it never hashes a DID.
   takes the head's look (the stored one, or `oneLookForDid(did)` from the server),
   `charcoal` or `blank`; a live head needs no DID, so the browser runtime never
   hashes one.
-- **Budgets** (`npm run size`, run in CI): the live runtime is at most 20 KB
-  gzipped (18.9 KB in 0.8.0: the circles-only runtime was 15.1 KB and the shape
-  library and palette add 3.7 KB that no code change removes; the One app's
-  16 KB script budget for animated heads is to be revisited when it moves to
-  looks); the all-family browser bundle, minified from 0.8.0, stays at most 65 KB
-  gzipped (53.6 KB in 0.8.0; 63.1 KB unminified in 0.7.3).
+- **Budgets** (`npm run size`, run in CI): the complete, self-contained live One
+  entry must fit in 16,384 bytes with zlib's default gzip settings. All shapes,
+  colours and runtime features count toward that limit; no deferred dependency
+  download is excluded. The all-family browser bundle has a 65 KB gzip limit.
+  Both entries ship composed source maps. The One entry uses
+  [documented compact error codes](browser-one-errors.md); validation and native
+  exception classes are retained.
 
 ### Provenance of agent-eye
 

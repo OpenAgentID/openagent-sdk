@@ -2,31 +2,10 @@
 
 ## Unreleased
 
-- Reuse exact catalog membership maps and select the smallest semantics-preserving Closure/Terser compression profile for the standalone One delivery budget.
-
-- Share native math and freezing operations across presentation code; remove unused private easing presets. The DID-free live entry uses presentation randomness while DID-derived looks and seeded animation helpers stay deterministic.
-
-- Document stable production error codes for the standalone One browser entry; retain exception classes, validation guards, and verbose messages in the full SDK.
-
-- Create the DID text encoder lazily so the live-only entry has no unused encoder initialization.
-
-- Keep motion, stage, and head state in each constructor scope while retaining their constructable interfaces and independent head state and the existing SVG-root initialization invariant.
-
-- Select the smallest gzip output from fixed compression profiles with explicit public and dynamic-key boundaries; keep its matching source map.
-
-- Generate shared eye-placement defaults and retain explicit nonstandard picker labels without duplicating identical catalog fields.
-
-- Share appearance validation and listener wiring; create the full status catalog only when requested while preserving status validation.
-
-- Serve the exact standalone One browser module at `/one.js` with the same CSP, caching, and fixed asset routing as the all-family player.
-
-- Generate lossless shared command/value skeletons for the public SVG paths and live catalog insets; retain the general SVG helper and compare every catalog inset against it.
-
-- Share construction and clamping of held poses across faces without changing pose values; select least-held looks without temporary candidate arrays and keep private runtime fields separate from public descriptor names.
-
-- Compare the compressed live One entry with the all-family renderer across every allowed shape/colour pair and every public status in real Chromium.
-
-- Compress browser output with a pinned Terser pass that shortens an explicit list of internal One implementation properties and preserve composed source maps; derive internal pose-channel keys from the neutral pose so they stay consistent under property minification, and restore the One browser runtime's 16 KB gzip budget.
+- Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles.
+- Share lossless catalog path data, presentation intrinsics, held-pose construction and appearance validation. Keep mutable runtime state private to each head and retain deterministic DID-derived looks and seeded helpers.
+- Give the standalone browser entry documented compact error codes while preserving validation guards and exception classes; retain descriptive errors in the full SDK.
+- Serve the exact standalone module at `/one.js` with the existing CSP and asset-routing rules. Compare every allowed shape/colour and public status against the full renderer in Chromium, including disposal, motion limits and reduced motion.
 
 ## 0.8.0 — the One family, 2026-10-15
 
@@ -92,13 +71,10 @@
   element. The animator exposes `frame.one` for DOM-free renderers.
 - Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, the shape
   and colour helpers) and `@openagentid/sdk/browser/one`, the live runtime alone
-  at 18.9 KB gzipped, which never hashes a DID, with blank heads for ready-made
-  agents (drawn in the shape they will get) and their First blink. `npm run size`
-  enforces 20 KB for it (the circles-only runtime was 15.1 KB; the shape library
-  and palette add 3.7 KB that no code change removes, above the One app's 16 KB
-  script budget, which is to be revisited) and 65 KB for the all-family browser
-  bundle, now minified like the One runtime: 53.6 KB with the shape library
-  (63.1 KB unminified in 0.7.3).
+  with no DID hashing, and blank heads for ready-made agents (drawn in the
+  shape they will get) and their First blink. `npm run size` enforces 16,384
+  default-gzip bytes for the complete standalone One entry and 65 KB for the
+  all-family browser bundle. Both entries include source maps.
 - Add `typing`, `attention`, `paused` and `offline` statuses for every family,
   `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
   CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the
