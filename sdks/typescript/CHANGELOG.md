@@ -112,6 +112,11 @@
   five colours is 17.4; the first eight and twelve keep 10.7 and 4.9. The HTTP API
   and OpenAPI 0.8.0 accept `color` and return `oneColor` on One descriptors; the
   CLI takes `--color`; the public onboarding verifier renders the shapes live.
+  The hosted demo (`services/character-api/demo.*`) names the One kinds as
+  people see them (Square, Drop, Digital One) and adds a colour control that
+  offers only the colours the shape in use allows, passed to the player, the
+  query and the body; its service test covers the kinds, the colours and the
+  refusals over HTTP.
 
 ## 0.7.3 — current package compatibility, 2026-10-12
 

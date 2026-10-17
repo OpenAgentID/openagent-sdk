@@ -1,8 +1,10 @@
-import { mountCharacter, getCharacterExpressions, getCharacterStatuses, getCharacterSkins, getCharacterAccessories } from '/character-player.js';
+import { mountCharacter, getCharacterExpressions, getCharacterStatuses, getCharacterSkins, getCharacterAccessories,
+  getOneShapes, getOneColors, isOneColorAllowed, oneShapeForDid } from '/character-player.js';
 
 const element = id => document.getElementById(id);
 const skin = element('skin');
 const shape = element('shape');
+const color = element('color');
 const view = element('view');
 const finish = element('finish');
 const eyePlacement = element('eye-placement');
@@ -19,6 +21,8 @@ const sequence = [
   ['speaking', 1100], ['success', 1000], ['idle', 0],
 ];
 const catalog = getCharacterSkins();
+const oneShapes = getOneShapes();
+const oneColors = getOneColors();
 const selectedAccessories = () => Array.from(element('accessories').querySelectorAll('input:checked'), input => input.value);
 let player;
 let mountedDid;
@@ -38,10 +42,50 @@ function motionPreference() {
     : animated.checked ? 'Blink, gaze and expression transitions stay live.' : 'Live motion is off. Choose a state or hold a pose.';
 }
 
+// The One family's kinds carry the names people see: the library's labels (Square, Drop) and Digital One.
+function kindLabel(family, id) {
+  if (family !== 'one') return label(id);
+  return id === 'charcoal' ? 'Digital One' : oneShapes.find(entry => entry.id === id).label;
+}
+
 function shapesForSkin() {
   const selected = catalog.find(entry => entry.id === skin.value);
   shape.replaceChildren(new Option('From identity', ''));
-  for (const id of selected?.shapes ?? []) shape.add(new Option(label(id), id));
+  for (const id of selected?.shapes ?? []) shape.add(new Option(kindLabel(skin.value, id), id));
+  syncColors();
+}
+
+// The shape a One agent is drawn as: the chosen kind, or the DID's own shape. Undefined for other families, for
+// Digital One (he has no colour) and for a DID that selects no look.
+function oneShapeInUse() {
+  if (skin.value !== 'one' || shape.value === 'charcoal') return undefined;
+  if (shape.value) return shape.value;
+  try { return oneShapeForDid(element('did').value); } catch { return undefined; }
+}
+
+// Offer the colours the shape in use allows, never a never pair. A colour that the new shape does not allow falls
+// back to the shape's own colour, so a change of kind is never refused.
+function syncColors() {
+  const current = oneShapeInUse();
+  element('color-field').hidden = current === undefined;
+  const previous = color.value;
+  color.replaceChildren(new Option('From identity', ''));
+  if (current === undefined) return;
+  if (shape.value) {
+    const own = oneShapes.find(entry => entry.id === current).color;
+    color.options[0].text = `${kindLabel('one', current)}'s own (${oneColors.find(entry => entry.id === own).label})`;
+  }
+  for (const entry of oneColors) if (isOneColorAllowed(current, entry.id)) color.add(new Option(entry.label, entry.id));
+  color.value = Array.from(color.options, option => option.value).includes(previous) ? previous : '';
+}
+
+// The One head's resolved look, read from the mounted head's own root attributes.
+function oneLookInUse() {
+  const root = preview.querySelector('svg');
+  if (!root || root.dataset.characterSkin !== 'one') return '';
+  const kind = kindLabel('one', root.dataset.characterShape);
+  const paint = oneColors.find(entry => entry.id === root.dataset.oneColor);
+  return paint ? `${kind} · ${paint.label}` : kind;
 }
 
 function outputs() {
@@ -80,7 +124,7 @@ function codeExample() {
     'const avatar = document.createElement(\'div\');',
     'document.body.append(avatar);',
     `const player = mountCharacter(avatar, ${JSON.stringify(mountedDid ?? element('did').value)}, {`,
-    `  skin: ${JSON.stringify(skin.value)}, view: ${JSON.stringify(view.value)},${shape.value ? ` shape: ${JSON.stringify(shape.value)},` : ''}`,
+    `  skin: ${JSON.stringify(skin.value)}, view: ${JSON.stringify(view.value)},${shape.value ? ` shape: ${JSON.stringify(shape.value)},` : ''}${color.value ? ` color: ${JSON.stringify(color.value)},` : ''}`,
     `  finish: ${JSON.stringify(finish.value)}, eyePlacement: ${JSON.stringify(eyePlacement.value)},`,
     `  accessories: ${JSON.stringify(selectedAccessories())}, reducedMotion: 'system'`,
     '});',
@@ -106,16 +150,19 @@ function refresh() {
     animated: String(animated.checked && !motion.matches),
     blink: String(state.blink), gazeX: String(state.gaze.x), gazeY: String(state.gaze.y) });
   if (shape.value) query.set('shape', shape.value);
+  if (color.value) query.set('color', color.value);
   if (selectedAccessories().length) query.set('accessories', selectedAccessories().join(','));
   const identity = encodeURIComponent(mountedDid);
   element('svg-link').href = `/v1/characters/svg/${identity}?${query}`;
   element('json-link').href = `/v1/characters/${identity}?${query}`;
   element('descriptor').textContent = JSON.stringify({ did: mountedDid,
-    appearance: { skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, shape: shape.value || 'from identity', accessories: selectedAccessories(), size: Number(element('size').value) },
+    appearance: { skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, shape: shape.value || 'from identity',
+      ...(oneShapeInUse() === undefined ? {} : { color: color.value || (shape.value ? "shape's own" : 'from identity') }),
+      accessories: selectedAccessories(), size: Number(element('size').value) },
     state, reducedMotion: !animated.checked || motion.matches, activity: 'local demo fixture' }, null, 2);
   preview.setAttribute('aria-label', `${label(state.expression)} ${label(skin.value)} demonstration character fixture`);
   element('status').classList.remove('error');
-  element('status').textContent = `${label(skin.value)} · ${label(state.status)} · ${label(state.expression)}`;
+  element('status').textContent = [label(skin.value), oneLookInUse(), label(state.status), label(state.expression)].filter(Boolean).join(' · ');
   timelineStep(state.status);
 }
 
@@ -143,8 +190,9 @@ function remount() {
   element('descriptor').textContent = '';
   try {
     const did = element('did').value;
+    syncColors(); // A new DID may select another shape, which allows other colours.
     player = mountCharacter(preview, did, { skin: skin.value, view: view.value, finish: finish.value, eyePlacement: eyePlacement.value, accessories: selectedAccessories(),
-      ...(shape.value ? { shape: shape.value } : {}), size: Number(element('size').value),
+      ...(shape.value ? { shape: shape.value } : {}), ...(color.value ? { color: color.value } : {}), size: Number(element('size').value),
       animated: true, state: pose(), reducedMotion: animated.checked ? 'system' : true, transitionMs: 420 });
     mountedDid = did;
     player.update({ status: activity.value, ...pose(), ...(expression.value ? { expression: expression.value } : {}) });
@@ -210,8 +258,13 @@ element('accessories').addEventListener('change', () => {
   try { player.setAppearance({ accessories: selectedAccessories() }); refresh(); } catch (error) { showError(error); }
 });
 shape.addEventListener('change', () => {
+  syncColors(); // Digital One drops the colour; a shape keeps the colour only if it allows it.
   if (!player) return;
-  try { player.setAppearance({ shape: shape.value || null }); refresh(); } catch (error) { showError(error); }
+  try { player.setAppearance({ shape: shape.value || null, color: color.value || null }); refresh(); } catch (error) { showError(error); }
+});
+color.addEventListener('change', () => {
+  if (!player) return;
+  try { player.setAppearance({ color: color.value || null }); refresh(); } catch (error) { showError(error); }
 });
 element('size').addEventListener('change', () => {
   if (!player) return;

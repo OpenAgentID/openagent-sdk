@@ -26,6 +26,7 @@ h2 { margin: 0 0 8px; font-size: 18px; letter-spacing: -.02em; }
 .timeline li[aria-current=step] { background: #e5f1e7; border-color: #82b999; color: #215f42; font-weight: 600; }
 .code-panel { margin-top: 28px; }
 .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; font-size: 14px; font-weight: 600; min-width: 0; }
+.field[hidden] { display: none; }
 input:not([type=range]):not([type=checkbox]), select { min-width: 0; width: 100%; border: 1px solid #ced8ce; border-radius: 9px; background: #fff; color: inherit; padding: 11px 12px; font: inherit; font-weight: 400; }
 select { appearance: none; padding-right: 38px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: right 17px center, right 12px center; background-size: 5px 5px; background-repeat: no-repeat; }
 @media (forced-colors: active) { select { appearance: auto; background-image: none; } }
