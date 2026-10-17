@@ -1,0 +1,4 @@
+# Map every identity the maintainer has committed under to the GitHub-verified one, so `git shortlog`
+# and `git blame` attribute each commit to a single person.
+ONE <jay@l1fe.capital> ONE <one@ONEs-MacBook-Pro.local>
+ONE <jay@l1fe.capital> l1feorg <wrangler@l1fe.org>
