@@ -295,45 +295,45 @@ const clamp = (value: number, min: number, max: number): number => Math.min(max,
  * neutral show the warm face at the viewer, so the centred, slightly wide needs-you face stays the only
  * one that looks straight out. A negative gaze.x mirrors every face for right-to-left content.
  */
+function heldPose(look = 0, lift = 0, open = 1, tilt = 0, squash = 0, rotate = 0): OnePose {
+  return Object.freeze({ look: clamp(look, -1, 1), lift: clamp(lift, -1, 1), open, tilt,
+    smile: 0, mouth: 0, squash, rotate, hop: 0 });
+}
+
 export function oneHeldPose(face: OneFace, gaze: { readonly x: number; readonly y: number }, px: number): OnePose {
   const d = gaze.x < 0 ? -1 : 1;
   const gx = gaze.x, gy = gaze.y;
-  let pose: Partial<OnePose>;
   switch (face) {
-    case 'idle': case 'neutral': pose = gx === 0 && gy === 0 ? { tilt: 5, open: 0.92 } : { look: gx, lift: gy }; break;
-    case 'listening': pose = { lift: -0.05, open: 1.04 }; break;
-    case 'thinking': case 'thoughtful': pose = { look: 0.25 * d, lift: -0.45, open: 0.58, tilt: -8 * d }; break;
-    case 'working': pose = { look: 0.3 * d, lift: 0.3, open: 0.72 }; break;
-    case 'typing': pose = { look: 0.15 * d, lift: 0.55, open: 0.8 }; break;
-    case 'speaking': pose = { look: 0.08 * d, tilt: 5 * d, open: 0.92 }; break;
-    case 'done': case 'happy': pose = { look: Math.abs(gx) < 0.08 ? 0.08 * d : gx, lift: gy, tilt: 5 * d, open: 0.92 }; break;
-    case 'attention': pose = { look: 0, lift: 0, open: 1.06 }; break;
-    case 'waiting': pose = { look: 0.2 * d, lift: -0.4 }; break;
+    case 'idle': case 'neutral': return gx === 0 && gy === 0 ? heldPose(0, 0, 0.92, 5) : heldPose(gx, gy);
+    case 'listening': return heldPose(0, -0.05, 1.04);
+    case 'thinking': case 'thoughtful': return heldPose(0.25 * d, -0.45, 0.58, -8 * d);
+    case 'working': return heldPose(0.3 * d, 0.3, 0.72);
+    case 'typing': return heldPose(0.15 * d, 0.55, 0.8);
+    case 'speaking': return heldPose(0.08 * d, 0, 0.92, 5 * d);
+    case 'done': case 'happy': return heldPose(Math.abs(gx) < 0.08 ? 0.08 * d : gx, gy, 0.92, 5 * d);
+    case 'attention': return heldPose(0, 0, 1.06);
+    case 'waiting': return heldPose(0.2 * d, -0.4);
     case 'paused': case 'sleepy':
       // Below 64 px a closed lid is under a pixel, so smaller heads doze with a visible eye.
-      pose = px >= 64 ? { open: 0, lift: 0.35, tilt: 10 * d, squash: -4, rotate: 6 * d }
-        : { open: 0.42, lift: 0.4, tilt: 12 * d, look: -0.1 * d };
-      break;
-    case 'offline': pose = { look: -0.5 * d, lift: 0.15, open: 0.9 }; break;
-    case 'error': case 'sad': pose = { look: -0.35 * d, lift: 0.4, open: 0.85, tilt: -5 * d }; break;
-    case 'attentive': pose = { look: gx, lift: gy, open: 1.06 }; break;
-    case 'surprised': pose = { look: gx * 0.5, lift: gy - 0.1, open: 1.15 }; break;
-    case 'excited': pose = { look: gx, lift: gy - 0.15, open: 1.1, tilt: 6 * d }; break;
-    case 'laughing': pose = { look: gx, lift: gy - 0.1, open: 0.6, tilt: 8 * d }; break;
-    // One never shows anger or fear: these read as a level, narrowed eye and a startled glance away.
-    case 'angry': pose = { look: gx, lift: gy, open: 0.62 }; break;
-    case 'scared': pose = { look: -0.3 * d, lift: 0.1, open: 1.12 }; break;
-    case 'suspicious': pose = { look: 0.55 * d, open: 0.55 }; break;
-    case 'confused': pose = { look: -0.2 * d, lift: -0.2, open: 0.9, tilt: -12 * d }; break;
-    case 'curious': pose = { look: 0.32 * d, lift: -0.2, open: 0.8, tilt: -10 * d }; break;
-    case 'proud': pose = { look: gx, lift: -0.25, open: 0.85, tilt: 6 * d }; break;
-    case 'shy': pose = { look: -0.45 * d, lift: 0.45, open: 0.8, tilt: 8 * d }; break;
-    case 'unimpressed': pose = { look: gx, lift: gy, open: 0.45 }; break;
-    case 'concerned': pose = { look: gx * 0.5, lift: 0.2, open: 0.9, tilt: -7 * d }; break;
+      return px >= 64 ? heldPose(0, 0.35, 0, 10 * d, -4, 6 * d) : heldPose(-0.1 * d, 0.4, 0.42, 12 * d);
+    case 'offline': return heldPose(-0.5 * d, 0.15, 0.9);
+    case 'error': case 'sad': return heldPose(-0.35 * d, 0.4, 0.85, -5 * d);
+    case 'attentive': return heldPose(gx, gy, 1.06);
+    case 'surprised': return heldPose(gx * 0.5, gy - 0.1, 1.15);
+    case 'excited': return heldPose(gx, gy - 0.15, 1.1, 6 * d);
+    case 'laughing': return heldPose(gx, gy - 0.1, 0.6, 8 * d);
+    // One never shows anger or fear: a narrowed eye and a startled glance away.
+    case 'angry': return heldPose(gx, gy, 0.62);
+    case 'scared': return heldPose(-0.3 * d, 0.1, 1.12);
+    case 'suspicious': return heldPose(0.55 * d, 0, 0.55);
+    case 'confused': return heldPose(-0.2 * d, -0.2, 0.9, -12 * d);
+    case 'curious': return heldPose(0.32 * d, -0.2, 0.8, -10 * d);
+    case 'proud': return heldPose(gx, -0.25, 0.85, 6 * d);
+    case 'shy': return heldPose(-0.45 * d, 0.45, 0.8, 8 * d);
+    case 'unimpressed': return heldPose(gx, gy, 0.45);
+    case 'concerned': return heldPose(gx * 0.5, 0.2, 0.9, -7 * d);
     default: throw new TypeError('Unsupported One face');
   }
-  const result = { ...ONE_NEUTRAL, ...pose };
-  return Object.freeze({ ...result, look: clamp(result.look, -1, 1), lift: clamp(result.lift, -1, 1) });
 }
 
 

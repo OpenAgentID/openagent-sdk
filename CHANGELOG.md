@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Share construction and clamping of held poses across faces without changing pose values.
+
 - Optimize the closed One runtime with a pinned Closure compiler behind an explicit ESM, public-property, dynamic lookup and SVG attribute boundaries; retain the standard browser API and source map.
 
 - Compare the compressed live One entry with the all-family renderer across every allowed shape/colour pair and every public status in real Chromium.
