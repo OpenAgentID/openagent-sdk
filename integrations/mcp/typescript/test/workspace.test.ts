@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -9,8 +9,12 @@ import { z } from 'zod';
 import { expect, it } from 'vitest';
 import { createWorkspaceMcpClient, createWorkspaceMcpServer, withOpenAgent, withOpenAgentClient, buildIdentityMeta } from '../src/index.js';
 
+// The local workspace refuses paths that pass through a symlink, and the system temporary directory is one
+// on macOS (/var -> /private/var), so resolve it first.
+const workspaceParent = () => realpath(tmpdir());
+
 it('runs real MCP calls with SDK keys, request binding, policy, replay and revocation', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'oaid-mcp-'));
+  const directory = await mkdtemp(join(await workspaceParent(), 'oaid-mcp-'));
   const server = new McpServer({ name: 'verified-tools', version: '1.0.0' });
   const raw = new Client({ name: 'verified-agent', version: '1.0.0' });
   try {
@@ -55,7 +59,7 @@ it('runs real MCP calls with SDK keys, request binding, policy, replay and revoc
 });
 
 it.each([false, true])('binds raw calls while schemas default/coerce/transform/strip (already connected: %s)', async alreadyConnected => {
-  const directory = await mkdtemp(join(tmpdir(), 'oaid-mcp-schema-'));
+  const directory = await mkdtemp(join(await workspaceParent(), 'oaid-mcp-schema-'));
   const server = new McpServer({ name: 'schema-tools', version: '1.0.0' });
   const raw = new Client({ name: 'schema-caller', version: '1.0.0' });
   try {

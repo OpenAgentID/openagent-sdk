@@ -10,6 +10,9 @@
     "url": "https://github.com/OpenAgentID/openagent-sdk.git",
     "directory": "sdks/typescript"
   },
+  "bugs": {
+    "url": "https://github.com/OpenAgentID/openagent-sdk/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
