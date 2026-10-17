@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.1 — standalone One runtime
 
 - Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles.
 - Share lossless catalog path data, presentation intrinsics, held-pose construction and appearance validation. Keep mutable runtime state private to each head and retain deterministic DID-derived looks and seeded helpers.

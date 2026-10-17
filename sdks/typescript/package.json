@@ -1,6 +1,6 @@
 {
   "name": "@openagentid/sdk",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Open agent identity, local trust and verification, and live animated avatars. No hosted service required.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
