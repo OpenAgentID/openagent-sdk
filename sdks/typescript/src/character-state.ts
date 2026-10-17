@@ -1,5 +1,6 @@
 /** Portable presentation state. Status never grants identity or application authority. */
-import { freeze, numberIsFinite, objectEntries, objectKeys } from './character-intrinsics.js';
+import { hasOnlyKeys } from './character-record.js';
+import { freeze, numberIsFinite, objectEntries } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 
 export const CHARACTER_EXPRESSIONS = freeze(['neutral', 'attentive', 'surprised', 'excited',
@@ -65,8 +66,7 @@ export function expressionForStatus(value: unknown): AvatarExpression {
 }
 
 export function characterStateRecord(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      objectKeys(value).some(key => !['status', 'expression', 'blink', 'gaze'].includes(key))) {
+  if (!hasOnlyKeys(value, ['status', 'expression', 'blink', 'gaze'])) {
     throw new TypeError(oneError(4, () => ('Invalid character state')));
   }
   return value as Record<string, unknown>;
@@ -90,8 +90,7 @@ export function parseCharacterState(input: unknown, fallbackExpression: AvatarEx
   let x = 0;
   let y = 0;
   if (value.gaze !== undefined) {
-    if (!value.gaze || typeof value.gaze !== 'object' || Array.isArray(value.gaze) ||
-        objectKeys(value.gaze).some(key => key !== 'x' && key !== 'y')) throw new TypeError(oneError(6, () => ('Invalid character gaze')));
+    if (!hasOnlyKeys(value.gaze, ['x', 'y'])) throw new TypeError(oneError(6, () => ('Invalid character gaze')));
     const gaze = value.gaze as Record<string, unknown>;
     x = bounded(gaze.x, -1, 1);
     y = bounded(gaze.y, -1, 1);

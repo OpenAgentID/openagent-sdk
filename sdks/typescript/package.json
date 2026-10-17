@@ -208,7 +208,9 @@
     "terser": "5.51.2",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "@jridgewell/trace-mapping": "0.3.31",
+    "@jridgewell/gen-mapping": "0.3.13"
   },
   "keywords": [
     "openagent",

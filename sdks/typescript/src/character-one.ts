@@ -9,6 +9,7 @@
  * the face. Digital One is always the circle and always `#141b16`, on every surface; no agent is a circle and no
  * agent is black. A never pair (a shape in a colour that would turn it into a sign) is refused, never changed.
  */
+import { hasOnlyKeys } from './character-record.js';
 import { M_PI, clamp, freeze, mAbs, mCeil, mCos, mHypot, mMax, mMin, mPow, mSin, mSqrt, numberIsFinite, objectKeys } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 import { blake3 } from '@noble/hashes/blake3';
@@ -188,15 +189,13 @@ export function nextOneLook(held: Iterable<OneLookHolder>, options?: { readonly 
   if (held === null || typeof held !== 'object' || typeof (held as Iterable<unknown>)[Symbol.iterator] !== 'function') {
     throw new TypeError(oneError(12, () => ('Held One looks must be iterable')));
   }
-  if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options) ||
-      objectKeys(options).some(key => key !== 'group'))) throw new TypeError(oneError(13, () => ('Invalid One look options')));
+  if (options !== undefined && !hasOnlyKeys(options, ['group'])) throw new TypeError(oneError(13, () => ('Invalid One look options')));
   const group = options?.group === undefined ? undefined : parseGroup(options.group);
   const shapeCounts = new Map<OneShape, number>(shapeIds.map(id => [id, 0]));
   const colorCounts = new Map<OneColor, number>(colorIds.map(id => [id, 0]));
   const sharedShapes = new Set<OneShape>(), sharedColors = new Set<OneColor>();
   for (const entry of held as Iterable<unknown>) {
-    if (entry === null || typeof entry !== 'object' || Array.isArray(entry) ||
-        objectKeys(entry).some(key => key !== 'shape' && key !== 'color' && key !== 'group')) throw new TypeError(oneError(14, () => ('Invalid One look holder')));
+    if (!hasOnlyKeys(entry, ['shape', 'color', 'group'])) throw new TypeError(oneError(14, () => ('Invalid One look holder')));
     const holder = entry as Record<string, unknown>;
     if (!isOneShape(holder.shape)) throw new TypeError(oneError(15, () => ('Unsupported One shape')));
     if (!isOneColor(holder.color)) throw new TypeError(oneError(16, () => ('Unsupported One colour')));

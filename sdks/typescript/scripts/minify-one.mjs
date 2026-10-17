@@ -1,6 +1,8 @@
 /** Optimize the closed One runtime while preserving its public ESM boundary. */
 import { minify } from 'terser';
 import { gzipSync } from 'node:zlib';
+import { TraceMap, decodedMappings, originalPositionFor } from '@jridgewell/trace-mapping';
+import { GenMapping, addSegment, setSourceContent, toEncodedMap } from '@jridgewell/gen-mapping';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -37,12 +39,24 @@ try {
     '--compilation_level=ADVANCED', '--assume_function_wrapper', '--language_in=ECMASCRIPT_NEXT', '--language_out=ECMASCRIPT_NEXT', '--rewrite_polyfills=false',
     '--js=' + fileURLToPath(input), '--externs=' + fileURLToPath(extern), '--js_output_file=' + fileURLToPath(output),
     '--create_source_map=' + fileURLToPath(map), '--source_map_include_content',
-    '--source_map_input=' + fileURLToPath(input) + '|' + fileURLToPath(new URL('dist/browser/one.js.map', root)),
     '--output_wrapper=' + wrapper,
   ], { stdio: 'inherit' });
   const result = await readFile(output, 'utf8');
   if (!exports.every(({ name }) => result.includes(`export const ${name}=`))) throw new Error('One export boundary lost');
-  const content = await readFile(map, 'utf8');
+  // Compose explicitly: Closure's input-map composition drops later bundled sources.
+  const closureMap = new TraceMap(JSON.parse(await readFile(map, 'utf8')));
+  const originalMap = new TraceMap(inputMap);
+  const combined = new GenMapping({ file: 'one.js' });
+  for (const [line, segments] of decodedMappings(closureMap).entries()) {
+    for (const segment of segments) {
+      const original = segment.length < 4 ? null : originalPositionFor(originalMap, { line: segment[2] + 1, column: segment[3] });
+      if (original?.source != null && original.line != null && original.column != null) {
+        addSegment(combined, line, segment[0], original.source, original.line - 1, original.column, original.name ?? undefined);
+      } else addSegment(combined, line, segment[0]);
+    }
+  }
+  inputMap.sources.forEach((name, index) => setSourceContent(combined, name, inputMap.sourcesContent[index]));
+  const content = toEncodedMap(combined);
   // Evaluate only semantics-preserving compression choices; gzip is the delivery budget.
   const profiles = [{}, { hoist_vars: true, hoist_funs: true }, { inline: false },
     { keep_fargs: false }, { collapse_vars: false, reduce_vars: false },
@@ -61,7 +75,11 @@ try {
     if (size < bytes) { compact = candidate; bytes = size; }
   }
   if (!compact) throw new Error('No One compression candidate');
-  console.log('One output source map:', JSON.parse(compact.map).sources.join(', '));
+  const mapped = JSON.parse(compact.map).sources;
+  for (const sourceName of ['character-one.ts', 'character-one-motion.ts', 'character-one-player.ts', 'character-state.ts', 'one.ts']) {
+    if (!mapped.some(name => name.endsWith('/' + sourceName))) throw new Error('Missing One source mapping: ' + sourceName);
+  }
+  console.log('One output source map:', mapped.join(', '));
   await writeFile(file, compact.code);
   await writeFile(new URL('dist/browser/one.js.map', root), compact.map);
 } finally {

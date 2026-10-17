@@ -2,8 +2,8 @@
 
 ## 0.8.1 — standalone One runtime
 
-- Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles; use one bundler pass to retain original source locations.
-- Keep the private motion builder in a lexical scope; share lossless fixed-point catalog path data (generation proves every decoded number is identical), presentation intrinsics, held-pose construction and appearance validation. Keep mutable runtime state private to each head and retain deterministic DID-derived looks and seeded helpers.
+- Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles; compose original source locations explicitly and reject maps missing the main runtime sources.
+- Keep the private motion builder in a lexical scope; share lossless fixed-point catalog path data (generation proves every decoded number is identical), presentation intrinsics, held-pose construction and strict presentation-record validation. Keep mutable runtime state private to each head and retain deterministic DID-derived looks and seeded helpers.
 - Give the standalone browser entry documented compact error codes while preserving validation guards and exception classes; retain descriptive errors in the full SDK.
 - Serve the exact standalone module at `/one.js` with the existing CSP and asset-routing rules. Compare every allowed shape/colour and public status against the full renderer in Chromium, including disposal, motion limits and reduced motion.
 

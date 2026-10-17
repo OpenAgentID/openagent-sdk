@@ -4,7 +4,8 @@
  * bundlers; `@openagentid/sdk/browser/one` is the same entry built self-contained for a browser. Importing it
  * does not touch a DOM. Heads are identical to `generateCharacter` and `mountCharacter` with `skin: 'one'`.
  */
-import { freeze, numberIsInteger, objectKeys, presentationRandom } from './character-intrinsics.js';
+import { hasOnlyKeys } from './character-record.js';
+import { freeze, numberIsInteger, presentationRandom } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 import { isAgentAvatarDid } from './avatar-did.js';
 import { parseCharacterLabel } from './character-label.js';
@@ -100,7 +101,7 @@ const stillKeys = ['did', 'shape', 'color', 'size', 'theme', 'label', 'expressio
 const mountKeys = ['shape', 'color', 'size', 'theme', 'label', 'expression', 'state', 'animated', 'reducedMotion', 'cadence', 'group', 'voiceLevel', 'follow'];
 
 function record(value: unknown, keys: readonly string[], label: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || objectKeys(value).some(key => !keys.includes(key))) {
+  if (!hasOnlyKeys(value, keys)) {
     throw new TypeError(oneError(37, () => (`Invalid One ${label}`)));
   }
   return value as Record<string, unknown>;
