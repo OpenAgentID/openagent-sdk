@@ -1,32 +1,32 @@
 # Changelog
 
-## 0.2.1 — 2026-10-15
+All notable changes to `@openagentid/mcp` are documented in this file. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package follows
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Each date is the UTC day npm published that
+version.
+
+## [Unreleased]
+
+- Develop and test against `@openagentid/sdk` 0.8.0 and Vitest 4.1.11; CI also tests the package against the SDK built from the same commit.
+- Ship the verbatim Apache License, Version 2.0 text in `LICENSE-APACHE`.
+- The workspace tests resolve the temporary directory before creating workspaces, so they pass where it is a symlink (macOS).
+
+## [0.2.1] - 2026-10-17
 
 - Accept `@openagentid/sdk` 0.8.0 beside 0.7.x (peer range `^0.7.2 || ^0.8.0`). No API change: the
   package's typecheck, tests and build are qualified against a packed SDK 0.8.0 as well as the published 0.7.2.
 
-## 0.2.0 — 2026-10-12
+## [0.2.0] - 2026-10-12
 
 - Current SDK workspace adapters use real Ed25519 proofs with caller/tool/argument-bound challenges, receiver-owned scopes, replay and revocation checks. Raw wire requests are captured before schema parsing so defaults, transforms and stripped fields preserve binding. Client mutations run before signing; native MCP integration and stdio example cover the complete path.
 
-All notable changes to `@openagent/mcp` are documented in this file.
-
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### Changed
-
-- **Breaking:** package renamed from `@openagent/mcp` to `@openagentid/mcp`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
-
-## [0.1.1] - 2026-07-31
+## [0.1.1] - 2026-08-01
 
 ### Fixed
 
 - Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
 
-## [0.1.0] - 2026-04-11
+## [0.1.0] - 2026-08-01
 
 ### Added
 
@@ -62,3 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Built and published against `@modelcontextprotocol/sdk@^1.27.0`.
 - Documentation: README quickstart, hooks reference, errors table,
   configuration reference, links to <https://openagent.id/docs/integrations/mcp>.
+
+### Changed
+
+- **Breaking:** the package is `@openagentid/mcp`; the source previously used the `@openagent/mcp` name, which this project never published because a third party holds the `@openagent` npm scope. Dependency names and imports use `@openagentid/*`.

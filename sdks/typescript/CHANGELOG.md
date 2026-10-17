@@ -1,13 +1,28 @@
 # Changelog
 
-## 0.8.1 — standalone One runtime
+All notable changes to `@openagentid/sdk` are documented in this file. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package follows
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Each date is the UTC day npm published that
+version; releases are cut from `vX.Y.Z` tags as described in [RELEASING](../../docs/RELEASING.md).
+
+## [Unreleased]
+
+The standalone One runtime (0.8.1).
 
 - Keep the CLI and SDK version aligned at 0.8.1. Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles with one shared public/dynamic property reservation list and a direct module-scoped export bindings verified by importing the final ESM namespace; retain unminified bundler mappings until final compression, compose original source locations explicitly and reject maps missing the main runtime sources.
 - Keep the private motion builder and window stage in lexical scopes, share identical decimal formatting, and avoid duplicate catalog lookups; share lossless fixed-point catalog path data (generation proves every decoded number is identical), presentation intrinsics, held-pose construction and strict presentation-record validation. Keep unused general easing presets out of the live entry while retaining the full preset export. Keep mutable runtime state private to each head and retain deterministic DID-derived looks and seeded helpers.
 - Give the standalone browser entry documented compact error codes while preserving validation guards and exception classes; retain descriptive errors in the full SDK.
 - Serve the exact standalone module at `/one.js` with the existing CSP and asset-routing rules, default-gzip delivery, and encoding-aware ETags and HEAD responses. Compare every allowed shape/colour and public status against the full renderer in Chromium, including disposal, motion limits and reduced motion; compare optimized and unminified live output across 2,700 controlled-clock samples with activity renewed for each scenario.
+- Identity verification refusals (`IdentityVerificationError`) keep the
+  underlying failure as `cause` for operators; codes and messages are unchanged.
+- Ship the verbatim Apache License, Version 2.0 text in `LICENSE-APACHE`.
+- The README lists the companion package versions that install beside SDK 0.8,
+  the `@openagentid/skills-policy` peer and the workspace symlink rule;
+  `package.json` links to the issue tracker (`bugs`).
 
-## 0.8.0 — the One family, 2026-10-15
+## [0.8.0] - 2026-10-17
+
+The One family.
 
 - Add the opt-in `one` character family: fourteen fun shapes (`star`, `heart`,
   `flower`, `cloud`, `droplet`, `squircle`, `diamond`, `clover`, `gumdrop`,
@@ -122,7 +137,9 @@
   query and the body; its service test covers the kinds, the colours and the
   refusals over HTTP.
 
-## 0.7.3 — current package compatibility, 2026-10-12
+## [0.7.3] - 2026-10-12
+
+Current package compatibility.
 
 - Restore deterministic X25519 public keys from seeds with real WASM bindings;
   expose public-from-secret and retain recovery compatibility with 0.1.1's
@@ -146,7 +163,9 @@
   executable examples; add packed-package checks against SDK 0.7.2 and 0.7.3.
   OIDC 0.2.0 keeps its API and gains a full current-SDK authentication test.
 
-## 0.7.2 — brighter character collection, 2026-10-12
+## [0.7.2] - 2026-10-12
+
+Brighter character collection.
 
 - Repaint all 17 families / 62 kinds with brighter curated pigments and coordinated
   accents; preserve each family's silhouette, seasonal meaning and live eyes.
@@ -157,7 +176,9 @@
 - Pin create-openagent 0.5.2 to SDK 0.7.2; document the shared visual language and
   future person/mascot design direction. OIDC remains 0.2.0.
 
-## 0.7.1 — refined character accessories, 2026-10-12
+## [0.7.1] - 2026-10-12
+
+Refined character accessories.
 
 - Lighten glasses rims and temples, add subtle hinges, and give headphones a
   slimmer band with layered soft cushions and restrained highlights.
@@ -166,7 +187,9 @@
 - Pin create-openagent 0.5.1 to SDK 0.7.1. Appearance, identity, animation and
   authentication contracts are unchanged; OIDC remains 0.2.0.
 
-## 0.7.0 — shared character material and head-fitted accessories, 2026-10-12
+## [0.7.0] - 2026-10-12
+
+Shared character material and head-fitted accessories.
 
 - Default all 17 families and 62 kinds to soft plush material; keep flat vector
   material selectable and add optional raised live-eye placement.
@@ -180,7 +203,9 @@
   and OIDC 0.2.0 stay unchanged. Exact-source remote qualification, npm publication
   and hosted/Orbit acceptance remain separate delivery evidence.
 
-## 0.6.0 — independent character accessories, 2026-10-12
+## [0.6.0] - 2026-10-12
+
+Independent character accessories.
 
 - Add transparent glasses and headphones as independent, combinable accessories
   on every family and kind. Autos remains the default with no accessories.
@@ -192,7 +217,9 @@
 - Verify all kinds, face crops, real signed starter status and additive/removal
   behavior. Production Orbit adoption is tracked separately.
 
-## 0.5.0 — character families and face avatars, 2026-10-12
+## [0.5.0] - 2026-10-12
+
+Character families and face avatars.
 
 - Add twelve original crafted families and Halloween, Thanksgiving and Christmas,
   each with multiple distinct character kinds: 17 families and 62 kinds total.
@@ -206,7 +233,9 @@
   isolated SVG paint references, reduced motion and real starter request status.
   This source change does not itself establish production Orbit rollout.
 
-## 0.4.0 — public developer tooling, 2026-10-11
+## [0.4.0] - 2026-10-12
+
+Public developer tooling.
 
 - Add a Node-only persistent local identity authority with real Ed25519 keys,
   explicit receiver-controlled public identity trust, bounded issued challenges,
@@ -221,7 +250,9 @@
   local authority uses private persistent single-host storage; it does not claim
   distributed storage or grant access outside the receiving application's policy.
 
-## 0.3.0 — live expression state, 2026-10-11
+## [0.3.0] - 2026-10-12
+
+Live expression state.
 
 - Add portable status snapshots and incremental updates for all eighteen
   expressions. Reasoning selects thoughtful; blocked/error selects concerned.
@@ -238,7 +269,9 @@
 - Add state, interpolation, invalid-input and real browser/HTTP qualification
   coverage. Only @openagentid/sdk changes to 0.3.0; OIDC stays at 0.2.0.
 
-## 0.2.2 — IAM avatar compatibility, 2026-10-11
+## [0.2.2] - 2026-10-11
+
+IAM avatar compatibility.
 
 - Accept literal IAM agent-instance ULIDs for character and Glyph rendering;
   preserve the assigned DID, deterministic seed, selected skin and expression.
@@ -248,7 +281,9 @@
   preserve the existing Autos/SpaceX defaults, overrides and Glyph reference
   vectors. Update OpenAPI and add independent seed/API regression coverage.
 
-## 0.2.1 — animated agent characters, 2026-10-11
+## [0.2.1] - 2026-10-11
+
+Animated agent characters.
 
 - Export characters and character-api subpaths: deterministic Autos/SpaceX
   skins, eleven shapes, sixteen shared expressions and animated/static live eyes.
@@ -259,25 +294,9 @@
   avatarSkin:null retains OAS Glyph. HTTPS overrides take precedence.
 - Preserve the existing OAS Glyph encoding and non-agent default avatars.
 
-### 0.2.0 self-rooted agent identities — 2026-10-11
+## [0.2.0] - 2026-10-11
 
-- Support explicitly authorized self-rooted agents and their signed descendants
-  with nullable owner and an explicit root policy binding. Preserve real key
-  purposes/signatures, current root/grant revocation, bounded lifetimes and
-  atomic challenge/replay checks. No human owner is fabricated.
-- Recheck self-root policy in verification HTTP/CLI, OATS and OIDC; bind OIDC
-  grants to the exact root mode and authorization ID/revision. Retain owned and
-  legacy-DID flows and document full service access under normal authorization.
-
-### 0.2.0 artifact correction
-
-- Resolve npm's executable symlink when detecting the CLI entry point, so the
-  installed `oaid` command executes and propagates successful/refused exits.
-- Use the patched Vitest 4.1.11 development runner and coverage tool.
-- Require explicit authoritative DID key purposes: authentication for possession
-  proofs and capabilityDelegation for delegations; reject absent or wrong purposes.
-
-## 0.2.0 — release candidate, 2026-10-11
+Identity verification, OAS Glyph avatars and verified OATS.
 
 - Verify real agent signatures, ordered owner delegations, authoritative owner
   binding, revocation and one-use possession challenges; add HTTP verification
@@ -289,83 +308,59 @@
 - Export the new subpaths, use `openagent` for new identity namespaces, and
   correct the optional OAS dependency to its published 1.x family.
 - Consolidate provider-neutral OIDC discovery/JWKS doctor as `oaid oidc doctor`.
-  Publication and live hosted acceptance remain pending.
 
-All notable changes to `@openagent/sdk` will be documented in this file.
+### Self-rooted agent identities
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- Support explicitly authorized self-rooted agents and their signed descendants
+  with nullable owner and an explicit root policy binding. Preserve real key
+  purposes/signatures, current root/grant revocation, bounded lifetimes and
+  atomic challenge/replay checks. No human owner is fabricated.
+- Recheck self-root policy in verification HTTP/CLI, OATS and OIDC; bind OIDC
+  grants to the exact root mode and authorization ID/revision. Retain owned and
+  legacy-DID flows and document full service access under normal authorization.
 
-## [Unreleased] - 2026-04-26
+### Package corrections before publication
 
-### Added
+- Resolve npm's executable symlink when detecting the CLI entry point, so the
+  installed `oaid` command executes and propagates successful/refused exits.
+- Use the patched Vitest 4.1.11 development runner and coverage tool.
+- Require explicit authoritative DID key purposes: authentication for possession
+  proofs and capabilityDelegation for delegations; reject absent or wrong purposes.
 
-- **Verify-first ACT surface.** `act.verify(token).issuer(...).forAudience(...).requireScope(...).trustedKeys(...).run()` verifies Agent Capability Tokens through the canonical Rust crate compiled to WASM (`@openagent/crypto-wasm`) - envelope decode, version/algorithm checks, Ed25519 signature verification *before* any claim check, temporal checks with leeway, and issuer/audience/scope policy. TypeScript carries none of the format rules, so it cannot drift from the specification. The binding is injected once at startup via `setActCryptoBinding()`; verifier misconfiguration and token failures report distinctly (`OpenAgentError` vs `VerificationError` carrying the canonical reason).
-- **Verification middleware.** `withAct(config, handler)` guards fetch-standard handlers (Next.js route handlers, Hono, Workers), and `requireActExpress(config)` guards Express routes - a request with a missing, forged, expired, wrong-audience, or under-scoped token gets a 401 with the reason and never reaches the application.
-- **Key custody** (`keys` namespace). `keys.generate()` mints an identity; everything derives deterministically from one 32-byte seed - the Ed25519 signing keypair and an X25519 encryption keypair via the same BLAKE3 context-separated derivation as Arsenal's `identity_loader`, so a seed moves between the Rust and TypeScript SDKs and restores the same keys. `keys.saveSeed()` writes owner-only (0600) seed files in Arsenal's format; `keys.fromSeed()`, `keys.fromSeedHex()`, `keys.fromSeedFile()`, and `keys.fromEnv()` restore.
+## [0.1.1] - 2026-08-01
 
-### Changed
-
-- **Breaking. Package renamed from `@openagent/sdk` to `@openagentid/sdk`.** The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
-- **Breaking. The silent stub fallback is removed.** Until now the SDK
-  silently substituted fake implementations - `StubIdentityProvider` minted
-  unsigned "signatures", `StubVerificationClient` accepted any `stub:` token,
-  and a fallback Arsenal client echoed deterministic proxy URLs - whenever a
-  protocol client was missing from `OpenAgentConfig.clients`. A production
-  deployment with a misconfigured peer would sign and verify with fake
-  cryptography without anyone having chosen that. The subsystems are now
-  optional at construction and **fail closed at use**: `createAgent`,
-  `loadAgent`, `authenticate`, `credentialsFor`, and the escape hatches throw
-  a `ConfigError` naming the missing client, the package a real one comes
-  from (`@openagent/oas-sdk`, `@openagent/arsenal-sdk`,
-  `@openagent/aegis-sdk`), and the testing package for unit tests. The stub
-  exports (`StubIdentityProvider`, `StubVerificationClient`) are gone from
-  this package; equivalent in-memory backends now live in
-  **`@openagent/sdk-testing`** behind an explicit import that cannot sneak
-  into a dependency graph unnoticed, plus a `createTestingConfig()` helper
-  that wires all three for tests.
-- Added a root GitHub-installable package wrapper so
-  `npm install github:OpenAgentID/openagent-sdk` resolves to the TypeScript
-  facade before npm registry publication is available.
-- `extractBearerToken()` now accepts the canonical `Authorization: OpenAgent <token>` form in addition to Bearer, `X-OpenAgent-Token`, and `oa_token`, so SDK behavior matches the HTTP auth protocol docs.
-- Documented the OAS SDK dependency as the required Sigil-backed lineage verifier contract for privileged OpenAgent sessions, ACTs, credentials, and scopes. Local identity remains portable, but privileged authority must fail closed when the OAS verifier cannot prove finalized Sigil lineage.
-- chore: prepare packages for first npm publish (publishConfig, license files, READMEs, root package marked private)
-
-### Added
-
-- Added `LineageAuthorityContext` to `AuthContext` so production verifiers can attach the OAS/Sigil authority result. `VerifyRequestOptions` can now require privileged authority, and the stub verifier fails closed when that option is requested.
-- Added a verification test proving the offline stub rejects privileged authority requests instead of pretending local identity is enough.
-- Added `PrivilegedAuthorityVerificationClient` and `PrivilegedAuthorityVerifier` so runtime request verification can wrap an AEGIS verifier, call an OAS-backed authority verifier when `requirePrivilegedAuthority` is set, attach normalized authority context, and fail closed on malformed subject, root, path-kind, or scope results.
-
-## [0.1.1] - 2026-07-31
+Copyright holder.
 
 ### Fixed
 
-- Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
+- Name L1fe Labs, Inc. as the copyright holder in the license files and add the copyright footer to the
+  README. No functional changes.
 
-## [0.1.0] - 2026-04-11
+## [0.1.0] - 2026-08-01
+
+The first npm release, under the `@openagentid` scope.
 
 ### Added
 
-- Initial public API surface:
+- Public API surface:
   - `OpenAgent` singleton facade with `configure()`, `createAgent()`,
     `loadAgent()`, `authenticate()`, and `runtime()` entry points.
   - `OpenAgentRuntime` class for multi-runtime scenarios.
   - `OpenAgentInstance` with `did`, `document`, `skillsPolicy()`,
     `withSkillsPolicy()`, `credentialsFor()`, and `identity()` methods.
 - Identity module (`src/identity.ts`):
-  - `IdentityProvider` interface wrapping `@oas/sdk`.
-  - `StubIdentityProvider` for offline development and tests.
+  - `IdentityProvider` interface over the OAS SDK (`@openagentid/oas-sdk`).
   - Runtime-validated `IdentityDocument` and `SignedAssertion` types.
 - Credentials module (`src/credentials.ts`):
-  - `ArsenalClient` interface wrapping `@arsenal/sdk`.
+  - `ArsenalClient` interface over the Arsenal SDK (`@openagentid/arsenal-sdk`).
   - `CredentialHandle` with a drop-in `fetch` that injects scoped credentials
     via the Arsenal proxy. Lazy refresh at `expiresAt - 30s`.
   - First-class streaming (SSE, chunked responses) via native `Response`.
 - Verification module (`src/verification.ts`):
-  - `VerificationClient` interface wrapping `@aegis/sdk`.
-  - `StubVerificationClient` for offline development and tests.
+  - `VerificationClient` interface over the AEGIS SDK (`@openagentid/aegis-sdk`).
   - `extractBearerToken()`, `assertScopes()`, `assertAncestor()` helpers.
+    `extractBearerToken()` accepts the canonical `Authorization: OpenAgent <token>` form as well as
+    Bearer, `X-OpenAgent-Token` and `oa_token`, matching the HTTP auth protocol docs.
 - Skills module (`src/skills.ts`):
   - `SkillsPolicy` interface with immutable `grant`/`revoke`.
   - `InMemorySkillsPolicy` with exact and wildcard-suffix matching.
@@ -378,11 +373,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration (`src/config.ts`):
   - Zod schemas for DIDs, scopes, provider ids, and `CreateAgentInput`.
   - `resolveConfig()` with sensible defaults.
-- Full unit test suite with Vitest (errors, config, identity, credentials,
-  verification, skills, agent — 60+ tests).
-- `tsup` ESM + CJS dual build with per-module entry points.
-- TypeScript strict mode with `noUncheckedIndexedAccess` enabled.
-- Runtime support: Node 20+, Bun, Deno, browsers, Cloudflare Workers.
-- `README.md` with three-line happy path and escape-hatch documentation.
-- `INTEGRATION_NOTES.md` tracking expected API shapes for `@oas/sdk`,
-  `@arsenal/sdk`, and `@aegis/sdk` until those SDKs are finalized.
+- **Verify-first ACT surface.** `act.verify(token).issuer(...).forAudience(...).requireScope(...).trustedKeys(...).run()` verifies Agent Capability Tokens through the canonical Rust crate compiled to WASM (`@openagentid/crypto-wasm`) - envelope decode, version/algorithm checks, Ed25519 signature verification *before* any claim check, temporal checks with leeway, and issuer/audience/scope policy. TypeScript carries none of the format rules, so it cannot drift from the specification. The binding is injected once at startup via `setActCryptoBinding()`; verifier misconfiguration and token failures report distinctly (`OpenAgentError` vs `VerificationError` carrying the canonical reason).
+- **Verification middleware.** `withAct(config, handler)` guards fetch-standard handlers (Next.js route handlers, Hono, Workers), and `requireActExpress(config)` guards Express routes - a request with a missing, forged, expired, wrong-audience, or under-scoped token gets a 401 with the reason and never reaches the application.
+- **Key custody** (`keys` namespace). `keys.generate()` mints an identity; everything derives deterministically from one 32-byte seed - the Ed25519 signing keypair and an X25519 encryption keypair via the same BLAKE3 context-separated derivation as Arsenal's `identity_loader`, so a seed moves between the Rust and TypeScript SDKs and restores the same keys. `keys.saveSeed()` writes owner-only (0600) seed files in Arsenal's format; `keys.fromSeed()`, `keys.fromSeedHex()`, `keys.fromSeedFile()`, and `keys.fromEnv()` restore.
+- `LineageAuthorityContext` on `AuthContext`, so production verifiers can attach the OAS/Sigil authority
+  result. `VerifyRequestOptions` can require privileged authority.
+- `PrivilegedAuthorityVerificationClient` and `PrivilegedAuthorityVerifier`: runtime request verification
+  wraps an AEGIS verifier, calls an OAS-backed authority verifier when `requirePrivilegedAuthority` is set,
+  attaches normalized authority context, and fails closed on malformed subject, root, path-kind, or scope
+  results. The OAS SDK is the lineage verifier for privileged sessions, ACTs, credentials and scopes; local
+  identity stays portable, and privileged authority fails closed when the verifier cannot prove finalized
+  lineage.
+- A GitHub-installable root manifest, so `npm install github:OpenAgentID/openagent-sdk` resolves to this
+  package.
+- Vitest unit suite, `tsup` ESM + CJS dual build with per-module entry points, TypeScript strict mode with
+  `noUncheckedIndexedAccess`. Runtime support: Node 20+, Bun, Deno, browsers, Cloudflare Workers.
+
+### Changed
+
+- **Breaking.** The package is `@openagentid/sdk`; the source previously used the `@openagent/sdk` name,
+  which was never published by this project because a third party holds the `@openagent` npm scope.
+  Dependency names and imports use `@openagentid/*`.
+- **Breaking.** No silent stub fallback. The protocol subsystems are optional at construction and **fail
+  closed at use**: `createAgent`, `loadAgent`, `authenticate`, `credentialsFor`, and the escape hatches throw
+  a `ConfigError` naming the missing client, the package a real one comes from (`@openagentid/oas-sdk`,
+  `@openagentid/arsenal-sdk`, `@openagentid/aegis-sdk`), and the testing package for unit tests. In-memory
+  backends live in **`@openagentid/sdk-testing`** behind an explicit import, with a `createTestingConfig()`
+  helper that wires all three for tests.

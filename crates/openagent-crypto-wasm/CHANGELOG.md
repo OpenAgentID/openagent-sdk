@@ -4,6 +4,11 @@ All notable changes to `openagent-crypto-wasm` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Each date is the UTC day npm published `@openagentid/crypto-wasm` at that version.
+
+## [Unreleased]
+
+- Ship the verbatim Apache License, Version 2.0 text in `LICENSE-APACHE`.
 
 ## [0.1.2] - 2026-10-12
 
@@ -17,9 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default-clock acceptance and expiry after the host clock advances.
 - Preserve the ACT format, signature and issuer/audience/scope checks.
 
-## [Unreleased] - 2026-08-01
-
-### Fixed
+### Fixed since 0.1.1
 
 - Corrected the RFC 8032 §7.1 Test 1 public-key vector in the Ed25519 unit
   tests: the hardcoded byte array carried a corrupted 11-byte tail, so the
@@ -54,13 +57,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and HKDF-SHA256 in Node; both scripts run in CI on every change. The `pkg/`
   output is a build artifact and is not committed.
 
-## [0.1.1] - 2026-07-31
+## [0.1.1] - 2026-08-01
 
 ### Fixed
 
 - Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
 
-## [0.1.0] — 2026-04-11
+## [0.1.0] - 2026-08-01
 
 ### Added
 
