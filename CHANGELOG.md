@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Use native private fields for the One player's internal state, so browser minification can shorten internal names without changing public shape, colour or player contracts. Restore the One browser runtime's 16 KB gzip budget.
+
 ## Unreleased — Continue as Agent without the trailing mark, 2026-10-13
 
 - The Continue as Agent button drops its trailing OpenAgentID mark: only the

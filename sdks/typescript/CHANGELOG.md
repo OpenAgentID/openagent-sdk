@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Use native private fields for the One player's internal state, so browser minification can shorten internal names without changing public shape, colour or player contracts. Restore the One browser runtime's 16 KB gzip budget.
+
 ## 0.8.0 — the One family, 2026-10-15
 
 - Add the opt-in `one` character family: fourteen fun shapes (`star`, `heart`,
