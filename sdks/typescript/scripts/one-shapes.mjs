@@ -106,7 +106,12 @@ function commands(path) {
     else { rebuilt += cmd + data[offset++]; if (cmd === 'M' || cmd === 'L') rebuilt += ' ' + data[offset++]; }
   }
   if (rebuilt !== path) throw new Error('Catalog path encoding changed SVG bytes');
-  return `[${quote(out.join(''))}, freeze([${data.map(num).join(',')}])]`;
+  const packed = data.map(value => {
+    const integer = Math.round(value * 100);
+    if (!Number.isSafeInteger(integer) || !Object.is(integer / 100, value)) throw new Error('Catalog fixed-point encoding changed a value');
+    return integer;
+  });
+  return `[${quote(out.join(''))}, coordinates([${packed.map(num).join(',')}])]`;
 }
 const pathSpecs = [...shapes.shapes.map(shape => commands(shape.d)), commands(one.d)];
 
@@ -186,7 +191,9 @@ const shape = (id: OneShape, path: string, eye: OneShapeEye, mouthDy: number, pi
 const colour = (id: OneColor, disc: string, eye: string, keyline: string | null, label = title(id)): OneColorDescription =>
   freeze({ id, label, disc, eye, keyline });
 
-/** Lossless command/value skeletons in library order, followed by Digital One. */
+const coordinates = (values: number[]): readonly number[] => freeze(values.map(value => value / 100));
+
+/** Lossless fixed-point command/value skeletons in library order, followed by Digital One. */
 export const ONE_PATHS: readonly (readonly [string, readonly number[]])[] = freeze([
   ${pathSpecs.join(',\n  ')}
 ]);
