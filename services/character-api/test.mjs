@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { gzipSync, gunzipSync } from 'node:zlib';
 import { request as httpRequest } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
@@ -113,6 +114,43 @@ test('serves exact built browser players with the existing CSP and fixed asset r
   for (const guessed of ['/sdks/typescript/dist/browser' + path, path + '?code=untrusted']) {
     assert.equal((await fetch(endpoint(guessed))).status, 404);
   }
+  }
+});
+
+test('serves exact default-gzip JavaScript bytes with representation-aware caching', async () => {
+  const raw = (path, headers, method = 'GET') => new Promise((resolve, reject) => {
+    const request = httpRequest(endpoint(path), { method, headers }, response => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => resolve({ status: response.statusCode, headers: response.headers, body: Buffer.concat(chunks) }));
+      response.on('error', reject);
+    });
+    request.setTimeout(5000, () => request.destroy(new Error('Static response timed out')));
+    request.on('error', reject);
+    request.end();
+  });
+  for (const path of ['/one.js', '/character-player.js']) {
+    const source = readFileSync(new URL('../../sdks/typescript/dist/browser' + path, import.meta.url));
+    const packed = await raw(path, { 'Accept-Encoding': 'br, gzip;q=0.8' });
+    assert.equal(packed.status, 200);
+    assert.equal(packed.headers['content-encoding'], 'gzip');
+    assert.equal(packed.headers.vary, 'Accept-Encoding');
+    assert.equal(Number(packed.headers['content-length']), packed.body.length);
+    assert.deepEqual(packed.body, gzipSync(source));
+    assert.deepEqual(gunzipSync(packed.body), source);
+    const plain = await raw(path, { 'Accept-Encoding': 'gzip;q=0, *;q=1' });
+    assert.equal(plain.headers['content-encoding'], undefined);
+    assert.deepEqual(plain.body, source);
+    assert.notEqual(plain.headers.etag, packed.headers.etag);
+    const head = await raw(path, { 'Accept-Encoding': 'gzip' }, 'HEAD');
+    assert.equal(head.body.length, 0);
+    assert.equal(Number(head.headers['content-length']), packed.body.length);
+    assert.equal(head.headers.etag, packed.headers.etag);
+    const cached = await raw(path, { 'Accept-Encoding': 'gzip', 'If-None-Match': packed.headers.etag });
+    assert.equal(cached.status, 304);
+    assert.equal(cached.body.length, 0);
+    const otherRepresentation = await raw(path, { 'Accept-Encoding': 'gzip', 'If-None-Match': plain.headers.etag });
+    assert.equal(otherRepresentation.status, 200);
   }
 });
 
@@ -280,23 +318,23 @@ test('publishes the unchanged SDK Glyph SVG, HEAD, validators and refusal behavi
 
 test('preserves GET/HEAD bytes, validators, conditional requests and CORS across the HTTP adapter', async () => {
   for (const path of ['/', '/demo.js', '/demo.css', '/character-player.js', '/one.js', '/v1/characters/skins', didPath, svgPath]) {
-    const get = await fetch(endpoint(path));
+    const get = await fetch(endpoint(path), { headers: { 'accept-encoding': 'identity' } });
     const bytes = Buffer.from(await get.arrayBuffer());
     const etag = `"${createHash('sha256').update(bytes).digest('hex')}"`;
     assert.equal(get.headers.get('etag'), etag);
     assert.equal(get.headers.get('content-length'), String(bytes.byteLength));
-    const head = await fetch(endpoint(path), { method: 'HEAD' });
+    const head = await fetch(endpoint(path), { method: 'HEAD', headers: { 'accept-encoding': 'identity' } });
     assert.equal(head.status, 200);
     assert.equal(await head.text(), '');
     for (const name of ['etag', 'content-length', 'content-type', 'cache-control', 'content-security-policy']) {
       assert.equal(head.headers.get(name), get.headers.get(name));
     }
-    const cached = await fetch(endpoint(path), { headers: { 'if-none-match': `"other", W/${etag}` } });
+    const cached = await fetch(endpoint(path), { headers: { 'accept-encoding': 'identity', 'if-none-match': `"other", W/${etag}` } });
     assert.equal(cached.status, 304);
     assert.equal(await cached.text(), '');
     assert.equal(cached.headers.get('etag'), etag);
     if (path.startsWith('/v1/')) cors(cached);
-    const cachedHead = await fetch(endpoint(path), { method: 'HEAD', headers: { 'if-none-match': '*' } });
+    const cachedHead = await fetch(endpoint(path), { method: 'HEAD', headers: { 'accept-encoding': 'identity', 'if-none-match': '*' } });
     assert.equal(cachedHead.status, 304);
     assert.equal(await cachedHead.text(), '');
   }
