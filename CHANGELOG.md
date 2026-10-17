@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse exact catalog membership maps and select the smallest semantics-preserving Closure/Terser compression profile for the standalone One delivery budget.
+
 - Share native math and freezing operations across presentation code; remove unused private easing presets. The DID-free live entry uses presentation randomness while DID-derived looks and seeded animation helpers stay deterministic.
 
 - Document stable production error codes for the standalone One browser entry; retain exception classes, validation guards, and verbose messages in the full SDK.

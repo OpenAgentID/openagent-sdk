@@ -64,11 +64,11 @@ export function getOneColors(): readonly OneColorDescription[] {
 }
 
 export function isOneShape(value: unknown): value is OneShape {
-  return typeof value === 'string' && (shapeIds as readonly string[]).includes(value);
+  return shapeById.has(value as OneShape);
 }
 
 export function isOneColor(value: unknown): value is OneColor {
-  return typeof value === 'string' && (colorIds as readonly string[]).includes(value);
+  return colorById.has(value as OneColor);
 }
 
 export function isOneKind(value: unknown): value is OneKind {

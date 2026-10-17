@@ -1,5 +1,6 @@
 /** Optimize the closed One runtime while preserving its public ESM boundary. */
 import { minify } from 'terser';
+import { gzipSync } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { readFile, writeFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -39,11 +40,25 @@ try {
   ], { stdio: 'inherit' });
   const result = await readFile(output, 'utf8');
   if (!exports.every(({ name }) => result.includes(`export const ${name}=`))) throw new Error('One export boundary lost');
-  const compact = await minify({ 'one.js': result }, {
-    module: true, ecma: 2022, compress: { passes: 3 }, mangle: true,
-    sourceMap: { content: await readFile(map, 'utf8'), filename: 'one.js', url: 'one.js.map' },
-  });
-  if (!compact.code || !compact.map) throw new Error('One final compression failed');
+  const content = await readFile(map, 'utf8');
+  // Evaluate only semantics-preserving compression choices; gzip is the delivery budget.
+  const profiles = [{}, { hoist_vars: true, hoist_funs: true }, { inline: false },
+    { keep_fargs: false }, { collapse_vars: false, reduce_vars: false },
+    { comparisons: false }, { sequences: false },
+    { conditionals: false }, { join_vars: false }, { reduce_funcs: false },
+    { passes: 5, hoist_vars: true, keep_fargs: false }];
+  let compact, bytes = Infinity;
+  for (const [index, options] of profiles.entries()) {
+    const candidate = await minify({ 'one.js': result }, {
+      module: true, ecma: 2022, compress: { passes: 3, ...options }, mangle: true,
+      sourceMap: { content, filename: 'one.js', url: 'one.js.map' },
+    });
+    if (!candidate.code || !candidate.map) throw new Error('One final compression failed');
+    const size = gzipSync(candidate.code).length;
+    console.log(`One closure compression profile ${index}: ${size} gzip bytes`);
+    if (size < bytes) { compact = candidate; bytes = size; }
+  }
+  if (!compact) throw new Error('No One compression candidate');
   await writeFile(file, compact.code);
   await writeFile(new URL('dist/browser/one.js.map', root), compact.map);
 } finally {
