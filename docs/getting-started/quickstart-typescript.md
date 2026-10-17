@@ -71,7 +71,11 @@ accept a request's proposed public key as its own trust authority.
 The file-backed workspace is for one host with a private persistent filesystem.
 Do not put it on ephemeral serverless storage, synchronize it between hosts, or
 commit it. Distributed applications can supply their own resolver, root trust,
-revocation and atomic replay storage to the existing `IdentityVerifier`.
+revocation and atomic replay storage to the existing `IdentityVerifier`. The
+workspace path must not pass through a symlink: the workspace refuses it with
+`LocalWorkspaceError` code `unavailable`. On macOS the system temporary directory
+is one (`/var` links to `/private/var`), so use a directory inside the project or
+resolve the path with `fs.realpath`.
 
 ## Put a live avatar in your UI
 
@@ -95,7 +99,7 @@ avatar.dispose();
 Feed `update` from the application's authorized activity channel. It changes the
 presentation, not identity, permissions or the agent's saved profile. The player
 preserves its animation timeline and honors system reduced motion. The catalog
-contains 18 families, 75 kinds and 18 shared expressions, including the One family. `view: 'avatar'` frames
+contains 18 families, 77 kinds and 18 shared expressions, including the One family. `view: 'avatar'` frames
 the face by default; use `view: 'full'` for the body. Stored appearance, render
 framing and current activity remain independent. Map only real authorized phases
 to status; a running process does not establish that it is reasoning.
@@ -123,7 +127,8 @@ and [characters](../characters.md) for the protocol and presentation APIs.
 ## Optional integrations
 
 `@openagentid/oidc` can bridge verified agents into an OIDC relying party.
-Its independent published version is 0.2.0; production requires real signing
+It installs beside SDK 0.8.0 at 0.2.0 (0.3.0, with the Continue as Agent button,
+pairs with SDK 0.7); production requires real signing
 keys, registered clients, shared durable storage and current identity authority.
 The `OpenAgent` facade supports separately configured identity, credential and
 verification clients. Calling `OpenAgent.createAgent` with no identity client

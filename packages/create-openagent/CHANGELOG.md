@@ -1,6 +1,16 @@
-# Changelog — create-openagent
+# Changelog
 
-## [0.6.0] - 2026-10-15
+All notable changes to `create-openagent` are documented in this file. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package follows
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Each date is the UTC day npm published that
+version.
+
+## [Unreleased]
+
+- Ship the verbatim Apache License, Version 2.0 text in `LICENSE-APACHE`.
+- `npm test` builds the package first (`pretest`), so the suite runs from a clean checkout.
+
+## [0.6.0] - 2026-10-17
 
 - Pin SDK 0.8.0. The family picker lists the One family (coloured discs with one
   bar for an eye) beside the existing families, from the SDK catalog; the real
@@ -36,7 +46,6 @@
 - Pin SDK 0.6.0 and add combinable glasses/headphones controls that preserve the
   real receiver status, selected character family and animated eye nodes.
 
-
 ## [0.3.0] - 2026-10-12
 
 - Give every starter selector an inset arrow and room for its label, with a
@@ -45,7 +54,7 @@
   holiday families. Keep Autos default, face framing, real verified-request state
   and stable animated eye nodes across appearance changes.
 
-## [0.2.0] - 2026-10-11
+## [0.2.0] - 2026-10-12
 
 - Generate a complete local identity and animated-avatar application using SDK
   0.4.0, real signing keys and issued-challenge verification.
@@ -55,13 +64,13 @@
   selectors with the supported default `starter`. Refuse obsolete flags
   explicitly; preserve existing generated projects and legacy template source.
 
-## [0.1.1] - 2026-07-31
+## [0.1.1] - 2026-08-01
 
 ### Fixed
 
 - Fixed license copyright holder (L1fe Labs, Inc.) and added copyright footers to all READMEs. No functional changes.
 
-## 0.1.0 (2026-04-11)
+## [0.1.0] - 2026-08-01
 
 - Initial release of `create-openagent` CLI scaffolding tool
 - 4 project templates: agent, mcp-server, web-dashboard, full-stack

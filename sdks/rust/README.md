@@ -3,7 +3,7 @@
 The Rust facade has its own source version (**0.1.0**, Rust 1.78 / edition
 2021) and feature/dependency track. It wraps OAS identity and canonical ACT,
 with optional Arsenal and AEGIS integration. It is not the Node local
-workspace/browser-avatar API shipped as `@openagentid/sdk@0.7.2`.
+workspace/browser-avatar API shipped as `@openagentid/sdk`.
 
 Follow the [Rust integration quickstart](../../docs/getting-started/quickstart-rust.md)
 for actual source/dependency and verifier setup. For the complete public

@@ -1,9 +1,9 @@
 # @openagentid/scim
 
-SCIM 2.0 provisioning for OpenAgentID SDK `^0.7.2`.
+SCIM 2.0 provisioning for OpenAgentID SDK 0.7 (from 0.7.2) and 0.8 (`^0.7.2 || ^0.8.0`).
 
 ```sh
-npm install @openagentid/scim@0.2.0 @openagentid/sdk@^0.7.2
+npm install @openagentid/scim @openagentid/sdk
 ```
 
 ## Wire an actual identity authority
@@ -81,3 +81,9 @@ before SCIM deletion. Concurrent routers, distinct authority-generated DIDs,
 failed/ambiguous creation and commit recovery exercise the same store contract.
 `npm run typecheck`, `npm test`, and `npm run build` run the
 same package checks used by the release qualification.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.

@@ -4,6 +4,15 @@
   "description": "In-memory test backends for @openagentid/sdk. NOT cryptographically sound - never load in production.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenAgentID/openagent-sdk.git",
+    "directory": "sdks/testing"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenAgentID/openagent-sdk/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -37,8 +46,8 @@
     "@types/node": "^20.19.43",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^3.2.6",
-    "@openagentid/sdk": "0.7.2"
+    "vitest": "^4.1.11",
+    "@openagentid/sdk": "0.8.0"
   },
   "publishConfig": {
     "access": "public"

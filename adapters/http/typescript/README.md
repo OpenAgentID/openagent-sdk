@@ -9,7 +9,7 @@ with the current `@openagentid/sdk` IdentityVerifier and Express or Fetch handle
 Install Node.js 20+, then:
 
 ```sh
-npm install @openagentid/http@0.2.0 @openagentid/sdk@^0.7.2 express@^5
+npm install @openagentid/http @openagentid/sdk express@^5
 node node_modules/@openagentid/http/examples/express-sdk.mjs
 ```
 

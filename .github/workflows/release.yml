@@ -1,0 +1,161 @@
+name: release
+
+# Publishes a release from an annotated vX.Y.Z tag on main (docs/RELEASING.md).
+#
+# The tag comes first. This workflow checks the tag, waits for the ci workflow to pass on the tagged
+# commit, builds and tests every package it publishes, and publishes them to npm with trusted publishing:
+# GitHub's OIDC token instead of a stored npm token, and an npm provenance attestation on every version
+# that names this repository, this workflow and the tagged commit. It then creates or updates the GitHub
+# release from the CHANGELOG with the package set and the npm tarballs.
+#
+# Safe to re-run: a version npm already has from this commit is skipped, and the release is edited in place.
+# npm trusted publishing accepts GitHub-hosted runners only, so this workflow does not run on Depot.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: check the tag and plan the release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch annotated tags
+        # actions/checkout writes the triggering tag as a lightweight ref; fetch the real tag objects.
+        run: git fetch --force --tags --quiet origin
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+
+      - name: Check the tag and decide what to publish
+        id: plan
+        run: node tools/release/plan.mjs "$GITHUB_REF_NAME" --out "$RUNNER_TEMP/plan.json"
+
+      - name: Require a passing ci run on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          deadline=$((SECONDS + 3600))
+          while :; do
+            runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&per_page=50" \
+              --jq '[.workflow_runs[] | {status, conclusion}]')
+            passed=$(jq '[.[] | select(.conclusion == "success")] | length' <<<"$runs")
+            running=$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")
+            total=$(jq 'length' <<<"$runs")
+            if [ "$passed" -gt 0 ]; then echo "ci passed on $sha"; break; fi
+            if [ "$total" -gt 0 ] && [ "$running" -eq 0 ]; then
+              echo "::error::ci did not pass on $sha; fix main and release from a new tag."
+              exit 1
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::no completed ci push run on $sha within 60 minutes."
+              exit 1
+            fi
+            echo "waiting for ci on $sha ($running running)"
+            sleep 30
+          done
+
+  publish:
+    name: build, test and publish to npm
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@openagentid/sdk
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Use npm 11.21.0
+        # Trusted publishing needs npm 11.5.1 or later; this is the version the compatibility runner pins.
+        run: |
+          npm install --global npm@11.21.0 --ignore-scripts --no-audit --no-fund
+          npm --version
+
+      - name: Build, test and publish
+        env:
+          PLAN: ${{ needs.plan.outputs.plan }}
+        run: |
+          printf '%s' "$PLAN" > "$RUNNER_TEMP/plan.json"
+          node tools/release/publish.mjs "$RUNNER_TEMP/plan.json"
+
+  github-release:
+    name: create or update the GitHub release
+    needs: [plan, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch annotated tags
+        run: git fetch --force --tags --quiet origin
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+
+      - name: Write the notes and fetch the published tarballs
+        id: notes
+        env:
+          PLAN: ${{ needs.plan.outputs.plan }}
+        run: |
+          printf '%s' "$PLAN" > "$RUNNER_TEMP/plan.json"
+          node tools/release/notes.mjs "$RUNNER_TEMP/plan.json" "$RUNNER_TEMP/notes.md"
+          mkdir -p "$RUNNER_TEMP/tarballs"
+          jq -r '.packages[] | select(.status == "publish" or .status == "published") | "\(.name)@\(.version)"' \
+            "$RUNNER_TEMP/plan.json" | while read -r spec; do
+            npm pack "$spec" --pack-destination "$RUNNER_TEMP/tarballs" --ignore-scripts --silent
+          done
+          ls -l "$RUNNER_TEMP/tarballs"
+
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.notes.outputs.latest }}
+          PRERELEASE: ${{ fromJSON(needs.plan.outputs.plan).prerelease }}
+        run: |
+          title="OpenAgentID SDK ${GITHUB_REF_NAME#v}"
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$title" \
+              --notes-file "$RUNNER_TEMP/notes.md" --latest="$LATEST" --prerelease="$PRERELEASE"
+          else
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$title" \
+              --notes-file "$RUNNER_TEMP/notes.md" --latest="$LATEST" --prerelease="$PRERELEASE"
+          fi
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$RUNNER_TEMP"/tarballs/*.tgz

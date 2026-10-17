@@ -2,7 +2,8 @@
 
 For a complete first application, follow the [public quickstart](quickstart-typescript.md).
 This guide covers SDK 0.8.0 and create-openagent 0.6.0. The independent OIDC
-provider remains at 0.2.0.
+provider, `@openagentid/oidc`, installs beside SDK 0.8.0 at 0.2.0; 0.3.0 adds the
+Continue as Agent button and pairs with SDK 0.7.
 
 ## JavaScript and TypeScript
 
@@ -20,7 +21,7 @@ they are not needed by the local workspace or avatar APIs.
 - `@openagentid/sdk/character-player` is the DOM player; `@openagentid/sdk/browser`
   is its self-contained browser ESM bundle.
 - Portable verification and Fetch handlers require WebCrypto/native Fetch APIs.
-  The separate `@openagentid/oidc@0.2.0` provider requires Node 20.19+.
+  The separate `@openagentid/oidc` provider requires Node 20.19+.
 
 ## Verify your setup
 

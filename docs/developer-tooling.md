@@ -8,7 +8,7 @@ it needs no Life account, hosted resolver or private integration package.
 | --- | --- | --- |
 | `create-openagent` | 0.6.0 | Generate a working HTTP receiver, signer and browser UI. |
 | `@openagentid/sdk` | 0.8.0 | Local identity, `oaid` CLI, portable verification, OATS and avatars. |
-| `@openagentid/oidc` | 0.2.0 | Run a configured agent OIDC provider and optional owner federation. |
+| `@openagentid/oidc` | 0.2.0 with SDK 0.8; 0.3.0 with SDK 0.7 | Run a configured agent OIDC provider and optional owner federation; 0.3.0 adds the Continue as Agent button. |
 
 ## Start a working application
 
@@ -158,7 +158,7 @@ player.update({ expression: null });    // Return to that status's expression.
 player.dispose();
 ```
 
-All 18 families and 75 kinds share 18 expressions. The two-eyed families add
+All 18 families and 77 kinds share 18 expressions. The two-eyed families add
 ambient blink/gaze and smooth, interruptible transitions; the One family holds
 still at rest and moves only when its state changes. Use `getCharacterSkins()` for the exact catalog and
 valid shapes; omitted shape selects deterministically from the DID. A changed
@@ -198,7 +198,7 @@ npx --no-install oaid glyph "$DID" --output glyph.svg
 
 ## OIDC, OATS and optional providers
 
-`@openagentid/oidc@0.2.0` supplies discovery, JWKS, signed ID tokens, authorization
+`@openagentid/oidc` supplies discovery, JWKS, signed ID tokens, authorization
 code/PKCE and UserInfo. Production requires protected signing/cookie keys,
 registered relying parties, durable shared provider storage, real proof
 verification and current identity resolution. Owned mode can federate LifeID;

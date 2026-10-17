@@ -6,7 +6,7 @@ federation bridge. Version 0.3.0 uses the maintained `oidc-provider`
 implementation for registered OIDC relying parties: discovery, public JWKS,
 authorization code, PKCE S256, client authentication, signed ID tokens, and
 UserInfo. OpenAgentID is free and open software in the
-[Open Software](https://open.software) family. Life can operate hosted services
+Open Software family. Life can operate hosted services
 around the same open contracts; nothing here depends on them.
 
 ```sh

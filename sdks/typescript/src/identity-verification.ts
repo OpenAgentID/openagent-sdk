@@ -125,13 +125,14 @@ export type IdentityVerificationFailure =
 
 export class IdentityVerificationError extends Error {
   override readonly name = 'IdentityVerificationError';
-  constructor(readonly code: IdentityVerificationFailure, message: string) {
-    super(message);
+  /** `options.cause` keeps the underlying failure for operators; the code and message stay generic. */
+  constructor(readonly code: IdentityVerificationFailure, message: string, options?: { cause?: unknown }) {
+    super(message, options);
   }
 }
 
-function invalid(message: string): never {
-  throw new IdentityVerificationError('invalid_proof', message);
+function invalid(message: string, cause?: unknown): never {
+  throw new IdentityVerificationError('invalid_proof', message, cause === undefined ? undefined : { cause });
 }
 
 function identifier(value: unknown, label: string): asserts value is string {
@@ -481,7 +482,7 @@ export class IdentityVerifier {
       return payload;
     } catch (error) {
       if (error instanceof IdentityVerificationError) throw error;
-      return invalid('Signature or signed claim verification failed');
+      return invalid('Signature or signed claim verification failed', error);
     }
   }
 
@@ -498,8 +499,8 @@ export class IdentityVerifier {
   private async authority<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
-    } catch {
-      throw new IdentityVerificationError('authority_unavailable', 'Identity authority is unavailable');
+    } catch (error) {
+      throw new IdentityVerificationError('authority_unavailable', 'Identity authority is unavailable', { cause: error });
     }
   }
 }

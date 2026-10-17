@@ -1,0 +1,13 @@
+{
+  "$comment": "The npm packages a vX.Y.Z tag releases, in publish (dependency) order. The tag names the @openagentid/sdk version. Read by .github/workflows/release.yml and tools/release/*.mjs; see docs/RELEASING.md.",
+  "packages": [
+    { "directory": "sdks/typescript", "sizeGate": true },
+    { "directory": "sdks/testing", "testWithCandidateSdk": true },
+    { "directory": "adapters/http/typescript", "testWithCandidateSdk": true },
+    { "directory": "integrations/mcp/typescript", "testWithCandidateSdk": true },
+    { "directory": "integrations/claude-agent-sdk/typescript", "testWithCandidateSdk": true },
+    { "directory": "bridges/scim/typescript", "testWithCandidateSdk": true },
+    { "directory": "bridges/oidc/typescript", "testWithCandidateSdk": true },
+    { "directory": "packages/create-openagent" }
+  ]
+}

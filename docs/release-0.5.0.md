@@ -1,6 +1,6 @@
 # OpenAgentID 0.5.0 release contents
 
-This candidate contains two publishable archives:
+Published to npm on 2026-10-12; tag `v0.5.0`. The release contains two archives:
 
 | Package | Version | Contents |
 | --- | --- | --- |

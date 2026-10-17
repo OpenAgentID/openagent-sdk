@@ -10,6 +10,9 @@
     "url": "https://github.com/OpenAgentID/openagent-sdk.git",
     "directory": "integrations/claude-agent-sdk/typescript"
   },
+  "bugs": {
+    "url": "https://github.com/OpenAgentID/openagent-sdk/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -74,11 +77,11 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^3.2.6",
-    "@openagentid/sdk": "0.7.2",
+    "vitest": "^4.1.11",
+    "@openagentid/sdk": "0.8.0",
     "@anthropic-ai/claude-agent-sdk": "0.3.296",
     "@openagentid/oas-sdk": "1.0.2"
   },

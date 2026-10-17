@@ -12,7 +12,7 @@ limiting, no argument validation, and no audit trail.
 ## Positioning
 
 This package is **not** a new primitive. It is a specialized
-[Arsenal](../../../arsenal) policy — the same scope grammar, the same
+Arsenal policy — the same scope grammar, the same
 audit shape, the same rate-limit surface — applied to the narrow
 problem of "which of the skills declared in this `SKILLS.md` is this
 agent allowed to invoke right now?"

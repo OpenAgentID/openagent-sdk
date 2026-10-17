@@ -4,6 +4,15 @@
   "description": "Ethereum Attestation Service (EAS) adapter for the OAS lineage anchor seam: resolution via EAS GraphQL, publishing via the maintained EAS SDK.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
+  "homepage": "https://openagent.id",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenAgentID/openagent-sdk.git",
+    "directory": "adapters/eas/typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenAgentID/openagent-sdk/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -44,7 +53,7 @@
     "hardhat": "2.22.4",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.11"
   },
   "publishConfig": {
     "access": "public"

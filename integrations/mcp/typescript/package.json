@@ -4,11 +4,14 @@
   "description": "OpenAgent middleware for the Model Context Protocol \u2014 adds OAS identity, Arsenal capability tokens, and AEGIS authorization to any MCP server in three lines.",
   "license": "Apache-2.0 OR MIT",
   "author": "L1fe Labs, Inc. <eng@l1fe.ai>",
-  "homepage": "https://openagent.id/docs/integrations/mcp",
+  "homepage": "https://openagent.id",
   "repository": {
     "type": "git",
     "url": "https://github.com/OpenAgentID/openagent-sdk.git",
     "directory": "integrations/mcp/typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenAgentID/openagent-sdk/issues"
   },
   "type": "module",
   "main": "./dist/index.cjs",
@@ -82,12 +85,12 @@
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^3.2.6",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^3.2.6",
+    "vitest": "^4.1.11",
     "zod": "^3.23.8",
-    "@openagentid/sdk": "0.7.2"
+    "@openagentid/sdk": "0.8.0"
   },
   "keywords": [
     "openagent",

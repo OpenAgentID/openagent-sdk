@@ -10,8 +10,10 @@ it is not expected to be and why. -->
 
 ## Changelog
 
-<!-- Every change updates the project CHANGELOG.md in the same pull request.
+<!-- Every change adds an entry under ## [Unreleased] in the root CHANGELOG.md,
+and in the changed package's own CHANGELOG.md, in the same pull request.
 Confirm: -->
 
-- [ ] `CHANGELOG.md` updated in this PR
-- [ ] Commit messages follow conventional commits and carry no AI-tool attribution
+- [ ] `## [Unreleased]` updated in the root `CHANGELOG.md` and in each changed package's `CHANGELOG.md`
+- [ ] Commit messages follow conventional commits (subject of at most 72 characters), carry no `[skip ci]` and no co-author or AI-tool attribution
+- [ ] No `version` field changed (versions change only in a `chore(release)` commit; see `docs/RELEASING.md`)

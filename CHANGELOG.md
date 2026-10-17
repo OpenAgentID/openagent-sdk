@@ -1,44 +1,77 @@
 # Changelog
 
-## 0.8.1 — standalone One runtime
+Changes across this repository, one section per release. A release is a `vX.Y.Z` tag named after the
+`@openagentid/sdk` version; its section lists every npm package version published with it. Each package
+also keeps its own `CHANGELOG.md`, which ships in its npm tarball. Dates are the UTC day npm published the
+release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); see
+[RELEASING](docs/RELEASING.md).
+
+## [Unreleased]
+
+The standalone One runtime (0.8.1).
 
 - Let public quickstart verification follow the declared SDK version while retaining the published generator pin. Keep the CLI and SDK version aligned at 0.8.1. Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles with one shared public/dynamic property reservation list and a direct module-scoped export bindings verified by importing the final ESM namespace; retain unminified bundler mappings until final compression, compose original source locations explicitly and reject maps missing the main runtime sources.
 - Keep the private motion builder and window stage in lexical scopes, share identical decimal formatting, and avoid duplicate catalog lookups; share lossless fixed-point catalog path data (generation proves every decoded number is identical), presentation intrinsics, held-pose construction and strict presentation-record validation. Keep unused general easing presets out of the live entry while retaining the full preset export. Keep mutable runtime state private to each head and retain deterministic DID-derived looks and seeded helpers.
 - Give the standalone browser entry documented compact error codes while preserving validation guards and exception classes; retain descriptive errors in the full SDK.
 - Serve the exact standalone module at `/one.js` with the existing CSP and asset-routing rules, default-gzip delivery with the request encoding forwarded by the HTTP adapter, and encoding-aware ETags and HEAD responses. Compare every allowed shape/colour and public status against the full renderer in Chromium, including disposal, motion limits and reduced motion; compare optimized and unminified live output across 2,700 controlled-clock samples with activity renewed for each scenario.
 
-## Unreleased — Continue as Agent without the trailing mark, 2026-10-13
+### Release process and repository
 
-- The Continue as Agent button drops its trailing OpenAgentID mark: only the
-  dark eye window and the exact label remain, with balanced padding. Loading,
-  disabled, error and accessibility behavior are unchanged; OIDC stays at the
-  unpublished 0.3.0.
+- Publish releases from annotated `vX.Y.Z` tags with
+  `.github/workflows/release.yml`. It checks the tag against the package
+  versions and `main`, waits for CI on the tagged commit, builds and tests every
+  package it publishes (the companions also against the SDK packed from the same
+  commit), publishes through npm trusted publishing with provenance, and creates
+  or updates the GitHub release with the CHANGELOG section, the package set,
+  integrity hashes and the npm tarballs. `@openagentid/oidc` joins the release
+  set. `docs/RELEASING.md` describes the process and the tags for 0.1.0-0.8.0.
+- CI typechecks, tests and builds every published package (adding
+  `sdk-testing`, `http`, `mcp`, `claude-agent` and `scim`) and tests the
+  companions again against the SDK built from the same commit. It installs only
+  from lockfiles and checks the root manifest, the changelogs (format, order and
+  npm dates, allowing the release commit's own version before npm has it),
+  runtime advisories, the license text, and pull request commits and
+  titles (conventional, at most 72 characters, no CI skipping, no attribution
+  trailers). Every action is pinned to a commit SHA, checkouts keep no
+  credentials, wasm-pack is pinned to 0.13.1, and the private-repository token
+  exists only in the step that fetches those crates.
+- Generate the root `package.json`, the manifest for
+  `npm install github:OpenAgentID/openagent-sdk`, from
+  `sdks/typescript/package.json`, so Git installs expose `./one` and
+  `./browser/one` at the SDK's version.
+- One changelog format across the repository: Keep a Changelog headings, one
+  `## [Unreleased]` at the top, and dates set to npm's UTC publish day. This file
+  lists each release's package versions; the `Unreleased` blocks that sat
+  between releases are folded into the release that shipped them (the Continue
+  as Agent button into `@openagentid/oidc` 0.3.0, documentation into 0.5.0 and
+  0.7.3).
+- Replace every `LICENSE-APACHE` with the verbatim Apache License, Version 2.0
+  text.
+- Add a code of conduct, issue-template links to private vulnerability
+  reporting and the docs, Dependabot updates for npm, cargo and Actions, and a
+  `.mailmap`. `SECURITY.md` gains an email route, supported versions and release
+  verification; `CONTRIBUTING.md` and `AGENTS.md` agree on the changelog rule
+  and describe review, CI and releases.
+- Correct the README and docs: a package table with current versions, the
+  companion versions that install beside SDK 0.8, the OIDC pairing, the One
+  runtime budget, 77 character kinds, the workspace symlink rule, publication
+  status in the 0.2.0, 0.5.0 and 0.8.0 release notes, example pins (SDK 0.8.0,
+  integrations 0.2.1), broken links, badges and section order.
+- The companion packages develop against SDK 0.8.0 and Vitest 4.1.11, which
+  clears their development-only critical advisories; the MCP workspace tests
+  resolve the temporary directory; `create-openagent`'s tests build first;
+  `@openagentid/sdk-testing` and `@openagentid/anchor-eas` link to this
+  repository on npm, and every package links to the issue tracker. Remove the
+  stray `bun.lock` from the MCP package.
+- Identity verification refusals keep the underlying error as `cause`.
+- Pin the deploy image (`node:22-alpine`) by digest, as the other Dockerfiles
+  are, and move the MCP example to `@modelcontextprotocol/sdk` 1.32.1, past the
+  high-severity advisory for 1.12.0-1.30.1. Dependabot also watches the
+  Dockerfiles.
 
-## Unreleased — eyes-only Continue as Agent window, 2026-10-13
+## [0.8.0] - 2026-10-17
 
-- The Continue as Agent button now shows only a pair of bright SDK live eyes in
-  a dark 32px window, glancing, tilting, squinting and blinking with pauses, in
-  place of a random character. The existing SDK player renders them; the
-  character body is never painted and the generator is unchanged. Hover and
-  focus draw the eyes to the viewer; reduced motion keeps them still. OIDC stays
-  at the unpublished 0.3.0; no SDK change or republish.
-
-## Unreleased — Continue as Agent button, 2026-10-13
-
-- Add the branded Continue as Agent browser button to `@openagentid/oidc` 0.3.0
-  as `@openagentid/oidc/button` with a static stylesheet: one canonical design
-  whose only variable element is a bounded avatar slot rendered by the existing
-  SDK 0.7.2 character generator and live player. The host's `onContinue`
-  callback starts its own OIDC flow; the control sends no decorative identity
-  to authentication and makes no network requests.
-- Add a self-contained review page, a packed-archive Chromium verifier
-  (`tools/public-onboarding/verify-button.mjs`) and a standalone no-LifeID
-  self-rooted provider regression. The button accepts `@openagentid/sdk`
-  `^0.7.2` as an optional peer and pins the published 0.7.2 for development;
-  no SDK republish is part of this change. The OIDC browser entry is separate
-  from the Node provider.
-
-## 0.8.0 — the One family, 2026-10-15
+The One family. Published to npm: `@openagentid/sdk` 0.8.0, `@openagentid/sdk-testing` 0.1.3, `@openagentid/http` 0.2.1, `@openagentid/mcp` 0.2.1, `@openagentid/claude-agent` 0.2.1, `@openagentid/scim` 0.2.1, `create-openagent` 0.6.0.
 
 - Add the opt-in `one` character family: fourteen fun shapes (`star`, `heart`,
   `flower`, `cloud`, `droplet`, `squircle`, `diamond`, `clover`, `gumdrop`,
@@ -124,9 +157,9 @@
   public onboarding verifier checks the One family in the generated starter.
 - Accept SDK 0.8.0 beside 0.7.x (`^0.7.2 || ^0.8.0`) in every package that
   declares it: `@openagentid/http`, `mcp`, `claude-agent` and `scim` 0.2.1,
-  `sdk-testing` 0.1.3, the deployment templates 0.2.1 and the unreleased
-  `@openagentid/oidc` changes, each qualified against a packed SDK 0.8.0 and the
-  published 0.7.2. Publish them with the SDK.
+  `sdk-testing` 0.1.3, the deployment templates 0.2.1 and the `@openagentid/oidc`
+  source (released after 0.3.0), each qualified against a packed SDK 0.8.0 and
+  the published 0.7.2.
 - Verify live One heads in real Chromium in the public onboarding CI job
   (`tools/public-onboarding/verify-one.mjs`): one shared animation-frame ticker
   that sleeps at rest, one moving head per list and three per window, brief
@@ -166,7 +199,29 @@
   query and the body; its service test covers the kinds, the colours and the
   refusals over HTTP.
 
-## 0.7.3 — current package compatibility, 2026-10-12
+### `@openagentid/oidc` 0.3.0 - 2026-10-13
+
+Published on its own between the 0.7.3 and 0.8.0 releases.
+
+- Add the Continue as Agent browser button as `@openagentid/oidc/button` with a
+  static stylesheet: one canonical design whose only variable element is a
+  bounded avatar slot. The host's `onContinue` callback starts its own OIDC
+  flow; the control sends no decorative identity to authentication and makes no
+  network requests. The OIDC browser entry is separate from the Node provider.
+- The button shows a pair of bright SDK live eyes in a dark 32px window,
+  glancing, tilting, squinting and blinking with pauses, rendered by the
+  existing SDK player; the character body is never painted. Hover and focus
+  draw the eyes to the viewer; reduced motion keeps them still. Only the eye
+  window and the exact label remain, with balanced padding; loading, disabled,
+  error and accessibility behavior are defined by the control.
+- Add a self-contained review page, a packed-archive Chromium verifier
+  (`tools/public-onboarding/verify-button.mjs`) and a standalone no-LifeID
+  self-rooted provider regression. The button accepts `@openagentid/sdk`
+  `^0.7.2` as an optional peer.
+
+## [0.7.3] - 2026-10-12
+
+Current package compatibility. Published to npm: `@openagentid/sdk` 0.7.3, `@openagentid/crypto-wasm` 0.1.2, `@openagentid/http` 0.2.0, `@openagentid/mcp` 0.2.0, `@openagentid/claude-agent` 0.2.0, `@openagentid/scim` 0.2.0, `@openagentid/anchor-eas` 0.2.0, `@openagentid/sdk-testing` 0.1.2, `create-openagent` 0.5.3.
 
 - Restore deterministic X25519 public keys from seeds with real WASM bindings;
   expose public-from-secret and retain recovery compatibility with 0.1.1's
@@ -191,7 +246,7 @@
   executable examples; add packed-package checks against SDK 0.7.2 and 0.7.3.
   OIDC 0.2.0 keeps its API and gains a full current-SDK authentication test.
 
-## Unreleased — current developer documentation, 2026-10-12
+### Documentation
 
 - Refresh the documentation entry, core concepts, architecture and API/HTTP
   guidance around the published SDK 0.7.2, create-openagent 0.5.2 and OIDC 0.2.0.
@@ -210,7 +265,9 @@
   appearance independence and authorized status updates. Documentation only;
   package versions, application code and provider state are unchanged.
 
-## 0.7.2 — brighter character collection, 2026-10-12
+## [0.7.2] - 2026-10-12
+
+Brighter character collection. Published to npm: `@openagentid/sdk` 0.7.2, `create-openagent` 0.5.2.
 
 - Repaint all 17 families / 62 kinds with brighter curated pigments and coordinated
   accents; preserve each family's silhouette, seasonal meaning and live eyes.
@@ -221,7 +278,9 @@
 - Pin create-openagent 0.5.2 to SDK 0.7.2; document the shared visual language and
   future person/mascot design direction. OIDC remains 0.2.0.
 
-## 0.7.1 — refined character accessories, 2026-10-12
+## [0.7.1] - 2026-10-12
+
+Refined character accessories. Published to npm: `@openagentid/sdk` 0.7.1, `create-openagent` 0.5.1.
 
 - Lighten glasses rims and temples, add subtle hinges, and give headphones a
   slimmer band with layered soft cushions and restrained highlights.
@@ -230,7 +289,9 @@
 - Pin create-openagent 0.5.1 to SDK 0.7.1. Appearance, identity, animation and
   authentication contracts are unchanged; OIDC remains 0.2.0.
 
-## 0.7.0 — shared character material and head-fitted accessories, 2026-10-12
+## [0.7.0] - 2026-10-12
+
+Shared character material and head-fitted accessories. Published to npm: `@openagentid/sdk` 0.7.0, `create-openagent` 0.5.0.
 
 - Default all 17 families and 62 kinds to soft plush material; keep flat vector
   material selectable and add optional raised live-eye placement.
@@ -248,7 +309,9 @@
 - Clarify expanded full-character framing and distinguish animator eye coordinates
   from the final SVG viewBox.
 
-## 0.6.0 — independent character accessories, 2026-10-12
+## [0.6.0] - 2026-10-12
+
+Independent character accessories. Published to npm: `@openagentid/sdk` 0.6.0, `create-openagent` 0.4.0.
 
 - Add transparent glasses and headphones as independent, combinable accessories
   on every family and kind. Autos remains the default with no accessories.
@@ -262,7 +325,9 @@
 - Verify all kinds, face crops, real signed starter status and additive/removal
   behavior. Production Orbit adoption is tracked separately.
 
-## 0.5.0 — character families and face avatars, 2026-10-12
+## [0.5.0] - 2026-10-12
+
+Character families and face avatars. Published to npm: `@openagentid/sdk` 0.5.0, `create-openagent` 0.3.0.
 
 - Inset every hosted-demo and generated-starter selector arrow by 12px, reserve
   space for its label, and retain native selectors in forced-color mode.
@@ -279,7 +344,7 @@
   isolated SVG paint references, reduced motion and real starter request status.
   This source change does not itself establish production Orbit rollout.
 
-## Unreleased — provisioning documentation, 2026-10-12
+### Documentation
 
 - Rewrite the agent creation guide around SDK 0.4.0's real local self-root
   provisioning, explicit receiver trust and persistent identity. Document the
@@ -288,7 +353,9 @@
   provisioning timings. Make the local examples directly runnable as Node 20
   JavaScript modules. Documentation only; package versions are unchanged.
 
-## 0.4.0 — public developer tooling, 2026-10-11
+## [0.4.0] - 2026-10-12
+
+Public developer tooling. Published to npm: `@openagentid/sdk` 0.4.0, `create-openagent` 0.2.0.
 
 - Add a Node-only persistent local identity authority with real Ed25519 keys,
   explicit receiver-controlled public identity trust, bounded issued challenges,
@@ -307,7 +374,9 @@
 - Put the working starter first in the public README and identify Life-hosted
   integrations as optional for standalone applications.
 
-## 0.3.0 — live expression state, 2026-10-11
+## [0.3.0] - 2026-10-12
+
+Live expression state. Published to npm: `@openagentid/sdk` 0.3.0.
 
 - Add portable status snapshots and incremental updates for all eighteen
   expressions. Reasoning selects thoughtful; blocked/error selects concerned.
@@ -324,7 +393,9 @@
 - Add state, interpolation, invalid-input and real browser/HTTP qualification
   coverage. Only @openagentid/sdk changes to 0.3.0; OIDC stays at 0.2.0.
 
-## 0.2.2 — IAM avatar compatibility, 2026-10-11
+## [0.2.2] - 2026-10-11
+
+IAM avatar compatibility. Published to npm: `@openagentid/sdk` 0.2.2.
 
 - Render established IAM `did:oas:agent-instance:<canonical ULID>` identifiers
   through Autos, SpaceX and the public character/Glyph APIs without rewriting
@@ -337,7 +408,9 @@
 - Add independent remote BLAKE3 vectors, API/installed-package regression
   checks and the mirrored OpenAPI contract. OIDC remains at 0.2.0.
 
-## 0.2.1 — animated agent characters, 2026-10-11
+## [0.2.1] - 2026-10-11
+
+Animated agent characters. Published to npm: `@openagentid/sdk` 0.2.1.
 
 - Add an open, deterministic character SDK and public Fetch API with OpenAPI
   3.1, animated SVGs, CORS, bounded inputs and conditional GET/HEAD caching.
@@ -351,17 +424,9 @@
 - Publish the preceding SDK/OIDC 0.2.0 identity release; character work remains
   a separate SDK release. OIDC stays at 0.2.0.
 
-### 0.2.0 self-rooted agent identities — 2026-10-11
+## [0.2.0] - 2026-10-11
 
-- Support explicitly authorized self-rooted agents and their signed descendants
-  with nullable owner and an explicit root policy binding. Preserve real key
-  purposes/signatures, current root/grant revocation, bounded lifetimes and
-  atomic challenge/replay checks. No human owner is fabricated.
-- Recheck self-root policy in verification HTTP/CLI, OATS and OIDC; bind OIDC
-  grants to the exact root mode and authorization ID/revision. Retain owned and
-  legacy-DID flows and document full service access under normal authorization.
-
-## 0.2.0 — release candidate, 2026-10-11
+Identity verification, the OIDC provider, OAS Glyph avatars and verified OATS. Published to npm: `@openagentid/sdk` 0.2.0, `@openagentid/oidc` 0.2.0.
 
 - Add a signing OIDC provider adapter with registered relying parties, S256
   PKCE, discovery/JWKS and LifeID owner federation; remove successful
@@ -395,6 +460,32 @@
   and hidden conformance reports in CI while enforcing the Cargo lockfile.
 - Consolidate the useful legacy claim/discovery/CLI behavior into this
   canonical repository and document the free Open Software core versus Life's
-  hosted integration boundaries. Production authorities, hosted acceptance,
-  exact-head CI/review and npm publication remain release gates.
+  hosted integration boundaries.
 
+### Self-rooted agent identities
+
+- Support explicitly authorized self-rooted agents and their signed descendants
+  with nullable owner and an explicit root policy binding. Preserve real key
+  purposes/signatures, current root/grant revocation, bounded lifetimes and
+  atomic challenge/replay checks. No human owner is fabricated.
+- Recheck self-root policy in verification HTTP/CLI, OATS and OIDC; bind OIDC
+  grants to the exact root mode and authorization ID/revision. Retain owned and
+  legacy-DID flows and document full service access under normal authorization.
+
+## [0.1.1] - 2026-08-01
+
+Copyright holder. Published to npm: the 0.1.1 versions of `@openagentid/sdk`, `sdk-testing`, `http`, `mcp`,
+`claude-agent`, `scim`, `oidc`, `anchor-eas`, `crypto-wasm`, `skills-policy` and `create-openagent`.
+
+- Name L1fe Labs, Inc. as the copyright holder in every license file and add copyright footers to the
+  READMEs. No functional changes.
+
+## [0.1.0] - 2026-08-01
+
+The first npm release, under the `@openagentid` scope. Published to npm: the 0.1.0 versions of
+`@openagentid/sdk`, `sdk-testing`, `http`, `mcp`, `claude-agent`, `scim`, `oidc`, `anchor-eas`,
+`crypto-wasm`, `skills-policy` and `create-openagent`.
+
+- The TypeScript facade, verify-first ACT verification through the canonical Rust crate compiled to WASM,
+  key custody, the HTTP, MCP, Claude Agent SDK, SCIM and OIDC integrations, the EAS anchor adapter and the
+  project generator. See each package's `CHANGELOG.md` for its contents.

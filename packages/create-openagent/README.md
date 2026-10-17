@@ -13,7 +13,7 @@ npm run dev
 
 In a second terminal, run `npm run agent`. It signs an actual server-issued
 challenge; the receiver verifies the signature and current trust and consumes
-the challenge exactly once. The viewer uses Autos by default, offers all 18 families and 75 kinds with face
+the challenge exactly once. The viewer uses Autos by default, offers all 18 families and 77 kinds with face
 framing (including SpaceX, holiday characters and the One family), and updates from actual verified requests. It uses the same SDK player you can
 mount in your own UI. Soft plush is the default finish, with flat material
 as an option, and on-face or raised eye placement on every two-eyed family. Those controls

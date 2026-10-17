@@ -1,10 +1,10 @@
 # @openagentid/mcp
 
 Authenticated Model Context Protocol tools using the current OpenAgentID SDK.
-Works with SDK `^0.7.2` and MCP SDK `^1.27.0`.
+Works with SDK 0.7 (from 0.7.2) and 0.8 (`^0.7.2 || ^0.8.0`) and MCP SDK `^1.27.0`.
 
 ```sh
-npm install @openagentid/sdk@^0.7.2 @openagentid/mcp@0.2.0 @modelcontextprotocol/sdk@^1.27.0 zod
+npm install @openagentid/sdk @openagentid/mcp @modelcontextprotocol/sdk@^1.27.0 zod
 ```
 
 ## Run a real server and client
@@ -70,3 +70,9 @@ workspace factories or implement the declared signing/verifier contract. The
 new factories make that conversion explicit and exercise the current SDK with
 real keys. Existing custom adapters remain supported; bind the verifier's new
 `request` argument to your signed request data.
+
+## License
+
+Copyright © 2026 [L1fe Labs, Inc.](https://l1fe.ai)
+
+Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.

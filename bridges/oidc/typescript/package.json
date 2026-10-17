@@ -10,6 +10,9 @@
     "url": "https://github.com/OpenAgentID/openagent-sdk.git",
     "directory": "bridges/oidc/typescript"
   },
+  "bugs": {
+    "url": "https://github.com/OpenAgentID/openagent-sdk/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -76,7 +79,7 @@
     }
   },
   "devDependencies": {
-    "@openagentid/sdk": "0.7.2",
+    "@openagentid/sdk": "0.8.0",
     "@types/node": "^20.11.30",
     "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.0.2",
