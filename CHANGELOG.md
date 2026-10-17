@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Generate validated command skeletons for live catalog insets; retain the general SVG helper and compare every catalog inset against it.
+- Generate lossless shared command/value skeletons for the public SVG paths and live catalog insets; retain the general SVG helper and compare every catalog inset against it.
 
 - Share construction and clamping of held poses across faces without changing pose values; select least-held looks without temporary candidate arrays and keep private runtime fields separate from public descriptor names.
 

@@ -12,7 +12,7 @@
 import { blake3 } from '@noble/hashes/blake3';
 import { barPath, barShape, GEOMETRY, poseToFrame, r2, type AgentEyeFrame } from './agent-eye.js';
 import { isAgentAvatarDid } from './avatar-did.js';
-import { ONE_CIRCLE, ONE_COLORS, ONE_DIGITAL, ONE_SHAPES, ONE_SHAPE_ORDER, ONE_PATH_COMMANDS,
+import { ONE_CIRCLE, ONE_COLORS, ONE_DIGITAL, ONE_SHAPES, ONE_SHAPE_ORDER, ONE_PATHS,
   type OneColor, type OneColorDescription, type OneShape, type OneShapeDescription, type OneShapeEye, type OneShapeGeometry, type OneTemperament } from './character-one-shapes.js';
 import { expressionForStatus, type AvatarExpression, type AvatarStatus } from './character-state.js';
 
@@ -548,16 +548,15 @@ const catalogSegments = new Map<OneKind, readonly Segment[]>();
 export function oneShapeInsetPath(kind: OneKind, delta: number): string {
   let segments = catalogSegments.get(kind);
   if (!segments) {
-    const shape = oneShapeGeometry(kind);
-    const values = shape.path.match(number)!.map(Number);
-    const commands = ONE_PATH_COMMANDS[kind === 'charcoal' ? shapeIds.length : shapeIds.indexOf(kind)]!;
+    oneShapeGeometry(kind); // Validate the kind before indexing the generated catalog.
+    const [commands, values] = ONE_PATHS[kind === 'charcoal' ? shapeIds.length : shapeIds.indexOf(kind)]!;
     let current: Point = [values[0]!, values[1]!], offset = 2;
     const built: Segment[] = [];
-    for (const command of commands) {
+    for (const command of commands.slice(1, -1)) {
       if (command === 'A') {
-        const r = values[offset]!, large = values[offset + 3]! as 0 | 1, sweep = values[offset + 4]! as 0 | 1;
-        const to: Point = [values[offset + 5]!, values[offset + 6]!];
-        offset += 7;
+        const r = values[offset]!, large = values[offset + 1]! as 0 | 1, sweep = values[offset + 2]! as 0 | 1;
+        const to: Point = [values[offset + 3]!, values[offset + 4]!];
+        offset += 5;
         if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'A', from: current, to, r, large, sweep, centre: arcCentre(current, to, r, large, sweep) });
         current = to;
       } else {
