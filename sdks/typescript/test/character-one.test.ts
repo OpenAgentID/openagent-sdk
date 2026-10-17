@@ -718,6 +718,18 @@ describe('One moments', () => {
     expect(result.gap, context).toBeGreaterThanOrEqual(eye.MOUTH.minGap);
   };
 
+  it('keeps independent constructor-local state on separate motion instances', () => {
+    const first = motion('idle', 64), second = motion('idle', 64);
+    expect(Object.getPrototypeOf(first)).toBe(OneMotion.prototype);
+    expect(first).toBeInstanceOf(OneMotion);
+    first.setFace('working', row, 10);
+    first.setSize(16);
+    expect(first.face).toBe('working');
+    expect(first.tier).toBe('XS');
+    expect(second.face).toBe('idle');
+    expect(second.tier).toBe('L');
+  });
+
   it('keeps every frame of every moment inside the disc, with the smile clear of the eye, from every face (V2)', () => {
     for (const name of moments) for (const px of sizes) for (const kind of ['droplet', 'charcoal'] as const) for (const face of faces) {
       const head = motion(face, px, kind);

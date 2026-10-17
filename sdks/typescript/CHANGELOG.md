@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Keep motion state in each constructor scope while retaining the constructable motion interface and independent head state.
+- Keep motion, stage, and head state in each constructor scope while retaining their constructable interfaces and independent head state.
 
 - Select the smallest gzip output from fixed, semantics-preserving compression profiles; keep its matching source map.
 

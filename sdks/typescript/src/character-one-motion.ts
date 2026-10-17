@@ -205,7 +205,7 @@ export interface OneMotion {
   sample(at: number): { frame: OneMotionFrame; finished: OneMomentRequest | null };
 }
 
-/** Per-head state is closed over by its operations; the constructable interface and prototype remain stable. */
+/** Per-head state is closed over by its operations; the constructable interface is preserved and instances retain their constructor prototype. */
 export class OneMotion {
   constructor(options: OneMotionOptions) {
     let _stateface: OneFace;
