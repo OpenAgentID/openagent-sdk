@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1 — standalone One runtime
+
+- Keep the CLI and SDK version aligned at 0.8.1. Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles with one shared public/dynamic property reservation list and a direct module-scoped export bindings verified by importing the final ESM namespace; retain unminified bundler mappings until final compression, compose original source locations explicitly and reject maps missing the main runtime sources.
+- Keep the private motion builder and window stage in lexical scopes, share identical decimal formatting, and avoid duplicate catalog lookups; share lossless fixed-point catalog path data (generation proves every decoded number is identical), presentation intrinsics, held-pose construction and strict presentation-record validation. Keep unused general easing presets out of the live entry while retaining the full preset export. Keep mutable runtime state private to each head and retain deterministic DID-derived looks and seeded helpers.
+- Give the standalone browser entry documented compact error codes while preserving validation guards and exception classes; retain descriptive errors in the full SDK.
+- Serve the exact standalone module at `/one.js` with the existing CSP and asset-routing rules, default-gzip delivery, and encoding-aware ETags and HEAD responses. Compare every allowed shape/colour and public status against the full renderer in Chromium, including disposal, motion limits and reduced motion; compare optimized and unminified live output across 2,700 controlled-clock samples with activity renewed for each scenario.
+
 ## 0.8.0 — the One family, 2026-10-15
 
 - Add the opt-in `one` character family: fourteen fun shapes (`star`, `heart`,
@@ -64,13 +71,10 @@
   element. The animator exposes `frame.one` for DOM-free renderers.
 - Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, the shape
   and colour helpers) and `@openagentid/sdk/browser/one`, the live runtime alone
-  at 18.9 KB gzipped, which never hashes a DID, with blank heads for ready-made
-  agents (drawn in the shape they will get) and their First blink. `npm run size`
-  enforces 20 KB for it (the circles-only runtime was 15.1 KB; the shape library
-  and palette add 3.7 KB that no code change removes, above the One app's 16 KB
-  script budget, which is to be revisited) and 65 KB for the all-family browser
-  bundle, now minified like the One runtime: 53.6 KB with the shape library
-  (63.1 KB unminified in 0.7.3).
+  with no DID hashing, and blank heads for ready-made agents (drawn in the
+  shape they will get) and their First blink. This release initially used a
+  20 KB gzip gate for One and 65 KB for the all-family entry; 0.8.1 restores
+  the complete standalone One entry's 16,384-byte default-gzip limit.
 - Add `typing`, `attention`, `paused` and `offline` statuses for every family,
   `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
   CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the

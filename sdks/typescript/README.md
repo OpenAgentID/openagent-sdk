@@ -46,7 +46,7 @@ Digital One, the black circle, for One itself, every head with one bar for an ey
 drawn from agent-eye, One's animated mark, with its own eye style `agent-eye-v1`.
 A DID selects a shape and a colour when no look is stored; eleven never pairs are
 refused. Hosts that draw only Ones can use the light `@openagentid/sdk/one` entry,
-whose live runtime is 18.9 KB gzipped. Autos remains the default family, and every existing
+whose standalone live runtime has a 16,384-byte default-gzip budget. Autos remains the default family, and every existing
 family renders exactly as before. Four statuses join the shared timeline for
 every family (`typing`, `attention`, `paused`, `offline`), and `theme` and
 `label` join the rendering options. Identity documents that store a One
@@ -353,3 +353,5 @@ Glasses and headphones are optional, combinable layers on every character family
 Use `accessories: ['glasses', 'headphones']` when rendering or mounting a character,
 and `player.setAppearance({ accessories: [] })` to remove them without resetting
 its live eyes. See the [accessory release guide](../../docs/release-0.6.0.md) for profile, API and CLI examples.
+
+The standalone One browser entry reports stable production error codes; see [the code reference](https://github.com/OpenAgentID/openagent-sdk/blob/main/docs/browser-one-errors.md). Exception classes and validation guards are unchanged. The full SDK retains descriptive error messages.

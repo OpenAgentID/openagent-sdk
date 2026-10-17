@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,10 +18,13 @@ const assets = new Map([
   ['/', ['demo.html', 'text/html; charset=utf-8']],
   ['/demo.js', ['demo.js', 'text/javascript; charset=utf-8']],
   ['/demo.css', ['demo.css', 'text/css; charset=utf-8']],
+  ['/one.js', ['../../sdks/typescript/dist/browser/one.js', 'text/javascript; charset=utf-8']],
   ['/character-player.js', ['../../sdks/typescript/dist/browser/character-player.js', 'text/javascript; charset=utf-8']],
 ].map(([path, [file, contentType]]) => {
   const body = readFileSync(new URL(file, import.meta.url));
-  return [path, { body, contentType, etag: `"${createHash('sha256').update(body).digest('hex')}"` }];
+  const gzip = contentType.startsWith('text/javascript') ? gzipSync(body) : null;
+  const tag = value => `"${createHash('sha256').update(value).digest('hex')}"`;
+  return [path, { body, contentType, etag: tag(body), gzip, gzipEtag: gzip && tag(gzip) }];
 }));
 
 function failure(status, error) {
@@ -44,16 +48,31 @@ function publicGlyphResponse(request) {
   return response;
 }
 
+function acceptsGzip(header) {
+  if (!header || header.length > 4096) return false;
+  const weights = new Map();
+  for (const entry of header.split(',')) {
+    const match = /^\s*(gzip|\*)\s*(?:;\s*q\s*=\s*(0(?:\.\d{0,3})?|1(?:\.0{0,3})?))?\s*$/i.exec(entry);
+    if (match) weights.set(match[1].toLowerCase(), Number(match[2] ?? 1));
+  }
+  return (weights.get('gzip') ?? weights.get('*') ?? 0) > 0;
+}
+
 function staticResponse(request, asset) {
+  const compressed = asset.gzip && acceptsGzip(request.headers.get('accept-encoding'));
+  const body = compressed ? asset.gzip : asset.body;
+  const etag = compressed ? asset.gzipEtag : asset.etag;
   const headers = { ...assetHeaders, 'content-type': asset.contentType,
-    'cache-control': 'public, max-age=300, must-revalidate', etag: asset.etag };
+    'cache-control': 'public, max-age=300, must-revalidate', etag,
+    ...(asset.gzip ? { vary: 'Accept-Encoding' } : {}),
+    ...(compressed ? { 'content-encoding': 'gzip' } : {}) };
   const validators = request.headers.get('if-none-match');
   if (validators && validators.length <= 4096 && validators.split(',').some(value =>
-    [asset.etag, `W/${asset.etag}`, '*'].includes(value.trim()))) {
+    [etag, `W/${etag}`, '*'].includes(value.trim()))) {
     return new Response(null, { status: 304, headers });
   }
-  return new Response(request.method === 'HEAD' ? null : asset.body,
-    { headers: { ...headers, 'content-length': String(asset.body.byteLength) } });
+  return new Response(request.method === 'HEAD' ? null : body,
+    { headers: { ...headers, 'content-length': String(body.byteLength) } });
 }
 
 /** Stream without destroying the response socket when the handler refuses a body. */
@@ -119,7 +138,7 @@ export function createCharacterServer() {
         return;
       }
       const headers = new Headers();
-      for (const key of ['content-type', 'content-length', 'content-encoding', 'if-none-match',
+      for (const key of ['content-type', 'content-length', 'content-encoding', 'accept-encoding', 'if-none-match',
         'origin', 'access-control-request-method', 'access-control-request-headers']) {
         const value = incoming.headers[key];
         if (typeof value === 'string') headers.set(key, value);

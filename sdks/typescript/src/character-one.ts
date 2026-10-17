@@ -9,10 +9,13 @@
  * the face. Digital One is always the circle and always `#141b16`, on every surface; no agent is a circle and no
  * agent is black. A never pair (a shape in a colour that would turn it into a sign) is refused, never changed.
  */
+import { hasOnlyKeys } from './character-record.js';
+import { M_PI, clamp, freeze, mAbs, mCeil, mCos, mHypot, mMax, mMin, mPow, mSin, mSqrt, numberIsFinite, objectKeys } from './character-intrinsics.js';
+import { oneError } from './one-error.js';
 import { blake3 } from '@noble/hashes/blake3';
 import { barPath, barShape, GEOMETRY, poseToFrame, r2, type AgentEyeFrame } from './agent-eye.js';
 import { isAgentAvatarDid } from './avatar-did.js';
-import { ONE_CIRCLE, ONE_COLORS, ONE_DIGITAL, ONE_SHAPES, ONE_SHAPE_ORDER,
+import { ONE_CIRCLE, ONE_COLORS, ONE_DIGITAL, ONE_SHAPES, ONE_SHAPE_ORDER, ONE_PATHS,
   type OneColor, type OneColorDescription, type OneShape, type OneShapeDescription, type OneShapeEye, type OneShapeGeometry, type OneTemperament } from './character-one-shapes.js';
 import { expressionForStatus, type AvatarExpression, type AvatarStatus } from './character-state.js';
 
@@ -37,19 +40,19 @@ export interface OneLook {
 export const ONE_EYE_LIGHT = '#fbfaf6';
 export const ONE_EYE_INK = '#141b16';
 /** A blank head: the surface's ink at 10 % for the disc and the muted text tone for the eye (AVATARS.md §1.1). */
-export const ONE_BLANK = Object.freeze({
-  light: Object.freeze({ disc: '#141b16', discOpacity: 0.1, eye: '#5a6256' }),
-  dark: Object.freeze({ disc: '#f2f1ea', discOpacity: 0.1, eye: '#a9b2a2' }),
+export const ONE_BLANK = freeze({
+  light: freeze({ disc: '#141b16', discOpacity: 0.1, eye: '#5a6256' }),
+  dark: freeze({ disc: '#f2f1ea', discOpacity: 0.1, eye: '#a9b2a2' }),
 });
 /** The shape a blank head is drawn as when the agent's own shape is not known yet. */
 export const ONE_BLANK_SHAPE: OneShape = 'squircle';
 
-const shapeIds: readonly OneShape[] = Object.freeze(ONE_SHAPES.map(entry => entry.id));
-const colorIds: readonly OneColor[] = Object.freeze(ONE_COLORS.map(entry => entry.id));
+const shapeIds: readonly OneShape[] = freeze(ONE_SHAPES.map(entry => entry.id));
+const colorIds: readonly OneColor[] = freeze(ONE_COLORS.map(entry => entry.id));
 const shapeById = new Map<OneShape, OneShapeDescription>(ONE_SHAPES.map(entry => [entry.id, entry]));
 const colorById = new Map<OneColor, OneColorDescription>(ONE_COLORS.map(entry => [entry.id, entry]));
 /** Catalog kinds for the One family: the fourteen shapes in library order, then Digital One. */
-export const ONE_KINDS: readonly OneKind[] = Object.freeze([...shapeIds, 'charcoal'] as const);
+export const ONE_KINDS: readonly OneKind[] = freeze([...shapeIds, 'charcoal'] as const);
 
 /** The fourteen shapes in library order, each with its path, eye placement and limits, pivot, temperament, own colour and never list. */
 export function getOneShapes(): readonly OneShapeDescription[] {
@@ -62,11 +65,11 @@ export function getOneColors(): readonly OneColorDescription[] {
 }
 
 export function isOneShape(value: unknown): value is OneShape {
-  return typeof value === 'string' && (shapeIds as readonly string[]).includes(value);
+  return shapeById.has(value as OneShape);
 }
 
 export function isOneColor(value: unknown): value is OneColor {
-  return typeof value === 'string' && (colorIds as readonly string[]).includes(value);
+  return colorById.has(value as OneColor);
 }
 
 export function isOneKind(value: unknown): value is OneKind {
@@ -79,12 +82,13 @@ export function isOneHeadColor(value: unknown): value is OneHeadColor {
 
 /** Whether `shape` may wear `color`: a known shape, a known colour, and not a never pair. */
 export function isOneColorAllowed(shape: unknown, color: unknown): boolean {
-  return isOneShape(shape) && isOneColor(color) && !shapeById.get(shape)!.never.includes(color);
+  const entry = shapeById.get(shape as OneShape);
+  return entry !== undefined && isOneColor(color) && !entry.never.includes(color);
 }
 
 function shapeOf(shape: OneShape): OneShapeDescription {
   const entry = shapeById.get(shape);
-  if (!entry) throw new TypeError('Unsupported One shape');
+  if (!entry) throw new TypeError(oneError(8, () => ('Unsupported One shape')));
   return entry;
 }
 
@@ -110,18 +114,18 @@ function colorAt(shape: OneShapeDescription, index: number): OneColor {
     const color = colorIds[(((index + step) % n) + n) % n]!;
     if (!shape.never.includes(color)) return color;
   }
-  throw new TypeError(`${shape.id} allows no colour`);
+  throw new TypeError(oneError(9, () => (`${shape.id} allows no colour`)));
 }
 
-const encoder = new TextEncoder();
+let encoder: TextEncoder | undefined;
 
 /** The character seed shared with every family: BLAKE3 over `oaid-character-v1\0one\0<did>`. */
 export function oneSeed(did: string): Uint8Array {
-  return blake3(encoder.encode(`oaid-character-v1\u0000one\u0000${did}`));
+  return blake3((encoder ??= new TextEncoder()).encode(`oaid-character-v1\u0000one\u0000${did}`));
 }
 
 function agentSeed(did: string): Uint8Array {
-  if (!isAgentAvatarDid(did)) throw new TypeError('One looks require an agent or agent instance DID');
+  if (!isAgentAvatarDid(did)) throw new TypeError(oneError(10, () => ('One looks require an agent or agent instance DID')));
   return oneSeed(did);
 }
 
@@ -148,7 +152,7 @@ export function oneColorForDid(did: string): OneColor {
 
 /** The deterministic default look for an agent DID: `oneShapeForDid` and `oneColorForDid` together. */
 export function oneLookForDid(did: string): OneLook {
-  return Object.freeze({ shape: oneShapeForDid(did), color: oneColorForDid(did) });
+  return freeze({ shape: oneShapeForDid(did), color: oneColorForDid(did) });
 }
 
 /** An agent that already holds a look, with the group it sits in (for example a team or a company). */
@@ -159,16 +163,19 @@ export interface OneLookHolder {
 }
 
 function parseGroup(value: unknown): string {
-  if (typeof value !== 'string' || !value || value.length > 200) throw new TypeError('One look groups must be 1–200 characters');
+  if (typeof value !== 'string' || !value || value.length > 200) throw new TypeError(oneError(11, () => ('One look groups must be 1–200 characters')));
   return value;
 }
 
 /** The least-held candidate; among those, with a group, one whose holders all sit in other groups; ties by `order`. */
 function leastHeld<T extends string>(order: readonly T[], counts: ReadonlyMap<T, number>, shared: ReadonlySet<T>, grouped: boolean): T {
-  const least = Math.min(...order.map(id => counts.get(id)!));
-  const candidates = order.filter(id => counts.get(id) === least);
-  if (!grouped) return candidates[0]!;
-  return candidates.find(id => !shared.has(id)) ?? candidates[0]!;
+  let chosen = order[0]!;
+  for (const id of order) {
+    const count = counts.get(id)!;
+    const best = counts.get(chosen)!;
+    if (count < best || (count === best && grouped && shared.has(chosen) && !shared.has(id))) chosen = id;
+  }
+  return chosen;
 }
 
 /**
@@ -181,21 +188,19 @@ function leastHeld<T extends string>(order: readonly T[], counts: ReadonlyMap<T,
  */
 export function nextOneLook(held: Iterable<OneLookHolder>, options?: { readonly group?: string }): OneLook {
   if (held === null || typeof held !== 'object' || typeof (held as Iterable<unknown>)[Symbol.iterator] !== 'function') {
-    throw new TypeError('Held One looks must be iterable');
+    throw new TypeError(oneError(12, () => ('Held One looks must be iterable')));
   }
-  if (options !== undefined && (options === null || typeof options !== 'object' || Array.isArray(options) ||
-      Object.keys(options).some(key => key !== 'group'))) throw new TypeError('Invalid One look options');
+  if (options !== undefined && !hasOnlyKeys(options, ['group'])) throw new TypeError(oneError(13, () => ('Invalid One look options')));
   const group = options?.group === undefined ? undefined : parseGroup(options.group);
   const shapeCounts = new Map<OneShape, number>(shapeIds.map(id => [id, 0]));
   const colorCounts = new Map<OneColor, number>(colorIds.map(id => [id, 0]));
   const sharedShapes = new Set<OneShape>(), sharedColors = new Set<OneColor>();
   for (const entry of held as Iterable<unknown>) {
-    if (entry === null || typeof entry !== 'object' || Array.isArray(entry) ||
-        Object.keys(entry).some(key => key !== 'shape' && key !== 'color' && key !== 'group')) throw new TypeError('Invalid One look holder');
+    if (!hasOnlyKeys(entry, ['shape', 'color', 'group'])) throw new TypeError(oneError(14, () => ('Invalid One look holder')));
     const holder = entry as Record<string, unknown>;
-    if (!isOneShape(holder.shape)) throw new TypeError('Unsupported One shape');
-    if (!isOneColor(holder.color)) throw new TypeError('Unsupported One colour');
-    if (!isOneColorAllowed(holder.shape, holder.color)) throw new TypeError(`A ${holder.shape} is never ${holder.color}`);
+    if (!isOneShape(holder.shape)) throw new TypeError(oneError(15, () => ('Unsupported One shape')));
+    if (!isOneColor(holder.color)) throw new TypeError(oneError(16, () => ('Unsupported One colour')));
+    if (!isOneColorAllowed(holder.shape, holder.color)) throw new TypeError(oneError(17, () => (`A ${holder.shape} is never ${holder.color}`)));
     const holderGroup = holder.group === undefined ? undefined : parseGroup(holder.group);
     shapeCounts.set(holder.shape, shapeCounts.get(holder.shape)! + 1);
     colorCounts.set(holder.color, colorCounts.get(holder.color)! + 1);
@@ -204,7 +209,7 @@ export function nextOneLook(held: Iterable<OneLookHolder>, options?: { readonly 
   const shape = shapeOf(leastHeld(ONE_SHAPE_ORDER, shapeCounts, sharedShapes, group !== undefined));
   const allowed = colorIds.filter(id => !shape.never.includes(id));
   const color = colorCounts.get(shape.color) === 0 ? shape.color : leastHeld(allowed, colorCounts, sharedColors, group !== undefined);
-  return Object.freeze({ shape: shape.id, color });
+  return freeze({ shape: shape.id, color });
 }
 
 export interface OnePaint {
@@ -231,7 +236,7 @@ export function onePaint(color: OneHeadColor, theme: OneTheme): OnePaint {
     return { disc: blank.disc, discOpacity: blank.discOpacity, eye: blank.eye, keyline: null, rim: null };
   }
   const entry = colorById.get(color);
-  if (!entry) throw new TypeError('Unsupported One colour');
+  if (!entry) throw new TypeError(oneError(18, () => ('Unsupported One colour')));
   return { disc: entry.disc, discOpacity: 1, eye: entry.eye, keyline: theme === 'light' ? entry.keyline : null, rim: null };
 }
 
@@ -242,7 +247,7 @@ export type OneActivityFace = 'idle' | 'listening' | 'thinking' | 'working' | 't
   'done' | 'attention' | 'waiting' | 'paused' | 'offline' | 'error';
 export type OneFace = OneActivityFace | AvatarExpression;
 
-const activityFaces: Readonly<Record<string, OneActivityFace>> = Object.freeze({
+const activityFaces: Readonly<Record<string, OneActivityFace>> = freeze({
   idle: 'idle', listening: 'listening', reasoning: 'thinking', working: 'working', typing: 'typing',
   speaking: 'speaking', success: 'done', attention: 'attention', blocked: 'waiting', paused: 'paused',
   offline: 'offline', error: 'error',
@@ -272,11 +277,13 @@ export interface OnePose {
   readonly hop: number;
 }
 export type OneChannel = keyof OnePose;
-export const ONE_FACE_CHANNELS: readonly OneChannel[] = Object.freeze(['look', 'lift', 'open', 'tilt', 'smile', 'mouth']);
-export const ONE_BODY_CHANNELS: readonly OneChannel[] = Object.freeze(['squash', 'rotate', 'hop']);
-export const ONE_CHANNELS: readonly OneChannel[] = Object.freeze([...ONE_FACE_CHANNELS, ...ONE_BODY_CHANNELS]);
-/** agent-eye's REST pose: the mark itself. */
-export const ONE_NEUTRAL: OnePose = Object.freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0, squash: 0, rotate: 0, hop: 0 });
+/** agent-eye's REST pose: the mark itself. Property order is the channel order. */
+export const ONE_NEUTRAL: OnePose = freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0, squash: 0, rotate: 0, hop: 0 });
+// Derive internal property keys rather than repeating string literals. The standalone
+// browser build can then shorten pose properties without changing public state fields.
+export const ONE_CHANNELS: readonly OneChannel[] = freeze(objectKeys(ONE_NEUTRAL) as OneChannel[]);
+export const ONE_FACE_CHANNELS: readonly OneChannel[] = freeze(ONE_CHANNELS.slice(0, 6));
+export const ONE_BODY_CHANNELS: readonly OneChannel[] = freeze(ONE_CHANNELS.slice(6));
 
 export type OneTier = 'XS' | 'S' | 'M' | 'L';
 /** Size tiers: XS 16–20 px holds faces only; S 24–36 moves the face; M 40–52 adds a little body; L 64+ is fully expressive. */
@@ -284,7 +291,11 @@ export function oneTier(px: number): OneTier {
   return px <= 20 ? 'XS' : px <= 36 ? 'S' : px <= 52 ? 'M' : 'L';
 }
 
-const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+function heldPose(look = 0, lift = 0, open = 1, tilt = 0, squash = 0, rotate = 0): OnePose {
+  return freeze({ look: clamp(look, -1, 1), lift: clamp(lift, -1, 1), open, tilt,
+    smile: 0, mouth: 0, squash, rotate, hop: 0 });
+}
 
 /**
  * The held face. `gaze` is where the head's content is: a One at rest looks there, so a row passes
@@ -293,45 +304,41 @@ const clamp = (value: number, min: number, max: number): number => Math.min(max,
  * neutral show the warm face at the viewer, so the centred, slightly wide needs-you face stays the only
  * one that looks straight out. A negative gaze.x mirrors every face for right-to-left content.
  */
+
 export function oneHeldPose(face: OneFace, gaze: { readonly x: number; readonly y: number }, px: number): OnePose {
   const d = gaze.x < 0 ? -1 : 1;
   const gx = gaze.x, gy = gaze.y;
-  let pose: Partial<OnePose>;
   switch (face) {
-    case 'idle': case 'neutral': pose = gx === 0 && gy === 0 ? { tilt: 5, open: 0.92 } : { look: gx, lift: gy }; break;
-    case 'listening': pose = { lift: -0.05, open: 1.04 }; break;
-    case 'thinking': case 'thoughtful': pose = { look: 0.25 * d, lift: -0.45, open: 0.58, tilt: -8 * d }; break;
-    case 'working': pose = { look: 0.3 * d, lift: 0.3, open: 0.72 }; break;
-    case 'typing': pose = { look: 0.15 * d, lift: 0.55, open: 0.8 }; break;
-    case 'speaking': pose = { look: 0.08 * d, tilt: 5 * d, open: 0.92 }; break;
-    case 'done': case 'happy': pose = { look: Math.abs(gx) < 0.08 ? 0.08 * d : gx, lift: gy, tilt: 5 * d, open: 0.92 }; break;
-    case 'attention': pose = { look: 0, lift: 0, open: 1.06 }; break;
-    case 'waiting': pose = { look: 0.2 * d, lift: -0.4 }; break;
+    case 'idle': case 'neutral': return gx === 0 && gy === 0 ? heldPose(0, 0, 0.92, 5) : heldPose(gx, gy);
+    case 'listening': return heldPose(0, -0.05, 1.04);
+    case 'thinking': case 'thoughtful': return heldPose(0.25 * d, -0.45, 0.58, -8 * d);
+    case 'working': return heldPose(0.3 * d, 0.3, 0.72);
+    case 'typing': return heldPose(0.15 * d, 0.55, 0.8);
+    case 'speaking': return heldPose(0.08 * d, 0, 0.92, 5 * d);
+    case 'done': case 'happy': return heldPose(mAbs(gx) < 0.08 ? 0.08 * d : gx, gy, 0.92, 5 * d);
+    case 'attention': return heldPose(0, 0, 1.06);
+    case 'waiting': return heldPose(0.2 * d, -0.4);
     case 'paused': case 'sleepy':
       // Below 64 px a closed lid is under a pixel, so smaller heads doze with a visible eye.
-      pose = px >= 64 ? { open: 0, lift: 0.35, tilt: 10 * d, squash: -4, rotate: 6 * d }
-        : { open: 0.42, lift: 0.4, tilt: 12 * d, look: -0.1 * d };
-      break;
-    case 'offline': pose = { look: -0.5 * d, lift: 0.15, open: 0.9 }; break;
-    case 'error': case 'sad': pose = { look: -0.35 * d, lift: 0.4, open: 0.85, tilt: -5 * d }; break;
-    case 'attentive': pose = { look: gx, lift: gy, open: 1.06 }; break;
-    case 'surprised': pose = { look: gx * 0.5, lift: gy - 0.1, open: 1.15 }; break;
-    case 'excited': pose = { look: gx, lift: gy - 0.15, open: 1.1, tilt: 6 * d }; break;
-    case 'laughing': pose = { look: gx, lift: gy - 0.1, open: 0.6, tilt: 8 * d }; break;
-    // One never shows anger or fear: these read as a level, narrowed eye and a startled glance away.
-    case 'angry': pose = { look: gx, lift: gy, open: 0.62 }; break;
-    case 'scared': pose = { look: -0.3 * d, lift: 0.1, open: 1.12 }; break;
-    case 'suspicious': pose = { look: 0.55 * d, open: 0.55 }; break;
-    case 'confused': pose = { look: -0.2 * d, lift: -0.2, open: 0.9, tilt: -12 * d }; break;
-    case 'curious': pose = { look: 0.32 * d, lift: -0.2, open: 0.8, tilt: -10 * d }; break;
-    case 'proud': pose = { look: gx, lift: -0.25, open: 0.85, tilt: 6 * d }; break;
-    case 'shy': pose = { look: -0.45 * d, lift: 0.45, open: 0.8, tilt: 8 * d }; break;
-    case 'unimpressed': pose = { look: gx, lift: gy, open: 0.45 }; break;
-    case 'concerned': pose = { look: gx * 0.5, lift: 0.2, open: 0.9, tilt: -7 * d }; break;
-    default: throw new TypeError('Unsupported One face');
+      return px >= 64 ? heldPose(0, 0.35, 0, 10 * d, -4, 6 * d) : heldPose(-0.1 * d, 0.4, 0.42, 12 * d);
+    case 'offline': return heldPose(-0.5 * d, 0.15, 0.9);
+    case 'error': case 'sad': return heldPose(-0.35 * d, 0.4, 0.85, -5 * d);
+    case 'attentive': return heldPose(gx, gy, 1.06);
+    case 'surprised': return heldPose(gx * 0.5, gy - 0.1, 1.15);
+    case 'excited': return heldPose(gx, gy - 0.15, 1.1, 6 * d);
+    case 'laughing': return heldPose(gx, gy - 0.1, 0.6, 8 * d);
+    // One never shows anger or fear: a narrowed eye and a startled glance away.
+    case 'angry': return heldPose(gx, gy, 0.62);
+    case 'scared': return heldPose(-0.3 * d, 0.1, 1.12);
+    case 'suspicious': return heldPose(0.55 * d, 0, 0.55);
+    case 'confused': return heldPose(-0.2 * d, -0.2, 0.9, -12 * d);
+    case 'curious': return heldPose(0.32 * d, -0.2, 0.8, -10 * d);
+    case 'proud': return heldPose(gx, -0.25, 0.85, 6 * d);
+    case 'shy': return heldPose(-0.45 * d, 0.45, 0.8, 8 * d);
+    case 'unimpressed': return heldPose(gx, gy, 0.45);
+    case 'concerned': return heldPose(gx * 0.5, 0.2, 0.9, -7 * d);
+    default: throw new TypeError(oneError(19, () => ('Unsupported One face')));
   }
-  const result = { ...ONE_NEUTRAL, ...pose };
-  return Object.freeze({ ...result, look: clamp(result.look, -1, 1), lift: clamp(result.lift, -1, 1) });
 }
 
 
@@ -349,7 +356,7 @@ export interface OneGeometry {
   readonly body: string;
 }
 
-const temperamentSquash: Readonly<Record<OneTemperament, number>> = Object.freeze({ quick: 16, bouncy: 12, neat: 8, slow: 7, dry: 8 });
+const temperamentSquash: Readonly<Record<OneTemperament, number>> = freeze({ quick: 16, bouncy: 12, neat: 8, slow: 7, dry: 8 });
 
 /**
  * A pose with a shape's limits applied, as agent-eye is asked for it: look × lookGain, lift × liftGain, open capped at
@@ -359,7 +366,7 @@ export function limitPose<P extends { readonly look?: number; readonly lift?: nu
   const limited = { ...pose } as { -readonly [K in keyof P]: P[K] } & { open: number };
   if (limited.look !== undefined) limited.look = (limited.look as number) * eye.lookGain as P['look'];
   if (limited.lift !== undefined) limited.lift = (limited.lift as number) * eye.liftGain as P['lift'];
-  limited.open = Math.min(pose.open ?? 1, eye.openMax) * eye.openScale;
+  limited.open = mMin(pose.open ?? 1, eye.openMax) * eye.openScale;
   if (limited.mouth !== undefined) limited.mouth = (limited.mouth as number) * eye.mouthMax as P['mouth'];
   return limited;
 }
@@ -374,14 +381,14 @@ const WIDE = 1.04;
  */
 export function levelTilt(tilt: number, open: number, eye: OneShapeEye, kind: OneKind): number {
   if (kind === 'charcoal' || open <= WIDE || eye.openMax <= WIDE) return tilt;
-  return tilt * Math.max(0, 1 - (Math.min(open, eye.openMax) - WIDE) / (eye.openMax - WIDE));
+  return tilt * mMax(0, 1 - (mMin(open, eye.openMax) - WIDE) / (eye.openMax - WIDE));
 }
 
 /** agent-eye's frame for a pose in a kind's shape: the shape's limits and its level wide eye applied, then `blink` (1 is open). */
 export function oneFrame(pose: OnePose, blink: number, kind: OneKind): AgentEyeFrame {
   const eye = oneShapeGeometry(kind).eye;
   const limited = limitPose(pose, eye);
-  const tilt = levelTilt(pose.tilt, Math.min(pose.open, eye.openMax) * blink, eye, kind);
+  const tilt = levelTilt(pose.tilt, mMin(pose.open, eye.openMax) * blink, eye, kind);
   return poseToFrame({ look: limited.look, lift: limited.lift, open: limited.open * blink, tilt, smile: pose.smile, mouth: limited.mouth });
 }
 
@@ -400,7 +407,7 @@ export function oneGeometry(pose: OnePose, tier: OneTier, kind: OneKind, blink =
   const cap = tier === 'XS' ? 0 : tier === 'S' ? 3 : tier === 'M' ? 8 : temperamentSquash[oneTemperament(kind)];
   const squash = clamp(pose.squash, -cap, cap);
   const sy = 1 + squash / 100;
-  const sx = Math.pow(sy, -0.5);
+  const sx = mPow(sy, -0.5);
   const rotate = tier === 'XS' || tier === 'S' ? 0 : tier === 'M' ? clamp(pose.rotate, -8, 8) : pose.rotate;
   const hop = tier === 'XS' || tier === 'S' ? 0 : (tier === 'M' ? clamp(pose.hop, -0.08, 0.08) : clamp(pose.hop, -0.2, 0.2)) * 2 * GEOMETRY.radius;
   const pivot = geometry.pivot;
@@ -431,28 +438,28 @@ export function oneEyeOutline(frame: AgentEyeFrame, eye: OneShapeEye = ONE_CIRCL
   const flat = b < 1e-6;
   const c = flat ? 0 : k / (b * b);
   // A bar with no straight sides is a segment at y = 0 whose quadratic ends reach out to ±a.
-  const left = (y: number): number => flat ? Math.min(-a - k, -a) : -a - c * y * y;
-  const right = (y: number): number => flat ? Math.max(a - k, a) : a - c * y * y;
+  const left = (y: number): number => flat ? mMin(-a - k, -a) : -a - c * y * y;
+  const right = (y: number): number => flat ? mMax(a - k, a) : a - c * y * y;
   const rows: number[] = [];
-  const caps = 10, middle = Math.max(2, Math.ceil(2 * b / 3));
-  for (let i = 0; i < caps; i++) rows.push(-b - r * Math.cos(i / caps * Math.PI / 2));
+  const caps = 10, middle = mMax(2, mCeil(2 * b / 3));
+  for (let i = 0; i < caps; i++) rows.push(-b - r * mCos(i / caps * M_PI / 2));
   for (let i = 0; i <= middle; i++) rows.push(-b + 2 * b * i / middle);
-  for (let i = caps - 1; i >= 0; i--) rows.push(b + r * Math.cos(i / caps * Math.PI / 2));
+  for (let i = caps - 1; i >= 0; i--) rows.push(b + r * mCos(i / caps * M_PI / 2));
   const extent = (row: number, side: 1 | -1): number => {
-    const lo = Math.max(-b, row - r), hi = Math.min(b, row + r);
+    const lo = mMax(-b, row - r), hi = mMin(b, row + r);
     let best = side * -Infinity;
     for (let i = 0; i <= 48; i++) {
       const y = lo + (hi - lo) * i / 48;
-      const reach = Math.sqrt(Math.max(0, r * r - (y - row) * (y - row)));
+      const reach = mSqrt(mMax(0, r * r - (y - row) * (y - row)));
       const x = side === 1 ? right(y) + reach : left(y) - reach;
-      best = side === 1 ? Math.max(best, x) : Math.min(best, x);
+      best = side === 1 ? mMax(best, x) : mMin(best, x);
     }
     return best;
   };
   const local: [number, number][] = [];
   for (const row of rows) local.push([extent(row, 1), row]);
   for (let i = rows.length - 1; i >= 0; i--) local.push([extent(rows[i]!, -1), rows[i]!]);
-  const cos = Math.cos(frame.tilt * Math.PI / 180), sin = Math.sin(frame.tilt * Math.PI / 180);
+  const cos = mCos(frame.tilt * M_PI / 180), sin = mSin(frame.tilt * M_PI / 180);
   const points = local.map(([x, y]) => `${r2(eye.x + eye.scale * (frame.x + x * cos - y * sin))} ${r2(eye.y + eye.scale * (frame.y + x * sin + y * cos))}`);
   return `M${points.join('L')}Z`;
 }
@@ -460,7 +467,7 @@ export function oneEyeOutline(frame: AgentEyeFrame, eye: OneShapeEye = ONE_CIRCL
 
 /** Keyline width in viewBox units: one CSS pixel, two at 96 px and above, one device pixel below 24 px. */
 export function oneKeylineWidth(px: number, devicePixelRatio = 1): number {
-  const width = px < 24 ? 1 / Math.max(1, devicePixelRatio) : px >= 96 ? 2 : 1;
+  const width = px < 24 ? 1 / mMax(1, devicePixelRatio) : px >= 96 ? 2 : 1;
   return width * 2 * GEOMETRY.radius / px;
 }
 
@@ -482,8 +489,8 @@ const number = /-?(?:\d+\.?\d*|\.\d+)/g;
 function arcCentre(from: Point, to: Point, r: number, large: 0 | 1, sweep: 0 | 1): Point {
   const hx = (from[0] - to[0]) / 2, hy = (from[1] - to[1]) / 2;
   const d2 = hx * hx + hy * hy;
-  if (d2 > r * r * (1 + 1e-6)) throw new TypeError('One shape arc radius is smaller than its chord');
-  const k = (large === sweep ? -1 : 1) * Math.sqrt(Math.max(0, r * r - d2) / d2);
+  if (d2 > r * r * (1 + 1e-6)) throw new TypeError(oneError(20, () => ('One shape arc radius is smaller than its chord')));
+  const k = (large === sweep ? -1 : 1) * mSqrt(mMax(0, r * r - d2) / d2);
   return [k * hy + (from[0] + to[0]) / 2, -k * hx + (from[1] + to[1]) / 2];
 }
 
@@ -494,36 +501,36 @@ export function oneOutlineSegments(path: string): readonly Segment[] {
   for (const match of path.matchAll(/([MLHVAZ])([^MLHVAZ]*)/g)) {
     const command = match[1]!;
     const values = (match[2]!.match(number) ?? []).map(Number);
-    if (closed) throw new TypeError('One shape paths have one subpath');
+    if (closed) throw new TypeError(oneError(21, () => ('One shape paths have one subpath')));
     if (command === 'M') {
-      if (start !== null || values.length !== 2) throw new TypeError('One shape paths start with one M');
+      if (start !== null || values.length !== 2) throw new TypeError(oneError(22, () => ('One shape paths start with one M')));
       start = current = [values[0]!, values[1]!];
       continue;
     }
-    if (current === null || start === null) throw new TypeError('One shape paths start with M');
+    if (current === null || start === null) throw new TypeError(oneError(23, () => ('One shape paths start with M')));
     if (command === 'Z') {
-      if (values.length) throw new TypeError('Z takes no values');
-      if (Math.hypot(current[0] - start[0], current[1] - start[1]) > 1e-9) segments.push({ type: 'L', from: current, to: start });
+      if (values.length) throw new TypeError(oneError(24, () => ('Z takes no values')));
+      if (mHypot(current[0] - start[0], current[1] - start[1]) > 1e-9) segments.push({ type: 'L', from: current, to: start });
       closed = true;
       continue;
     }
     if (command === 'A') {
-      if (values.length !== 7) throw new TypeError('One shape arcs take seven values');
+      if (values.length !== 7) throw new TypeError(oneError(25, () => ('One shape arcs take seven values')));
       const [rx, ry, rotation, large, sweep, x, y] = values as [number, number, number, number, number, number, number];
-      if (rx !== ry || rx <= 0 || rotation !== 0 || (large !== 0 && large !== 1) || (sweep !== 0 && sweep !== 1)) throw new TypeError('One shape arcs are circular');
+      if (rx !== ry || rx <= 0 || rotation !== 0 || (large !== 0 && large !== 1) || (sweep !== 0 && sweep !== 1)) throw new TypeError(oneError(26, () => ('One shape arcs are circular')));
       const to: Point = [x, y];
-      if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) {
+      if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) {
         segments.push({ type: 'A', from: current, to, r: rx, large: large as 0 | 1, sweep: sweep as 0 | 1, centre: arcCentre(current, to, rx, large as 0 | 1, sweep as 0 | 1) });
       }
       current = to;
       continue;
     }
     const to: Point = command === 'L' ? [values[0]!, values[1]!] : command === 'H' ? [values[0]!, current[1]] : [current[0], values[0]!];
-    if (values.length !== (command === 'L' ? 2 : 1) || values.some(value => !Number.isFinite(value))) throw new TypeError('One shape lines take finite values');
-    if (Math.hypot(to[0] - current[0], to[1] - current[1]) > 1e-9) segments.push({ type: 'L', from: current, to });
+    if (values.length !== (command === 'L' ? 2 : 1) || values.some(value => !numberIsFinite(value))) throw new TypeError(oneError(27, () => ('One shape lines take finite values')));
+    if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) segments.push({ type: 'L', from: current, to });
     current = to;
   }
-  if (!closed || segments.length === 0) throw new TypeError('One shape paths are closed');
+  if (!closed || segments.length === 0) throw new TypeError(oneError(28, () => ('One shape paths are closed')));
   return segments;
 }
 
@@ -533,16 +540,48 @@ export function oneOutlineSegments(path: string): readonly Segment[] {
  * so the pieces still meet. Stroked at `2 × delta`, this is a keyline or a rim that never grows the silhouette.
  */
 export function oneInsetPath(path: string, delta: number): string {
-  if (!(delta >= 0) || !Number.isFinite(delta)) throw new RangeError('One inset must be a finite, non-negative number');
-  const segments = oneOutlineSegments(path);
+  return insetSegments(oneOutlineSegments(path), delta);
+}
+
+const catalogSegments = new Map<OneKind, readonly Segment[]>();
+
+/** Inset a validated catalog kind without loading the general SVG path grammar. */
+export function oneShapeInsetPath(kind: OneKind, delta: number): string {
+  let segments = catalogSegments.get(kind);
+  if (!segments) {
+    oneShapeGeometry(kind); // Validate the kind before indexing the generated catalog.
+    const [commands, values] = ONE_PATHS[kind === 'charcoal' ? shapeIds.length : shapeIds.indexOf(kind)]!;
+    let current: Point = [values[0]!, values[1]!], offset = 2;
+    const built: Segment[] = [];
+    for (const command of commands.slice(1, -1)) {
+      if (command === 'A') {
+        const r = values[offset]!, large = values[offset + 1]! as 0 | 1, sweep = values[offset + 2]! as 0 | 1;
+        const to: Point = [values[offset + 3]!, values[offset + 4]!];
+        offset += 5;
+        if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'A', from: current, to, r, large, sweep, centre: arcCentre(current, to, r, large, sweep) });
+        current = to;
+      } else {
+        const to: Point = command === 'L' ? [values[offset++]!, values[offset++]!] : command === 'H' ? [values[offset++]!, current[1]] : [current[0], values[offset++]!];
+        if (mHypot(to[0] - current[0], to[1] - current[1]) > 1e-9) built.push({ type: 'L', from: current, to });
+        current = to;
+      }
+    }
+    segments = built;
+    catalogSegments.set(kind, segments);
+  }
+  return insetSegments(segments, delta);
+}
+
+function insetSegments(segments: readonly Segment[], delta: number): string {
+  if (!(delta >= 0) || !numberIsFinite(delta)) throw new RangeError(oneError(29, () => ('One inset must be a finite, non-negative number')));
   const moved = (segment: Segment, point: Point): Point => {
     if (segment.type === 'L') {
-      const dx = segment.to[0] - segment.from[0], dy = segment.to[1] - segment.from[1], length = Math.hypot(dx, dy);
+      const dx = segment.to[0] - segment.from[0], dy = segment.to[1] - segment.from[1], length = mHypot(dx, dy);
       return [point[0] - dy / length * delta, point[1] + dx / length * delta];
     }
     const radius = segment.sweep === 1 ? segment.r - delta : segment.r + delta;
-    if (radius <= 0) throw new RangeError('One inset is wider than the shape\'s smallest round');
-    const ux = point[0] - segment.centre[0], uy = point[1] - segment.centre[1], length = Math.hypot(ux, uy);
+    if (radius <= 0) throw new RangeError(oneError(30, () => ('One inset is wider than the shape\'s smallest round')));
+    const ux = point[0] - segment.centre[0], uy = point[1] - segment.centre[1], length = mHypot(ux, uy);
     return [segment.centre[0] + ux / length * radius, segment.centre[1] + uy / length * radius];
   };
   const first = segments[0]!;
@@ -588,11 +627,11 @@ export function escapeXml(value: string): string {
  * Digital One's rim is the outline inset by half its width, stroked, never a clip.
  */
 export function renderOneSvg(input: OneSvgInput): string {
-  if (input.color === 'charcoal' ? input.kind !== 'charcoal' : input.kind === 'charcoal') throw new TypeError('Digital One is charcoal in shape and colour alike');
+  if (input.color === 'charcoal' ? input.kind !== 'charcoal' : input.kind === 'charcoal') throw new TypeError(oneError(31, () => ('Digital One is charcoal in shape and colour alike')));
   const paint = onePaint(input.color, input.theme);
   const tier = oneTier(input.size);
   const geometry = oneGeometry(input.pose, tier, input.kind, input.blink);
-  if (geometry.mouth !== null) throw new TypeError('A still One shows a held face, which has no mouth');
+  if (geometry.mouth !== null) throw new TypeError(oneError(32, () => ('A still One shows a held face, which has no mouth')));
   const shape = oneShapeGeometry(input.kind);
   const name = input.label === undefined ? undefined : escapeXml(input.label);
   const access = name === undefined ? ' aria-hidden="true" focusable="false"' : ` role="img" aria-label="${name}"`;

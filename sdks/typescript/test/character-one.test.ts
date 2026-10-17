@@ -7,7 +7,7 @@ import { createCharacterAnimator } from '../src/character-animation.js';
 import {
   ONE_BLANK_SHAPE, ONE_KINDS, ONE_NEUTRAL, getOneColors, getOneShapes, isOneColor, isOneColorAllowed, isOneKind, isOneShape,
   levelTilt, limitPose, nextOneLook, oneColorForDid, oneEyeOutline, oneFaceFor, oneFrame, oneGeometry, oneHeldPose, oneInsetPath,
-  oneKeylineWidth, oneLookForDid, oneOutlineSegments, onePaint, oneRimWidth, oneShapeForDid, oneShapeGeometry, oneShapeId, oneTemperament, oneTier,
+  oneKeylineWidth, oneLookForDid, oneOutlineSegments, onePaint, oneRimWidth, oneShapeForDid, oneShapeGeometry, oneShapeId, oneTemperament, oneTier, oneShapeInsetPath,
   type OneColor, type OneFace, type OneKind, type OneLook, type OneLookHolder, type OnePose, type OneShape,
 } from '../src/character-one.js';
 import { ONE_CIRCLE, ONE_COLORS, ONE_DIGITAL, ONE_SHAPES, ONE_SHAPE_ORDER } from '../src/character-one-shapes.js';
@@ -718,6 +718,18 @@ describe('One moments', () => {
     expect(result.gap, context).toBeGreaterThanOrEqual(eye.MOUTH.minGap);
   };
 
+  it('keeps independent constructor-local state on separate motion instances', () => {
+    const first = motion('idle', 64), second = motion('idle', 64);
+    expect(Object.getPrototypeOf(first)).toBe(OneMotion.prototype);
+    expect(first).toBeInstanceOf(OneMotion);
+    first.setFace('working', row, 10);
+    first.setSize(16);
+    expect(first.face).toBe('working');
+    expect(first.tier).toBe('XS');
+    expect(second.face).toBe('idle');
+    expect(second.tier).toBe('L');
+  });
+
   it('keeps every frame of every moment inside the disc, with the smile clear of the eye, from every face (V2)', () => {
     for (const name of moments) for (const px of sizes) for (const kind of ['droplet', 'charcoal'] as const) for (const face of faces) {
       const head = motion(face, px, kind);
@@ -1085,6 +1097,18 @@ describe('One still glyph', () => {
     expect(() => oneInsetPath('M0 0L10 0L10 10Z M20 20L30 20Z', 1)).toThrow(TypeError);
     expect(() => oneInsetPath('M0 0C1 1 2 2 3 3Z', 1)).toThrow(TypeError);
     expect(() => oneInsetPath('M0 -100A100 50 0 0 1 100 0Z', 1)).toThrow(TypeError);
+  });
+
+  it('keeps generated catalog insets byte-identical to the general path helper', () => {
+    for (const kind of kinds) for (const size of [16, 17, 20, 24, 40, 52, 64, 96, 128, 512, 2048]) {
+      for (const dpr of [1, 1.25, 1.5, 2, 3]) {
+        const delta = (kind === 'charcoal' ? oneRimWidth(size) : oneKeylineWidth(size, dpr)) / 2;
+        expect(oneShapeInsetPath(kind, delta)).toBe(oneInsetPath(oneShapeGeometry(kind).path, delta));
+      }
+    }
+    expect(() => oneShapeInsetPath('invalid' as OneKind, 1)).toThrow('Unsupported One shape');
+    expect(() => oneShapeInsetPath('star', -1)).toThrow(RangeError);
+    expect(() => oneShapeInsetPath('star', Number.NaN)).toThrow(RangeError);
   });
 
   it('cuts Digital One\'s eye exactly as the stroked bar it draws live', () => {

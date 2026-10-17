@@ -64,59 +64,98 @@ export interface OneColorDescription {
   readonly keyline: string | null;
 }
 
-const freeze = <T>(value: T): Readonly<T> => Object.freeze(value);
-const shape = (id: OneShape, label: string, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
-  temperament: OneTemperament, color: OneColor, never: readonly OneColor[]): OneShapeDescription =>
+import { freeze } from './character-intrinsics.js';
+const title = (id: string): string => id[0]!.toUpperCase() + id.slice(1);
+const makeEye = (x: number, y: number, openScale = 1, lookGain = 1, openMax = 1.35, mouthMax = 1, scale = 0.8, liftGain = 1): OneShapeEye =>
+  ({ x, y, scale, openScale, lookGain, liftGain, openMax, mouthMax });
+const shape = (id: OneShape, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
+  temperament: OneTemperament, color: OneColor, never: readonly OneColor[], label = title(id)): OneShapeDescription =>
   freeze({ id, label, path, eye: freeze(eye), mouthDy, pivot: freeze(pivot), temperament, color, never: freeze(never) });
-const colour = (id: OneColor, label: string, disc: string, eye: string, keyline: string | null): OneColorDescription =>
+const colour = (id: OneColor, disc: string, eye: string, keyline: string | null, label = title(id)): OneColorDescription =>
   freeze({ id, label, disc, eye, keyline });
+
+const coordinates = (values: number[]): readonly number[] => freeze(values.map(value => value / 100));
+
+/** Lossless fixed-point command/value skeletons in library order, followed by Digital One. */
+export const ONE_PATHS: readonly (readonly [string, readonly number[]])[] = freeze([
+  ['MALALALALALALALALALALAZ', coordinates([0,-9615,2140,0,100,1728,-8738,3972,-5669,1903,0,0,4915,-4984,8528,-3798,2140,0,100,9595,-512,7370,2572,1903,0,0,7010,3679,6998,7482,2140,0,100,4203,9513,582,8349,1903,0,0,-582,8349,-4203,9513,2140,0,100,-6998,7482,-7010,3679,1903,0,0,-7370,2572,-9595,-512,2140,0,100,-8528,-3798,-4915,-4984,1903,0,0,-3972,-5669,-1728,-8738,2140,0,100,0,-9615])],
+  ['MAALALAAZ', coordinates([0,-8340,2558,0,0,1175,-8626,6047,0,100,8460,776,1387,8683,1860,0,100,-1387,8683,-8460,776,6047,0,100,-1175,-8626,2558,0,0,0,-8340])],
+  ['MAAAAAAAAAAAZ', coordinates([0,-9724,4354,0,100,4298,-6062,594,0,0,4976,-5570,4354,0,100,7633,2607,594,0,0,7374,3403,4354,0,100,419,8456,594,0,0,-419,8456,4354,0,100,-7374,3403,594,0,0,-7633,2607,4354,0,100,-4976,-5570,594,0,0,-4298,-6062,4354,0,100,0,-9724])],
+  ['MAAAHAAHAZ', coordinates([0,-7575,6304,0,100,5625,-1890,978,0,0,6425,-1018,4348,0,100,5652,7609,-6522,3478,0,100,-7550,808,978,0,0,-6874,-285,-6874,6304,0,100,0,-7575])],
+  ['MALAALAZ', coordinates([0,-10001,1043,0,100,888,-9505,6135,-980,7204,0,100,0,10000,7204,0,100,-6135,-980,-888,-9505,1043,0,100,0,-10001])],
+  ['MAAAAAAAAAZ', coordinates([0,-9166,60838,0,100,5625,-8906,3632,0,100,8906,-5625,60838,0,100,8906,5625,3632,0,100,5625,8906,60838,0,100,-5625,8906,3632,0,100,-8906,5625,60838,0,100,-8906,-5625,3632,0,100,-5625,-8906,60838,0,100,0,-9166])],
+  ['MALALALALAZ', coordinates([0,-10001,1991,0,100,1510,-9308,8522,-1154,1770,0,100,8522,1154,1510,9308,1991,0,100,-1510,9308,-8522,1154,1770,0,100,-8522,-1154,-1510,-9308,1991,0,100,0,-10001])],
+  ['MAAAAAAAAAZ', coordinates([0,-10000,5208,0,100,5103,-5834,938,0,0,5834,-5103,5208,0,100,5834,5103,938,0,0,5103,5834,5208,0,100,-5103,5834,938,0,0,-5834,5103,5208,0,100,-5834,-5103,938,0,0,-5103,-5834,5208,0,100,0,-10000])],
+  ['MAAHAAZ', coordinates([0,-7800,10000,0,100,8793,6962,1600,0,100,7387,7800,-7387,1600,0,100,-8793,6962,10000,0,100,0,-7800])],
+  ['MALAVALALAVALAZ', coordinates([0,-10000,1327,0,100,663,-9822,8175,-5486,1327,0,100,8838,-4337,4337,1327,0,100,8175,5486,663,9822,1327,0,100,-663,9822,-8175,5486,1327,0,100,-8838,4337,-4337,1327,0,100,-8175,-5486,-663,-9822,1327,0,100,0,-10000])],
+  ['MAAAAAAZ', coordinates([0,-10000,4531,0,100,3204,-8673,15469,0,100,7735,2265,7735,0,100,0,10000,7735,0,100,-7735,2265,15469,0,100,-3204,-8673,4531,0,100,0,-10000])],
+  ['MAAAHAAHAAAAZ', coordinates([0,-9411,6392,0,100,2945,-6643,2268,0,0,4810,-5456,4742,0,100,6628,3534,6628,2268,0,0,5360,5604,4330,0,100,-2531,8132,-2531,2268,0,0,-4938,7219,3505,0,100,-8574,1707,2268,0,0,-8368,-692,6392,0,100,0,-9411])],
+  ['MAAAAAAZ', coordinates([0,-10000,5577,0,100,5241,-2518,4423,0,0,5468,1023,6154,0,100,0,10000,6154,0,100,-5468,1023,4423,0,0,-5241,-2518,5577,0,100,0,-10000])],
+  ['MALAAAAZ', coordinates([0,-9845,6019,0,100,7192,-2494,5239,5174,6408,0,100,-3988,9246,6408,0,100,-5742,-685,4272,0,0,-4655,-3721,6019,0,100,0,-9845])],
+  ['MAAAAZ', coordinates([0,-10000,10000,0,100,10000,0,10000,0,100,0,10000,10000,0,100,-10000,0,10000,0,100,0,-10000])]
+]);
+
+function catalogPath([commands, values]: readonly [string, readonly number[]]): string {
+  let path = '', offset = 0;
+  for (const command of commands) {
+    if (command === 'A') {
+      const radius = values[offset++];
+      path += `A${radius} ${radius} 0 ${values[offset++]} ${values[offset++]} ${values[offset++]} ${values[offset++]}`;
+    } else if (command === 'Z') path += 'Z';
+    else {
+      path += command + values[offset++];
+      if (command === 'M' || command === 'L') path += ' ' + values[offset++];
+    }
+  }
+  return path;
+}
 
 /** The fourteen shapes in library order. */
 export const ONE_SHAPES: readonly OneShapeDescription[] = freeze([
-  shape('star', 'Star', 'M0 -96.15A21.4 21.4 0 0 1 17.28 -87.38L39.72 -56.69A19.03 19.03 0 0 0 49.15 -49.84L85.28 -37.98A21.4 21.4 0 0 1 95.95 -5.12L73.7 25.72A19.03 19.03 0 0 0 70.1 36.79L69.98 74.82A21.4 21.4 0 0 1 42.03 95.13L5.82 83.49A19.03 19.03 0 0 0 -5.82 83.49L-42.03 95.13A21.4 21.4 0 0 1 -69.98 74.82L-70.1 36.79A19.03 19.03 0 0 0 -73.7 25.72L-95.95 -5.12A21.4 21.4 0 0 1 -85.28 -37.98L-49.15 -49.84A19.03 19.03 0 0 0 -39.72 -56.69L-17.28 -87.38A21.4 21.4 0 0 1 0 -96.15Z', { x: 0, y: 12, scale: 0.8, openScale: 0.8, lookGain: 1, liftGain: 1, openMax: 1.15, mouthMax: 1 }, -12.63, { x: 0, y: 96.16 }, 'bouncy', 'lemon', ['cherry', 'watermelon']),
-  shape('heart', 'Heart', 'M0 -83.4A25.58 25.58 0 0 0 11.75 -86.26A60.47 60.47 0 0 1 84.6 7.76L13.87 86.83A18.6 18.6 0 0 1 -13.87 86.83L-84.6 7.76A60.47 60.47 0 0 1 -11.75 -86.26A25.58 25.58 0 0 0 0 -83.4Z', { x: 0, y: -15, scale: 0.8, openScale: 0.8, lookGain: 1, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -12.63, { x: 0, y: 93.03 }, 'bouncy', 'bubblegum', []),
-  shape('flower', 'Flower', 'M0 -97.24A43.54 43.54 0 0 1 42.98 -60.62A5.94 5.94 0 0 0 49.76 -55.7A43.54 43.54 0 0 1 76.33 26.07A5.94 5.94 0 0 0 73.74 34.03A43.54 43.54 0 0 1 4.19 84.56A5.94 5.94 0 0 0 -4.19 84.56A43.54 43.54 0 0 1 -73.74 34.03A5.94 5.94 0 0 0 -76.33 26.07A43.54 43.54 0 0 1 -49.76 -55.7A5.94 5.94 0 0 0 -42.98 -60.62A43.54 43.54 0 0 1 0 -97.24Z', { x: 0, y: 9, scale: 0.8, openScale: 0.88, lookGain: 1, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -7.58, { x: 0, y: 97.24 }, 'bouncy', 'cherry', []),
-  shape('cloud', 'Cloud', 'M0 -75.75A63.04 63.04 0 0 1 56.25 -18.9A9.78 9.78 0 0 0 64.25 -10.18A43.48 43.48 0 0 1 56.52 76.09H-65.22A34.78 34.78 0 0 1 -75.5 8.08A9.78 9.78 0 0 0 -68.74 -2.85H-68.74A63.04 63.04 0 0 1 0 -75.75Z', { x: 0, y: 6, scale: 0.8, openScale: 0.8, lookGain: 0.5, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -12.63, { x: -3.85, y: 76.09 }, 'slow', 'lavender', ['sky']),
-  shape('droplet', 'Drop', 'M0 -100.01A10.43 10.43 0 0 1 8.88 -95.05L61.35 -9.8A72.04 72.04 0 0 1 0 100A72.04 72.04 0 0 1 -61.35 -9.8L-8.88 -95.05A10.43 10.43 0 0 1 0 -100.01Z', { x: 0, y: 21, scale: 0.8, openScale: 0.92, lookGain: 0.5, liftGain: 1, openMax: 1.04, mouthMax: 0.6 }, -5.05, { x: 0, y: 100 }, 'quick', 'sky', ['cherry', 'watermelon', 'berry']),
-  shape('squircle', 'Square', 'M0 -91.66A608.38 608.38 0 0 1 56.25 -89.06A36.32 36.32 0 0 1 89.06 -56.25A608.38 608.38 0 0 1 89.06 56.25A36.32 36.32 0 0 1 56.25 89.06A608.38 608.38 0 0 1 -56.25 89.06A36.32 36.32 0 0 1 -89.06 56.25A608.38 608.38 0 0 1 -89.06 -56.25A36.32 36.32 0 0 1 -56.25 -89.06A608.38 608.38 0 0 1 0 -91.66Z', { x: 0, y: 0, scale: 0.8, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 91.66 }, 'neat', 'indigo', []),
-  shape('diamond', 'Diamond', 'M0 -100.01A19.91 19.91 0 0 1 15.1 -93.08L85.22 -11.54A17.7 17.7 0 0 1 85.22 11.54L15.1 93.08A19.91 19.91 0 0 1 -15.1 93.08L-85.22 11.54A17.7 17.7 0 0 1 -85.22 -11.54L-15.1 -93.08A19.91 19.91 0 0 1 0 -100.01Z', { x: 0, y: -1, scale: 0.8, openScale: 0.84, lookGain: 0.5, liftGain: 1, openMax: 1.25, mouthMax: 0.6 }, -10.11, { x: 0, y: 100 }, 'quick', 'aqua', ['lemon', 'lime', 'apricot']),
-  shape('clover', 'Clover', 'M0 -100A52.08 52.08 0 0 1 51.03 -58.34A9.38 9.38 0 0 0 58.34 -51.03A52.08 52.08 0 0 1 58.34 51.03A9.38 9.38 0 0 0 51.03 58.34A52.08 52.08 0 0 1 -51.03 58.34A9.38 9.38 0 0 0 -58.34 51.03A52.08 52.08 0 0 1 -58.34 -51.03A9.38 9.38 0 0 0 -51.03 -58.34A52.08 52.08 0 0 1 0 -100Z', { x: 0, y: -7, scale: 0.8, openScale: 1, lookGain: 0.6, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 100 }, 'slow', 'jade', []),
-  shape('gumdrop', 'Gumdrop', 'M0 -78A100 100 0 0 1 87.93 69.62A16 16 0 0 1 73.87 78H-73.87A16 16 0 0 1 -87.93 69.62A100 100 0 0 1 0 -78Z', { x: 0, y: 1, scale: 0.8, openScale: 0.94, lookGain: 1, liftGain: 1, openMax: 1.04, mouthMax: 1 }, -3.79, { x: 0, y: 78 }, 'bouncy', 'orchid', ['cherry', 'watermelon']),
-  shape('hexagon', 'Hexagon', 'M0 -100A13.27 13.27 0 0 1 6.63 -98.22L81.75 -54.86A13.27 13.27 0 0 1 88.38 -43.37V43.37A13.27 13.27 0 0 1 81.75 54.86L6.63 98.22A13.27 13.27 0 0 1 -6.63 98.22L-81.75 54.86A13.27 13.27 0 0 1 -88.38 43.37V-43.37A13.27 13.27 0 0 1 -81.75 -54.86L-6.63 -98.22A13.27 13.27 0 0 1 0 -100Z', { x: 0, y: 0, scale: 0.8, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 100 }, 'neat', 'apricot', []),
-  shape('egg', 'Egg', 'M0 -100A45.31 45.31 0 0 1 32.04 -86.73A154.69 154.69 0 0 1 77.35 22.65A77.35 77.35 0 0 1 0 100A77.35 77.35 0 0 1 -77.35 22.65A154.69 154.69 0 0 1 -32.04 -86.73A45.31 45.31 0 0 1 0 -100Z', { x: 0, y: 14, scale: 0.8, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }, 0, { x: 0, y: 100 }, 'slow', 'blush', []),
-  shape('blob', 'Blob', 'M0 -94.11A63.92 63.92 0 0 1 29.45 -66.43A22.68 22.68 0 0 0 48.1 -54.56A47.42 47.42 0 0 1 66.28 35.34H66.28A22.68 22.68 0 0 0 53.6 56.04A43.3 43.3 0 0 1 -25.31 81.32H-25.31A22.68 22.68 0 0 0 -49.38 72.19A35.05 35.05 0 0 1 -85.74 17.07A22.68 22.68 0 0 0 -83.68 -6.92A63.92 63.92 0 0 1 0 -94.11Z', { x: 0, y: 7, scale: 0.8, openScale: 0.84, lookGain: 0.5, liftGain: 1, openMax: 1.04, mouthMax: 0.6 }, -10.11, { x: 10.29, y: 100 }, 'slow', 'mint', []),
-  shape('peanut', 'Peanut', 'M0 -100A55.77 55.77 0 0 1 52.41 -25.18A44.23 44.23 0 0 0 54.68 10.23A61.54 61.54 0 0 1 0 100A61.54 61.54 0 0 1 -54.68 10.23A44.23 44.23 0 0 0 -52.41 -25.18A55.77 55.77 0 0 1 0 -100Z', { x: 0, y: 13, scale: 0.8, openScale: 1, lookGain: 0.5, liftGain: 1, openMax: 1.35, mouthMax: 0.6 }, 0, { x: 0, y: 100 }, 'bouncy', 'watermelon', []),
-  shape('bean', 'Bean', 'M0 -98.45A60.19 60.19 0 0 1 71.92 -24.94L52.39 51.74A64.08 64.08 0 0 1 -39.88 92.46A64.08 64.08 0 0 1 -57.42 -6.85A42.72 42.72 0 0 0 -46.55 -37.21A60.19 60.19 0 0 1 0 -98.45Z', { x: 0, y: 8, scale: 0.8, openScale: 0.78, lookGain: 0.5, liftGain: 1, openMax: 1.35, mouthMax: 0.6 }, -13.9, { x: -9.73, y: 100 }, 'quick', 'grape', []),
+  shape('star', catalogPath(ONE_PATHS[0]!), makeEye(0, 12, 0.8, 1, 1.15), -12.63, { x: 0, y: 96.16 }, 'bouncy', 'lemon', ['cherry', 'watermelon']),
+  shape('heart', catalogPath(ONE_PATHS[1]!), makeEye(0, -15, 0.8, 1, 1.04), -12.63, { x: 0, y: 93.03 }, 'bouncy', 'bubblegum', []),
+  shape('flower', catalogPath(ONE_PATHS[2]!), makeEye(0, 9, 0.88, 1, 1.04), -7.58, { x: 0, y: 97.24 }, 'bouncy', 'cherry', []),
+  shape('cloud', catalogPath(ONE_PATHS[3]!), makeEye(0, 6, 0.8, 0.5, 1.04), -12.63, { x: -3.85, y: 76.09 }, 'slow', 'lavender', ['sky']),
+  shape('droplet', catalogPath(ONE_PATHS[4]!), makeEye(0, 21, 0.92, 0.5, 1.04, 0.6), -5.05, { x: 0, y: 100 }, 'quick', 'sky', ['cherry', 'watermelon', 'berry'], 'Drop'),
+  shape('squircle', catalogPath(ONE_PATHS[5]!), makeEye(0, 0), 0, { x: 0, y: 91.66 }, 'neat', 'indigo', [], 'Square'),
+  shape('diamond', catalogPath(ONE_PATHS[6]!), makeEye(0, -1, 0.84, 0.5, 1.25, 0.6), -10.11, { x: 0, y: 100 }, 'quick', 'aqua', ['lemon', 'lime', 'apricot']),
+  shape('clover', catalogPath(ONE_PATHS[7]!), makeEye(0, -7, 1, 0.6), 0, { x: 0, y: 100 }, 'slow', 'jade', []),
+  shape('gumdrop', catalogPath(ONE_PATHS[8]!), makeEye(0, 1, 0.94, 1, 1.04), -3.79, { x: 0, y: 78 }, 'bouncy', 'orchid', ['cherry', 'watermelon']),
+  shape('hexagon', catalogPath(ONE_PATHS[9]!), makeEye(0, 0), 0, { x: 0, y: 100 }, 'neat', 'apricot', []),
+  shape('egg', catalogPath(ONE_PATHS[10]!), makeEye(0, 14), 0, { x: 0, y: 100 }, 'slow', 'blush', []),
+  shape('blob', catalogPath(ONE_PATHS[11]!), makeEye(0, 7, 0.84, 0.5, 1.04, 0.6), -10.11, { x: 10.29, y: 100 }, 'slow', 'mint', []),
+  shape('peanut', catalogPath(ONE_PATHS[12]!), makeEye(0, 13, 1, 0.5, 1.35, 0.6), 0, { x: 0, y: 100 }, 'bouncy', 'watermelon', []),
+  shape('bean', catalogPath(ONE_PATHS[13]!), makeEye(0, 8, 0.78, 0.5, 1.35, 0.6), -13.9, { x: -9.73, y: 100 }, 'quick', 'grape', []),
 ]);
 
 /** Digital One's circle: the logo's disc, eye at the centre at full scale, standing on its base. */
 export const ONE_CIRCLE: OneShapeGeometry = freeze({
-  path: 'M0 -100A100 100 0 0 1 100 0A100 100 0 0 1 0 100A100 100 0 0 1 -100 0A100 100 0 0 1 0 -100Z',
-  eye: freeze({ x: 0, y: 0, scale: 1, openScale: 1, lookGain: 1, liftGain: 1, openMax: 1.35, mouthMax: 1 }),
+  path: catalogPath(ONE_PATHS[14]!),
+  eye: freeze(makeEye(0, 0, 1, 1, 1.35, 1, 1)),
   mouthDy: 0,
   pivot: freeze({ x: 0, y: 100 }),
 });
 
 /** The eighteen colours in team order: the first five, eight and twelve are the most distinct under every colour vision. */
 export const ONE_COLORS: readonly OneColorDescription[] = freeze([
-  colour('berry', 'Berry', '#c92fa3', '#fbfaf6', null),
-  colour('lime', 'Lime', '#b0dc3c', '#141b16', '#6e8d08'),
-  colour('blush', 'Blush', '#ffc2d4', '#141b16', '#aa7384'),
-  colour('jade', 'Jade', '#068368', '#fbfaf6', null),
-  colour('periwinkle', 'Periwinkle', '#9ba0ff', '#141b16', '#7679d4'),
-  colour('cherry', 'Cherry', '#e00d61', '#fbfaf6', null),
-  colour('indigo', 'Indigo', '#5660f6', '#fbfaf6', null),
-  colour('mint', 'Mint', '#5ee6a8', '#141b16', '#129564'),
-  colour('bubblegum', 'Bubblegum', '#ff7eb6', '#141b16', '#d3568f'),
-  colour('apricot', 'Apricot', '#ffa98c', '#141b16', '#bd6d52'),
-  colour('sky', 'Sky', '#5cc8ff', '#141b16', '#148bbd'),
-  colour('lemon', 'Lemon', '#ffe93f', '#141b16', '#918312'),
-  colour('grape', 'Grape', '#9f47dc', '#fbfaf6', null),
-  colour('lavender', 'Lavender', '#e9c8ff', '#141b16', '#9577a9'),
-  colour('watermelon', 'Watermelon', '#ff6075', '#141b16', '#e64861'),
-  colour('lagoon', 'Lagoon', '#067f89', '#fbfaf6', null),
-  colour('orchid', 'Orchid', '#d27cf2', '#141b16', '#b35ed2'),
-  colour('aqua', 'Aqua', '#2ad4d4', '#141b16', '#139191'),
+  colour('berry', '#c92fa3', '#fbfaf6', null),
+  colour('lime', '#b0dc3c', '#141b16', '#6e8d08'),
+  colour('blush', '#ffc2d4', '#141b16', '#aa7384'),
+  colour('jade', '#068368', '#fbfaf6', null),
+  colour('periwinkle', '#9ba0ff', '#141b16', '#7679d4'),
+  colour('cherry', '#e00d61', '#fbfaf6', null),
+  colour('indigo', '#5660f6', '#fbfaf6', null),
+  colour('mint', '#5ee6a8', '#141b16', '#129564'),
+  colour('bubblegum', '#ff7eb6', '#141b16', '#d3568f'),
+  colour('apricot', '#ffa98c', '#141b16', '#bd6d52'),
+  colour('sky', '#5cc8ff', '#141b16', '#148bbd'),
+  colour('lemon', '#ffe93f', '#141b16', '#918312'),
+  colour('grape', '#9f47dc', '#fbfaf6', null),
+  colour('lavender', '#e9c8ff', '#141b16', '#9577a9'),
+  colour('watermelon', '#ff6075', '#141b16', '#e64861'),
+  colour('lagoon', '#067f89', '#fbfaf6', null),
+  colour('orchid', '#d27cf2', '#141b16', '#b35ed2'),
+  colour('aqua', '#2ad4d4', '#141b16', '#139191'),
 ]);
 
 /**

@@ -5,7 +5,7 @@
  *   node scripts/one-shapes.mjs
  *
  * The module carries data only: the fourteen shapes in library order, Digital One's circle, the
- * eighteen colours in team order and the team shape order. Every value is copied, never computed.
+ * eighteen colours in team order and the team shape order. Geometry values are copied; path encoding is lossless.
  */
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -53,26 +53,67 @@ const path = value => {
   if (!/^M[-0-9. AHVLZ]+Z$/.test(value)) throw new Error(`Unexpected path syntax: ${value}`);
   return quote(value);
 };
-const eye = value => `{ x: ${num(value.x)}, y: ${num(value.y)}, scale: ${num(value.scale)}, openScale: ${num(value.openScale)}, lookGain: ${num(value.lookGain)}, liftGain: ${num(value.liftGain)}, openMax: ${num(value.openMax)}, mouthMax: ${num(value.mouthMax)} }`;
+const title = id => id[0].toUpperCase() + id.slice(1);
+const eye = value => {
+  const args = [value.x, value.y, value.openScale, value.lookGain, value.openMax, value.mouthMax, value.scale, value.liftGain];
+  const defaults = [undefined, undefined, 1, 1, 1.35, 1, 0.8, 1];
+  while (args.length > 2 && args.at(-1) === defaults[args.length - 1]) args.pop();
+  return `makeEye(${args.map(num).join(', ')})`;
+};
 const point = value => `{ x: ${num(value.x)}, y: ${num(value.y)} }`;
 const colourIds = palette.order;
 const temperaments = new Set(['quick', 'bouncy', 'neat', 'slow']);
 
-const shapeLines = shapes.shapes.map(shape => {
+const shapeLines = shapes.shapes.map((shape, index) => {
   if (!temperaments.has(shape.temperament)) throw new Error(`${shape.id}: unexpected temperament ${shape.temperament}`);
   if (!colourIds.includes(shape.colour)) throw new Error(`${shape.id}: unknown default colour ${shape.colour}`);
   for (const never of shape.never) if (!colourIds.includes(never)) throw new Error(`${shape.id}: unknown never colour ${never}`);
   if (shape.never.includes(shape.colour)) throw new Error(`${shape.id}: its default colour is on its never list`);
-  return `  shape(${quote(shape.id)}, ${quote(shape.label)}, ${path(shape.d)}, ${eye(shape.eye)}, ${num(shape.mouthDy)}, ${point(shape.pivot)}, ${quote(shape.temperament)}, ${quote(shape.colour)}, [${shape.never.map(quote).join(', ')}]),`;
+  path(shape.d);
+  return `  shape(${quote(shape.id)}, catalogPath(ONE_PATHS[${index}]!), ${eye(shape.eye)}, ${num(shape.mouthDy)}, ${point(shape.pivot)}, ${quote(shape.temperament)}, ${quote(shape.colour)}, [${shape.never.map(quote).join(', ')}]${shape.label === title(shape.id) ? '' : ', ' + quote(shape.label)}),`;
 });
 const colourLines = palette.colours.map(colour => {
   const keyline = colour.keyline === null ? 'null' : hex(colour.keyline);
-  return `  colour(${quote(colour.id)}, ${quote(colour.label)}, ${hex(colour.hex)}, ${hex(colour.eyeHex)}, ${keyline}),`;
+  return `  colour(${quote(colour.id)}, ${hex(colour.hex)}, ${hex(colour.eyeHex)}, ${keyline}${colour.label === title(colour.id) ? '' : ', ' + quote(colour.label)}),`;
 });
 const one = shapes.digitalOne;
 const digital = palette.digitalOne;
 if (one.id !== 'circle' || one.temperament !== 'dry') throw new Error('Digital One is not the dry circle');
 if (digital.disc !== '#141b16' || digital.rim.surfaces !== 'dark only' || digital.rim.widthPx !== 1) throw new Error('Digital One\'s palette values are not the plan\'s');
+
+// The live renderer accepts only this pinned catalog. Record command arities
+// at generation time so it need not ship the general path grammar/validator.
+function commands(path) {
+  let start, current, closed = false;
+  const out = [], data = [];
+  for (const match of path.matchAll(/([MLHVAZ])([^MLHVAZ]*)/g)) {
+    const command = match[1], values = (match[2].match(/-?(?:\d+\.?\d*|\.\d+)/g) ?? []).map(Number);
+    const arity = { M: 2, L: 2, H: 1, V: 1, A: 7, Z: 0 }[command];
+    if (closed || values.length !== arity || values.some(value => !Number.isFinite(value))) throw new Error('Invalid catalog path');
+    if (command === 'M') { if (start) throw new Error('Multiple catalog subpaths'); start = current = values; out.push(command); data.push(...values); continue; }
+    if (!current) throw new Error('Catalog path needs M');
+    if (command === 'Z') { closed = true; out.push(command); continue; }
+    if (command === 'A' && (values[0] !== values[1] || values[0] <= 0 || values[2] !== 0 || ![0, 1].includes(values[3]) || ![0, 1].includes(values[4]))) throw new Error('Catalog arcs must be circular');
+    current = command === 'A' ? values.slice(5) : command === 'L' ? values : command === 'H' ? [values[0], current[1]] : [current[0], values[0]];
+    out.push(command);
+    data.push(...(command === 'A' ? [values[0], ...values.slice(3)] : values));
+  }
+  if (!closed || !start || Math.hypot(current[0] - start[0], current[1] - start[1]) > 1e-9) throw new Error('Catalog path must end at its start');
+  let rebuilt = '', offset = 0;
+  for (const cmd of out) {
+    if (cmd === 'A') { const r = data[offset++]; rebuilt += `A${r} ${r} 0 ${data[offset++]} ${data[offset++]} ${data[offset++]} ${data[offset++]}`; }
+    else if (cmd === 'Z') rebuilt += 'Z';
+    else { rebuilt += cmd + data[offset++]; if (cmd === 'M' || cmd === 'L') rebuilt += ' ' + data[offset++]; }
+  }
+  if (rebuilt !== path) throw new Error('Catalog path encoding changed SVG bytes');
+  const packed = data.map(value => {
+    const integer = Math.round(value * 100);
+    if (!Number.isSafeInteger(integer) || !Object.is(integer / 100, value)) throw new Error('Catalog fixed-point encoding changed a value');
+    return integer;
+  });
+  return `[${quote(out.join(''))}, coordinates([${packed.map(num).join(',')}])]`;
+}
+const pathSpecs = [...shapes.shapes.map(shape => commands(shape.d)), commands(one.d)];
 
 const source = `/**
  * The One family's shape library and agent palette, generated by scripts/one-shapes.mjs from the pinned
@@ -140,12 +181,37 @@ export interface OneColorDescription {
   readonly keyline: string | null;
 }
 
-const freeze = <T>(value: T): Readonly<T> => Object.freeze(value);
-const shape = (id: OneShape, label: string, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
-  temperament: OneTemperament, color: OneColor, never: readonly OneColor[]): OneShapeDescription =>
+import { freeze } from './character-intrinsics.js';
+const title = (id: string): string => id[0]!.toUpperCase() + id.slice(1);
+const makeEye = (x: number, y: number, openScale = 1, lookGain = 1, openMax = 1.35, mouthMax = 1, scale = 0.8, liftGain = 1): OneShapeEye =>
+  ({ x, y, scale, openScale, lookGain, liftGain, openMax, mouthMax });
+const shape = (id: OneShape, path: string, eye: OneShapeEye, mouthDy: number, pivot: { x: number; y: number },
+  temperament: OneTemperament, color: OneColor, never: readonly OneColor[], label = title(id)): OneShapeDescription =>
   freeze({ id, label, path, eye: freeze(eye), mouthDy, pivot: freeze(pivot), temperament, color, never: freeze(never) });
-const colour = (id: OneColor, label: string, disc: string, eye: string, keyline: string | null): OneColorDescription =>
+const colour = (id: OneColor, disc: string, eye: string, keyline: string | null, label = title(id)): OneColorDescription =>
   freeze({ id, label, disc, eye, keyline });
+
+const coordinates = (values: number[]): readonly number[] => freeze(values.map(value => value / 100));
+
+/** Lossless fixed-point command/value skeletons in library order, followed by Digital One. */
+export const ONE_PATHS: readonly (readonly [string, readonly number[]])[] = freeze([
+  ${pathSpecs.join(',\n  ')}
+]);
+
+function catalogPath([commands, values]: readonly [string, readonly number[]]): string {
+  let path = '', offset = 0;
+  for (const command of commands) {
+    if (command === 'A') {
+      const radius = values[offset++];
+      path += \`A\${radius} \${radius} 0 \${values[offset++]} \${values[offset++]} \${values[offset++]} \${values[offset++]}\`;
+    } else if (command === 'Z') path += 'Z';
+    else {
+      path += command + values[offset++];
+      if (command === 'M' || command === 'L') path += ' ' + values[offset++];
+    }
+  }
+  return path;
+}
 
 /** The fourteen shapes in library order. */
 export const ONE_SHAPES: readonly OneShapeDescription[] = freeze([
@@ -154,7 +220,7 @@ ${shapeLines.join('\n')}
 
 /** Digital One's circle: the logo's disc, eye at the centre at full scale, standing on its base. */
 export const ONE_CIRCLE: OneShapeGeometry = freeze({
-  path: ${path(one.d)},
+  path: catalogPath(ONE_PATHS[14]!),
   eye: freeze(${eye(one.eye)}),
   mouthDy: ${num(one.mouthDy)},
   pivot: freeze(${point(one.pivot)}),

@@ -74,7 +74,8 @@ try {
   source = run('source-commit', ['git', 'rev-parse', 'HEAD'], root).trim();
   assert.match(source, /^[0-9a-f]{40}$/);
   if (process.env.OAID_SOURCE_SHA) assert.equal(source, process.env.OAID_SOURCE_SHA);
-  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', '0.8.0', 'pack-sdk'),
+  const sdkVersion = JSON.parse(await readFile(join(root, 'sdks/typescript/package.json'), 'utf8')).version;
+  packages = [await pack(join(root, 'sdks/typescript'), '@openagentid/sdk', sdkVersion, 'pack-sdk'),
     await pack(join(root, 'packages/create-openagent'), 'create-openagent', '0.6.0', 'pack-generator')];
   const tooling = join(fixture, 'tools');
   await mkdir(tooling);
@@ -101,7 +102,7 @@ try {
   checks.push({ name: 'public-registry-dependency-closure', passed: true });
   run('generated-real-http-restart-replay-revocation-tests', ['npm', 'test'], application);
   const cli = join(application, 'node_modules/.bin/oaid');
-  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), '0.8.0');
+  assert.equal(run('installed-sdk-cli-version', [cli, '--version'], application).trim(), sdkVersion);
   assert(run('installed-sdk-cli-help', [cli, '--help'], application).includes('oaid agent trust'));
 
   const hello = join(fixture, 'hello-agent');
