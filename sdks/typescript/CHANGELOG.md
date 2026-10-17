@@ -4,7 +4,7 @@
 
 - Keep motion, stage, and head state in each constructor scope while retaining their constructable interfaces and independent head state.
 
-- Select the smallest gzip output from fixed, semantics-preserving compression profiles; keep its matching source map.
+- Select the smallest gzip output from fixed compression profiles with explicit public and dynamic-key boundaries; keep its matching source map.
 
 - Generate shared eye-placement defaults and retain explicit nonstandard picker labels without duplicating identical catalog fields.
 

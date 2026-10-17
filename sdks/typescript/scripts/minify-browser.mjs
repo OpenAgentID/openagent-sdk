@@ -29,6 +29,13 @@ for (const name of ['one', 'character-player']) {
     console.log(`Browser ${name} compression profile ${profile}: ${size} gzip bytes`);
     if (size < bytes) { result = candidate; bytes = size; }
   }
+  if (name === 'one') {
+    await import('./minify-one.mjs');
+    const code = await readFile(file, 'utf8'), closureMap = await readFile(map, 'utf8');
+    const size = gzipSync(code).length;
+    console.log(`Browser one closure profile: ${size} gzip bytes`);
+    if (size < bytes) { result = { code, map: closureMap }; bytes = size; }
+  }
   if (!result.code || !result.map) throw new Error(`Browser minification failed: ${name}`);
   await writeFile(file, result.code);
   await writeFile(map, result.map);
