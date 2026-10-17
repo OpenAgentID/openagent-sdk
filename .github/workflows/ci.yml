@@ -245,6 +245,9 @@ jobs:
       - name: Changelogs are ordered and dated by npm
         run: node tools/release/check-changelogs.mjs --registry
 
+      - name: Changelog check against a mocked registry, including the release commit
+        run: node --test tools/release/check-changelogs.test.mjs
+
       - name: Every LICENSE-APACHE is the verbatim Apache License 2.0
         # sha256 of https://www.apache.org/licenses/LICENSE-2.0.txt
         run: |

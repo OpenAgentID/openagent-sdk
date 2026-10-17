@@ -64,7 +64,9 @@ is skipped, and an existing GitHub release is edited in place.
    - update the versions table in `README.md`.
 
    Run `node tools/release/check-changelogs.mjs` and each package's typecheck, tests and build. Open the
-   pull request; it merges after review and green CI.
+   pull request; it merges after review and green CI. CI runs the changelog check with `--registry`: every
+   dated section must carry the UTC day npm published it, except the section for the version this commit
+   releases, which npm gets only when the tag publishes it.
 2. **Tag the merged commit.**
 
    ```sh

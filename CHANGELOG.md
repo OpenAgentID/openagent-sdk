@@ -29,7 +29,8 @@ The standalone One runtime (0.8.1).
   `sdk-testing`, `http`, `mcp`, `claude-agent` and `scim`) and tests the
   companions again against the SDK built from the same commit. It installs only
   from lockfiles and checks the root manifest, the changelogs (format, order and
-  npm dates), runtime advisories, the license text, and pull request commits and
+  npm dates, allowing the release commit's own version before npm has it),
+  runtime advisories, the license text, and pull request commits and
   titles (conventional, at most 72 characters, no CI skipping, no attribution
   trailers). Every action is pinned to a commit SHA, checkouts keep no
   credentials, wasm-pack is pinned to 0.13.1, and the private-repository token
