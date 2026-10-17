@@ -81,17 +81,17 @@
     "example": "node examples/express-sdk.mjs"
   },
   "dependencies": {
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@openagentid/sdk": "^0.7.2 || ^0.8.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^4.1.11",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.5",
-    "vitest": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.4",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4",
     "express": "^5.1.0",
     "@types/express": "^5.0.0",
     "@openagentid/sdk": "0.8.0"

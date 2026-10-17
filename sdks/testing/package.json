@@ -37,16 +37,16 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@openagentid/sdk": "^0.7.2 || ^0.8.0"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
-    "tsup": "^8.0.0",
-    "typescript": "^5.4.0",
-    "vitest": "^4.1.11",
+    "@types/node": "^26.6.5",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4",
     "@openagentid/sdk": "0.8.0"
   },
   "publishConfig": {
