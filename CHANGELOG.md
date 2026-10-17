@@ -63,6 +63,10 @@ The standalone One runtime (0.8.1).
   repository on npm, and every package links to the issue tracker. Remove the
   stray `bun.lock` from the MCP package.
 - Identity verification refusals keep the underlying error as `cause`.
+- Pin the deploy image (`node:22-alpine`) by digest, as the other Dockerfiles
+  are, and move the MCP example to `@modelcontextprotocol/sdk` 1.32.1, past the
+  high-severity advisory for 1.12.0-1.30.1. Dependabot also watches the
+  Dockerfiles.
 
 ## [0.8.0] - 2026-10-17
 
