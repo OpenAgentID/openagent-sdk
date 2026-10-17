@@ -1,5 +1,6 @@
 /** Optimize the closed One runtime while preserving its public ESM boundary. */
 import { minify } from 'terser';
+import { ONE_INTERNAL_PROPERTIES, ONE_PUBLIC_PROPERTIES } from './one-properties.mjs';
 import { gzipSync } from 'node:zlib';
 import { TraceMap, decodedMappings, originalPositionFor } from '@jridgewell/trace-mapping';
 import { GenMapping, addSegment, setSourceContent, toEncodedMap } from '@jridgewell/gen-mapping';
@@ -23,13 +24,7 @@ const input = new URL('dist/browser/one.closure-input.js', root);
 const extern = new URL('dist/browser/one.closure-externs.js', root);
 const output = new URL('dist/browser/one.closure-output.js', root);
 const map = new URL('dist/browser/one.closure-output.js.map', root);
-const api = ['shape', 'color', 'theme', 'size', 'label', 'expression', 'state', 'animated', 'reducedMotion', 'cadence', 'group', 'voiceLevel', 'follow', 'viewer',
-  'update', 'setAppearance', 'play', 'setReducedMotion', 'getState', 'dispose', 'status', 'blink', 'gaze', 'x', 'y', 'id', 'path', 'eye', 'scale',
-  'openScale', 'lookGain', 'liftGain', 'openMax', 'mouthMax', 'mouthDy', 'pivot', 'temperament', 'never', 'disc', 'keyline', 'rim', 'opacity', 'flat', 'light', 'dark',
-  'neutral', 'attentive', 'surprised', 'excited', 'happy', 'laughing', 'angry', 'sad', 'scared', 'suspicious', 'confused', 'curious', 'proud', 'shy', 'unimpressed',
-  'sleepy', 'thoughtful', 'concerned', 'idle', 'listening', 'reasoning', 'working', 'speaking', 'success', 'blocked', 'error', 'typing', 'attention', 'paused', 'offline', 'done', 'waiting', 'thinking', 'quick', 'bouncy', 'neat', 'slow', 'dry', 'XS', 'S', 'M', 'L',
-  'linear', 'shut', 'snap', 'settle', 'glide', 'emerge', 'charge', 'exit', 'wind', 'pop', 'brake', 'rise', 'fall', 'ui',
-  'firm', 'bounce', 'boing', 'jelly', 'soft', 'xmlns', 'viewBox', 'overflow', 'fill', 'stroke', 'd', 'maskUnits'];
+const api = ONE_PUBLIC_PROPERTIES;
 await writeFile(input, source.replace(match[0], exports.map(({ local, name }) => `__oneExports[${JSON.stringify(name)}]=${local};`).join('\n')).replace(/\/\/# sourceMappingURL=.*$/gm, ''));
 await writeFile(extern, '/** @externs */\nvar __oneExports;\n/** @constructor */ function OnePublic() {}\n' + api.map(name => `OnePublic.prototype.${name};`).join('\n'));
 try {
@@ -69,7 +64,7 @@ try {
   let compact, bytes = Infinity;
   for (const [index, options] of profiles.entries()) {
     const candidate = await minify({ 'one.js': result }, {
-      module: true, ecma: 2022, compress: { passes: 3, ...options }, mangle: true,
+      module: true, ecma: 2022, compress: { passes: 3, ...options }, mangle: { properties: { regex: ONE_INTERNAL_PROPERTIES, reserved: api, builtins: true } },
       sourceMap: { content, filename: 'one.js', url: 'one.js.map' },
     });
     if (!candidate.code || !candidate.map) throw new Error('One final compression failed');
@@ -78,32 +73,6 @@ try {
     if (size < bytes) { compact = candidate; bytes = size; }
   }
   if (!compact) throw new Error('No One compression candidate');
-  // Gzip benefits from identifier spelling, not merely identifier length. Keep
-  // public property/export names intact and vary only a deterministic local alphabet.
-  const baseline = compact;
-  const letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_';
-  for (let shift = 0; shift < letters.length; shift++) {
-    const first = letters.slice(shift) + letters.slice(0, shift);
-    const tail = first + '0123456789';
-    const nth = {
-      get(index) {
-        let name = first[index % 54];
-        index = Math.floor(index / 54);
-        while (index > 0) { index--; name += tail[index % 64]; index = Math.floor(index / 64); }
-        return name;
-      },
-      reset() {}, sort() {}, consider() {},
-    };
-    const candidate = await minify({ 'one.js': baseline.code }, {
-      module: true, ecma: 2022, compress: false, mangle: { nth_identifier: nth },
-      format: { wrap_func_args: false },
-      sourceMap: { content: baseline.map, filename: 'one.js', url: 'one.js.map' },
-    });
-    if (!candidate.code || !candidate.map) throw new Error('One identifier compression failed');
-    const size = gzipSync(candidate.code).length;
-    if (size < bytes) { compact = candidate; bytes = size; console.log(`One identifier alphabet ${shift}: ${size} gzip bytes`); }
-  }
-
   const outputMap = new TraceMap(JSON.parse(compact.map));
   const used = new Set(decodedMappings(outputMap).flatMap(line => line.filter(segment => segment.length > 1).map(segment => segment[1])));
   const mapped = outputMap.sources.filter((_, index) => used.has(index));

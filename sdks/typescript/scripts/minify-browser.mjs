@@ -2,10 +2,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { minify } from 'terser';
 import { gzipSync } from 'node:zlib';
+import { ONE_INTERNAL_PROPERTIES, ONE_PUBLIC_PROPERTIES } from './one-properties.mjs';
 
 // Only closed runtime properties are shortened. The pattern excludes public
 // shape/palette/state/options fields and DOM APIs; browser parity checks cover it.
-const internal = /^(?:_one[A-Z]\w*|inputAt|reach|scrolling|replaced|waitForInput|stopWaiting|release|cancel|tick|follows|visible|motionAllowed|setState|step|pointer|scheduleCadence|cutCadence|drop|snap|setVisible|show|hide|setRenderedSize|setReduced|setPaint|curves|cur|mv|cut|raw|face|tier|timelineEnd|setBlink|moving|request|following|held|setFace|entrance|cadenceRequest|nextCadence|restartWindow|noteInput|setSize|setKind|setMotion|startTalk|peek|sample|frame|geometry|finished|priority|uncounted|draws|duration|twos|tail|noTempo|scaled|px|kind|reduced|look|lift|open|tilt|smile|mouth|squash|rotate|hop|strokeWidth|discOpacity|start|level|pose|root|motion|win|head)$/;
+
 for (const name of ['one', 'character-player']) {
   const file = new URL(`../dist/browser/${name}.js`, import.meta.url);
   const map = new URL(`${file.href}.map`);
@@ -20,7 +21,7 @@ for (const name of ['one', 'character-player']) {
       module: true,
       ecma: 2022,
       compress: { passes: 3, ...options },
-      mangle: name === 'one' ? { properties: { regex: internal, builtins: true } } : true,
+      mangle: name === 'one' ? { properties: { regex: ONE_INTERNAL_PROPERTIES, reserved: ONE_PUBLIC_PROPERTIES, builtins: true } } : true,
       format: { comments: false },
       sourceMap: { content, filename: `${name}.js`, url: `${name}.js.map` },
     });
