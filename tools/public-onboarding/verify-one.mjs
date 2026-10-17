@@ -328,6 +328,40 @@ try {
     assert.equal(await tab.locator('#ssr [data-one-disc]').getAttribute('d'), await tab.evaluate(() => window.oaidSsrPath));
   });
 
+  await check('light-runtime-preserves-every-shape-colour-and-public-status', async () => {
+    const result = await tab.evaluate(async () => {
+      const { mountCharacter, getCharacterStatuses } = await import('/character-player.js');
+      const { getOneShapes, getOneColors, isOneColorAllowed } = await import('/one.js');
+      let cases = 0;
+      const inspect = host => ({
+        shape: host.querySelector('svg').getAttribute('data-one-shape'),
+        color: host.querySelector('svg').getAttribute('data-one-color'),
+        face: host.querySelector('svg').getAttribute('data-one-face'),
+        disc: host.querySelector('[data-one-disc]').getAttribute('d'),
+        fill: host.querySelector('[data-one-disc]').getAttribute('fill'),
+        eye: host.querySelector('[data-one-eye]').getAttribute('d'),
+        transform: host.querySelector('[data-character-eyes]').getAttribute('transform'),
+        body: host.querySelector('[data-character-body]').getAttribute('transform'),
+      });
+      for (const shape of getOneShapes()) {
+        const looks = getOneColors().filter(color => isOneColorAllowed(shape.id, color.id));
+        for (const color of looks) for (const status of (color.id === shape.color ? getCharacterStatuses().map(entry => entry.status) : ['idle'])) {
+          const left = document.createElement('div'), right = document.createElement('div');
+          document.body.append(left, right);
+          const options = { shape: shape.id, color: color.id, size: 64, reducedMotion: true, state: { status } };
+          const light = window.oaidMount(left, options);
+          const full = mountCharacter(right, 'did:oas:openagent:agent:bundle-parity', { ...options, skin: 'one' });
+          const equal = JSON.stringify(light.getState()) === JSON.stringify(full.getState()) && JSON.stringify(inspect(left)) === JSON.stringify(inspect(right));
+          light.dispose(); full.dispose(); left.remove(); right.remove();
+          if (!equal) throw new Error('Bundle parity: ' + shape.id + '/' + color.id + '/' + status);
+          cases++;
+        }
+      }
+      return cases;
+    });
+    assert.ok(result > 500);
+  });
+
   await check('digital-one-stills-match-the-live-head-pixel-for-pixel', async () => {
     const result = await tab.evaluate(async () => {
       const raster = async svg => {
