@@ -72,9 +72,9 @@
 - Add the light entry `@openagentid/sdk/one` (`renderOne`, `mountOne`, the shape
   and colour helpers) and `@openagentid/sdk/browser/one`, the live runtime alone
   with no DID hashing, and blank heads for ready-made agents (drawn in the
-  shape they will get) and their First blink. `npm run size` enforces 16,384
-  default-gzip bytes for the complete standalone One entry and 65 KB for the
-  all-family browser bundle. Both entries include source maps.
+  shape they will get) and their First blink. This release initially used a
+  20 KB gzip gate for One and 65 KB for the all-family entry; 0.8.1 restores
+  the complete standalone One entry's 16,384-byte default-gzip limit.
 - Add `typing`, `attention`, `paused` and `offline` statuses for every family,
   `theme: 'light' | 'dark'` and `label` rendering options, and `--theme` in the
   CLI. The HTTP API accepts `theme` (never `label`); OpenAPI 0.8.0 documents the

@@ -163,7 +163,11 @@ not depend on the SDK and is unchanged.
 The OpenAPI contract is version 0.8.0: the One kinds in every `shape` enum, the
 `color` parameter and property, and `oneColor` on descriptors.
 
-## Bundle sizes
+## Bundle sizes — 0.8.1 correction
+
+The original 0.8.0 release used a 20 KB gate for the One browser entry.
+The 0.8.1 repair restores the original 16,384-byte requirement below;
+the published 0.8.0 artifact is unchanged.
 
 Measured with zlib's default gzip level after `npm run build`; `npm run size`
 enforces the budgets in CI. Both browser bundles are minified, with source maps.
