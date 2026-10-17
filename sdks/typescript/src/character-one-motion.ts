@@ -178,464 +178,589 @@ interface Timeline { readonly curves: Curves; readonly start: number; readonly d
 interface Composed { duration: number; tail?: false; noTempo?: true; scaled?: true; twos?: true }
 
 /** One head's live state. Hosts decide when a requested moment may start. */
-export class OneMotion {
+export interface OneMotion {
   face: OneFace;
-  private _oneGaze: { x: number; y: number };
-  private _onePx: number;
-  private _oneKind: OneKind;
-  private readonly _oneRandom: () => number;
-  private readonly _oneCadenceMode: OneCadence;
-  private readonly _oneLevel: (() => number) | undefined;
-  private _oneMotion: boolean;
-  private _oneValue: { -readonly [K in OneChannel]: number };
-  private _oneTimeline: Timeline | null = null;
-  private _oneCurrent: OneMomentRequest | null = null;
-  private _onePending: OneMomentRequest | null = null;
-  private _oneTalk: { mouth: number; quiet: number; blinked: boolean } | null = null;
-  private _oneTarget: { x: number; y: number } | null = null;
-  private _oneBlinkStart: number | null = null;
-  private _oneManualBlink = 0;
-  private _oneLast: number;
-  private _oneEntered: number;
-  private _oneInput: number;
+  readonly tier: OneTier;
+  readonly timelineEnd: number | null;
+  setBlink(blink: number): void;
+  readonly moving: boolean;
+  readonly request: OneMomentRequest | null;
+  readonly following: boolean;
+  held(): OnePose;
+  setFace(face: OneFace, gaze: { readonly x: number; readonly y: number }, at: number): OneMomentRequest | null;
+  entrance(previous: OneFace, next: OneFace): OneMomentRequest;
+  cadenceRequest(): OneMomentRequest | null;
+  nextCadence(at: number): number | null;
+  restartWindow(at: number): void;
+  noteInput(at: number): void;
+  setSize(px: number): void;
+  setKind(kind: OneKind): void;
+  readonly temperament: OneTemperament;
+  setMotion(allowed: boolean): void;
+  follow(target: { readonly x: number; readonly y: number } | null): boolean;
+  start(request: OneMomentRequest, at: number): void;
+  snap(): void;
+  startTalk(at: number): boolean;
+  peek(at: number): OneMotionFrame;
+  sample(at: number): { frame: OneMotionFrame; finished: OneMomentRequest | null };
+}
 
+/** Per-head state is closed over by its operations; the constructable interface and prototype remain stable. */
+export class OneMotion {
   constructor(options: OneMotionOptions) {
-    this.face = options.face;
-    this._oneGaze = { ...options.gaze };
-    this._onePx = options.px;
-    this._oneKind = options.kind;
-    this._oneRandom = options.random;
-    this._oneCadenceMode = options.cadence;
-    this._oneLevel = options.level;
-    this._oneMotion = options.motion;
-    this._oneLast = this._oneEntered = this._oneInput = options.at;
-    this._oneValue = { ...this.held() };
-  }
-
-  get tier(): OneTier { return oneTier(this._onePx); }
-  /** When the current moment ends on this clock, or null when none is playing. */
-  get timelineEnd(): number | null { return this._oneTimeline ? this._oneTimeline.start + this._oneTimeline.duration : null; }
-  /** An explicit runtime blink, 0 open … 1 shut, multiplies the drawn openness. */
-  setBlink(blink: number): void { this._oneManualBlink = clamp(blink, 0, 1); }
-  get moving(): boolean { return this._oneTimeline !== null || this._oneTalk !== null || this._oneBlinkStart !== null || this._oneTarget !== null; }
-  get request(): OneMomentRequest | null { return this._oneCurrent; }
-  get following(): boolean { return this._oneTarget !== null; }
-  held(): OnePose { return oneHeldPose(this.face, this._oneGaze, this._onePx); }
-
-  /** Change the face or the content direction; returns the entrance moment to request, if any. */
-  setFace(face: OneFace, gaze: { readonly x: number; readonly y: number }, at: number): OneMomentRequest | null {
-    const previous = this.face;
-    const aimed = gaze.x !== this._oneGaze.x || gaze.y !== this._oneGaze.y;
-    if (face === previous && !aimed) return null;
-    this.face = face;
-    this._oneGaze = { ...gaze };
-    this._onePending = null;
-    if (face !== previous) this._oneEntered = at;
-    this._oneStopTalk();
-    if (!followable.has(face)) this._oneTarget = null;
-    if (!this._oneMotion) { this.snap(); return null; }
-    return face === previous ? { name: 'home', priority: 0 } : this.entrance(previous, face);
-  }
-
-  /** The entrance for a change of face (AVATARS.md §2.2). */
-  entrance(previous: OneFace, next: OneFace): OneMomentRequest {
-    if (this.tier === 'XS') return { name: 'settle', priority: 0, uncounted: true };
-    const big = this.tier === 'M' || this.tier === 'L';
-    if (next === 'attention') return { name: 'psst', priority: 6 };
-    if (next === 'error') return { name: 'dizzy', priority: 5 };
-    if (next === 'done') return { name: big ? 'smile' : 'nod', priority: 4 };
-    if (asleep.has(previous) && !asleep.has(next)) return { name: 'wake', priority: 3 };
-    if (next === 'paused') return { name: 'dozeOff', priority: 3 };
-    if (pondering.has(previous) && !pondering.has(next)) return { name: 'aha', priority: 3 };
-    if (next === 'working') return { name: 'read', priority: 2 };
-    if (next === 'thinking') return { name: 'ponder', priority: 1 };
-    if (next === 'typing') return { name: 'keys', priority: 2 };
-    return { name: 'home', priority: 0 };
-  }
-
-  /** The moment for an ongoing state, if its cadence allows one now (the one measured by `nextCadence`, when there is one). */
-  cadenceRequest(): OneMomentRequest | null {
-    const name = ongoing[this.face];
-    if (!name || !this._oneMotion || this.tier === 'XS') return null;
-    if (this._onePending?.name === name) return this._onePending;
-    return { name, priority: this.face === 'thinking' ? 1 : 2, cadence: true };
-  }
-
-  /**
-   * Milliseconds until the next cadence moment, or null when the head should hold still. A brief cadence draws
-   * the next cluster now and measures it, so the cluster ends within five seconds of the state starting.
-   */
-  nextCadence(at: number): number | null {
-    this._onePending = null;
-    const request = this.cadenceRequest();
-    if (!request) return null;
-    if (this._oneCadenceMode === 'brief') {
-      const gap = 300 + this._oneRandom() * 400;
-      const measured = { ...request, draws: Object.freeze(Array.from({ length: ONE_MOMENT_DRAWS }, () => this._oneRandom())) };
-      const length = this._onePlan(measured, this.held()).duration;
-      if (this._oneEntered + 5000 - at < gap + length) return null;
-      this._onePending = measured;
-      return gap;
+    let _stateface: OneFace;
+    let _state_oneGaze: { x: number; y: number };
+    let _state_onePx: number;
+    let _state_oneKind: OneKind;
+    let _state_oneRandom: () => number;
+    let _state_oneCadenceMode: OneCadence;
+    let _state_oneLevel: (() => number) | undefined;
+    let _state_oneMotion: boolean;
+    let _state_oneValue: { -readonly [K in OneChannel]: number };
+    let _state_oneTimeline: Timeline | null = null;
+    let _state_oneCurrent: OneMomentRequest | null = null;
+    let _state_onePending: OneMomentRequest | null = null;
+    let _state_oneTalk: { mouth: number; quiet: number; blinked: boolean } | null = null;
+    let _state_oneTarget: { x: number; y: number } | null = null;
+    let _state_oneBlinkStart: number | null = null;
+    let _state_oneManualBlink = 0;
+    let _state_oneLast: number;
+    let _state_oneEntered: number;
+    let _state_oneInput: number;
+    function _gettier(): OneTier {
+        return oneTier(_state_onePx);
     }
-    if (at - this._oneInput > 60_000) return null;
-    // Every ongoing state, typing included, repeats one cluster every six to ten seconds (AVATARS.md §2.3 rule 6).
-    return 6000 + this._oneRandom() * 4000;
-  }
 
-  /** Restart the brief cadence window, as when a head comes back into view. */
-  restartWindow(at: number): void { this._oneEntered = at; }
-  /** User input keeps repeating cadences alive; they stop after a minute without it. */
-  noteInput(at: number): void { this._oneInput = at; }
-
-  /** A new rendered size can change the tier, and so the held face (a lid at 64 px and up). */
-  setSize(px: number): void { this._onePx = px; if (!this.moving) this._oneValue = { ...this.held() }; }
-  /** A new shape places and limits the eye differently and may change the pace. */
-  setKind(kind: OneKind): void { this._oneKind = kind; }
-  get temperament(): OneTemperament { return oneTemperament(this._oneKind); }
-  setMotion(allowed: boolean): void {
-    this._oneMotion = allowed;
-    if (!allowed) this.snap();
-  }
-
-  /**
-   * Point the eye at a fine pointer: `look` and `lift` in -1…1, or null to stop. Eye only: it never starts a
-   * moment, and it applies only at rest in a face that may follow (idle, warm or listening) at 40 px and up.
-   * Returns whether the head now follows.
-   */
-  follow(target: { readonly x: number; readonly y: number } | null): boolean {
-    if (target === null || !this._oneMotion || !followable.has(this.face) || (this.tier !== 'M' && this.tier !== 'L')) {
-      this._oneTarget = null;
-      return false;
+    function _gettimelineEnd(): number | null {
+        return _state_oneTimeline ? _state_oneTimeline.start + _state_oneTimeline.duration : null;
     }
-    this._oneTarget = { x: clamp(target.x, -1, 1), y: clamp(target.y, -1, 1) };
-    return true;
-  }
 
-  /** Start a moment now. */
-  start(request: OneMomentRequest, at: number): void {
-    if (!this._oneMotion) return;
-    // A visible smile line is withdrawn first, so no moment moves the eye toward it.
-    const lead = this._oneValue.mouth > 0 ? ONE_MOUTH_RETRACT_MS : 0;
-    const planned = this._onePlan(request, lead ? { ...this._oneValue, mouth: 0 } : { ...this._oneValue });
-    const curves: Curves = {};
-    for (const k of Object.keys(planned.curves) as OneChannel[]) curves[k] = planned.curves[k]!.map(([t, v, e]) => [t + lead, v, e] as Key);
-    if (lead) curves.mouth = [[0, this._oneValue.mouth], [lead, 0, 'glide'], ...(curves.mouth ?? []).slice(1)];
-    this._oneTimeline = { curves, start: at, duration: planned.duration + lead, twos: planned.twos };
-    this._oneCurrent = request;
-    this._oneTarget = null;
-    this._oneLast = Math.max(this._oneLast, at);
-  }
-
-  /** Compose a moment against live values, scaled by temperament and tier. Uses the request's draws first. */
-  private _onePlan(request: OneMomentRequest, live: OnePose): { curves: Curves; duration: number; twos: boolean } {
-    const b = new Builder(live);
-    const P = this.held();
-    let index = 0;
-    const draw = (): number => request.draws && index < request.draws.length ? request.draws[index++]! : this._oneRandom();
-    const scale = tempo[this.temperament] * tierTempo[this.tier];
-    const result = this._oneCompose(request.name, b, P, scale, draw);
-    const factor = result.noTempo || result.scaled ? 1 : scale;
-    let duration = result.duration;
-    if (result.tail !== false) {
-      const t0 = duration, t1 = duration + 320 * (result.scaled ? scale : 1);
-      let any = false;
-      for (const k of ONE_CHANNELS) {
-        if (Math.abs(b.cur(k) - P[k]) > 1e-3) { b.mv(t0, t1, { [k]: P[k] }, 'glide'); any = true; }
-      }
-      if (any) duration = t1;
+    function _callsetBlink(blink: number): void {
+        _state_oneManualBlink = clamp(blink, 0, 1);
     }
-    const curves: Curves = {};
-    for (const k of Object.keys(b.curves) as OneChannel[]) curves[k] = b.curves[k]!.map(([t, v, e]) => [t * factor, v, e] as Key);
-    return { curves, duration: duration * factor, twos: result.twos === true };
-  }
 
-  /** Jump to the held face, ending any moment, talk, blink or follow. */
-  snap(): void {
-    this._oneTimeline = null;
-    this._oneCurrent = null;
-    this._oneTalk = null;
-    this._oneTarget = null;
-    this._oneBlinkStart = null;
-    this._oneValue = { ...this.held() };
-  }
-
-  /** Begin following the voice level while speaking (largest tier, motion allowed). */
-  startTalk(at: number): boolean {
-    if (!this._oneMotion || this.face !== 'speaking' || !this._oneLevel || this.tier !== 'L' || this._oneTalk) return false;
-    this._oneTalk = { mouth: 0, quiet: 0, blinked: false };
-    this._oneTarget = null;
-    this._oneLast = Math.max(this._oneLast, at);
-    return true;
-  }
-  private _oneStopTalk(): void {
-    if (!this._oneTalk) return;
-    this._oneTalk = null;
-    this._oneValue.mouth = 0;
-  }
-
-  private _onePose(at: number, value: { -readonly [K in OneChannel]: number }): void {
-    const tl = this._oneTimeline;
-    if (!tl) return;
-    const t = Math.min(at - tl.start, tl.duration);
-    const quantized = tl.twos ? Math.floor(t / (2 * F) + 1e-6) * 2 * F : t;
-    for (const k of Object.keys(tl.curves) as OneChannel[]) {
-      value[k] = sampleCurve(tl.curves[k]!, ONE_BODY_CHANNELS.includes(k) ? quantized : t);
+    function _getmoving(): boolean {
+        return _state_oneTimeline !== null || _state_oneTalk !== null || _state_oneBlinkStart !== null || _state_oneTarget !== null;
     }
-  }
 
-  private _oneBlinkFactor(at: number): number {
-    let blink = 1 - this._oneManualBlink;
-    if (this._oneBlinkStart !== null && at - this._oneBlinkStart <= 420) blink *= sampleCurve(blinkCurve, at - this._oneBlinkStart);
-    return blink;
-  }
-
-  private _oneFrame(value: OnePose, blink: number): OneMotionFrame {
-    const pose = Object.freeze({ ...value });
-    return Object.freeze({ face: this.face, tier: this.tier, pose, geometry: oneGeometry(pose, this.tier, this._oneKind, blink), moving: this.moving });
-  }
-
-  /** The frame at `at` without advancing: nothing finishes, eases or blinks. Safe for repainting mid-moment. */
-  peek(at: number): OneMotionFrame {
-    const value = { ...this._oneValue };
-    this._onePose(Math.max(at, this._oneLast), value);
-    return this._oneFrame(value, this._oneBlinkFactor(Math.max(at, this._oneLast)));
-  }
-
-  /**
-   * Advance to `at`. Returns the frame and whether the current moment finished during this call.
-   * Times must not decrease.
-   */
-  sample(at: number): { frame: OneMotionFrame; finished: OneMomentRequest | null } {
-    const dt = clamp(at - this._oneLast, 0, 100);
-    this._oneLast = Math.max(this._oneLast, at);
-    let finished: OneMomentRequest | null = null;
-    const tl = this._oneTimeline;
-    if (tl) {
-      this._onePose(at, this._oneValue);
-      if (at - tl.start >= tl.duration) {
-        for (const k of Object.keys(tl.curves) as OneChannel[]) { const c = tl.curves[k]!; this._oneValue[k] = c[c.length - 1]![1]; }
-        this._oneTimeline = null;
-        finished = this._oneCurrent;
-        this._oneCurrent = null;
-      }
+    function _getrequest(): OneMomentRequest | null {
+        return _state_oneCurrent;
     }
-    if (this._oneTalk) this._oneTalkStep(dt);
-    else if (this._oneTarget && !this._oneTimeline) this._oneFollowStep(dt);
-    const blink = this._oneBlinkFactor(at);
-    if (this._oneBlinkStart !== null && at - this._oneBlinkStart > 420) this._oneBlinkStart = null;
-    return { frame: this._oneFrame(this._oneValue, blink), finished };
-  }
 
-  /** The eye eases toward the pointer, at the face's own openness and level. */
-  private _oneFollowStep(dt: number): void {
-    const target = this._oneTarget!;
-    const P = this.held();
-    const k = 1 - Math.exp(-dt / (Math.abs(target.x - this._oneValue.look) > 0.15 ? 40 : 80));
-    this._oneValue.look += (target.x - this._oneValue.look) * k;
-    this._oneValue.lift += (target.y - this._oneValue.lift) * k;
-    this._oneValue.open += (P.open - this._oneValue.open) * k;
-    this._oneValue.tilt += (0 - this._oneValue.tilt) * k;
-  }
-
-  /**
-   * Talk: the eye narrows to 0.6 under a full smile and faces the viewer; the mouth line is drawn only while
-   * there is voice, fully opaque (0.45–1 of agent-eye's mouth), so a quiet syllable never flickers like a status
-   * light. The mouth waits until the smile is half up, which keeps it at least 6 units from the eye.
-   */
-  private _oneTalkStep(dt: number): void {
-    const talk = this._oneTalk!;
-    const level = clamp(Number(this._oneLevel!()) || 0, 0, 1);
-    const target = level < 0.08 ? 0 : clamp(level * 1.4, 0, 1);
-    talk.mouth += (target - talk.mouth) * (1 - Math.exp(-dt / (target > talk.mouth ? 30 : 90)));
-    if (!this._oneTimeline) {
-      const k = 1 - Math.exp(-dt / 80);
-      this._oneValue.smile += (1 - this._oneValue.smile) * k;
-      this._oneValue.open += (0.6 - this._oneValue.open) * k;
-      this._oneValue.look += (0 - this._oneValue.look) * k;
-      this._oneValue.lift += (0 - this._oneValue.lift) * k;
-      this._oneValue.tilt += (0 - this._oneValue.tilt) * k;
-      this._oneValue.mouth = talk.mouth < 0.02 || this._oneValue.smile < 0.5 ? 0 : 0.45 + 0.55 * talk.mouth;
+    function _getfollowing(): boolean {
+        return _state_oneTarget !== null;
     }
-    talk.quiet = level < 0.08 ? talk.quiet + dt : 0;
-    if (talk.quiet > 600 && !talk.blinked && this._oneBlinkStart === null) { this._oneBlinkStart = this._oneLast; talk.blinked = true; }
-    if (talk.quiet === 0) talk.blinked = false;
-  }
 
-  private _oneCompose(name: OneMomentName, b: Builder, P: OnePose, scale: number, draw: () => number): Composed {
-    const tier = this.tier, big = tier === 'M' || tier === 'L';
-    const d = this._oneGaze.x < 0 ? -1 : 1;
-    const t2 = this.temperament;
-    switch (name) {
-      case 'settle':
-        b.mv(0, 160, pick(P, ONE_CHANNELS), 'ui');
-        return { duration: 160, tail: false, noTempo: true };
-      case 'home': {
-        const t = saccade(b, 0, P.look, { lift: P.lift });
-        b.mv(0, Math.max(t, 300), pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!, ONE_CHANNELS[6]!, ONE_CHANNELS[7]!, ONE_CHANNELS[8]!]), 'glide');
-        return { duration: Math.max(t, 300) };
-      }
-      case 'psst': {
-        if (!big) {
-          const t = saccade(b, 0, 0, { lift: 0, tilt: 0 });
-          b.mv(0, t, { open: 1.12 }, 'snap');
-          b.mv(t, t + 150, { open: 1.06 }, 'settle');
-          return { duration: blinkAt(b, t + 200, 1.06, d) };
+    function _callheld(): OnePose {
+        return oneHeldPose(_stateface, _state_oneGaze, _state_onePx);
+    }
+
+    function _callsetFace(face: OneFace, gaze: { readonly x: number; readonly y: number }, at: number): OneMomentRequest | null {
+        const previous = _stateface;
+        const aimed = gaze.x !== _state_oneGaze.x || gaze.y !== _state_oneGaze.y;
+        if (face === previous && !aimed)
+            return null;
+        _stateface = face;
+        _state_oneGaze = { ...gaze };
+        _state_onePending = null;
+        if (face !== previous)
+            _state_oneEntered = at;
+        _call_oneStopTalk();
+        if (!followable.has(face))
+            _state_oneTarget = null;
+        if (!_state_oneMotion) {
+            _callsnap();
+            return null;
         }
-        const hop = tier === 'L' ? 0.15 : 0.08;
-        b.mv(0, 120, { squash: -6, open: 0.9, look: 0, lift: 0, tilt: 0, rotate: 0 }, 'wind');
-        b.mv(120, 250, { hop: -hop, squash: 8, open: 1.18 }, 'snap');
-        b.mv(250, 420, { hop: 0 }, 'fall');
-        b.cut(420, { squash: -6 });
-        b.mv(420, 700, { squash: 0 }, 'settle');
-        b.mv(420, 520, { open: 1.06 }, 'settle');
-        return { duration: blinkAt(b, 520, 1.06, d), twos: true };
-      }
-      case 'aha':
-        b.mv(0, 180, { open: 1.1, look: 0, lift: 0, tilt: 0 }, 'snap');
-        b.mv(180, 360, { open: 1 }, 'settle');
-        return { duration: 360 };
-      case 'smile': {
-        // agent-eye's SMILE plays exactly while the eye narrows into a happy squint, turned toward its content
-        // and tilted warm: a tall bar over the smile line would read as "!" on a coloured disc.
-        const centred = Math.abs(this._oneGaze.x) < 0.15;
-        b.mv(0, 300, { look: (centred ? 0.12 : 0.2) * d, lift: 0, tilt: 10 * d, open: tier === 'L' ? 0.6 : 0.42,
-          rotate: big ? 4 * d : 0 }, 'glide');
-        b.raw(ONE_CHANNELS[4]!, SMILE.smile, 300);
-        b.raw(ONE_CHANNELS[5]!, SMILE.mouth, 300);
-        const pulse = 300 + 1460;
-        if (t2 === 'bouncy') pulses(b, pulse, 3, 4, -2);
-        else { b.cut(pulse, { squash: 3 }); b.mv(pulse, pulse + 300, { squash: 0 }, 'settle'); }
-        return { duration: 300 + 2900 };
-      }
-      case 'nod':
-        b.mv(0, 125, { squash: -6, lift: 0.4 }, 'snap');
-        b.mv(125, 250, { squash: 3, lift: -0.1 });
-        b.mv(250, 375, { squash: -4, lift: 0.3 });
-        b.mv(375, 583, { squash: 0, lift: 0 }, 'settle');
-        return { duration: 600 };
-      case 'dizzy': {
-        b.mv(0, 80, { open: 1.15, tilt: 0 }, 'snap');
-        const n = big ? 18 : 10, turns = big ? 2 : 1;
-        for (let i = 0; i <= n; i++) {
-          const th = i / n * turns * 2 * Math.PI, t = 80 + i * F;
-          b.cut(t, { look: 0.45 * Math.cos(th), lift: 0.8 * Math.sin(th), tilt: 16 * Math.sin(th), open: 0.82,
-            ...(big ? { rotate: 5 * Math.cos(th) } : {}) });
-        }
-        const t = 80 + n * F + 20;
-        b.mv(t, t + 270, { ...pick(P, ONE_FACE_CHANNELS), rotate: 0 }, 'settle');
-        return { duration: t + 270 };
-      }
-      case 'dozeOff':
-        b.mv(0, 600, { open: P.open, smile: 0, mouth: 0 }, 'glide');
-        b.mv(0, 700, { tilt: P.tilt, lift: P.lift, look: P.look }, 'glide');
-        if (tier === 'L') b.mv(0, 900, { squash: P.squash, rotate: P.rotate }, '~soft');
-        return { duration: 900 };
-      case 'wake':
-        b.mv(0, 120, { open: 1.15, tilt: 0 }, 'snap');
-        b.mv(0, 240, { squash: 0, rotate: 0 }, 'settle');
-        saccade(b, 120, 0, { lift: 0 });
-        return { duration: blinkAt(b, 300, 1, d) + 40 };
-      case 'read': {
-        // Tempo paces the gaps between jumps; the jumps themselves stay agent-eye's saccades.
-        b.mv(0, 400 * scale, { open: 0.72, tilt: 0, smile: 0, mouth: 0 }, 'glide');
-        let t = saccade(b, 0, -0.55, { lift: P.lift });
-        const steps = 3 + Math.floor(draw() * 3);
-        for (let i = 1; i <= steps; i++) { t += (160 + draw() * 180) * scale; saccade(b, t, -0.55 + 1.1 * i / steps); t += 150; }
-        t += (200 + draw() * 250) * scale;
-        if (draw() < 0.4) t = blinkAt(b, t, 0.72, d);
-        return { duration: t + 160, scaled: true };
-      }
-      case 'ponder': {
-        // Thinking starts with a quick glance up (agent-eye's saccade), then the slow drift of the master loop.
-        const up = { look: 0.32 * d, open: 0.55, lift: -0.45, tilt: -8 * d };
-        let t = 0;
-        const entering = Math.abs(b.cur(ONE_CHANNELS[0]!) - up.look) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[1]!) - up.lift) > 0.1;
-        if (entering) t = saccade(b, 0, up.look, { lift: up.lift, open: up.open, tilt: up.tilt, smile: 0, mouth: 0 });
-        const drift = [{ look: 0.22 * d, open: 0.58 }, { look: up.look, open: up.open }, { look: 0.22 * d, open: 0.58 }];
-        if (!entering) drift.unshift({ look: up.look, open: up.open });
-        for (const step of drift) { b.mv(t, t + 550 * scale, step, 'glide'); t += 550 * scale; }
-        if (!entering) b.mv(0, 550 * scale, { lift: up.lift, tilt: up.tilt, smile: 0, mouth: 0 }, 'glide');
-        return { duration: t, scaled: true };
-      }
-      case 'keys': {
-        let t = 0;
-        const settled = pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!]);
-        if (Math.abs(b.cur(ONE_CHANNELS[1]!) - P.lift) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[0]!) - P.look) > 0.1) {
-          t = saccade(b, 0, P.look, { lift: P.lift, ...settled });
-        } else if ((Object.keys(settled) as OneChannel[]).some(k => Math.abs(b.cur(k) - P[k]) > 1e-3)) {
-          b.mv(0, 200, settled, 'glide');
-          t = 200;
-        }
-        // Keystrokes: about a pixel or two of eye travel on twos, with a 2 % squash where the body may move.
-        for (let burst = 0; burst < 2; burst++) {
-          const n = 4 + Math.floor(draw() * 4);
-          for (let i = 0; i < n; i++) {
-            b.cut(t, { lift: P.lift + 0.25, ...(big ? { squash: P.squash - 2 } : {}) });
-            b.cut(t + 2 * F, { lift: P.lift, squash: P.squash });
-            t += 4 * F;
-          }
-          t += 200 + draw() * 250;
-        }
-        return { duration: t, tail: false };
-      }
-      case 'wave': {
-        ([[-12, 4], [12, -3], [-8, 2], [6, -1]] as const).forEach(([tilt, rotate], i) => b.cut(i * 2 * F, { tilt, rotate }));
-        b.mv(8 * F, 12 * F, { tilt: P.tilt, rotate: 0 }, 'settle');
-        let duration = 12 * F;
-        if (big && (t2 === 'quick' || t2 === 'bouncy')) {
-          b.mv(12 * F, 15 * F, { hop: -0.06 }, 'rise');
-          b.mv(15 * F, 19 * F, { hop: 0 }, 'fall');
-          duration = 19 * F;
-        }
-        return { duration, twos: true };
-      }
-      case 'firstBlink': {
-        // A new agent: the eye, shut (tilted, never a level bar), opens for the first time at the viewer; at 40 px
-        // and up it glances at you, then looks toward its name.
-        b.cut(0, { open: 0, look: 0, lift: 0, tilt: 7 * d, smile: 0, mouth: 0 });
-        b.mv(300, 420, { open: 1.04, tilt: 0 }, 'snap');
-        b.mv(420, 540, { open: 1 }, 'settle');
-        if (!big) { b.mv(600, 760, { look: P.look, lift: P.lift }, 'glide'); return { duration: 760 }; }
-        saccade(b, 600, 0, { lift: 0 });
-        return { duration: saccade(b, 900, P.look, { lift: P.lift }) };
-      }
-      case 'lookAtYou': {
-        // The website's look-at-you (DIGITAL-ONE move 4): square to the viewer, a blink at 60 % of the hold (shut
-        // tilted, never a level bar), then back to the held face. Digital One holds deadpan and adds a dry chuckle at
-        // 40 px and up; a bouncy One giggles twice.
-        const dry = t2 === 'dry', open = dry ? 0.92 : 1.04, hold = 1100;
-        b.mv(0, 250, { look: 0, lift: dry ? -0.05 : 0, open, tilt: 0, smile: 0, mouth: 0, rotate: 0 }, 'glide');
-        if (big && dry) pulses(b, 300, 3, 2, -2);
-        else if (big && t2 === 'bouncy') pulses(b, 250, 2, 4, -2);
-        blinkAt(b, 250 + hold * 0.6, open, d);
-        return { duration: 250 + hold };
-      }
-      case 'shrug': {
-        // DIGITAL-ONE move 19: a wind, up and tipped about its base into "who knows?" (up and aside), a dead hold,
-        // down on the bounce spring, then a look at the viewer. No mouth: a line under a raised eye reads as a sign.
-        b.mv(0, 4 * F, { squash: -5 }, 'wind');
-        b.mv(4 * F, 9 * F, { squash: 7, rotate: 10 * d, hop: -0.015 }, 'pop');
-        b.mv(4 * F, 9 * F, { look: 0.3 * d, lift: -0.4, open: 0.9, tilt: 0, smile: 0, mouth: 0 }, 'snap');
-        b.cut(875, { squash: -4 });
-        b.mv(875, 1125, { squash: 0, rotate: 0, hop: 0 }, '~bounce');
-        b.mv(1100, 1350, { look: 0, lift: 0, open: 1.04 }, 'glide');
-        blinkAt(b, 1750, 1.04, d);
-        return { duration: 2350, twos: true };
-      }
-      case 'popIn': {
-        // An arrival (the website's pop-in, move 7). The host already shows the still head, so it does not grow from
-        // nothing: the eye shuts (tilted), the head pops up with a stretch and lands squashed as the eye opens wide,
-        // settles, then glances toward its content.
-        const stretch = t2 === 'dry' ? 10 : 18, land = t2 === 'dry' ? -6 : -10;
-        b.mv(0, 80, { open: 0, look: 0, lift: 0, tilt: 7 * d, smile: 0, mouth: 0, rotate: 0 }, 'shut');
-        b.mv(80, 80 + 3 * F, { hop: -0.08, squash: stretch }, 'pop');
-        b.mv(80 + 3 * F, 80 + 5 * F, { hop: 0 }, 'fall');
-        b.mv(80 + 3 * F, 80 + 5 * F, { squash: land, open: 1.06, tilt: 0 }, 'snap');
-        b.mv(80 + 5 * F, 80 + 7 * F, { squash: 4, open: 1 });
-        b.mv(80 + 7 * F, 80 + 10 * F, { squash: 0 }, 'settle');
-        return { duration: Math.max(saccade(b, 80 + 10 * F, P.look, { lift: P.lift }), 680), twos: true };
-      }
+        return face === previous ? { name: 'home', priority: 0 } : _callentrance(previous, face);
     }
+
+    function _callentrance(previous: OneFace, next: OneFace): OneMomentRequest {
+        if (_gettier() === 'XS')
+            return { name: 'settle', priority: 0, uncounted: true };
+        const big = _gettier() === 'M' || _gettier() === 'L';
+        if (next === 'attention')
+            return { name: 'psst', priority: 6 };
+        if (next === 'error')
+            return { name: 'dizzy', priority: 5 };
+        if (next === 'done')
+            return { name: big ? 'smile' : 'nod', priority: 4 };
+        if (asleep.has(previous) && !asleep.has(next))
+            return { name: 'wake', priority: 3 };
+        if (next === 'paused')
+            return { name: 'dozeOff', priority: 3 };
+        if (pondering.has(previous) && !pondering.has(next))
+            return { name: 'aha', priority: 3 };
+        if (next === 'working')
+            return { name: 'read', priority: 2 };
+        if (next === 'thinking')
+            return { name: 'ponder', priority: 1 };
+        if (next === 'typing')
+            return { name: 'keys', priority: 2 };
+        return { name: 'home', priority: 0 };
+    }
+
+    function _callcadenceRequest(): OneMomentRequest | null {
+        const name = ongoing[_stateface];
+        if (!name || !_state_oneMotion || _gettier() === 'XS')
+            return null;
+        if (_state_onePending?.name === name)
+            return _state_onePending;
+        return { name, priority: _stateface === 'thinking' ? 1 : 2, cadence: true };
+    }
+
+    function _callnextCadence(at: number): number | null {
+        _state_onePending = null;
+        const request = _callcadenceRequest();
+        if (!request)
+            return null;
+        if (_state_oneCadenceMode === 'brief') {
+            const gap = 300 + _state_oneRandom() * 400;
+            const measured = { ...request, draws: Object.freeze(Array.from({ length: ONE_MOMENT_DRAWS }, () => _state_oneRandom())) };
+            const length = _call_onePlan(measured, _callheld()).duration;
+            if (_state_oneEntered + 5000 - at < gap + length)
+                return null;
+            _state_onePending = measured;
+            return gap;
+        }
+        if (at - _state_oneInput > 60000)
+            return null;
+        // Every ongoing state, typing included, repeats one cluster every six to ten seconds (AVATARS.md §2.3 rule 6).
+        return 6000 + _state_oneRandom() * 4000;
+    }
+
+    function _callrestartWindow(at: number): void {
+        _state_oneEntered = at;
+    }
+
+    function _callnoteInput(at: number): void {
+        _state_oneInput = at;
+    }
+
+    function _callsetSize(px: number): void {
+        _state_onePx = px;
+        if (!_getmoving())
+            _state_oneValue = { ..._callheld() };
+    }
+
+    function _callsetKind(kind: OneKind): void {
+        _state_oneKind = kind;
+    }
+
+    function _gettemperament(): OneTemperament {
+        return oneTemperament(_state_oneKind);
+    }
+
+    function _callsetMotion(allowed: boolean): void {
+        _state_oneMotion = allowed;
+        if (!allowed)
+            _callsnap();
+    }
+
+    function _callfollow(target: { readonly x: number; readonly y: number } | null): boolean {
+        if (target === null || !_state_oneMotion || !followable.has(_stateface) || (_gettier() !== 'M' && _gettier() !== 'L')) {
+            _state_oneTarget = null;
+            return false;
+        }
+        _state_oneTarget = { x: clamp(target.x, -1, 1), y: clamp(target.y, -1, 1) };
+        return true;
+    }
+
+    function _callstart(request: OneMomentRequest, at: number): void {
+        if (!_state_oneMotion)
+            return;
+        // A visible smile line is withdrawn first, so no moment moves the eye toward it.
+        const lead = _state_oneValue.mouth > 0 ? ONE_MOUTH_RETRACT_MS : 0;
+        const planned = _call_onePlan(request, lead ? { ..._state_oneValue, mouth: 0 } : { ..._state_oneValue });
+        const curves: Curves = {};
+        for (const k of Object.keys(planned.curves) as OneChannel[])
+            curves[k] = planned.curves[k]!.map(([t, v, e]) => [t + lead, v, e] as Key);
+        if (lead)
+            curves.mouth = [[0, _state_oneValue.mouth], [lead, 0, 'glide'], ...(curves.mouth ?? []).slice(1)];
+        _state_oneTimeline = { curves, start: at, duration: planned.duration + lead, twos: planned.twos };
+        _state_oneCurrent = request;
+        _state_oneTarget = null;
+        _state_oneLast = Math.max(_state_oneLast, at);
+    }
+
+    function _call_onePlan(request: OneMomentRequest, live: OnePose): { curves: Curves; duration: number; twos: boolean } {
+        const b = new Builder(live);
+        const P = _callheld();
+        let index = 0;
+        const draw = (): number => request.draws && index < request.draws.length ? request.draws[index++]! : _state_oneRandom();
+        const scale = tempo[_gettemperament()] * tierTempo[_gettier()];
+        const result = _call_oneCompose(request.name, b, P, scale, draw);
+        const factor = result.noTempo || result.scaled ? 1 : scale;
+        let duration = result.duration;
+        if (result.tail !== false) {
+            const t0 = duration, t1 = duration + 320 * (result.scaled ? scale : 1);
+            let any = false;
+            for (const k of ONE_CHANNELS) {
+                if (Math.abs(b.cur(k) - P[k]) > 1e-3) {
+                    b.mv(t0, t1, { [k]: P[k] }, 'glide');
+                    any = true;
+                }
+            }
+            if (any)
+                duration = t1;
+        }
+        const curves: Curves = {};
+        for (const k of Object.keys(b.curves) as OneChannel[])
+            curves[k] = b.curves[k]!.map(([t, v, e]) => [t * factor, v, e] as Key);
+        return { curves, duration: duration * factor, twos: result.twos === true };
+    }
+
+    function _callsnap(): void {
+        _state_oneTimeline = null;
+        _state_oneCurrent = null;
+        _state_oneTalk = null;
+        _state_oneTarget = null;
+        _state_oneBlinkStart = null;
+        _state_oneValue = { ..._callheld() };
+    }
+
+    function _callstartTalk(at: number): boolean {
+        if (!_state_oneMotion || _stateface !== 'speaking' || !_state_oneLevel || _gettier() !== 'L' || _state_oneTalk)
+            return false;
+        _state_oneTalk = { mouth: 0, quiet: 0, blinked: false };
+        _state_oneTarget = null;
+        _state_oneLast = Math.max(_state_oneLast, at);
+        return true;
+    }
+
+    function _call_oneStopTalk(): void {
+        if (!_state_oneTalk)
+            return;
+        _state_oneTalk = null;
+        _state_oneValue.mouth = 0;
+    }
+
+    function _call_onePose(at: number, value: { -readonly [K in OneChannel]: number }): void {
+        const tl = _state_oneTimeline;
+        if (!tl)
+            return;
+        const t = Math.min(at - tl.start, tl.duration);
+        const quantized = tl.twos ? Math.floor(t / (2 * F) + 1e-6) * 2 * F : t;
+        for (const k of Object.keys(tl.curves) as OneChannel[]) {
+            value[k] = sampleCurve(tl.curves[k]!, ONE_BODY_CHANNELS.includes(k) ? quantized : t);
+        }
+    }
+
+    function _call_oneBlinkFactor(at: number): number {
+        let blink = 1 - _state_oneManualBlink;
+        if (_state_oneBlinkStart !== null && at - _state_oneBlinkStart <= 420)
+            blink *= sampleCurve(blinkCurve, at - _state_oneBlinkStart);
+        return blink;
+    }
+
+    function _call_oneFrame(value: OnePose, blink: number): OneMotionFrame {
+        const pose = Object.freeze({ ...value });
+        return Object.freeze({ face: _stateface, tier: _gettier(), pose, geometry: oneGeometry(pose, _gettier(), _state_oneKind, blink), moving: _getmoving() });
+    }
+
+    function _callpeek(at: number): OneMotionFrame {
+        const value = { ..._state_oneValue };
+        _call_onePose(Math.max(at, _state_oneLast), value);
+        return _call_oneFrame(value, _call_oneBlinkFactor(Math.max(at, _state_oneLast)));
+    }
+
+    function _callsample(at: number): { frame: OneMotionFrame; finished: OneMomentRequest | null } {
+        const dt = clamp(at - _state_oneLast, 0, 100);
+        _state_oneLast = Math.max(_state_oneLast, at);
+        let finished: OneMomentRequest | null = null;
+        const tl = _state_oneTimeline;
+        if (tl) {
+            _call_onePose(at, _state_oneValue);
+            if (at - tl.start >= tl.duration) {
+                for (const k of Object.keys(tl.curves) as OneChannel[]) {
+                    const c = tl.curves[k]!;
+                    _state_oneValue[k] = c[c.length - 1]![1];
+                }
+                _state_oneTimeline = null;
+                finished = _state_oneCurrent;
+                _state_oneCurrent = null;
+            }
+        }
+        if (_state_oneTalk)
+            _call_oneTalkStep(dt);
+        else if (_state_oneTarget && !_state_oneTimeline)
+            _call_oneFollowStep(dt);
+        const blink = _call_oneBlinkFactor(at);
+        if (_state_oneBlinkStart !== null && at - _state_oneBlinkStart > 420)
+            _state_oneBlinkStart = null;
+        return { frame: _call_oneFrame(_state_oneValue, blink), finished };
+    }
+
+    function _call_oneFollowStep(dt: number): void {
+        const target = _state_oneTarget!;
+        const P = _callheld();
+        const k = 1 - Math.exp(-dt / (Math.abs(target.x - _state_oneValue.look) > 0.15 ? 40 : 80));
+        _state_oneValue.look += (target.x - _state_oneValue.look) * k;
+        _state_oneValue.lift += (target.y - _state_oneValue.lift) * k;
+        _state_oneValue.open += (P.open - _state_oneValue.open) * k;
+        _state_oneValue.tilt += (0 - _state_oneValue.tilt) * k;
+    }
+
+    function _call_oneTalkStep(dt: number): void {
+        const talk = _state_oneTalk!;
+        const level = clamp(Number(_state_oneLevel!()) || 0, 0, 1);
+        const target = level < 0.08 ? 0 : clamp(level * 1.4, 0, 1);
+        talk.mouth += (target - talk.mouth) * (1 - Math.exp(-dt / (target > talk.mouth ? 30 : 90)));
+        if (!_state_oneTimeline) {
+            const k = 1 - Math.exp(-dt / 80);
+            _state_oneValue.smile += (1 - _state_oneValue.smile) * k;
+            _state_oneValue.open += (0.6 - _state_oneValue.open) * k;
+            _state_oneValue.look += (0 - _state_oneValue.look) * k;
+            _state_oneValue.lift += (0 - _state_oneValue.lift) * k;
+            _state_oneValue.tilt += (0 - _state_oneValue.tilt) * k;
+            _state_oneValue.mouth = talk.mouth < 0.02 || _state_oneValue.smile < 0.5 ? 0 : 0.45 + 0.55 * talk.mouth;
+        }
+        talk.quiet = level < 0.08 ? talk.quiet + dt : 0;
+        if (talk.quiet > 600 && !talk.blinked && _state_oneBlinkStart === null) {
+            _state_oneBlinkStart = _state_oneLast;
+            talk.blinked = true;
+        }
+        if (talk.quiet === 0)
+            talk.blinked = false;
+    }
+
+    function _call_oneCompose(name: OneMomentName, b: Builder, P: OnePose, scale: number, draw: () => number): Composed {
+        const tier = _gettier(), big = tier === 'M' || tier === 'L';
+        const d = _state_oneGaze.x < 0 ? -1 : 1;
+        const t2 = _gettemperament();
+        switch (name) {
+            case 'settle':
+                b.mv(0, 160, pick(P, ONE_CHANNELS), 'ui');
+                return { duration: 160, tail: false, noTempo: true };
+            case 'home': {
+                const t = saccade(b, 0, P.look, { lift: P.lift });
+                b.mv(0, Math.max(t, 300), pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!, ONE_CHANNELS[6]!, ONE_CHANNELS[7]!, ONE_CHANNELS[8]!]), 'glide');
+                return { duration: Math.max(t, 300) };
+            }
+            case 'psst': {
+                if (!big) {
+                    const t = saccade(b, 0, 0, { lift: 0, tilt: 0 });
+                    b.mv(0, t, { open: 1.12 }, 'snap');
+                    b.mv(t, t + 150, { open: 1.06 }, 'settle');
+                    return { duration: blinkAt(b, t + 200, 1.06, d) };
+                }
+                const hop = tier === 'L' ? 0.15 : 0.08;
+                b.mv(0, 120, { squash: -6, open: 0.9, look: 0, lift: 0, tilt: 0, rotate: 0 }, 'wind');
+                b.mv(120, 250, { hop: -hop, squash: 8, open: 1.18 }, 'snap');
+                b.mv(250, 420, { hop: 0 }, 'fall');
+                b.cut(420, { squash: -6 });
+                b.mv(420, 700, { squash: 0 }, 'settle');
+                b.mv(420, 520, { open: 1.06 }, 'settle');
+                return { duration: blinkAt(b, 520, 1.06, d), twos: true };
+            }
+            case 'aha':
+                b.mv(0, 180, { open: 1.1, look: 0, lift: 0, tilt: 0 }, 'snap');
+                b.mv(180, 360, { open: 1 }, 'settle');
+                return { duration: 360 };
+            case 'smile': {
+                // agent-eye's SMILE plays exactly while the eye narrows into a happy squint, turned toward its content
+                // and tilted warm: a tall bar over the smile line would read as "!" on a coloured disc.
+                const centred = Math.abs(_state_oneGaze.x) < 0.15;
+                b.mv(0, 300, { look: (centred ? 0.12 : 0.2) * d, lift: 0, tilt: 10 * d, open: tier === 'L' ? 0.6 : 0.42,
+                    rotate: big ? 4 * d : 0 }, 'glide');
+                b.raw(ONE_CHANNELS[4]!, SMILE.smile, 300);
+                b.raw(ONE_CHANNELS[5]!, SMILE.mouth, 300);
+                const pulse = 300 + 1460;
+                if (t2 === 'bouncy')
+                    pulses(b, pulse, 3, 4, -2);
+                else {
+                    b.cut(pulse, { squash: 3 });
+                    b.mv(pulse, pulse + 300, { squash: 0 }, 'settle');
+                }
+                return { duration: 300 + 2900 };
+            }
+            case 'nod':
+                b.mv(0, 125, { squash: -6, lift: 0.4 }, 'snap');
+                b.mv(125, 250, { squash: 3, lift: -0.1 });
+                b.mv(250, 375, { squash: -4, lift: 0.3 });
+                b.mv(375, 583, { squash: 0, lift: 0 }, 'settle');
+                return { duration: 600 };
+            case 'dizzy': {
+                b.mv(0, 80, { open: 1.15, tilt: 0 }, 'snap');
+                const n = big ? 18 : 10, turns = big ? 2 : 1;
+                for (let i = 0; i <= n; i++) {
+                    const th = i / n * turns * 2 * Math.PI, t = 80 + i * F;
+                    b.cut(t, { look: 0.45 * Math.cos(th), lift: 0.8 * Math.sin(th), tilt: 16 * Math.sin(th), open: 0.82,
+                        ...(big ? { rotate: 5 * Math.cos(th) } : {}) });
+                }
+                const t = 80 + n * F + 20;
+                b.mv(t, t + 270, { ...pick(P, ONE_FACE_CHANNELS), rotate: 0 }, 'settle');
+                return { duration: t + 270 };
+            }
+            case 'dozeOff':
+                b.mv(0, 600, { open: P.open, smile: 0, mouth: 0 }, 'glide');
+                b.mv(0, 700, { tilt: P.tilt, lift: P.lift, look: P.look }, 'glide');
+                if (tier === 'L')
+                    b.mv(0, 900, { squash: P.squash, rotate: P.rotate }, '~soft');
+                return { duration: 900 };
+            case 'wake':
+                b.mv(0, 120, { open: 1.15, tilt: 0 }, 'snap');
+                b.mv(0, 240, { squash: 0, rotate: 0 }, 'settle');
+                saccade(b, 120, 0, { lift: 0 });
+                return { duration: blinkAt(b, 300, 1, d) + 40 };
+            case 'read': {
+                // Tempo paces the gaps between jumps; the jumps themselves stay agent-eye's saccades.
+                b.mv(0, 400 * scale, { open: 0.72, tilt: 0, smile: 0, mouth: 0 }, 'glide');
+                let t = saccade(b, 0, -0.55, { lift: P.lift });
+                const steps = 3 + Math.floor(draw() * 3);
+                for (let i = 1; i <= steps; i++) {
+                    t += (160 + draw() * 180) * scale;
+                    saccade(b, t, -0.55 + 1.1 * i / steps);
+                    t += 150;
+                }
+                t += (200 + draw() * 250) * scale;
+                if (draw() < 0.4)
+                    t = blinkAt(b, t, 0.72, d);
+                return { duration: t + 160, scaled: true };
+            }
+            case 'ponder': {
+                // Thinking starts with a quick glance up (agent-eye's saccade), then the slow drift of the master loop.
+                const up = { look: 0.32 * d, open: 0.55, lift: -0.45, tilt: -8 * d };
+                let t = 0;
+                const entering = Math.abs(b.cur(ONE_CHANNELS[0]!) - up.look) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[1]!) - up.lift) > 0.1;
+                if (entering)
+                    t = saccade(b, 0, up.look, { lift: up.lift, open: up.open, tilt: up.tilt, smile: 0, mouth: 0 });
+                const drift = [{ look: 0.22 * d, open: 0.58 }, { look: up.look, open: up.open }, { look: 0.22 * d, open: 0.58 }];
+                if (!entering)
+                    drift.unshift({ look: up.look, open: up.open });
+                for (const step of drift) {
+                    b.mv(t, t + 550 * scale, step, 'glide');
+                    t += 550 * scale;
+                }
+                if (!entering)
+                    b.mv(0, 550 * scale, { lift: up.lift, tilt: up.tilt, smile: 0, mouth: 0 }, 'glide');
+                return { duration: t, scaled: true };
+            }
+            case 'keys': {
+                let t = 0;
+                const settled = pick(P, [ONE_CHANNELS[2]!, ONE_CHANNELS[3]!, ONE_CHANNELS[4]!, ONE_CHANNELS[5]!]);
+                if (Math.abs(b.cur(ONE_CHANNELS[1]!) - P.lift) > 0.1 || Math.abs(b.cur(ONE_CHANNELS[0]!) - P.look) > 0.1) {
+                    t = saccade(b, 0, P.look, { lift: P.lift, ...settled });
+                }
+                else if ((Object.keys(settled) as OneChannel[]).some(k => Math.abs(b.cur(k) - P[k]) > 1e-3)) {
+                    b.mv(0, 200, settled, 'glide');
+                    t = 200;
+                }
+                // Keystrokes: about a pixel or two of eye travel on twos, with a 2 % squash where the body may move.
+                for (let burst = 0; burst < 2; burst++) {
+                    const n = 4 + Math.floor(draw() * 4);
+                    for (let i = 0; i < n; i++) {
+                        b.cut(t, { lift: P.lift + 0.25, ...(big ? { squash: P.squash - 2 } : {}) });
+                        b.cut(t + 2 * F, { lift: P.lift, squash: P.squash });
+                        t += 4 * F;
+                    }
+                    t += 200 + draw() * 250;
+                }
+                return { duration: t, tail: false };
+            }
+            case 'wave': {
+                ([[-12, 4], [12, -3], [-8, 2], [6, -1]] as const).forEach(([tilt, rotate], i) => b.cut(i * 2 * F, { tilt, rotate }));
+                b.mv(8 * F, 12 * F, { tilt: P.tilt, rotate: 0 }, 'settle');
+                let duration = 12 * F;
+                if (big && (t2 === 'quick' || t2 === 'bouncy')) {
+                    b.mv(12 * F, 15 * F, { hop: -0.06 }, 'rise');
+                    b.mv(15 * F, 19 * F, { hop: 0 }, 'fall');
+                    duration = 19 * F;
+                }
+                return { duration, twos: true };
+            }
+            case 'firstBlink': {
+                // A new agent: the eye, shut (tilted, never a level bar), opens for the first time at the viewer; at 40 px
+                // and up it glances at you, then looks toward its name.
+                b.cut(0, { open: 0, look: 0, lift: 0, tilt: 7 * d, smile: 0, mouth: 0 });
+                b.mv(300, 420, { open: 1.04, tilt: 0 }, 'snap');
+                b.mv(420, 540, { open: 1 }, 'settle');
+                if (!big) {
+                    b.mv(600, 760, { look: P.look, lift: P.lift }, 'glide');
+                    return { duration: 760 };
+                }
+                saccade(b, 600, 0, { lift: 0 });
+                return { duration: saccade(b, 900, P.look, { lift: P.lift }) };
+            }
+            case 'lookAtYou': {
+                // The website's look-at-you (DIGITAL-ONE move 4): square to the viewer, a blink at 60 % of the hold (shut
+                // tilted, never a level bar), then back to the held face. Digital One holds deadpan and adds a dry chuckle at
+                // 40 px and up; a bouncy One giggles twice.
+                const dry = t2 === 'dry', open = dry ? 0.92 : 1.04, hold = 1100;
+                b.mv(0, 250, { look: 0, lift: dry ? -0.05 : 0, open, tilt: 0, smile: 0, mouth: 0, rotate: 0 }, 'glide');
+                if (big && dry)
+                    pulses(b, 300, 3, 2, -2);
+                else if (big && t2 === 'bouncy')
+                    pulses(b, 250, 2, 4, -2);
+                blinkAt(b, 250 + hold * 0.6, open, d);
+                return { duration: 250 + hold };
+            }
+            case 'shrug': {
+                // DIGITAL-ONE move 19: a wind, up and tipped about its base into "who knows?" (up and aside), a dead hold,
+                // down on the bounce spring, then a look at the viewer. No mouth: a line under a raised eye reads as a sign.
+                b.mv(0, 4 * F, { squash: -5 }, 'wind');
+                b.mv(4 * F, 9 * F, { squash: 7, rotate: 10 * d, hop: -0.015 }, 'pop');
+                b.mv(4 * F, 9 * F, { look: 0.3 * d, lift: -0.4, open: 0.9, tilt: 0, smile: 0, mouth: 0 }, 'snap');
+                b.cut(875, { squash: -4 });
+                b.mv(875, 1125, { squash: 0, rotate: 0, hop: 0 }, '~bounce');
+                b.mv(1100, 1350, { look: 0, lift: 0, open: 1.04 }, 'glide');
+                blinkAt(b, 1750, 1.04, d);
+                return { duration: 2350, twos: true };
+            }
+            case 'popIn': {
+                // An arrival (the website's pop-in, move 7). The host already shows the still head, so it does not grow from
+                // nothing: the eye shuts (tilted), the head pops up with a stretch and lands squashed as the eye opens wide,
+                // settles, then glances toward its content.
+                const stretch = t2 === 'dry' ? 10 : 18, land = t2 === 'dry' ? -6 : -10;
+                b.mv(0, 80, { open: 0, look: 0, lift: 0, tilt: 7 * d, smile: 0, mouth: 0, rotate: 0 }, 'shut');
+                b.mv(80, 80 + 3 * F, { hop: -0.08, squash: stretch }, 'pop');
+                b.mv(80 + 3 * F, 80 + 5 * F, { hop: 0 }, 'fall');
+                b.mv(80 + 3 * F, 80 + 5 * F, { squash: land, open: 1.06, tilt: 0 }, 'snap');
+                b.mv(80 + 5 * F, 80 + 7 * F, { squash: 4, open: 1 });
+                b.mv(80 + 7 * F, 80 + 10 * F, { squash: 0 }, 'settle');
+                return { duration: Math.max(saccade(b, 80 + 10 * F, P.look, { lift: P.lift }), 680), twos: true };
+            }
+        }
+    }
+
+    _stateface = options.face;
+    _state_oneGaze = { ...options.gaze };
+    _state_onePx = options.px;
+    _state_oneKind = options.kind;
+    _state_oneRandom = options.random;
+    _state_oneCadenceMode = options.cadence;
+    _state_oneLevel = options.level;
+    _state_oneMotion = options.motion;
+    _state_oneLast = _state_oneEntered = _state_oneInput = options.at;
+    _state_oneValue = { ..._callheld() };
+
+    const api: OneMotion = {
+      get face() { return _stateface; }, set face(value: OneFace) { _stateface = value; },
+      get tier() { return _gettier(); },
+      get timelineEnd() { return _gettimelineEnd(); },
+      setBlink: _callsetBlink,
+      get moving() { return _getmoving(); },
+      get request() { return _getrequest(); },
+      get following() { return _getfollowing(); },
+      held: _callheld,
+      setFace: _callsetFace,
+      entrance: _callentrance,
+      cadenceRequest: _callcadenceRequest,
+      nextCadence: _callnextCadence,
+      restartWindow: _callrestartWindow,
+      noteInput: _callnoteInput,
+      setSize: _callsetSize,
+      setKind: _callsetKind,
+      get temperament() { return _gettemperament(); },
+      setMotion: _callsetMotion,
+      follow: _callfollow,
+      start: _callstart,
+      snap: _callsnap,
+      startTalk: _callstartTalk,
+      peek: _callpeek,
+      sample: _callsample
+    };
+    return Object.setPrototypeOf(api, new.target.prototype);
   }
 }
 
