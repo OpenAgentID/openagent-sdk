@@ -221,7 +221,7 @@ jobs:
           npm run build --prefix "$sdk"
           tarball=$(cd "$sdk" && npm pack --json --ignore-scripts --pack-destination "$RUNNER_TEMP" | jq -r '.[0].filename')
           npm install --no-save --ignore-scripts --no-audit --no-fund --loglevel=error "$RUNNER_TEMP/$tarball"
-          npm ls @openagentid/sdk
+          echo "testing against @openagentid/sdk $(jq -r .version node_modules/@openagentid/sdk/package.json) from $tarball"
           npm run typecheck
           npm test
 
