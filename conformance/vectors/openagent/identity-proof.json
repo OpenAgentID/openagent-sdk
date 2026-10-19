@@ -1,0 +1,444 @@
+{
+  "category": "openagent",
+  "name": "identity-proof",
+  "description": "OpenAgent Core Protocol identity proofs (Section 15). The signing payload is the JCS (RFC 8785) UTF-8 bytes of the openagent-challenge-v1 object, with no framing. A proof is an Ed25519 signature, base64url without padding, plus the raw public key and the echoed nonce. Verifiers check the challenge shape first (type, nonce, timestamp, origin), then the nonce echo and key shape, then that the key is one they trust, then the signature. Keys are RFC 8032 section 7.1 TEST 1 (9d61...7f60) and TEST 2 (4ccd...a6fb).",
+  "spec": "OpenAgent Core Protocol Specification Section 15.2-15.3",
+  "vectors": [
+    {
+      "name": "canonicalize-challenge",
+      "description": "JCS form of a challenge without realm: keys sort nonce, origin, timestamp, type",
+      "tags": [
+        "jcs",
+        "challenge"
+      ],
+      "input": {
+        "operation": "canonicalize_challenge",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"nonce\":\"a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1\",\"origin\":\"https://auth.example.com\",\"timestamp\":\"2026-10-19T12:00:00Z\",\"type\":\"openagent-challenge-v1\"}"
+      }
+    },
+    {
+      "name": "canonicalize-challenge-with-realm",
+      "description": "A present realm participates in the signed bytes",
+      "tags": [
+        "jcs",
+        "challenge",
+        "realm"
+      ],
+      "input": {
+        "operation": "canonicalize_challenge",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com",
+          "realm": "fleets"
+        }
+      },
+      "expected_output": {
+        "canonical": "{\"nonce\":\"a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1\",\"origin\":\"https://auth.example.com\",\"realm\":\"fleets\",\"timestamp\":\"2026-10-19T12:00:00Z\",\"type\":\"openagent-challenge-v1\"}"
+      }
+    },
+    {
+      "name": "verify-proof-valid",
+      "description": "Ed25519 proof over the JCS challenge bytes verifies under the presented key",
+      "tags": [
+        "verify",
+        "valid"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "ggqqGd2pgr0aC4p_07H3-p-7vzkJte2sbHiGBCoFyGpV_IruIrCIDhTE5ZSS9jyPokKgyKZHx9GZAQsfhFcoCA",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": true
+      }
+    },
+    {
+      "name": "verify-proof-valid-with-realm",
+      "description": "A proof over a realm-bearing challenge verifies",
+      "tags": [
+        "verify",
+        "valid",
+        "realm"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com",
+          "realm": "fleets"
+        },
+        "proof": {
+          "signature": "LTWi-ocDIBqOiY39pBzQWZowxSKhNqfizYLU1iXYa_LxHNdcM4fsHaS7P_dc_uqpjm_-Tc-0NmSZ8IVoYsRDBA",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": true
+      }
+    },
+    {
+      "name": "realm-stripped-fails",
+      "description": "A proof made over a realm-bearing challenge does not verify against the same challenge without realm",
+      "tags": [
+        "verify",
+        "realm",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "LTWi-ocDIBqOiY39pBzQWZowxSKhNqfizYLU1iXYa_LxHNdcM4fsHaS7P_dc_uqpjm_-Tc-0NmSZ8IVoYsRDBA",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "signature_invalid"
+      }
+    },
+    {
+      "name": "origin-substitution-fails",
+      "description": "A proof signed for another origin does not verify for this challenge (audience binding)",
+      "tags": [
+        "verify",
+        "origin",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "0Gao081mk1CmMIqkZ_1ebMcZWX-eLJ_llnSpYp8lGcM57WmE-1z26pH7FShRAA24FFgm5dMo22dZZr-Y0RFMDQ",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "signature_invalid"
+      }
+    },
+    {
+      "name": "nonce-echo-mismatch",
+      "description": "The echoed nonce differs from the challenge nonce",
+      "tags": [
+        "verify",
+        "nonce",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "ggqqGd2pgr0aC4p_07H3-p-7vzkJte2sbHiGBCoFyGpV_IruIrCIDhTE5ZSS9jyPokKgyKZHx9GZAQsfhFcoCA",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "nonce_mismatch"
+      }
+    },
+    {
+      "name": "untrusted-key",
+      "description": "A valid signature by a key the verifier does not trust is refused (the receiver decides whom to trust)",
+      "tags": [
+        "verify",
+        "trust",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "uUjMGL2nf9iSkfwjE0qqL0IQhUREdjHKu8yGASqG_X0gSNw9xpD_mVkzSRksYfIOQo1LE6gXx4WQzA7o-GgXBA",
+          "public_key": "PUAXw-hDiVqStwqnTRt-vJyYLM8uxJaMwM1V8Sr0Zgw",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "untrusted_key"
+      }
+    },
+    {
+      "name": "tampered-signature",
+      "description": "A single flipped signature bit fails",
+      "tags": [
+        "verify",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "gwqqGd2pgr0aC4p_07H3-p-7vzkJte2sbHiGBCoFyGpV_IruIrCIDhTE5ZSS9jyPokKgyKZHx9GZAQsfhFcoCA",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "signature_invalid"
+      }
+    },
+    {
+      "name": "wrong-challenge-type",
+      "description": "A challenge whose type is not openagent-challenge-v1 is refused before signature checks",
+      "tags": [
+        "challenge",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v0",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "stBc-cUIpW_9_5e2C__1Y_eVvrHZcSi3MbUxI9f_2UtPVasp-zWcs2cFGXBZvguw8lQX1m1nB7ht5wurVsh7AA",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "invalid_challenge"
+      }
+    },
+    {
+      "name": "uppercase-nonce",
+      "description": "A nonce must be 64 lowercase hex characters",
+      "tags": [
+        "challenge",
+        "nonce",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "kr12vnCI58fP0HR-dP1VQNVrofmXRqQn-L9RypI5FOG3RvcbtrbaR9WhHCu2TPKhR1oStNOvEBIk-N-C8wx5Cg",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1A3F1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "invalid_challenge"
+      }
+    },
+    {
+      "name": "fractional-timestamp",
+      "description": "Timestamps carry seconds precision with a Z suffix only",
+      "tags": [
+        "challenge",
+        "timestamp",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00.123Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "qCI6hKLYt85r5yOllDljACKZ0z1DRQJjOBc-ru_mMMDxh5JWYLdx-7YXpBJAWwVwdp6mHv82gnHxJknpcTz3Aw",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "invalid_challenge"
+      }
+    },
+    {
+      "name": "origin-with-path",
+      "description": "An origin is scheme://host[:port] with no path or trailing slash",
+      "tags": [
+        "challenge",
+        "origin",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com/"
+        },
+        "proof": {
+          "signature": "-Olha_2yLWRTGX1XsfRdYMZKF2dG-NUaCJvw5XL80J-xW7Wbx-bpaDXn_YT_02AxDnVRKg8gH3gzg91IBOqyDg",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "invalid_challenge"
+      }
+    },
+    {
+      "name": "short-public-key",
+      "description": "An Ed25519 public key must decode to 32 bytes",
+      "tags": [
+        "proof",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "ggqqGd2pgr0aC4p_07H3-p-7vzkJte2sbHiGBCoFyGpV_IruIrCIDhTE5ZSS9jyPokKgyKZHx9GZAQsfhFcoCA",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHUQ",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "invalid_proof"
+      }
+    },
+    {
+      "name": "padded-signature",
+      "description": "Signatures are base64url without padding",
+      "tags": [
+        "proof",
+        "negative"
+      ],
+      "input": {
+        "operation": "verify_identity_proof",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com"
+        },
+        "proof": {
+          "signature": "ggqqGd2pgr0aC4p_07H3-p-7vzkJte2sbHiGBCoFyGpV_IruIrCIDhTE5ZSS9jyPokKgyKZHx9GZAQsfhFcoCA==",
+          "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+          "key_type": "ed25519",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1"
+        },
+        "trusted_public_key_b64u": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+      },
+      "expected_output": {
+        "verify_ok": false,
+        "error_class": "invalid_proof"
+      }
+    },
+    {
+      "name": "sign-then-verify",
+      "description": "Runner signs the challenge with the secret key, then verifies its own proof",
+      "tags": [
+        "roundtrip"
+      ],
+      "input": {
+        "operation": "sign_and_verify_identity_proof",
+        "secret_key_hex": "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb",
+        "challenge": {
+          "type": "openagent-challenge-v1",
+          "nonce": "a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1a3f1",
+          "timestamp": "2026-10-19T12:00:00Z",
+          "origin": "https://auth.example.com",
+          "realm": "fleets"
+        }
+      },
+      "expected_output": {
+        "verify_ok": true,
+        "public_key_b64u": "PUAXw-hDiVqStwqnTRt-vJyYLM8uxJaMwM1V8Sr0Zgw",
+        "signature_b64u": "0GRQvB3jcrsL_4hHEaOErogkow6qwhdFtAD31040jUs139qGp84vbM3j76Zm679qKx7x726jeVdt_4Kmyt3oCg"
+      }
+    }
+  ]
+}

@@ -2175,8 +2175,131 @@ mod openagent {
             "evaluate_cost_budget" => evaluate_cost_budget(v),
             "validate_input" => validate_input(v),
             "evaluate_compound" => evaluate_compound(v),
+            "canonicalize_challenge" => canonicalize_challenge(v),
+            "verify_identity_proof" => verify_identity_proof(v),
+            "sign_and_verify_identity_proof" => sign_and_verify_identity_proof(v),
             other => Err(format!("openagent: unknown operation {other}")),
         }
+    }
+
+    // ---- identity proofs (Core Protocol Section 15) ----
+
+    fn challenge(v: &Vector) -> Result<openagent_auth_protocol::IdentityChallenge, String> {
+        serde_json::from_value(v.input.get("challenge").cloned().ok_or("challenge")?)
+            .map_err(|e| format!("challenge: {e}"))
+    }
+
+    fn canonicalize_challenge(v: &Vector) -> Result<(), String> {
+        let bytes = openagent_auth_protocol::handshake::canonical_challenge_bytes(&challenge(v)?)
+            .map_err(|e| e.to_string())?;
+        let got = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+        let expected = v
+            .expected_output
+            .get("canonical")
+            .and_then(Value::as_str)
+            .ok_or("expected canonical")?;
+        if got != expected {
+            return Err(format!("canonical mismatch: got {got} expected {expected}"));
+        }
+        Ok(())
+    }
+
+    /// The verifier's order: challenge shape, nonce echo and key shape (the
+    /// canonical crate), then trust in the presented key, then the signature.
+    fn identity_proof_outcome(
+        challenge: &openagent_auth_protocol::IdentityChallenge,
+        proof: &openagent_auth_protocol::IdentityProof,
+        trusted_b64u: &str,
+    ) -> Result<(), &'static str> {
+        use base64::Engine;
+        use openagent_auth_protocol::handshake::{
+            canonical_challenge_bytes, validate_challenge, validate_proof_shape,
+        };
+        use openagent_auth_protocol::AuthProtocolError;
+        validate_challenge(challenge).map_err(|_| "invalid_challenge")?;
+        validate_proof_shape(proof, challenge).map_err(|e| match e {
+            AuthProtocolError::NonceMismatch { .. } => "nonce_mismatch",
+            _ => "invalid_proof",
+        })?;
+        if proof.public_key != trusted_b64u {
+            return Err("untrusted_key");
+        }
+        let b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let key: [u8; 32] = b64
+            .decode(&proof.public_key)
+            .ok()
+            .and_then(|k| k.try_into().ok())
+            .ok_or("invalid_proof")?;
+        let sig: [u8; 64] = b64
+            .decode(&proof.signature)
+            .ok()
+            .and_then(|s| s.try_into().ok())
+            .ok_or("invalid_proof")?;
+        let key = ed25519_dalek::VerifyingKey::from_bytes(&key).map_err(|_| "invalid_proof")?;
+        let payload = canonical_challenge_bytes(challenge).map_err(|_| "invalid_challenge")?;
+        key.verify_strict(&payload, &ed25519_dalek::Signature::from_bytes(&sig))
+            .map_err(|_| "signature_invalid")
+    }
+
+    fn check_outcome(v: &Vector, got: Result<(), &'static str>) -> Result<(), String> {
+        let expected = expected_bool(v, "verify_ok")?;
+        let expected_class = v.expected_output.get("error_class").and_then(Value::as_str);
+        match (got, expected) {
+            (Ok(()), true) => Ok(()),
+            (Err(class), false) if expected_class.is_none_or(|e| e == class) => Ok(()),
+            (got, _) => Err(format!(
+                "identity proof outcome {got:?}, expected verify_ok={expected} class={expected_class:?}"
+            )),
+        }
+    }
+
+    fn verify_identity_proof(v: &Vector) -> Result<(), String> {
+        let challenge = challenge(v)?;
+        let proof: openagent_auth_protocol::IdentityProof =
+            serde_json::from_value(v.input.get("proof").cloned().ok_or("proof")?)
+                .map_err(|e| format!("proof: {e}"))?;
+        let trusted = v
+            .input
+            .get("trusted_public_key_b64u")
+            .and_then(Value::as_str)
+            .ok_or("trusted_public_key_b64u")?;
+        check_outcome(v, identity_proof_outcome(&challenge, &proof, trusted))
+    }
+
+    fn sign_and_verify_identity_proof(v: &Vector) -> Result<(), String> {
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        let sk: [u8; 32] = input_hex(v, "secret_key_hex")?
+            .as_slice()
+            .try_into()
+            .map_err(|_| "sk len")?;
+        let sk = SigningKey::from_bytes(&sk);
+        let challenge = challenge(v)?;
+        let payload = openagent_auth_protocol::handshake::canonical_challenge_bytes(&challenge)
+            .map_err(|e| e.to_string())?;
+        let proof = openagent_auth_protocol::IdentityProof {
+            signature: b64.encode(sk.sign(&payload).to_bytes()),
+            public_key: b64.encode(sk.verifying_key().to_bytes()),
+            key_type: openagent_auth_protocol::KeyType::Ed25519,
+            nonce: challenge.nonce.clone(),
+        };
+        for (field, got) in [
+            ("public_key_b64u", &proof.public_key),
+            ("signature_b64u", &proof.signature),
+        ] {
+            let expected = v
+                .expected_output
+                .get(field)
+                .and_then(Value::as_str)
+                .ok_or(field)?;
+            if got != expected {
+                return Err(format!("{field} mismatch: got {got} expected {expected}"));
+            }
+        }
+        check_outcome(
+            v,
+            identity_proof_outcome(&challenge, &proof, &proof.public_key),
+        )
     }
 
     fn hkdf_derive_child(parent_sk: &[u8; 32], path: &str) -> [u8; 32] {
