@@ -2283,13 +2283,23 @@ mod openagent {
             key_type: openagent_auth_protocol::KeyType::Ed25519,
             nonce: challenge.nonce.clone(),
         };
-        for (field, got) in [("public_key_b64u", &proof.public_key), ("signature_b64u", &proof.signature)] {
-            let expected = v.expected_output.get(field).and_then(Value::as_str).ok_or(field)?;
+        for (field, got) in [
+            ("public_key_b64u", &proof.public_key),
+            ("signature_b64u", &proof.signature),
+        ] {
+            let expected = v
+                .expected_output
+                .get(field)
+                .and_then(Value::as_str)
+                .ok_or(field)?;
             if got != expected {
                 return Err(format!("{field} mismatch: got {got} expected {expected}"));
             }
         }
-        check_outcome(v, identity_proof_outcome(&challenge, &proof, &proof.public_key))
+        check_outcome(
+            v,
+            identity_proof_outcome(&challenge, &proof, &proof.public_key),
+        )
     }
 
     fn hkdf_derive_child(parent_sk: &[u8; 32], path: &str) -> [u8; 32] {
