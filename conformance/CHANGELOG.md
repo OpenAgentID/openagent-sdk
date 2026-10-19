@@ -5,6 +5,20 @@ All notable changes to the OpenAgent SDK conformance suite are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-10-19
+
+### Added
+
+- `openagent/identity-proof.json`: 16 vectors for Core Protocol Section 15
+  identity proofs. They pin the JCS signing payload of an
+  `openagent-challenge-v1` challenge (with and without `realm`), a valid
+  Ed25519 proof, and the verifier's refusals in order: malformed challenge
+  (type, uppercase nonce, fractional timestamp, origin with a path), nonce
+  echo mismatch, malformed proof (short key, padded signature), untrusted
+  key, and signature failures (tampered bit, origin substitution, stripped
+  realm). The Rust runner validates through `openagent-auth-protocol`; both
+  runners now execute 238 shared vectors.
+
 ## [Unreleased] - 2026-10-11
 
 ### Fixed

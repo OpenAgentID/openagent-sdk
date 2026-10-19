@@ -22,6 +22,9 @@ serde_jcs = "0.1"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 # The canonical ACT implementation - runners verify through this, never a
 # handwritten re-implementation (the drift rule).
+# The canonical Section 15 identity-flow types and checks - identity-proof
+# vectors validate through this crate, never a handwritten copy.
+openagent-auth-protocol = { path = "../../crates/openagent-auth-protocol" }
 agent-capability-token = { git = "https://github.com/OpenAgentID/act", branch = "main", version = "0.1.0" }
 
 # The anchor authority dispatcher and its trait - the anchor-resolve vectors

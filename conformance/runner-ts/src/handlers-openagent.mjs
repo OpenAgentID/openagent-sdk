@@ -53,6 +53,12 @@ export function runOpenagent(v) {
       return validateInput(v);
     case 'evaluate_compound':
       return evaluateCompound(v);
+    case 'canonicalize_challenge':
+      return canonicalizeChallenge(v);
+    case 'verify_identity_proof':
+      return verifyIdentityProof(v);
+    case 'sign_and_verify_identity_proof':
+      return signAndVerifyIdentityProof(v);
     default:
       throw new Error(`openagent: unknown operation ${o}`);
   }
@@ -394,4 +400,85 @@ function typeMatches(type, value) {
     default:
       return true;
   }
+}
+
+// ---- identity proofs (Core Protocol Section 15) ----
+
+const CHALLENGE_TYPE = 'openagent-challenge-v1';
+const B64U = /^[A-Za-z0-9_-]*$/;
+
+function b64uEncode(bytes) {
+  return Buffer.from(bytes).toString('base64url');
+}
+
+function b64uDecodeStrict(s) {
+  // Base64url without padding, canonical: re-encoding must give the input back.
+  if (typeof s !== 'string' || !B64U.test(s) || s.length % 4 === 1) return null;
+  const bytes = Buffer.from(s, 'base64url');
+  return b64uEncode(bytes) === s ? new Uint8Array(bytes) : null;
+}
+
+function challengeBytes(challenge) {
+  return Buffer.from(jcsStringify(challenge), 'utf8');
+}
+
+function validChallenge(c) {
+  if (!c || c.type !== CHALLENGE_TYPE) return false;
+  if (typeof c.nonce !== 'string' || !/^[0-9a-f]{64}$/.test(c.nonce)) return false;
+  if (typeof c.timestamp !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(c.timestamp)) return false;
+  if (Number.isNaN(Date.parse(c.timestamp))) return false;
+  if (typeof c.origin !== 'string' || !/^https?:\/\/[A-Za-z0-9.:-]+$/.test(c.origin)) return false;
+  if ('realm' in c && (typeof c.realm !== 'string' || c.realm === '')) return false;
+  return true;
+}
+
+/** The verifier's order: challenge shape, nonce echo and key shape, trust, signature. */
+function identityProofOutcome(challenge, proof, trustedB64u) {
+  if (!validChallenge(challenge)) return 'invalid_challenge';
+  if (proof.nonce !== challenge.nonce) return 'nonce_mismatch';
+  const key = b64uDecodeStrict(proof.public_key);
+  const sig = b64uDecodeStrict(proof.signature);
+  if (proof.key_type !== 'ed25519' || !key || key.length !== 32 || !sig || sig.length !== 64) return 'invalid_proof';
+  if (proof.public_key !== trustedB64u) return 'untrusted_key';
+  let ok = false;
+  try {
+    ok = ed25519.verify(sig, challengeBytes(challenge), key, { zip215: false });
+  } catch {
+    ok = false;
+  }
+  return ok ? null : 'signature_invalid';
+}
+
+function checkOutcome(v, got) {
+  const expected = expectedBool(v, 'verify_ok');
+  const expectedClass = v.expected_output.error_class;
+  if (got === null && expected) return;
+  if (got !== null && !expected && (expectedClass === undefined || expectedClass === got)) return;
+  throw new Error(`identity proof outcome ${got}, expected verify_ok=${expected} class=${expectedClass}`);
+}
+
+function canonicalizeChallenge(v) {
+  const got = jcsStringify(v.input.challenge);
+  if (got !== v.expected_output.canonical) {
+    throw new Error(`canonical mismatch: got ${got} expected ${v.expected_output.canonical}`);
+  }
+}
+
+function verifyIdentityProof(v) {
+  checkOutcome(v, identityProofOutcome(v.input.challenge, v.input.proof, v.input.trusted_public_key_b64u));
+}
+
+function signAndVerifyIdentityProof(v) {
+  const sk = inputHex(v, 'secret_key_hex');
+  const challenge = v.input.challenge;
+  const proof = {
+    signature: b64uEncode(ed25519.sign(challengeBytes(challenge), sk)),
+    public_key: b64uEncode(ed25519.getPublicKey(sk)),
+    key_type: 'ed25519',
+    nonce: challenge.nonce,
+  };
+  for (const [field, got] of [['public_key_b64u', proof.public_key], ['signature_b64u', proof.signature]]) {
+    if (got !== v.expected_output[field]) throw new Error(`${field} mismatch: got ${got}`);
+  }
+  checkOutcome(v, identityProofOutcome(challenge, proof, proof.public_key));
 }

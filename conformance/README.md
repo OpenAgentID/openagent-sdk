@@ -14,7 +14,7 @@ conformance/
 │   ├── oas/               # DID parsing, lineage verify, document signing
 │   ├── arsenal/           # ACT encoding, scope parsing, policy evaluation
 │   ├── aegis/             # Verify pipeline, delegation, wallet derivation
-│   └── openagent/         # Agent creation, skill policy
+│   └── openagent/         # Agent creation, skill policy, identity proofs
 ├── fixtures/              # Reference fixtures with their own schemas
 │   └── glyph/             # Nine upstream Rust Glyph cases checked by SDK tests
 ├── runner-rust/           # Rust runner (cargo binary)
@@ -54,7 +54,7 @@ The Glyph reference fixture uses the upstream payload/codeword/grid/palette sche
 It lives in `fixtures/glyph/avatar-v1.json`, outside the generic vector corpus,
 and all nine cases run in `sdks/typescript/test/glyph.test.ts` during SDK CI.
 Those tests compare each codeword byte, grid cell and palette color with the
-independently generated Rust reference. The shared runners retain their 222
+independently generated Rust reference. The shared runners execute 238
 cases; the nine Glyph cases are additional SDK coverage.
 
 ## Running
