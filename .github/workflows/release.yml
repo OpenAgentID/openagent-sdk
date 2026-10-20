@@ -5,8 +5,14 @@ name: release
 # The tag comes first. This workflow checks the tag, waits for the ci workflow to pass on the tagged
 # commit, builds and tests every package it publishes, and publishes them to npm with trusted publishing:
 # GitHub's OIDC token instead of a stored npm token, and an npm provenance attestation on every version
-# that names this repository, this workflow and the tagged commit. It then creates or updates the GitHub
-# release from the CHANGELOG with the package set and the npm tarballs.
+# that names this repository, this workflow and the tagged commit. Each published tarball also gets a
+# GitHub build provenance attestation and a CycloneDX SBOM. The release job then checks that the bytes npm
+# serves are the bytes this run built and attested, and creates or updates the GitHub release from the
+# CHANGELOG with the package set, the npm tarballs, their SBOMs and SHA256SUMS.
+#
+# A manual run (workflow_dispatch) is a dry run unless dry_run is set to false: it plans, builds, tests and
+# packs the release for an existing tag, runs `npm publish --dry-run`, and publishes and attests nothing.
+# Setting dry_run to false re-runs a real release of an existing tag after a partial failure.
 #
 # Safe to re-run: a version npm already has from this commit is skipped, and the release is edited in place.
 # npm trusted publishing accepts GitHub-hosted runners only, so this workflow does not run on Depot.
@@ -16,11 +22,25 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (vX.Y.Z)
+        required: true
+        type: string
+      dry_run:
+        description: Build, test and pack; publish nothing
+        type: boolean
+        default: true
 
 permissions: {}
 
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run != false }}
+
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -36,6 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -49,7 +70,7 @@ jobs:
 
       - name: Check the tag and decide what to publish
         id: plan
-        run: node tools/release/plan.mjs "$GITHUB_REF_NAME" --out "$RUNNER_TEMP/plan.json"
+        run: node tools/release/plan.mjs "$TAG" --out "$RUNNER_TEMP/plan.json"
 
       - name: Require a passing ci run on the tagged commit
         env:
@@ -77,19 +98,21 @@ jobs:
           done
 
   publish:
-    name: build, test and publish to npm
+    name: build, test, attest and publish to npm
     needs: plan
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment:
-      name: npm
+      name: release
       url: https://www.npmjs.com/package/@openagentid/sdk
     permissions:
       contents: read
       id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: refs/tags/${{ env.TAG }}
           persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -103,16 +126,54 @@ jobs:
           npm install --global npm@11.21.0 --ignore-scripts --no-audit --no-fund
           npm --version
 
-      - name: Build, test and publish
+      - name: Build, test, pack and publish
         env:
           PLAN: ${{ needs.plan.outputs.plan }}
         run: |
           printf '%s' "$PLAN" > "$RUNNER_TEMP/plan.json"
-          node tools/release/publish.mjs "$RUNNER_TEMP/plan.json"
+          dry=()
+          if [ "$DRY_RUN" = true ]; then dry=(--dry-run); fi
+          node tools/release/publish.mjs "$RUNNER_TEMP/plan.json" --out "$GITHUB_WORKSPACE/release-files" "${dry[@]}"
+          {
+            echo "### ${TAG}: $([ "$DRY_RUN" = true ] && echo 'dry run, nothing published' || echo 'published')"
+            echo '```'
+            cat release-files/SHA256SUMS 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Find the SDK tarball
+        id: sdk
+        run: |
+          file="release-files/openagentid-sdk-${TAG#v}.tgz"
+          if [ -f "$file" ]; then
+            echo "tarball=$file" >> "$GITHUB_OUTPUT"
+            echo "sbom=${file%.tgz}.cdx.json" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Attest build provenance of every tarball
+        if: env.DRY_RUN != 'true' && hashFiles('release-files/*.tgz') != ''
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release-files/*.tgz
+
+      - name: Attest the SDK's SBOM
+        if: env.DRY_RUN != 'true' && steps.sdk.outputs.tarball != ''
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: ${{ steps.sdk.outputs.tarball }}
+          sbom-path: ${{ steps.sdk.outputs.sbom }}
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-files
+          path: release-files/
+          if-no-files-found: ignore
+          retention-days: 30
 
   github-release:
-    name: create or update the GitHub release
+    name: verify npm against the build and write the GitHub release
     needs: [plan, publish]
+    if: github.event_name == 'push' || inputs.dry_run == false
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -120,6 +181,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -130,19 +192,42 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Write the notes and fetch the published tarballs
-        id: notes
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: ${{ runner.temp }}/built
+        continue-on-error: true
+
+      - name: Fetch the published tarballs and check them against this run's build
         env:
           PLAN: ${{ needs.plan.outputs.plan }}
         run: |
+          set -euo pipefail
           printf '%s' "$PLAN" > "$RUNNER_TEMP/plan.json"
-          node tools/release/notes.mjs "$RUNNER_TEMP/plan.json" "$RUNNER_TEMP/notes.md"
-          mkdir -p "$RUNNER_TEMP/tarballs"
+          assets="$RUNNER_TEMP/assets"
+          mkdir -p "$assets"
           jq -r '.packages[] | select(.status == "publish" or .status == "published") | "\(.name)@\(.version)"' \
             "$RUNNER_TEMP/plan.json" | while read -r spec; do
-            npm pack "$spec" --pack-destination "$RUNNER_TEMP/tarballs" --ignore-scripts --silent
+            npm pack "$spec" --pack-destination "$assets" --ignore-scripts --silent
+            provenance=$(npm view "$spec" dist.attestations.provenance.predicateType)
+            if [ -z "$provenance" ]; then echo "::error::$spec has no npm provenance attestation."; exit 1; fi
+            echo "$spec: npm provenance $provenance"
           done
-          ls -l "$RUNNER_TEMP/tarballs"
+          (cd "$assets" && sha256sum -- *.tgz > SHA256SUMS)
+          if [ -s "$RUNNER_TEMP/built/SHA256SUMS" ]; then
+            # Every tarball this run built must be byte-identical to the one npm serves.
+            (cd "$assets" && sha256sum -c "$RUNNER_TEMP/built/SHA256SUMS")
+            cp "$RUNNER_TEMP"/built/*.cdx.json "$assets"/
+          else
+            echo "::warning::this run built no tarballs (a re-run after npm already had every version); the release carries npm's tarballs and SHA256SUMS."
+          fi
+          cat "$assets/SHA256SUMS"
+
+      - name: Write the notes
+        id: notes
+        env:
+          PLAN: ${{ needs.plan.outputs.plan }}
+        run: node tools/release/notes.mjs "$RUNNER_TEMP/plan.json" "$RUNNER_TEMP/notes.md"
 
       - name: Create or update the release
         env:
@@ -150,12 +235,12 @@ jobs:
           LATEST: ${{ steps.notes.outputs.latest }}
           PRERELEASE: ${{ fromJSON(needs.plan.outputs.plan).prerelease }}
         run: |
-          title="OpenAgentID SDK ${GITHUB_REF_NAME#v}"
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$title" \
+          title="OpenAgentID SDK ${TAG#v}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "$title" \
               --notes-file "$RUNNER_TEMP/notes.md" --latest="$LATEST" --prerelease="$PRERELEASE"
           else
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$title" \
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$title" \
               --notes-file "$RUNNER_TEMP/notes.md" --latest="$LATEST" --prerelease="$PRERELEASE"
           fi
-          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$RUNNER_TEMP"/tarballs/*.tgz
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$RUNNER_TEMP"/assets/*

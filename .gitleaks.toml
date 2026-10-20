@@ -1,0 +1,10 @@
+# gitleaks configuration for .github/workflows/security.yml: the default rules, minus published test material.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Conformance vectors and test fixtures: RFC 8032 known-answer keys and DID public keys, published on purpose"
+paths = [
+  '''^conformance/vectors/''',
+  '''^adapters/weave/tests/''',
+]

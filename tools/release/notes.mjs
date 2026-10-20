@@ -56,11 +56,22 @@ const notes = [
   `npm install @openagentid/sdk@${plan.version}`,
   '```',
   '',
-  'The tarballs attached to this release are the files npm serves. Their npm integrity:',
+  'The tarballs attached to this release are the files npm serves, with `SHA256SUMS` and a CycloneDX SBOM',
+  '(`*.cdx.json`) for each package. Their npm integrity:',
   '',
   ...integrity,
   '',
-  ...(manual ? [] : [`Each package page on npm shows the provenance attestation that links it to this tag's workflow run.`, '']),
+  ...(manual ? [] : [
+    `Each package page on npm shows the provenance attestation that links it to this tag's workflow run, and`,
+    'GitHub holds a build provenance attestation for every tarball. To check a download:',
+    '',
+    '```sh',
+    `gh release download ${plan.tag} --repo OpenAgentID/openagent-sdk`,
+    'sha256sum -c SHA256SUMS',
+    'gh attestation verify openagentid-sdk-*.tgz --repo OpenAgentID/openagent-sdk',
+    '```',
+    '',
+  ]),
 ].join('\n');
 writeFileSync(notesPath, notes);
 
