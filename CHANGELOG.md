@@ -83,6 +83,8 @@ The standalone One runtime (0.8.1).
 - `docs/RELEASING.md` gains a rollback table and the tags for packages released
   outside the SDK set (`oidc-v0.3.0`, the three crates and the PyPI SDK), and
   records the commits npm 0.1.0 and 0.5.0 were actually built from.
+- Add `SUPPORT.md`, and replace the Markdown issue templates with issue forms
+  (bug report with version and reproduction, feature request).
 
 ## [0.8.0] - 2026-10-17
 
