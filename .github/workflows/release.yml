@@ -10,9 +10,10 @@ name: release
 # serves are the bytes this run built and attested, and creates or updates the GitHub release from the
 # CHANGELOG with the package set, the npm tarballs, their SBOMs and SHA256SUMS.
 #
-# A manual run (workflow_dispatch) is a dry run unless dry_run is set to false: it plans, builds, tests and
-# packs the release for an existing tag, runs `npm publish --dry-run`, and publishes and attests nothing.
-# Setting dry_run to false re-runs a real release of an existing tag after a partial failure.
+# A manual run (workflow_dispatch) must be started on the tag itself (`gh workflow run release.yml --ref vX.Y.Z`),
+# so its OIDC claims, npm provenance and attestations name the tagged commit. It is a dry run unless dry_run is
+# false: it plans, builds, tests and packs the tag's release, runs `npm publish --dry-run`, and publishes and
+# attests nothing. With dry_run false it re-runs a real release of that tag after a partial failure.
 #
 # Safe to re-run: a version npm already has from this commit is skipped, and the release is edited in place.
 # npm trusted publishing accepts GitHub-hosted runners only, so this workflow does not run on Depot.
@@ -24,10 +25,6 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing release tag (vX.Y.Z)
-        required: true
-        type: string
       dry_run:
         description: Build, test and pack; publish nothing
         type: boolean
@@ -36,11 +33,11 @@ on:
 permissions: {}
 
 env:
-  TAG: ${{ inputs.tag || github.ref_name }}
+  TAG: ${{ github.ref_name }}
   DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run != false }}
 
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -59,6 +56,14 @@ jobs:
           ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Require a run on the release tag
+        # Provenance and attestations name the ref the run started on, so that ref must be the tag.
+        run: |
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            echo "::error::Start the release on its tag: gh workflow run release.yml --ref vX.Y.Z (this run is on $GITHUB_REF)."
+            exit 1
+          fi
 
       - name: Fetch annotated tags
         # actions/checkout writes the triggering tag as a lightweight ref; fetch the real tag objects.
@@ -169,6 +174,7 @@ jobs:
           path: release-files/
           if-no-files-found: ignore
           retention-days: 30
+          overwrite: true
 
   github-release:
     name: verify npm against the build and write the GitHub release

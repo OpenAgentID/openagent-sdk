@@ -40,8 +40,9 @@ already on npm, because that change would otherwise never reach npm.
    [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): GitHub's OIDC token replaces a
    stored npm token, and npm attaches a provenance attestation naming this repository, the workflow and
    the commit. npm records the commit as `gitHead`, and the workflow checks it. Before publishing, every
-   package is also packed into the run's release files with a CycloneDX SBOM of its production
-   dependencies and `SHA256SUMS`. The job attests the build provenance of every tarball and the SDK's SBOM
+   package is also packed into the run's release files with a CycloneDX SBOM of its locked dependency
+   tree (each component marked required or optional; every runtime dependency is checked to be present)
+   and `SHA256SUMS`. The job attests the build provenance of every tarball and the SDK's SBOM
    with GitHub artifact attestations.
 4. **Verify and write the GitHub release** (`tools/release/notes.mjs`). The job downloads every version
    the tag published back from npm, requires its npm provenance attestation, and checks that the bytes npm
@@ -51,12 +52,13 @@ already on npm, because that change would otherwise never reach npm.
    only when the tag is the highest version.
 
 Every step is safe to re-run: `gh run rerun <run-id> --failed`, or
-`gh workflow run release.yml -f tag=vX.Y.Z -f dry_run=false`. A manual run without `dry_run=false` is a dry
+`gh workflow run release.yml --ref vX.Y.Z -f dry_run=false`. A manual run must start on the tag (`--ref`),
+so its provenance names the tagged commit; the workflow refuses any other ref. Without `dry_run=false` it is a dry
 run: it plans, builds, tests and packs the tag's release and runs `npm publish --dry-run`, and publishes and
 attests nothing. To rehearse before tagging, run the same steps locally from the release commit:
 `node tools/release/plan.mjs vX.Y.Z --out plan.json` after creating the tag locally (do not push it), then
 `node tools/release/publish.mjs plan.json --dry-run --out release-files`. A version npm already has from this commit
-is skipped, and an existing GitHub release is edited in place.
+is rebuilt and packed but not published again, and an existing GitHub release is edited in place.
 
 ## Cut a release
 
@@ -127,7 +129,7 @@ recorded in the release notes.
 | A bad version, with a fix coming | `npm dist-tag add <package>@<good> latest`, then `npm deprecate <package>@<bad> "<one line>. Use <fixed> or later."` | `gh release edit <tag> --prerelease`, and start the notes with "Superseded by <fixed>." |
 | The fix is ready | Release the next patch version normally; `latest` moves with it | The new release becomes Latest |
 | A secret leaked into a tarball | Rotate the secret first. Then `npm unpublish <package>@<bad>` within 72 hours, or ask npm support | Delete the asset, rotate, release again |
-| The workflow failed mid-publish | Fix the cause, then `gh workflow run release.yml -f tag=<tag> -f dry_run=false`; versions npm already has from the tagged commit are skipped | The release job creates or edits the release in place |
+| The workflow failed mid-publish | Fix the cause, then `gh workflow run release.yml --ref <tag> -f dry_run=false`; versions npm already has from the tagged commit are rebuilt, packed and attested but not published again | The release job creates or edits the release in place |
 
 ## When the workflow cannot run
 
