@@ -1,0 +1,12 @@
+# gitleaks configuration for .github/workflows/security.yml: the default rules, minus published test material.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Conformance vectors and test fixtures: RFC 8032 known-answer keys and DID public keys, published on purpose"
+# Only the generic high-entropy rule is relaxed there; every specific credential rule still applies.
+targetRules = ["generic-api-key"]
+paths = [
+  '''^conformance/vectors/''',
+  '''^adapters/weave/tests/''',
+]

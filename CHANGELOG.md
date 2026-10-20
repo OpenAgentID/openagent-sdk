@@ -68,6 +68,21 @@ The standalone One runtime (0.8.1).
   are, and move the MCP example to `@modelcontextprotocol/sdk` 1.32.1, past the
   high-severity advisory for 1.12.0-1.30.1. Dependabot also watches the
   Dockerfiles.
+- The release workflow packs every package before publishing it, with a
+  CycloneDX SBOM of its locked dependency tree and `SHA256SUMS`, and attests
+  the build provenance of every tarball and the SDK's SBOM. The GitHub release
+  job checks that the bytes npm serves are the bytes the run built, requires
+  npm provenance on each version, and attaches the SBOMs and `SHA256SUMS`. A
+  manual run starts on the tag and is a dry run unless `dry_run` is false. The publish environment is
+  `release`.
+- Add the `security` workflow (CodeQL with the security-extended queries for
+  Actions, TypeScript, Python, Rust, Kotlin (built with Gradle) and Go, and a
+  gitleaks scan of the full history that relaxes only the generic-key rule for
+  the published test vectors) and the OpenSSF
+  Scorecard workflow.
+- `docs/RELEASING.md` gains a rollback table and the tags for packages released
+  outside the SDK set (`oidc-v0.3.0`, the three crates and the PyPI SDK), and
+  records the commits npm 0.1.0 and 0.5.0 were actually built from.
 
 ## [0.8.0] - 2026-10-17
 
