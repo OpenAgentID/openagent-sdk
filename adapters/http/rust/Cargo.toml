@@ -42,7 +42,7 @@ http-body-util = "0.1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Crypto (aligned with auth-protocol)
-ed25519-dalek = { version = "2.1", features = ["serde", "rand_core"] }
+ed25519-dalek = { version = "3.0", features = ["serde", "rand_core"] }
 rand = "0.8"
 hex = "0.4"
 zeroize = { version = "1.7", features = ["derive"] }
