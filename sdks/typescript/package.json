@@ -171,7 +171,7 @@
     "@noble/hashes": "^1.8.0",
     "@scure/base": "^1.2.6",
     "jose": "^5.10.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@openagentid/aegis-sdk": "^0.1.0",
@@ -200,18 +200,18 @@
   "devDependencies": {
     "@openagentid/aegis-sdk": "0.1.1",
     "@openagentid/arsenal-sdk": "0.1.1",
-    "@openagentid/crypto-wasm": "0.1.1",
+    "@openagentid/crypto-wasm": "0.1.2",
     "@openagentid/oas-sdk": "1.0.2",
     "@openagentid/skills-policy": "0.1.1",
-    "@types/node": "^20.11.30",
-    "@vitest/coverage-v8": "^4.1.11",
-    "cborg": "6.1.3",
+    "@types/node": "^26.6.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "cborg": "6.1.5",
     "express": "^5.1.0",
-    "google-closure-compiler": "20261015.0.0",
+    "google-closure-compiler": "20261026.0.0",
     "terser": "5.51.2",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.5",
-    "vitest": "^4.1.11",
+    "tsup": "^9.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5",
     "@jridgewell/trace-mapping": "0.3.31",
     "@jridgewell/gen-mapping": "0.3.13"
   },
