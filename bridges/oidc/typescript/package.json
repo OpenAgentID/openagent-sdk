@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "jose": "^5.10.0",
-    "zod": "^3.23.8",
+    "zod": "^4.6.6",
     "oidc-provider": "9.12.2",
     "@types/oidc-provider": "9.12.1"
   },
