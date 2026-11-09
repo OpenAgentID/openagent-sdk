@@ -13,7 +13,7 @@ import { mHypot, mMax, mMin, mPow, mRound, mTanh, numberIsFinite, objectEntries 
 import { oneError } from './one-error.js';
 import { oneShapeInsetPath, oneKeylineWidth, onePaint, oneRimWidth, oneShapeGeometry, oneShapeId, oneTier,
   type OneFace, type OneHeadColor, type OneKind, type OnePaint, type OneTheme } from './character-one.js';
-import { OneMotion, type OneCadence, type OneGesture, type OneMomentRequest, type OneMotionFrame } from './character-one-motion.js';
+import { OneMotion, oneAtRest, type OneCadence, type OneGesture, type OneMomentRequest, type OneMotionFrame, type OneSampler } from './character-one-motion.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const LIST_CONTAINERS = 'ul,ol,[role="list"],[role="listbox"],[role="grid"],[role="feed"],[role="tree"],table';
@@ -420,6 +420,8 @@ export interface OneHead {
   cutCadence(): void;
   drop(): void;
   play(name: OneGesture, viewer: boolean): boolean;
+  perform(sampler: OneSampler, length: number, rank: number, alongside: boolean): boolean;
+  lookAt(x: number, y: number): void;
   snap(): void;
   setVisible(visible: boolean): void;
   show(): void;
@@ -455,6 +457,7 @@ export class OneHead {
     let _state_oneWash: { readonly from: OnePaint; readonly start: number } | null = null;
     let _state_oneGesture: { readonly request: OneMomentRequest; readonly at: number } | null = null;
     let _state_oneParts: { disc: SVGElement; eye: SVGElement; bar: SVGElement; mouth: SVGElement; body: SVGElement; keyline: SVGElement | null; rim: SVGElement | null };
+    let _state_oneGhosts: SVGElement[] = [];
     let _state_oneWritten: Record<string, string> = {};
     let _state_oneInstance: string;
     function _getmotionAllowed(): boolean {
@@ -557,9 +560,24 @@ export class OneHead {
                 _call_oneWrite(_state_oneParts.mouth, `mouth-${key}`, key, String(geometry.mouth[key]));
         }
         _call_oneWrite(_state_oneParts.body, 'body', 'transform', geometry.body || null);
+        _call_oneWrite(_state_oneParts.eye, 'away', 'display', geometry.away ? 'none' : null);
+        _call_oneWrite(_stateroot, 'clip', 'overflow', geometry.clip ? 'hidden' : 'visible');
+        geometry.ghosts.forEach(([x, opacity], i) => {
+            const ghost = _state_oneGhosts[i] ??= _call_oneGhost();
+            _call_oneWrite(ghost, `ghost-x${i}`, 'transform', `translate(${x} 0)`);
+            _call_oneWrite(ghost, `ghost-o${i}`, 'fill-opacity', String(opacity));
+        });
+        for (const ghost of _state_oneGhosts.splice(geometry.ghosts.length))
+            ghost.remove();
         _call_oneWrite(_stateroot, 'face', 'data-one-face', frame.face);
         _call_oneWrite(_stateroot, 'tier', 'data-one-tier', frame.tier);
         _call_onePaintColour();
+    }
+
+    function _call_oneGhost(): SVGElement {
+        const ghost = _call_oneNode('path', { 'data-one-ghost': 'true', d: oneShapeGeometry(_state_oneKind).path, fill: onePaint(_state_oneColor, _state_oneTheme).disc });
+        _state_oneParts.body.prepend(ghost);
+        return ghost;
     }
 
     function _call_onePaintColour(): void {
@@ -755,6 +773,28 @@ export class OneHead {
         return true;
     }
 
+    function _callperform(sampler: OneSampler, length: number, rank: number, alongside: boolean): boolean {
+        if (_state_oneDisposed || !_getmotionAllowed() || _state_oneStage.hidden || !_statevisible || _statemotion.tier === 'XS')
+            return false;
+        if (_state_oneSpeaking || !oneAtRest(_statemotion.face))
+            return false;
+        _call_oneStopCadence();
+        _call_oneStopFollow();
+        _state_oneStage.request(api, { name: 'settle', priority: rank, sampler, length, ...(alongside ? { uncounted: true as const } : {}) });
+        return true;
+    }
+
+    function _calllookAt(x: number, y: number): void {
+        if (!_statevisible || !_getmotionAllowed() || _state_oneStage.hidden || !_statemotion.follow({ x, y }, true))
+            return;
+        _stateroot.setAttribute('data-moving', '');
+        _state_oneStage.tick(api);
+        const win = _state_oneDoc.defaultView!;
+        if (_state_oneFollowTimer)
+            win.clearTimeout(_state_oneFollowTimer);
+        _state_oneFollowTimer = win.setTimeout(() => { _state_oneFollowTimer = 0; _call_oneEndFollow(); }, FOLLOW_REST_MS);
+    }
+
     function _callsnap(): void {
         _call_oneStopCadence();
         _call_oneStopFollow();
@@ -905,6 +945,8 @@ export class OneHead {
       cutCadence: _callcutCadence,
       drop: _calldrop,
       play: _callplay,
+      perform: _callperform,
+      lookAt: _calllookAt,
       snap: _callsnap,
       setVisible: _callsetVisible,
       show: _callshow,

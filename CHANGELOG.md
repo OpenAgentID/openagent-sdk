@@ -8,6 +8,8 @@ release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 ## [Unreleased]
 
+- Idle and event gestures for One heads (JR, 9 Nov 2026): a quick 360 with a smear, double take, peek, hop, shake-off, stretch, doze, glances up and down, side-eye, blink and startle. New entry `@openagentid/sdk/one-gestures` holds the pure timelines, the DID-fixed personalities and a 20 to 40 second idle director, so every platform plays the same timing; a host that plays no gestures never loads it. `OnePlayer.perform` and `CharacterPlayer.perform` play a composed timeline, `lookAt` turns an eye toward a point at any size from 24 px, and `renderOneFrame` draws a frame without a DOM. A live state always wins and interrupts a gesture cleanly. The browser budget goes from 16 KB to 17 KB gzipped for the new pose channels and `perform`.
+
 The standalone One runtime (0.8.1).
 
 - Let public quickstart verification follow the declared SDK version while retaining the published generator pin. Keep the CLI and SDK version aligned at 0.8.1. Restore the self-contained One browser entry's 16,384-byte default-gzip gate, preserving all shape, colour, motion and public state functionality. Keep composed source maps with the smallest output from pinned compression profiles with one shared public/dynamic property reservation list and a direct module-scoped export bindings verified by importing the final ESM namespace; retain unminified bundler mappings until final compression, compose original source locations explicitly and reject maps missing the main runtime sources.
