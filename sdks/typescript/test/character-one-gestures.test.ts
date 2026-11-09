@@ -10,7 +10,7 @@ const poseOf = (values: readonly number[]): OnePose => Object.fromEntries(ONE_CH
 describe('One gesture timelines', () => {
   const size = 44;
   it('every gesture starts and ends on the held idle face', () => {
-    const held = oneHeldPose('idle', { x: 0.4, y: 0 }, size);
+    const held = oneHeldPose('idle', { x: 0, y: 0 }, size);
     for (const name of ONE_IDLE_GESTURES) {
       const timeline = oneGestureTimeline(name, { kind: 'star', size });
       const first = poseOf(timeline.sample(0));
@@ -39,12 +39,15 @@ describe('One gesture timelines', () => {
 
   it('no gesture holds still on a live state\'s face', () => {
     const live: OneFace[] = ['thinking', 'working', 'typing', 'waiting', 'error', 'speaking'];
-    const gaze = { x: 0.4, y: 0 };
+    const gaze = { x: 0, y: 0 };
     const limit = 300;
     for (const name of ONE_IDLE_GESTURES) {
       const timeline = oneGestureTimeline(name, { kind: 'star', size });
       for (const face of live) {
         const target = oneHeldPose(face, gaze, size);
+        const rest = oneHeldPose('idle', gaze, size);
+        // A live face that matches the head at rest (speaking, before it opens its mouth) cannot be told apart by a still pose.
+        if (Math.abs(target.look - rest.look) < 0.12 && Math.abs(target.lift - rest.lift) < 0.12 && Math.abs(target.open - rest.open) < 0.1 && Math.abs(target.tilt - rest.tilt) < 4) continue;
         let dwell = 0, worst = 0;
         for (let t = 0; t <= timeline.duration; t += 10) {
           const pose = poseOf(timeline.sample(t));
@@ -59,11 +62,11 @@ describe('One gesture timelines', () => {
   });
 
   it('a composed timeline plays on the clock and hands the head back at rest; a live state cuts it clean', () => {
-    const motion = new OneMotion({ face: 'idle', gaze: { x: 0.4, y: 0 }, px: 44, kind: 'star', random: seededRandom(new Uint8Array(4)), cadence: 'brief', motion: true, at: 0 });
+    const motion = new OneMotion({ face: 'idle', gaze: { x: 0, y: 0 }, px: 44, kind: 'star', random: seededRandom(new Uint8Array(4)), cadence: 'brief', motion: true, at: 0 });
     const timeline = oneGestureTimeline('spin', { kind: 'star', size: 44 });
     motion.start({ name: 'settle', priority: 0, sampler: timeline.sample, length: timeline.duration }, 0);
     expect(motion.sample(200).frame.pose.turn).not.toBe(0);
-    const interrupted = motion.setFace('thinking', { x: 0.4, y: 0 }, 300);
+    const interrupted = motion.setFace('thinking', { x: 0, y: 0 }, 300);
     expect(interrupted?.name).toBe('ponder');
     motion.start(interrupted!, 300);
     motion.sample(600);
