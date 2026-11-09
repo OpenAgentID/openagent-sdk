@@ -26,7 +26,7 @@ export interface OneGestureOptions {
   readonly kind: OneKind;
   /** The displayed size in pixels. */
   readonly size: number;
-  /** Where the head's content is, as its held gaze; default a row: `{ x: 0.4, y: 0 }`. */
+  /** The gaze the head holds; default none: `{ x: 0, y: 0 }`, as a row mounts it. */
   readonly gaze?: { readonly x: number; readonly y: number };
   /** The personality's pace, from `oneGesturePersonality`; 1 by default. */
   readonly tempo?: number;
@@ -43,7 +43,7 @@ export function oneGestureLengthMs(name: OneIdleGesture, options: OneGestureOpti
 export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOptions): OneGestureTimeline {
   if (!ONE_IDLE_GESTURES.includes(name)) throw new TypeError(oneError(58, () => ('Unsupported One gesture')));
   const tempo = clamp(options.tempo ?? 1, 0.6, 1.6);
-  const gaze = options.gaze ?? { x: 0.4, y: 0 };
+  const gaze = options.gaze ?? { x: 0, y: 0 };
   const held = oneHeldPose('idle', gaze, options.size);
   const b = createBuilder(held);
   const d = gaze.x < 0 ? -1 : 1;
@@ -72,7 +72,7 @@ export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOpti
       const snap = 480 + 260;
       b.mv(snap, snap + 90, { look: held.look, lift: held.lift, open: 1.2 }, 'snap');
       b.cut(snap + 90, { stretch: 6 });
-      b.mv(snap + 90, snap + 300, { open: 1, stretch: 0 }, 'settle');
+      b.mv(snap + 90, snap + 300, { open: held.open, stretch: 0 }, 'settle');
       duration = snap + 300;
       break;
     }
@@ -85,7 +85,7 @@ export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOpti
       b.mv(down + 9 * F, down + 12 * F, { look: 0.45 * d }, 'snap');
       b.mv(down + 15 * F, down + 18 * F, { look: -0.4 * d }, 'snap');
       const up = down + 22 * F;
-      b.mv(up, up + 5 * F, { rise: -0.02, stretch: 6, lift: held.lift, look: held.look, open: 1 }, 'rise');
+      b.mv(up, up + 5 * F, { rise: -0.02, stretch: 6, lift: held.lift, look: held.look, open: held.open }, 'rise');
       b.mv(up + 5 * F, up + 8 * F, { rise: 0, stretch: -5 }, 'settle');
       b.mv(up + 8 * F, up + 12 * F, { stretch: 0 }, 'settle');
       duration = up + 12 * F;
@@ -111,7 +111,7 @@ export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOpti
         b.cut(t, { shift: (i % 2 ? -1 : 1) * amp, rotate: (i % 2 ? -1 : 1) * 2.5 });
       }
       const end = 2 * F + n * 1.6 * F;
-      b.mv(end, end + 4 * F, { shift: 0, rotate: 0, open: 1 }, 'settle');
+      b.mv(end, end + 4 * F, { shift: 0, rotate: 0, open: held.open, tilt: held.tilt }, 'settle');
       duration = end + 4 * F;
       break;
     }
@@ -119,7 +119,7 @@ export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOpti
       // Tall and thin, held, then back with a little sigh: down past the mark, the eye easing open.
       b.mv(0, 11 * F, { stretch: 22, open: 0.5, lift: -0.25 }, 'glide');
       b.mv(11 * F + 280, 11 * F + 280 + 6 * F, { stretch: -7, open: 0.72, lift: 0.18 }, 'fall');
-      b.mv(11 * F + 280 + 6 * F, 11 * F + 280 + 13 * F, { stretch: 0, open: 1, lift: held.lift }, 'settle');
+      b.mv(11 * F + 280 + 6 * F, 11 * F + 280 + 13 * F, { stretch: 0, open: held.open, lift: held.lift }, 'settle');
       duration = 11 * F + 280 + 13 * F;
       break;
     }
@@ -128,9 +128,9 @@ export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOpti
       b.mv(0, 900, { open: 0.06, lift: 0.7, look: held.look * 0.3, tilt: 6 * d }, 'glide');
       b.mv(0, 900, { squash: -3, rotate: 2 * d }, 'glide');
       const jolt = 900 + 320;
-      b.cut(jolt, { open: 1.28, lift: -0.2, stretch: 12, squash: 0, rotate: 0, tilt: 0, look: held.look });
-      b.mv(jolt, jolt + 5 * F, { stretch: -3, open: 1.06 }, 'settle');
-      b.mv(jolt + 5 * F, jolt + 10 * F, { stretch: 0, open: 1, lift: held.lift }, 'settle');
+      b.cut(jolt, { open: 1.28, lift: -0.2, stretch: 12, squash: 0, rotate: 0, look: held.look });
+      b.mv(jolt, jolt + 5 * F, { stretch: -3, open: held.open * 1.06 }, 'settle');
+      b.mv(jolt + 5 * F, jolt + 10 * F, { stretch: 0, open: held.open, lift: held.lift, tilt: held.tilt }, 'settle');
       duration = jolt + 10 * F;
       break;
     }
@@ -143,7 +143,7 @@ export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOpti
       b.mv(0, t, { open: 1.06, rise: name === 'glanceUp' ? -0.035 : 0.03, stretch: name === 'glanceUp' ? 5 : -4 }, 'snap');
       const back = t + 560;
       blinkAt(b, t + 200, 1.06, d);
-      b.mv(back, back + 200, { rise: 0, stretch: 0, open: 1 }, 'glide');
+      b.mv(back, back + 200, { rise: 0, stretch: 0, open: held.open }, 'glide');
       duration = mMax(saccade(b, back, held.look, { lift: held.lift }), back + 200);
       break;
     }
@@ -152,18 +152,18 @@ export function oneGestureTimeline(name: OneIdleGesture, options: OneGestureOpti
       saccade(b, 0, 0.18 * d, { lift: -0.9 });
       b.mv(0, 200, { open: 0.5, tilt: -6 * d, rise: -0.03 }, 'glide');
       const back = 200 + 720;
-      b.mv(back, back + 240, { open: 1, tilt: 0, rise: 0 }, 'glide');
+      b.mv(back, back + 240, { open: held.open, tilt: held.tilt, rise: 0 }, 'glide');
       duration = mMax(saccade(b, back, held.look, { lift: held.lift }), back + 240);
       break;
     }
     case 'blink': {
-      duration = blinkAt(b, 0, 1, d);
+      duration = blinkAt(b, 0, held.open, d);
       break;
     }
     case 'startle': {
       // Something landed on this row: up a little, wide, down.
       b.cut(0, { open: 1.3, stretch: 8, rise: -0.05, lift: -0.3 });
-      b.mv(2 * F, 7 * F, { open: 1, stretch: 0, rise: 0, lift: held.lift }, 'settle');
+      b.mv(2 * F, 7 * F, { open: held.open, stretch: 0, rise: 0, lift: held.lift }, 'settle');
       duration = 7 * F;
       break;
     }
