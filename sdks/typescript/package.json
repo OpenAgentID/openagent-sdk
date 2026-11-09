@@ -103,6 +103,11 @@
       "import": "./dist/one.js",
       "require": "./dist/one.cjs"
     },
+    "./one-gestures": {
+      "types": "./dist/one-gestures.d.ts",
+      "import": "./dist/one-gestures.js",
+      "require": "./dist/one-gestures.cjs"
+    },
     "./browser": {
       "types": "./dist/browser/character-player.d.ts",
       "import": "./dist/browser/character-player.js"

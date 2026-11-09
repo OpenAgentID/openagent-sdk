@@ -275,10 +275,16 @@ export interface OnePose {
   readonly squash: number;
   readonly rotate: number;
   readonly hop: number;
+  /** Idle-gesture channels, zero at rest: a turn about the vertical axis (degrees), a signed horizontal smear (-1 to 1), a sideways shift and a rise (fractions of the size; positive rise is down), and a stretch (%, positive is tall and thin). None is limited by the size tier: a host plays them only on heads it chooses. */
+  readonly turn: number;
+  readonly smear: number;
+  readonly shift: number;
+  readonly rise: number;
+  readonly stretch: number;
 }
 export type OneChannel = keyof OnePose;
 /** agent-eye's REST pose: the mark itself. Property order is the channel order. */
-export const ONE_NEUTRAL: OnePose = freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0, squash: 0, rotate: 0, hop: 0 });
+export const ONE_NEUTRAL: OnePose = freeze({ look: 0, lift: 0, open: 1, tilt: 0, smile: 0, mouth: 0, squash: 0, rotate: 0, hop: 0, turn: 0, smear: 0, shift: 0, rise: 0, stretch: 0 });
 // Derive internal property keys rather than repeating string literals. The standalone
 // browser build can then shorten pose properties without changing public state fields.
 export const ONE_CHANNELS: readonly OneChannel[] = freeze(objectKeys(ONE_NEUTRAL) as OneChannel[]);
@@ -294,7 +300,7 @@ export function oneTier(px: number): OneTier {
 
 function heldPose(look = 0, lift = 0, open = 1, tilt = 0, squash = 0, rotate = 0): OnePose {
   return freeze({ look: clamp(look, -1, 1), lift: clamp(lift, -1, 1), open, tilt,
-    smile: 0, mouth: 0, squash, rotate, hop: 0 });
+    smile: 0, mouth: 0, squash, rotate, hop: 0, turn: 0, smear: 0, shift: 0, rise: 0, stretch: 0 });
 }
 
 /**
@@ -354,6 +360,12 @@ export interface OneGeometry {
   readonly mouth: { readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly rx: number; readonly opacity: number } | null;
   /** Body transform around the shape's pivot, or empty at rest. */
   readonly body: string;
+  /** Smear copies of the shape to draw behind the body, empty at rest. Each is `[x offset in viewBox units, opacity]`. */
+  readonly ghosts: readonly (readonly [number, number])[];
+  /** True while the head is turned past its edge, so the eye is on the far side and is not drawn. */
+  readonly away: boolean;
+  /** True while the head has sunk below its frame (a peek): the root clips to the frame. */
+  readonly clip: boolean;
 }
 
 const temperamentSquash: Readonly<Record<OneTemperament, number>> = freeze({ quick: 16, bouncy: 12, neat: 8, slow: 7, dry: 8 });
@@ -411,16 +423,32 @@ export function oneGeometry(pose: OnePose, tier: OneTier, kind: OneKind, blink =
   const rotate = tier === 'XS' || tier === 'S' ? 0 : tier === 'M' ? clamp(pose.rotate, -8, 8) : pose.rotate;
   const hop = tier === 'XS' || tier === 'S' ? 0 : (tier === 'M' ? clamp(pose.hop, -0.08, 0.08) : clamp(pose.hop, -0.2, 0.2)) * 2 * GEOMETRY.radius;
   const pivot = geometry.pivot;
-  const body = hop || rotate || squash
-    ? `translate(${r2(pivot.x)} ${r2(pivot.y + hop)}) rotate(${r2(rotate)}) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(${r2(-pivot.x)} ${r2(-pivot.y)})`
+  const span = 2 * GEOMETRY.radius;
+  const radians = pose.turn * M_PI / 180;
+  const cos = mCos(radians);
+  const smear = clamp(pose.smear, -1, 1), streak = mAbs(smear);
+  const stretched = 1 + clamp(pose.stretch, -24, 32) / 100;
+  // A body keeps some depth edge-on (never a coin); the smear widens it and the stretch keeps its area.
+  const wide = (pose.turn ? 0.56 + 0.44 * mAbs(cos) : 1) * (1 + 0.42 * streak) * mPow(stretched, -0.5);
+  const dx = pose.shift * span;
+  const dy = hop + pose.rise * span;
+  const body = dy || dx || rotate || squash || wide !== 1 || stretched !== 1
+    ? `translate(${r2(pivot.x + dx)} ${r2(pivot.y + dy)}) rotate(${r2(rotate)}) scale(${(sx * wide).toFixed(4)} ${(sy * stretched).toFixed(4)}) translate(${r2(-pivot.x)} ${r2(-pivot.y)})`
     : '';
+  // Around the turn the eye slides across the face and foreshortens; past the edge it is on the far side.
+  const across = pose.turn ? 74 * mSin(radians) : 0;
+  const narrow = (pose.turn ? mMax(0.28, mAbs(cos)) : 1) * (1 + 0.55 * streak);
+  const eyeScale = narrow !== 1 ? ` scale(${narrow.toFixed(3)} ${(1 - 0.5 * streak).toFixed(3)})` : '';
   return {
-    eye: `${placement(geometry.eye)}translate(${r2(frame.x)} ${r2(frame.y)}) rotate(${r2(frame.tilt)})`,
+    eye: `${placement(geometry.eye)}translate(${r2(frame.x + across)} ${r2(frame.y)}) rotate(${r2(frame.tilt)})${eyeScale}`,
     bar: barPath(shape.n),
     strokeWidth: r2(2 * shape.r),
     mouth: visible ? { x: r2(frame.mx - frame.ma), y: r2(frame.my + geometry.mouthDy - frame.mt / 2), width: r2(2 * frame.ma),
       height: r2(frame.mt), rx: r2(GEOMETRY.cornerRadius), opacity: r2(frame.mo) } : null,
     body,
+    ghosts: streak > 0.02 ? [[r2(-smear * 26), r2(0.34 * streak)], [r2(-smear * 46), r2(0.16 * streak)]] : [],
+    away: cos < -0.06,
+    clip: pose.rise > 0.05,
   };
 }
 
@@ -635,11 +663,12 @@ export function renderOneSvg(input: OneSvgInput): string {
   const shape = oneShapeGeometry(input.kind);
   const name = input.label === undefined ? undefined : escapeXml(input.label);
   const access = name === undefined ? ' aria-hidden="true" focusable="false"' : ` role="img" aria-label="${name}"`;
-  const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200" width="${input.size}" height="${input.size}" overflow="visible"${access}${input.attributes} data-one-shape="${oneShapeId(input.kind)}" data-one-color="${input.color}" data-one-face="${input.face}" data-one-tier="${tier}">`];
+  const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200" width="${input.size}" height="${input.size}" overflow="${geometry.clip ? 'hidden' : 'visible'}"${access}${input.attributes} data-one-shape="${oneShapeId(input.kind)}" data-one-color="${input.color}" data-one-face="${input.face}" data-one-tier="${tier}">`];
   if (name !== undefined) parts.push(`<title>${name}</title>`);
   parts.push(`<g data-character-body="true"${geometry.body ? ` transform="${geometry.body}"` : ''}>`);
+  for (const [x, opacity] of geometry.ghosts) parts.push(`<path data-one-ghost="true" transform="translate(${x} 0)" d="${shape.path}" fill="${paint.disc}" fill-opacity="${opacity}"/>`);
   if (paint.eye === null) {
-    const outline = oneEyeOutline(oneFrame(input.pose, input.blink, input.kind), shape.eye);
+    const outline = geometry.away ? '' : oneEyeOutline(oneFrame(input.pose, input.blink, input.kind), shape.eye);
     parts.push(`<path data-one-disc="true" fill-rule="evenodd" d="${shape.path}${outline}" fill="${paint.disc}"/>`);
   } else {
     parts.push(`<path data-one-disc="true" d="${shape.path}" fill="${paint.disc}"${paint.discOpacity === 1 ? '' : ` fill-opacity="${paint.discOpacity}"`}/>`);
@@ -651,7 +680,7 @@ export function renderOneSvg(input: OneSvgInput): string {
       const width = oneRimWidth(input.size);
       parts.push(`<path data-one-rim="true" d="${oneInsetPath(shape.path, width / 2)}" fill="none" stroke="${paint.rim.color}" stroke-opacity="${paint.rim.opacity}" stroke-width="${r2(width)}"/>`);
     }
-    parts.push(`<g data-character-eyes="agent-eye-v1" transform="${geometry.eye}"><path data-one-eye="true" d="${geometry.bar}" fill="${paint.eye}" stroke="${paint.eye}" stroke-width="${geometry.strokeWidth}" stroke-linejoin="round"/></g>`);
+    if (!geometry.away) parts.push(`<g data-character-eyes="agent-eye-v1" transform="${geometry.eye}"><path data-one-eye="true" d="${geometry.bar}" fill="${paint.eye}" stroke="${paint.eye}" stroke-width="${geometry.strokeWidth}" stroke-linejoin="round"/></g>`);
   }
   return parts.join('') + '</g></svg>';
 }

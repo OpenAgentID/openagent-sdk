@@ -7,4 +7,4 @@ export const ONE_PUBLIC_PROPERTIES = ['shape', 'color', 'theme', 'size', 'label'
   'neutral', 'attentive', 'surprised', 'excited', 'happy', 'laughing', 'angry', 'sad', 'scared', 'suspicious', 'confused', 'curious', 'proud', 'shy', 'unimpressed',
   'sleepy', 'thoughtful', 'concerned', 'idle', 'listening', 'reasoning', 'working', 'speaking', 'success', 'blocked', 'error', 'typing', 'attention', 'paused', 'offline', 'done', 'waiting', 'thinking', 'quick', 'bouncy', 'neat', 'slow', 'dry', 'XS', 'S', 'M', 'L',
   'linear', 'shut', 'snap', 'settle', 'glide', 'emerge', 'charge', 'exit', 'wind', 'pop', 'brake', 'rise', 'fall', 'ui',
-  'firm', 'bounce', 'boing', 'jelly', 'soft', 'xmlns', 'viewBox', 'overflow', 'fill', 'stroke', 'd', 'maskUnits'];
+  'firm', 'bounce', 'boing', 'jelly', 'soft', 'perform', 'lookAt', 'rank', 'alongside', 'xmlns', 'viewBox', 'overflow', 'fill', 'stroke', 'd', 'maskUnits'];
