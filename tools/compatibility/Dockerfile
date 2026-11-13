@@ -1,5 +1,5 @@
 FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS node
-FROM rust:1.90-bookworm@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f AS qualification
+FROM rust:1.99-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS qualification
 COPY --from=node /usr/local /usr/local
 # npm 10 Arborist crashes on Vitest optional development peers.
 RUN npm install --global npm@11.21.0 --ignore-scripts --no-audit --no-fund
