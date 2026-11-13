@@ -90,6 +90,7 @@ test("this repository's changelogs pass as the documented release commit", async
     }
     return { ...file, text };
   });
-  assert.ok(files.some(file => file.text.includes(`## [${file.pending}] - ${date}`)), 'no changelog has a pending release to simulate');
+  // On the release commit itself the pending version is already dated: that is the release to check, as it stands.
+  assert.ok(files.some(file => file.text.includes(`## [${file.pending}] - `)), 'no changelog has a pending release to simulate');
   assert.deepEqual(await checkChangelogs(files, registry(published)), []);
 });
