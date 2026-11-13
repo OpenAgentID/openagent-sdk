@@ -368,7 +368,7 @@ platform composes the same frames. A browser head plays a timeline with `perform
 import { oneGestureTimeline } from '@openagentid/sdk/one-gestures';
 
 // A long task that just finished well: one spin, then the success face.
-const spin = oneGestureTimeline('spin', { kind: look.shape, size: 60 }) // 'charcoal' for Digital One;
+const spin = oneGestureTimeline('spin', { kind: look.shape, size: 60 }); // kind: 'charcoal' for Digital One
 if (head.perform(spin, { rank: 1 })) setTimeout(() => head.update({ status: 'success' }), spin.duration);
 else head.update({ status: 'success' });
 ```
