@@ -10,6 +10,7 @@ release. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1
 
 The One gestures, including the 360 spin. Published to npm: `@openagentid/sdk` 0.9.0, `@openagentid/sdk-testing` 0.1.4, `@openagentid/http` 0.2.2, `@openagentid/mcp` 0.2.2, `@openagentid/claude-agent` 0.2.2, `@openagentid/scim` 0.2.2, `create-openagent` 0.6.1.
 
+- The changelog test that simulates the release commit also passes on the release commit itself, where the pending version is already dated (the 0.9.0 release commit failed it).
 - Idle and event gestures for One heads (JR, 9 Nov 2026): a quick 360 with a smear, double take, peek, hop, shake-off, stretch, doze, glances up and down, side-eye, blink and startle. New entry `@openagentid/sdk/one-gestures` holds the pure timelines, the DID-fixed personalities and a 20 to 40 second idle director, so every platform plays the same timing; a host that plays no gestures never loads it. `OnePlayer.perform` and `CharacterPlayer.perform` play a composed timeline, `lookAt` turns an eye toward a point at any size from 24 px, and `renderOneFrame` draws a frame without a DOM. A live state always wins and interrupts a gesture cleanly. The browser budget goes from 16 KB to 17 KB gzipped for the new pose channels and `perform`.
 
 The standalone One runtime (prepared as 0.8.1, never published; it ships in 0.9.0).
