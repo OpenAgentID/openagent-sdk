@@ -5,8 +5,9 @@ All notable changes to `@openagentid/sdk-testing` are documented in this file. T
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Each date is the UTC day npm published that
 version.
 
-## [Unreleased]
+## [0.1.4] - 2026-11-13
 
+- Accept `@openagentid/sdk` 0.9 as a peer.
 - Develop and test against `@openagentid/sdk` 0.8.0 and Vitest 4.1.11; CI also tests the package against the SDK built from the same commit.
 - Ship the verbatim Apache License, Version 2.0 text in `LICENSE-APACHE`.
 - Link the npm page to this repository: `repository`, `homepage` and `bugs` in `package.json`.

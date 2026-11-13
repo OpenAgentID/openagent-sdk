@@ -12,7 +12,7 @@ application controls keys, trust and access.
 ## Start a working application
 
 ```sh
-npx create-openagent@0.6.0 my-agent-app --yes
+npx create-openagent@0.6.1 my-agent-app --yes
 cd my-agent-app
 npm install
 npm run dev
@@ -23,7 +23,7 @@ verifies a real signed request; its status updates the agent's live eyes. Autos
 is the default skin with a soft plush finish and on-face eyes. SpaceX, original
 crafted families, holiday characters and the One family are selectable; every
 two-eyed family also offers flat material, raised eyes and glasses/headphones.
-Keys and trust survive restarts. The starter uses SDK 0.8.0 and public npm
+Keys and trust survive restarts. The starter uses SDK 0.9.0 and public npm
 dependencies only.
 
 For an existing application, install `@openagentid/sdk` and follow the
@@ -88,21 +88,21 @@ at rest and shows its live status with agent-eye's faces and moves. Hosts that
 draw only Ones can use the light `@openagentid/sdk/one` entry; its browser
 runtime, `@openagentid/sdk/browser/one`, stays within the 16 KiB gzipped budget
 that CI checks. Keep One looks in your own agent records until every reader of
-your identity documents runs SDK 0.8.0. See
+your identity documents runs SDK 0.9.0. See
 [the One family](docs/characters.md#the-one-family).
 
 ## Packages
 
 | Package | npm | Install |
 |---|---|---|
-| SDK | [`@openagentid/sdk`](https://www.npmjs.com/package/@openagentid/sdk) 0.8.0 | `npm install @openagentid/sdk` |
-| Project generator | [`create-openagent`](https://www.npmjs.com/package/create-openagent) 0.6.0 | `npx create-openagent@0.6.0` |
-| HTTP adapter | [`@openagentid/http`](https://www.npmjs.com/package/@openagentid/http) 0.2.1 | [adapters/http](adapters/http/typescript/) |
-| MCP integration | [`@openagentid/mcp`](https://www.npmjs.com/package/@openagentid/mcp) 0.2.1 | [integrations/mcp](integrations/mcp/typescript/) |
-| Claude Agent SDK hooks | [`@openagentid/claude-agent`](https://www.npmjs.com/package/@openagentid/claude-agent) 0.2.1 | [integrations/claude-agent-sdk](integrations/claude-agent-sdk/typescript/) |
-| SCIM bridge | [`@openagentid/scim`](https://www.npmjs.com/package/@openagentid/scim) 0.2.1 | [bridges/scim](bridges/scim/typescript/) |
+| SDK | [`@openagentid/sdk`](https://www.npmjs.com/package/@openagentid/sdk) 0.9.0 | `npm install @openagentid/sdk` |
+| Project generator | [`create-openagent`](https://www.npmjs.com/package/create-openagent) 0.6.1 | `npx create-openagent@0.6.1` |
+| HTTP adapter | [`@openagentid/http`](https://www.npmjs.com/package/@openagentid/http) 0.2.2 | [adapters/http](adapters/http/typescript/) |
+| MCP integration | [`@openagentid/mcp`](https://www.npmjs.com/package/@openagentid/mcp) 0.2.2 | [integrations/mcp](integrations/mcp/typescript/) |
+| Claude Agent SDK hooks | [`@openagentid/claude-agent`](https://www.npmjs.com/package/@openagentid/claude-agent) 0.2.2 | [integrations/claude-agent-sdk](integrations/claude-agent-sdk/typescript/) |
+| SCIM bridge | [`@openagentid/scim`](https://www.npmjs.com/package/@openagentid/scim) 0.2.2 | [bridges/scim](bridges/scim/typescript/) |
 | OIDC provider | [`@openagentid/oidc`](https://www.npmjs.com/package/@openagentid/oidc) 0.3.0 | [bridges/oidc](bridges/oidc/typescript/); pairs with SDK 0.7 |
-| Test backends | [`@openagentid/sdk-testing`](https://www.npmjs.com/package/@openagentid/sdk-testing) 0.1.3 | [sdks/testing](sdks/testing/) |
+| Test backends | [`@openagentid/sdk-testing`](https://www.npmjs.com/package/@openagentid/sdk-testing) 0.1.4 | [sdks/testing](sdks/testing/) |
 | EAS anchor | [`@openagentid/anchor-eas`](https://www.npmjs.com/package/@openagentid/anchor-eas) 0.2.0 | [adapters/eas](adapters/eas/typescript/) |
 
 The companion packages declare `@openagentid/sdk` as a peer, so
@@ -115,7 +115,7 @@ release's package set is in [CHANGELOG.md](CHANGELOG.md) and the
 
 | Language | Distribution | Current integration |
 |---|---|---|
-| TypeScript | npm `@openagentid/sdk` 0.8.0 | `npm install @openagentid/sdk`; [current guide](docs/developer-tooling.md) |
+| TypeScript | npm `@openagentid/sdk` 0.9.0 | `npm install @openagentid/sdk`; [current guide](docs/developer-tooling.md) |
 | Python | PyPI `openagentid-sdk` 0.1.0 | `pip install openagentid-sdk==0.1.0`; [module](sdks/python/) |
 | Rust | Unified facade is source-only | [sdks/rust](sdks/rust/); its optional OAS/Arsenal/AEGIS Git dependencies need access to those repositories |
 | Go | Source module | [sdks/go](sdks/go/); Go 1.26.4+, use the checkout's module |
