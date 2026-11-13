@@ -353,6 +353,35 @@ the byte-identical master in `test/fixtures/agent-eye` (sha256
 [the One family](../../docs/characters.md#the-one-family) for the shapes, the
 palette, faces, calm rules and provenance.
 
+#### Gestures
+
+`@openagentid/sdk/one-gestures` holds the bigger moves as pure timelines:
+- a quick 360 `spin` with a smear;
+- `doubleTake`, `peek`, `hop`, `shakeOff`, `stretch`, `doze`;
+- `glanceUp`, `glanceDown`, `sideEye`, `blink`, `startle`.
+
+It also has the DID-fixed personalities and an idle director that moves one head in a list every 20 to 40 seconds. Every
+platform composes the same frames. A browser head plays a timeline with `perform`. A host without a DOM draws it with
+`renderOneFrame`.
+
+```ts
+import { oneGestureTimeline } from '@openagentid/sdk/one-gestures';
+
+// A long task that just finished well: one spin, then the success face.
+const spin = oneGestureTimeline('spin', { kind: look.shape, size: 60 }) // 'charcoal' for Digital One;
+if (head.perform(spin, { rank: 1 })) setTimeout(() => head.update({ status: 'success' }), spin.duration);
+else head.update({ status: 'success' });
+```
+
+`perform` returns false, and nothing moves, in any of these cases:
+- under reduced motion;
+- in a hidden document;
+- out of view or below 24 px;
+- when the head is not at rest.
+
+A live state always wins and cuts a gesture cleanly. Keep the spin for the big moments, and never use it on approval or
+money surfaces.
+
 ## Runtime support
 
 | Runtime            | Status       |
