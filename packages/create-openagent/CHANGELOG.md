@@ -5,8 +5,9 @@ All notable changes to `create-openagent` are documented in this file. The forma
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Each date is the UTC day npm published that
 version.
 
-## [Unreleased]
+## [0.6.1] - 2026-11-13
 
+- Pin SDK 0.9.0 (One gestures, including the 360 spin).
 - Ship the verbatim Apache License, Version 2.0 text in `LICENSE-APACHE`.
 - `npm test` builds the package first (`pretest`), so the suite runs from a clean checkout.
 
