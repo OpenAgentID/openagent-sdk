@@ -86,7 +86,7 @@ try {
   run('generate-noninteractive-application', [generator, 'my-agent-app', '--yes'], fixture);
   const application = join(fixture, 'my-agent-app');
   const manifest = JSON.parse(await readFile(join(application, 'package.json'), 'utf8'));
-  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.8.0' });
+  assert.deepEqual(manifest.dependencies, { '@openagentid/sdk': '0.9.0' });
   // Before publication the exact review artifact substitutes for the declared
   // registry release. No source or transitive dependency is replaced.
   run('install-sdk-archive-in-application', ['npm', 'install', '--ignore-scripts', '--save-exact', '--no-audit', '--no-fund', packages[0].file], application);

@@ -42,7 +42,11 @@ The `OpenAgent` facade still wraps separately configured OAS identity, Arsenal
 credentials and AEGIS verification clients. It fails closed if a required client
 is missing. Its endpoint options do not create those clients automatically.
 
-## Version 0.8.1
+## Version 0.9.0
+
+Adds the One gestures (`@openagentid/sdk/one-gestures`): a quick 360 spin, hops, double takes and the rest, as pure
+timelines every platform plays the same way, with `perform`, `lookAt` and `renderOneFrame`. It also carries the
+standalone One runtime prepared as 0.8.1:
 
 The standalone One browser entry, `@openagentid/sdk/browser/one`, carries the
 complete live runtime (every shape, colour, motion and public state) within
