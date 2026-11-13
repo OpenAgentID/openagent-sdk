@@ -100,6 +100,11 @@
       "import": "./sdks/typescript/dist/one.js",
       "require": "./sdks/typescript/dist/one.cjs"
     },
+    "./one-gestures": {
+      "types": "./sdks/typescript/dist/one-gestures.d.ts",
+      "import": "./sdks/typescript/dist/one-gestures.js",
+      "require": "./sdks/typescript/dist/one-gestures.cjs"
+    },
     "./browser": {
       "types": "./sdks/typescript/dist/browser/character-player.d.ts",
       "import": "./sdks/typescript/dist/browser/character-player.js"
