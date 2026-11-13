@@ -10,6 +10,8 @@ import type { CharacterStateUpdate, CharacterRuntimeState } from './character-st
 import { oneFaceFor, type OneKind } from './character-one.js';
 import { parseOneLiveOptions, seededRandom, type OneCadence } from './character-one-motion.js';
 import { OneHead } from './character-one-player.js';
+import type { OneSampler } from './character-one-motion.js';
+import type { OnePerformOptions } from './one.js';
 
 export type CharacterMotionPreference = boolean | 'system';
 export interface CharacterPlayerOptions extends CharacterOptions {
@@ -51,6 +53,10 @@ export interface CharacterPlayer {
   update(state: CharacterStateUpdate): CharacterRuntimeState;
   setAppearance(appearance: CharacterAppearanceUpdate): void;
   setReducedMotion(preference: CharacterMotionPreference): void;
+  /** One family: play a composed gesture (see `OnePlayer.perform`). Other families return false. */
+  perform(sample: OneSampler, durationMs: number, options?: OnePerformOptions): boolean;
+  /** One family: look toward a point for a moment (normalized to [-1, 1]). Other families ignore it. */
+  lookAt(x: number, y: number): void;
   getState(): CharacterRuntimeState;
   dispose(): void;
 }
@@ -60,6 +66,7 @@ const numeric = (value: number): string => String(Number(value.toFixed(4)));
 /** One renderer inside the player: the classic two-bar character or a One head. */
 interface Renderer {
   readonly root: Element;
+  readonly head?: OneHead;
   setDescriptor(next: CharacterDescriptor): void;
   stateChanged(state: CharacterRuntimeState): void;
   motionChanged(reduced: boolean): void;
@@ -210,6 +217,7 @@ export function mountCharacter(element: Element, did: string, options: Character
     });
     attach(head.root);
     return {
+      head,
       get root() { return head.root; },
       setDescriptor(next) { head.setPaint(next.shape as OneKind, next.oneColor ?? 'charcoal', next.theme, next.size, appearance.label); },
       stateChanged(next) { head.setState(oneFaceFor(next), next.gaze, next.blink, next.status, next.expression); },
@@ -282,6 +290,11 @@ export function mountCharacter(element: Element, did: string, options: Character
       selectedMotion = preference(value);
       motionChanged();
     },
+    perform(sample: OneSampler, durationMs: number, options: OnePerformOptions = {}) {
+      active();
+      return view!.head?.perform(sample, durationMs, options.rank ?? 0, options.alongside === true) ?? false;
+    },
+    lookAt(x: number, y: number) { active(); view!.head?.lookAt(x, y); },
     getState() { return animator.getState(); },
     dispose() {
       if (disposed) return;

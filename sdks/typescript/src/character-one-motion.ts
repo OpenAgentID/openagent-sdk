@@ -25,6 +25,9 @@ export type OneMomentName = 'settle' | 'home' | 'psst' | 'aha' | 'smile' | 'nod'
 export type OneGesture = 'lookAtYou' | 'nod' | 'smile' | 'wave' | 'shrug' | 'popIn';
 export const ONE_GESTURES: readonly OneGesture[] = freeze(['lookAtYou', 'nod', 'smile', 'wave', 'shrug', 'popIn']);
 
+/** A composed gesture: from milliseconds since it started, the channel values in `ONE_CHANNELS` order. Faces take effect immediately; hosts return the held pose at the end. */
+export type OneSampler = (ms: number) => readonly number[];
+
 export interface OneMomentRequest {
   readonly name: OneMomentName;
   /** Priority for a director that limits how many heads move at once. */
@@ -37,6 +40,9 @@ export interface OneMomentRequest {
   readonly user?: boolean;
   /** Uniform draws the moment uses in place of the head's generator, so its length can be known before it starts. */
   readonly draws?: readonly number[];
+  /** A timeline a host composed (OnePlayer.perform): every channel by index in `ONE_CHANNELS`, sampled each frame. */
+  readonly sampler?: OneSampler;
+  readonly length?: number;
 }
 
 export interface OneMotionFrame {
@@ -48,12 +54,12 @@ export interface OneMotionFrame {
   readonly moving: boolean;
 }
 
-type Ease = Exclude<AgentEyeKey[2], undefined> | 'wind' | 'pop' | 'rise' | 'fall' | 'ui' |
+export type Ease = Exclude<AgentEyeKey[2], undefined> | 'wind' | 'pop' | 'rise' | 'fall' | 'ui' |
   '~firm' | '~bounce' | '~soft';
-type Key = [number, number, Ease?];
+export type Key = [number, number, Ease?];
 type Curves = Partial<Record<OneChannel, Key[]>>;
 
-const F = 1000 / 24; // one frame on the 24 fps grid
+export const F = 1000 / 24; // one frame on the 24 fps grid
 /** A smile line is withdrawn over this long before any moment moves the eye (agent-eye's minimum gap of 6 units). */
 export const ONE_MOUTH_RETRACT_MS = 120;
 /** How many uniform draws a moment may use; no moment uses more. */
@@ -77,7 +83,7 @@ function easeAt(ease: Ease, u: number, segment: number): number {
   if (ease.startsWith('~')) { const k = springAt(ease.slice(1), u * segment / 1000); return k + (1 - k) * smooth(0.8, 1, u); }
   return (easeFns.get(ease) ?? easeFns.get('linear')!)(u);
 }
-function sampleCurve(curve: readonly Key[], t: number): number {
+export function sampleCurve(curve: readonly Key[], t: number): number {
   if (t <= curve[0]![0]) return curve[0]![1];
   for (let i = 1; i < curve.length; i++) {
     const [t1, v1, ease = 'linear'] = curve[i]!;
@@ -93,14 +99,14 @@ const ms = (curve: readonly AgentEyeKey[]): Key[] => curve.map(([t, v, e]) => [t
 const blinkCurve = ms(BLINK);
 
 /** Moment builder, against the head's live values. */
-interface Builder {
+export interface Builder {
   readonly curves: Curves;
   cur(k: OneChannel): number;
   mv(t0: number, t1: number, values: Partial<OnePose>, ease?: Ease): void;
   cut(t: number, values: Partial<OnePose>): void;
   raw(k: OneChannel, curve: readonly AgentEyeKey[], at: number): void;
 }
-function createBuilder(live: OnePose): Builder {
+export function createBuilder(live: OnePose): Builder {
   const curves: Curves = {};
   const channel = (k: OneChannel): Key[] => curves[k] ??= [[0, live[k]]];
   return {
@@ -132,7 +138,7 @@ function createBuilder(live: OnePose): Builder {
 }
 
 /** agent-eye's saccade: 110 ms + 110 per unit of look, 7 % overshoot, 160 ms settle. */
-function saccade(b: Builder, t: number, to: number, extra: Partial<OnePose> = {}): number {
+export function saccade(b: Builder, t: number, to: number, extra: Partial<OnePose> = {}): number {
   const from = b.cur(ONE_CHANNELS[0]!), d = 110 + 110 * mAbs(to - from);
   b.mv(t, t + d, { look: to + (to - from) * 0.07, ...extra }, 'snap');
   b.mv(t + d, t + d + 160, { look: to }, 'settle');
@@ -142,7 +148,7 @@ function saccade(b: Builder, t: number, to: number, extra: Partial<OnePose> = {}
  * agent-eye's BLINK on an openness: 80 ms shut, held 50, opens to 1.04 by 300, settles by 420. A centred, level
  * eye shuts tilted by 7°, so for those frames a disc never shows a level bar that reads as a No Entry sign.
  */
-function blinkAt(b: Builder, t: number, open: number, d: number): number {
+export function blinkAt(b: Builder, t: number, open: number, d: number): number {
   const tilt = b.cur(ONE_CHANNELS[3]!);
   const level = mAbs(tilt) < 4 && mAbs(b.cur(ONE_CHANNELS[0]!)) < 0.15;
   b.mv(t, t + 80, { open: 0, ...(level ? { tilt: tilt + 7 * d } : {}) }, 'shut');
@@ -156,16 +162,19 @@ function pulses(b: Builder, t: number, n: number, up: number, down: number): num
   b.mv(e, e + 160, { squash: 0 }, 'settle');
   return e + 160;
 }
-const pick = (pose: OnePose, keys: readonly OneChannel[]): Partial<OnePose> =>
+export const pick = (pose: OnePose, keys: readonly OneChannel[]): Partial<OnePose> =>
   objectFromEntries(keys.map(k => [k, pose[k]])) as Partial<OnePose>;
 
 const tempo: Readonly<Record<OneTemperament, number>> = freeze({ quick: 0.85, bouncy: 0.95, neat: 1, slow: 1.18, dry: 1.075 });
 const tierTempo: Readonly<Record<OneTier, number>> = freeze({ XS: 1, S: 0.9, M: 1, L: 1.1 });
+const ONE_GESTURE_CHANNELS = ONE_CHANNELS.slice(9);
 const ongoing: Readonly<Record<string, OneMomentName>> = freeze({ working: 'read', thinking: 'ponder', typing: 'keys' });
 const asleep = new Set<OneFace>(['paused', 'offline', 'sleepy']);
 const pondering = new Set<OneFace>(['thinking', 'thoughtful']);
 /** Faces whose eye may follow a fine pointer: at rest, warm or listening. */
 const followable = new Set<OneFace>(['idle', 'neutral', 'done', 'happy', 'listening']);
+/** A face a composed gesture may play over: at rest, never a live state. */
+export const oneAtRest = (face: OneFace): boolean => followable.has(face) && face !== 'listening';
 
 export interface OneMotionOptions {
   readonly face: OneFace;
@@ -184,7 +193,7 @@ export interface OneMotionOptions {
   readonly at: number;
 }
 
-interface Timeline { readonly curves: Curves; readonly start: number; readonly duration: number; readonly twos: boolean }
+interface Timeline { readonly curves: Curves; readonly start: number; readonly duration: number; readonly twos: boolean; readonly sampler?: OneSampler }
 interface Composed { duration: number; tail?: false; noTempo?: true; scaled?: true; twos?: true }
 
 /** One head's live state. Hosts decide when a requested moment may start. */
@@ -207,7 +216,7 @@ export interface OneMotion {
   setKind(kind: OneKind): void;
   readonly temperament: OneTemperament;
   setMotion(allowed: boolean): void;
-  follow(target: { readonly x: number; readonly y: number } | null): boolean;
+  follow(target: { readonly x: number; readonly y: number } | null, anySize?: boolean): boolean;
   start(request: OneMomentRequest, at: number): void;
   snap(): void;
   startTalk(at: number): boolean;
@@ -367,8 +376,8 @@ export class OneMotion {
             _callsnap();
     }
 
-    function _callfollow(target: { readonly x: number; readonly y: number } | null): boolean {
-        if (target === null || !_state_oneMotion || !followable.has(_stateface) || (_gettier() !== 'M' && _gettier() !== 'L')) {
+    function _callfollow(target: { readonly x: number; readonly y: number } | null, anySize?: boolean): boolean {
+        if (target === null || !_state_oneMotion || !followable.has(_stateface) || (!anySize && _gettier() !== 'M' && _gettier() !== 'L')) {
             _state_oneTarget = null;
             return false;
         }
@@ -380,6 +389,13 @@ export class OneMotion {
         if (!_state_oneMotion)
             return;
         // A visible smile line is withdrawn first, so no moment moves the eye toward it.
+        if (request.sampler) {
+            _state_oneTimeline = { curves: {}, start: at, duration: request.length!, twos: false, sampler: request.sampler };
+            _state_oneCurrent = request;
+            _state_oneTarget = null;
+            _state_oneLast = mMax(_state_oneLast, at);
+            return;
+        }
         const lead = _state_oneValue.mouth > 0 ? ONE_MOUTH_RETRACT_MS : 0;
         const planned = _call_onePlan(request, lead ? { ..._state_oneValue, mouth: 0 } : { ..._state_oneValue });
         const curves: Curves = {};
@@ -396,6 +412,10 @@ export class OneMotion {
     function _call_onePlan(request: OneMomentRequest, live: OnePose): { curves: Curves; duration: number; twos: boolean } {
         const b = createBuilder(live);
         const P = _callheld();
+        // A gesture a live state cut short lets go in the first moments of whatever replaced it.
+        for (const k of ONE_GESTURE_CHANNELS)
+            if (live[k])
+                b.mv(0, 120, { [k]: 0 }, 'glide');
         let index = 0;
         const draw = (): number => request.draws && index < request.draws.length ? request.draws[index++]! : _state_oneRandom();
         const scale = tempo[_gettemperament()] * tierTempo[_gettier()];
@@ -450,6 +470,11 @@ export class OneMotion {
         if (!tl)
             return;
         const t = mMin(at - tl.start, tl.duration);
+        if (tl.sampler) {
+            const sampled = tl.sampler(t);
+            ONE_CHANNELS.forEach((k, i) => { value[k] = sampled[i]!; });
+            return;
+        }
         const quantized = tl.twos ? mFloor(t / (2 * F) + 1e-6) * 2 * F : t;
         for (const k of objectKeys(tl.curves) as OneChannel[]) {
             value[k] = sampleCurve(tl.curves[k]!, ONE_BODY_CHANNELS.includes(k) ? quantized : t);
@@ -482,6 +507,9 @@ export class OneMotion {
         if (tl) {
             _call_onePose(at, _state_oneValue);
             if (at - tl.start >= tl.duration) {
+                // A composed gesture ends where it began: the held face, every gesture channel back at zero.
+                if (tl.sampler)
+                    _state_oneValue = { ..._callheld() };
                 for (const k of objectKeys(tl.curves) as OneChannel[]) {
                     const c = tl.curves[k]!;
                     _state_oneValue[k] = c[c.length - 1]![1];

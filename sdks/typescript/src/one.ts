@@ -5,13 +5,13 @@
  * does not touch a DOM. Heads are identical to `generateCharacter` and `mountCharacter` with `skin: 'one'`.
  */
 import { hasOnlyKeys } from './character-record.js';
-import { freeze, numberIsInteger, presentationRandom } from './character-intrinsics.js';
+import { clamp, freeze, numberIsFinite, numberIsInteger, objectFromEntries, presentationRandom } from './character-intrinsics.js';
 import { oneError } from './one-error.js';
 import { isAgentAvatarDid } from './avatar-did.js';
 import { parseCharacterLabel } from './character-label.js';
-import { ONE_BLANK_SHAPE, getOneShapes, isOneColorAllowed, isOneHeadColor, isOneShape, oneFaceFor, oneLookForDid, oneStillSvg,
-  type OneHeadColor, type OneKind, type OneLook, type OneShape, type OneTheme } from './character-one.js';
-import { ONE_GESTURES, parseOneLiveOptions, type OneCadence, type OneGesture } from './character-one-motion.js';
+import { ONE_BLANK_SHAPE, ONE_CHANNELS, getOneShapes, isOneColorAllowed, isOneHeadColor, isOneShape, oneFaceFor, oneLookForDid, oneStillSvg, renderOneSvg,
+  type OneFace, type OneHeadColor, type OneKind, type OneLook, type OnePose, type OneShape, type OneTheme } from './character-one.js';
+import { ONE_GESTURES, parseOneLiveOptions, type OneCadence, type OneGesture, type OneSampler } from './character-one-motion.js';
 import { OneHead } from './character-one-player.js';
 import { parseAvatarExpression, parseCharacterState, updateCharacterState, type AvatarExpression,
   type CharacterRuntimeState, type CharacterStateUpdate, type LiveEyeState } from './character-state.js';
@@ -20,7 +20,7 @@ export { getOneShapes, getOneColors, ONE_SHAPE_ORDER, ONE_DIGITAL, ONE_KINDS, is
   oneShapeForDid, oneColorForDid, oneLookForDid, nextOneLook } from './character-one.js';
 export type { OneShape, OneColor, OneKind, OneHeadColor, OneLook, OneLookHolder, OneShapeDescription, OneShapeEye, OneColorDescription,
   OneTemperament, OneTheme } from './character-one.js';
-export type { OneCadence, OneGesture } from './character-one-motion.js';
+export type { OneCadence, OneGesture, OneSampler } from './character-one-motion.js';
 export type { AvatarExpression, AvatarStatus, LiveEyeState, CharacterRuntimeState, CharacterStateUpdate } from './character-state.js';
 
 export interface OneOptions {
@@ -75,6 +75,13 @@ export interface OnePlayOptions {
   readonly viewer?: boolean;
 }
 
+export interface OnePerformOptions {
+  /** Above zero, an event-driven gesture that may interrupt an idle one. Default 0. */
+  readonly rank?: number;
+  /** Play without taking a motion slot: the second head of a pair. */
+  readonly alongside?: boolean;
+}
+
 export interface OnePlayer {
   update(state: CharacterStateUpdate): CharacterRuntimeState;
   /** Change the look (a wave at 40 px and up; First blink when a blank head gets its colour), surface, size or name. */
@@ -88,6 +95,15 @@ export interface OnePlayer {
    * gesture was accepted. Never use it on approval or money surfaces.
    */
   play(gesture: OneGesture, options?: OnePlayOptions): boolean;
+  /**
+   * Play a timeline a host composed (`oneGestureTimeline` in `@openagentid/sdk/one-gestures`), then return to the held
+   * face. Nothing plays under reduced motion, in a hidden document, out of view, below 24 px, or unless the head is at
+   * rest: a live state always wins and takes over mid-gesture. `alongside` plays it without taking a motion slot (the
+   * second head of a pair). Returns whether it was accepted.
+   */
+  perform(sample: OneSampler, durationMs: number, options?: OnePerformOptions): boolean;
+  /** Look toward a point for a moment (normalized to [-1, 1]; a row under the cursor). Any size from 24 px. */
+  lookAt(x: number, y: number): void;
   setReducedMotion(value: boolean | 'system'): void;
   getState(): CharacterRuntimeState;
   dispose(): void;
@@ -184,6 +200,19 @@ export function renderOne(options: OneOptions): string {
 }
 
 /**
+ * One frame of a gesture as a self-contained SVG, for hosts without a DOM (React Native): the same drawing a live head
+ * paints for this pose. `pose` is channel values in `ONE_CHANNELS` order, as a timeline's `sample` returns them.
+ */
+export function renderOneFrame(options: Omit<OneOptions, 'did' | 'expression' | 'state'> & { readonly face?: OneFace; readonly blink?: number }, pose: readonly number[]): string {
+  const value = record(options, ['shape', 'color', 'size', 'theme', 'label', 'face', 'blink'], 'options');
+  const shape = value.shape === undefined ? undefined : parseShape(value.shape);
+  const color = value.color === undefined ? undefined : parseColor(value.color);
+  const look = parsePaint(value, resolveLook(shape, color, undefined));
+  return renderOneSvg({ ...look, face: (value.face ?? 'idle') as OneFace, pose: objectFromEntries(ONE_CHANNELS.map((k, i) => [k, pose[i] ?? 0])) as unknown as OnePose,
+    blink: typeof value.blink === 'number' ? value.blink : 1, attributes: '' });
+}
+
+/**
  * A live One head in `element`. It replaces a still One already rendered there (for example on the server);
  * otherwise mount into an empty element. Hosts deliver authorized state updates; the head writes no profile.
  * A live head needs no DID, so the light entry never hashes one in the browser: pass the agent's stored look
@@ -255,6 +284,16 @@ export function mountOne(element: Element, options: OneMountOptions): OnePlayer 
       const value = record(options, ['viewer'], 'play options');
       if (value.viewer !== undefined && typeof value.viewer !== 'boolean') throw new TypeError(oneError(56, () => ('One play viewer must be boolean')));
       return head.play(gesture, value.viewer === true);
+    },
+    perform(sample: OneSampler, durationMs: number, options: OnePerformOptions = {}) {
+      active();
+      const value = record(options, ['rank', 'alongside'], 'perform options');
+      if (typeof sample !== 'function' || !numberIsFinite(durationMs) || durationMs <= 0) throw new TypeError(oneError(57, () => ('A gesture is a sampler and a positive duration')));
+      return head.perform(sample, durationMs, value.rank === undefined ? 0 : value.rank as number, value.alongside === true);
+    },
+    lookAt(x: number, y: number) {
+      active();
+      head.lookAt(clamp(x, -1, 1), clamp(y, -1, 1));
     },
     getState() { return state; },
     dispose() {
