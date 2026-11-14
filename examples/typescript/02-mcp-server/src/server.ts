@@ -14,7 +14,7 @@ const authority = createWorkspaceMcpServer({ workspace, did: allowedDid,
 const server = new McpServer({ name: 'openagent-example-tools', version: '1.0.0' });
 // Challenge issuance is public, bounded and still requires a receiver-trusted DID.
 server.registerTool('openagent_challenge', { inputSchema: {
-  did: z.string(), toolName: z.string(), args: z.record(z.unknown()).optional(),
+  did: z.string(), toolName: z.string(), args: z.record(z.string(), z.unknown()).optional(),
 } }, async input => ({ content: [{ type: 'text', text: JSON.stringify(await authority.issueChallenge(input)) }] }));
 const authenticated = withOpenAgent(server, { agent: authority.agent });
 authenticated.registerTool('echo', { inputSchema: { text: z.string() } }, async ({ text }) => ({ content: [{ type: 'text', text }] }));

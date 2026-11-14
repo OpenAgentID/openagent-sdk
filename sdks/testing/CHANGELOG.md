@@ -11,6 +11,10 @@ version.
 - Ship the verbatim Apache License, Version 2.0 text in `LICENSE-APACHE`.
 - Link the npm page to this repository: `repository`, `homepage` and `bugs` in `package.json`.
 
+### Security
+
+- Require zod `^4.6.7` (was `^3.23.8`). zod before 4.6.6 can exhaust memory when it validates an oversized constrained collection (GHSA-mrhx-c7xc-m3w5, high), and no 3.x release carries the fix. Schemas exported by this package are now zod 4 schemas: code that composes them with its own schemas must use zod 4 as well (`z.infer` types are unchanged).
+
 ## [0.1.3] - 2026-10-17
 
 - Accept `@openagentid/sdk` 0.8.0 beside 0.7.x (peer range `^0.7.2 || ^0.8.0`). No API change: the
