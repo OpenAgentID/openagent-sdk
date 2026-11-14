@@ -159,7 +159,7 @@
     "@noble/hashes": "^1.8.0",
     "@scure/base": "^1.2.6",
     "jose": "^5.10.0",
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "bin": {
     "oaid": "./sdks/typescript/dist/cli.js"

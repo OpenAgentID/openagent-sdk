@@ -10,6 +10,10 @@ and the package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 - **Breaking:** package renamed from `@openagent/skills-policy` to `@openagentid/skills-policy`. The `@openagent` npm scope is squatted by a third party; the project now publishes under the `@openagentid` scope, matching the GitHub org OpenAgentID. Consumers must update dependency names and imports. Effective with the first npm publish under the new scope.
 
+### Security
+
+- Require zod `^4.6.7` (was `^3.23.8`). zod before 4.6.6 can exhaust memory when it validates an oversized constrained collection (GHSA-mrhx-c7xc-m3w5, high), and no 3.x release carries the fix. Schemas exported by this package are now zod 4 schemas: code that composes them with its own schemas must use zod 4 as well (`z.infer` types are unchanged).
+
 ## [0.1.1] - 2026-07-31
 
 ### Fixed

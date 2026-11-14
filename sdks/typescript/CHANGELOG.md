@@ -20,6 +20,10 @@ The standalone One runtime (0.8.1).
   the `@openagentid/skills-policy` peer and the workspace symlink rule;
   `package.json` links to the issue tracker (`bugs`).
 
+### Security
+
+- Require zod `^4.6.7` (was `^3.23.8`). zod before 4.6.6 can exhaust memory when it validates an oversized constrained collection (GHSA-mrhx-c7xc-m3w5, high), and no 3.x release carries the fix. Schemas exported by this package are now zod 4 schemas: code that composes them with its own schemas must use zod 4 as well (`z.infer` types are unchanged).
+
 ## [0.8.0] - 2026-10-17
 
 The One family.
