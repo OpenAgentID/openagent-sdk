@@ -1,5 +1,5 @@
 {
-  "$comment": "The npm packages a vX.Y.Z tag releases, in publish (dependency) order. The tag names the @openagentid/sdk version. Read by .github/workflows/release.yml and tools/release/*.mjs; see docs/RELEASING.md.",
+  "$comment": "The npm packages a vX.Y.Z tag releases, in publish (dependency) order. The tag names the @openagentid/sdk version. Read by tools/release/*.mjs (the Cloud Build release, ci/cloudbuild-release.yaml); see docs/RELEASING.md.",
   "packages": [
     { "directory": "sdks/typescript", "sizeGate": true },
     { "directory": "sdks/testing", "testWithCandidateSdk": true },

@@ -3,13 +3,15 @@
 // "published" (on npm already from this commit, after a partial run) are built, tested and packed again, so
 // every version the tag releases gets its release files, but they are not published twice.
 //
-//   node tools/release/publish.mjs plan.json [--dry-run] [--out <directory>]
+//   node tools/release/publish.mjs plan.json [--dry-run | --token] [--out <directory>]
 //
 // Every package is installed from its lockfile, typechecked, tested, built and (for the SDK) held to the
 // browser size budgets before anything is published. Packages flagged testWithCandidateSdk are tested a
 // second time against the SDK packed from this commit, so a companion never ships untested against the SDK
-// it is released with. Publishing uses npm trusted publishing from GitHub Actions: no token, and npm attaches
-// a provenance attestation that names this repository, workflow and commit.
+// it is released with. Publishing runs on Google Cloud Build (--token, AGENTS.md rule 5) with an npm token read from
+// Secret Manager into NPM_TOKEN: npm reads it from the environment through a temporary userconfig that names the
+// variable, never the value. npm provenance needs a GitHub or GitLab OIDC token, so Cloud Build releases carry none;
+// the build prints every tarball's sha256 and checks the registry serves those bytes (docs/RELEASING.md).
 //
 // Before publishing, each package is also packed into --out (default: a temporary directory), with a CycloneDX
 // SBOM of its locked dependency tree beside it and SHA256SUMS over the tarballs. npm packs deterministically,
@@ -24,12 +26,24 @@ import { packument, root } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+const token = args.includes('--token');
+if (dryRun === token) {
+  console.error('Pass exactly one of --dry-run and --token.');
+  process.exit(2);
+}
+if (token && !process.env.NPM_TOKEN) {
+  console.error('--token needs NPM_TOKEN in the environment.');
+  process.exit(2);
+}
+// The userconfig names the variable; npm expands it when it reads the file, so the token is never written to disk.
+const userconfig = join(mkdtempSync(join(tmpdir(), 'openagentid-npmrc-')), 'npmrc');
+writeFileSync(userconfig, token ? '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n' : '', { mode: 0o600 });
 const outIndex = args.indexOf('--out');
 const out = resolve(outIndex === -1 ? mkdtempSync(join(tmpdir(), 'openagentid-release-')) : args.splice(outIndex, 2)[1]);
 mkdirSync(out, { recursive: true });
 const planPath = args.find(arg => !arg.startsWith('--'));
 if (!planPath) {
-  console.error('Usage: publish.mjs plan.json [--dry-run] [--out <directory>]');
+  console.error('Usage: publish.mjs plan.json [--dry-run | --token] [--out <directory>]');
   process.exit(2);
 }
 const plan = JSON.parse(readFileSync(planPath, 'utf8'));
@@ -126,8 +140,8 @@ for (const item of plan.packages) {
     pack(item.directory);
   }
   if (existing) continue;
-  // A dry run cannot attest provenance: npm only signs inside the GitHub Actions OIDC context.
-  const publish = ['publish', '--access', 'public', '--tag', item.distTag, '--ignore-scripts', dryRun ? '--dry-run' : '--provenance'];
+  const publish = ['publish', '--access', 'public', '--tag', item.distTag, '--ignore-scripts', '--userconfig', userconfig];
+  if (dryRun) publish.push('--dry-run');
   run(item.directory, 'npm', publish);
   if (dryRun) continue;
   for (let attempt = 1; ; attempt += 1) {

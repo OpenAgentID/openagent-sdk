@@ -1,9 +1,10 @@
 # Releasing
 
 A release is an annotated tag `vX.Y.Z` on a commit on `main`, where `X.Y.Z` is the `@openagentid/sdk`
-version. Pushing the tag runs [`.github/workflows/release.yml`](../.github/workflows/release.yml), which
-publishes the release set to npm from GitHub Actions and creates the GitHub release. Nobody publishes from
-a laptop, and no npm token exists anywhere.
+version. The release owner then runs the release on Google Cloud Build
+([`ci/cloudbuild-release.yaml`](../ci/cloudbuild-release.yaml)), which publishes the release set to npm.
+Linux builds run on Google Cloud Build only, so there is no GitHub Actions release workflow. Nobody
+publishes from a laptop.
 
 ## The release set
 
@@ -22,43 +23,48 @@ in publish order:
 | `create-openagent` | `packages/create-openagent` |
 
 Every release publishes a new SDK version. The other packages are published when they changed: the
-workflow refuses a tag where a package's directory changed since the previous tag but its version is
+release refuses a tag where a package's directory changed since the previous tag but its version is
 already on npm, because that change would otherwise never reach npm.
 
-## What the workflow does
+## What the release build does
 
-1. **Plan** (`tools/release/plan.mjs`). The tag must be annotated, name the version in
+`bash tools/release/cloudbuild-release.sh vX.Y.Z <sha>` submits the build with no source: its first step
+clones this public repository, checks out the tag and refuses it unless the tag names `<sha>`. Every
+later step is [`tools/release/cloudbuild-step.sh`](../tools/release/cloudbuild-step.sh) from that
+checkout, on the gate worker pool and the gate image (pinned by digest). Without `--publish` it runs
+[`ci/cloudbuild-release-dry-run.yaml`](../ci/cloudbuild-release-dry-run.yaml), which reads no secret and
+publishes nothing.
+
+1. **Required checks** (`tools/release/required-checks.mjs`). `main` is linear, so the tagged commit is the
+   squash of a merged pull request. Its tree must equal that pull request's head tree, and the head must
+   carry a success for every context `main`'s ruleset requires (read from the ruleset, not listed here).
+   A tag with any red or missing check stops here.
+2. **Plan** (`tools/release/plan.mjs`). The tag must be annotated, name the version in
    `sdks/typescript/package.json` and `src/version.ts`, and point at a commit on `main`'s first-parent
    history. The root `package.json` must match the SDK manifest. Each package is marked `publish` (its
    version is not on npm; it needs a dated `CHANGELOG.md` section), `published` (npm already has it from
    this commit, after a partial run) or `unchanged`. A version below npm's `latest` is refused.
-2. **Wait for CI.** The `ci` workflow's push run on the tagged commit must pass.
-3. **Publish** (`tools/release/publish.mjs`, GitHub environment `release`). Every package marked `publish`
-   is installed from its lockfile, typechecked, tested and built; the SDK also passes the browser size
-   budgets. The companion packages are tested a second time against the SDK packed from the same commit.
-   Each package is then published with `npm publish --provenance` through
-   [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): GitHub's OIDC token replaces a
-   stored npm token, and npm attaches a provenance attestation naming this repository, the workflow and
-   the commit. npm records the commit as `gitHead`, and the workflow checks it. Before publishing, every
-   package is also packed into the run's release files with a CycloneDX SBOM of its locked dependency
-   tree (each component marked required or optional; every runtime dependency is checked to be present)
-   and `SHA256SUMS`. The job attests the build provenance of every tarball and the SDK's SBOM
-   with GitHub artifact attestations.
-4. **Verify and write the GitHub release** (`tools/release/notes.mjs`). The job downloads every version
-   the tag published back from npm, requires its npm provenance attestation, and checks that the bytes npm
-   serves are the bytes the publish job packed and attested (`sha256sum -c`). The notes are the SDK's
-   `CHANGELOG.md` section, the full package set at the tag, and npm's integrity hash for each package
-   published. The npm tarballs, their SBOMs and `SHA256SUMS` are attached. The release is marked Latest
-   only when the tag is the highest version.
+3. **Release metadata**: the root manifest check, the changelog check against npm and its tests, the
+   verbatim Apache licence, and `npm audit` (high) over every released package, as CI runs them.
+4. **Build and publish** (`tools/release/publish.mjs`). Every package marked `publish` is installed from
+   its lockfile, typechecked, tested and built; the SDK also passes the browser size budgets. The
+   companion packages are tested a second time against the SDK packed from the same commit. Every
+   package is packed once, with a CycloneDX SBOM and `SHA256SUMS`, and then published with
+   `npm publish --access public` and an npm token read from Secret Manager (`oaid-npm-publish-token`, by
+   name; it reaches npm through a userconfig that names the variable, never the value). npm records the
+   commit as `gitHead`, and the build checks it.
+5. **Verify.** The build downloads every version it published back from npm, checks that the bytes npm
+   serves are the bytes it packed (`sha256sum -c SHA256SUMS`), and prints each tarball's sha256.
 
-Every step is safe to re-run: `gh run rerun <run-id> --failed`, or
-`gh workflow run release.yml --ref vX.Y.Z -f dry_run=false`. A manual run must start on the tag (`--ref`),
-so its provenance names the tagged commit; the workflow refuses any other ref. Without `dry_run=false` it is a dry
-run: it plans, builds, tests and packs the tag's release and runs `npm publish --dry-run`, and publishes and
-attests nothing. To rehearse before tagging, run the same steps locally from the release commit:
-`node tools/release/plan.mjs vX.Y.Z --out plan.json` after creating the tag locally (do not push it), then
-`node tools/release/publish.mjs plan.json --dry-run --out release-files`. A version npm already has from this commit
-is rebuilt and packed but not published again, and an existing GitHub release is edited in place.
+**No npm provenance.** npm provenance and trusted publishing need a GitHub Actions or GitLab OIDC token,
+so versions released from Cloud Build carry no provenance attestation. In its place the release notes
+list each tarball's sha256 and npm integrity, and the build log that printed them is kept in Cloud Logging.
+
+Every step is safe to re-run: run the same command again. A version npm already has from this commit is
+rebuilt and packed but not published again. To rehearse before tagging, run the plan and a dry-run publish
+from the release commit with the tag created locally (do not push it):
+`node tools/release/plan.mjs vX.Y.Z --out plan.json`, then
+`node tools/release/publish.mjs plan.json --dry-run --out release-files`.
 
 ## Cut a release
 
@@ -80,7 +86,8 @@ is rebuilt and packed but not published again, and an existing GitHub release is
    pull request; it merges after review and green CI. CI runs the changelog check with `--registry`: every
    dated section must carry the UTC day npm published it, except the section for the version this commit
    releases, which npm gets only when the tag publishes it.
-2. **Tag the merged commit.**
+2. **Tag the merged commit.** Bring the release pull request up to date with `main` before it merges, so
+   the merged commit has its head's tree (step 1 above).
 
    ```sh
    git fetch origin
@@ -90,14 +97,22 @@ is rebuilt and packed but not published again, and an existing GitHub release is
 
    The tag is dated when it is created, and npm records the publish a few minutes later, so the tag,
    the npm version and the GitHub release carry the same day.
-3. **Watch** `gh run watch` for the `release` run. Approve the `release` environment when it asks.
-4. **Check** what a developer will check:
+3. **Run the release.** A dry run first, then the publish, both on the tagged commit:
 
    ```sh
-   npm view @openagentid/sdk@X.Y.Z gitHead dist.attestations.provenance
-   npm audit signatures            # in a project that installs the release
+   sha=$(git rev-parse vX.Y.Z^{commit})
+   bash tools/release/cloudbuild-release.sh vX.Y.Z "$sha"
+   bash tools/release/cloudbuild-release.sh vX.Y.Z "$sha" --publish
+   ```
+4. **Write the GitHub release** from a checkout of the tag, with the build's plan and tarballs
+   (`npm pack <package>@X.Y.Z` fetches the bytes npm serves; `SHA256SUMS` is in the build log):
+   `node tools/release/notes.mjs plan.json notes.md`, then
+   `gh release create vX.Y.Z --notes-file notes.md --verify-tag *.tgz SHA256SUMS`.
+5. **Check** what a developer will check:
+
+   ```sh
+   npm view @openagentid/sdk@X.Y.Z gitHead dist.integrity
    gh release download vX.Y.Z --repo OpenAgentID/openagent-sdk && sha256sum -c SHA256SUMS
-   gh attestation verify openagentid-sdk-X.Y.Z.tgz --repo OpenAgentID/openagent-sdk
    gh release view vX.Y.Z
    ```
 
@@ -106,14 +121,11 @@ patch version with a new tag.
 
 ## One-time setup
 
-The owner of the npm packages and of the GitHub organization does this once.
-
-- **npm trusted publishers.** For each package in the release set, on npmjs.com open the package's
-  Settings → Trusted publishing → GitHub Actions and enter organization `OpenAgentID`, repository
-  `openagent-sdk`, workflow `release.yml` and environment `release`. After the first release through the
-  workflow, set Settings → Publishing access to "Require two-factor authentication and disallow tokens".
-- **GitHub environment `release`.** Settings → Environments → `release`: add the release reviewers as
-  required reviewers, and limit deployments to tags matching `v*`. It holds no secrets.
+- **npm token.** The owner of the npm packages creates a granular access token that may publish the
+  packages in the release set and nothing else, and stores it as the Secret Manager secret
+  `oaid-npm-publish-token` in `l1fe-minds-fc`; only the release build's service account can read it.
+  Publishing access on each package must allow tokens with two-factor authentication. Rotate it yearly
+  and whenever anyone who could read it leaves.
 - **Rulesets** (in place). `main` requires a pull request with a code owner's approval, linear history and
   the conformance, SDK and release-metadata checks; `refs/tags/v*` and `refs/tags/*-v*` tags cannot be
   updated or deleted.
@@ -129,14 +141,14 @@ recorded in the release notes.
 | A bad version, with a fix coming | `npm dist-tag add <package>@<good> latest`, then `npm deprecate <package>@<bad> "<one line>. Use <fixed> or later."` | `gh release edit <tag> --prerelease`, and start the notes with "Superseded by <fixed>." |
 | The fix is ready | Release the next patch version normally; `latest` moves with it | The new release becomes Latest |
 | A secret leaked into a tarball | Rotate the secret first. Then `npm unpublish <package>@<bad>` within 72 hours, or ask npm support | Delete the asset, rotate, release again |
-| The workflow failed mid-publish | Fix the cause, then `gh workflow run release.yml --ref <tag> -f dry_run=false`; versions npm already has from the tagged commit are rebuilt, packed and attested but not published again | The release job creates or edits the release in place |
+| The build failed mid-publish | Fix the cause, then run `cloudbuild-release.sh <tag> <sha> --publish` again; versions npm already has from the tagged commit are rebuilt and packed but not published again | `gh release edit` the release in place |
 
-## When the workflow cannot run
+## When the build cannot run
 
-If GitHub Actions or npm's OIDC exchange is down and a release cannot wait, a maintainer publishes from a
-clean checkout of the tag with `npm ci`, the package's tests, `npm run build` and `npm publish --access
-public` (npm asks for a two-factor code). Such a version has no provenance attestation; the GitHub
-release body names it. When the workflow runs again for the tag it skips versions already on npm.
+If Cloud Build is down and a release cannot wait, a maintainer publishes from a clean checkout of the tag
+with `npm ci`, the package's tests, `npm run build` and `npm publish --access public` (npm asks for a
+two-factor code), and writes the notes with `notes.mjs --manual`. The next run of the build for the tag
+skips versions already on npm.
 
 ## Versions before this workflow
 

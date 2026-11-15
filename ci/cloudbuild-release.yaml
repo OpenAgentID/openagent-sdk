@@ -1,0 +1,56 @@
+# The npm release on Google Cloud Build (AGENTS.md rule 5; docs/RELEASING.md): publishes the release to npm.
+#   bash tools/release/cloudbuild-release.sh vX.Y.Z <40-hex sha> --publish
+# Reads the tag from the public repository: no source is uploaded and no GitHub token enters the build.
+# The only secret is the npm publish token, by name; a red step stops the build before publish.
+steps:
+- id: checkout
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  # The tag from the repository itself (never an uploaded tree), and only if it names the commit the owner pinned.
+  args:
+  - -c
+  - |
+    set -euo pipefail
+    git clone --quiet https://github.com/OpenAgentID/openagent-sdk.git src
+    cd src
+    git fetch --quiet origin "refs/tags/$_TAG:refs/tags/$_TAG"
+    git checkout --quiet --detach "refs/tags/$_TAG^{commit}"
+    test "$(git rev-parse HEAD)" = "$_SHA" || { echo "$_TAG is not the pinned $_SHA"; exit 1; }
+- id: checks
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'checks']
+  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+- id: plan
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'plan']
+  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+- id: metadata
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'metadata']
+  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+- id: publish
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'publish']
+  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+  secretEnv: ['NPM_TOKEN']
+- id: verify
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'verify']
+  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+availableSecrets:
+  secretManager:
+  - versionName: projects/l1fe-minds-fc/secrets/oaid-npm-publish-token/versions/latest
+    env: NPM_TOKEN
+substitutions:
+  _TAG: ''
+  _SHA: ''
+options:
+  logging: CLOUD_LOGGING_ONLY
+  pool:
+    name: projects/l1fe-minds-fc/locations/us-central1/workerPools/oneos-std-usc1
+timeout: 3600s
