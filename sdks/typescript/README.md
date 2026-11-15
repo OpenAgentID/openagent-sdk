@@ -353,6 +353,30 @@ the byte-identical master in `test/fixtures/agent-eye` (sha256
 [the One family](../../docs/characters.md#the-one-family) for the shapes, the
 palette, faces, calm rules and provenance.
 
+### The expanded family: twenty-four heads, accessories and figures
+
+```ts
+import { nextOneAvatar, renderOneAvatar, renderOneAvatarSizes } from '@openagentid/sdk/one-figure';
+import { mountOneAvatar } from '@openagentid/sdk/browser/one-figure';
+
+const look = nextOneAvatar(myAgentsLooks);          // { shape, color, headwear, glasses }: new to this person
+renderOneAvatar({ ...look, size: 28, label: agent.name });             // avatar slots: head framing (default)
+renderOneAvatarSizes({ ...look, eye: 'happy' });    // the head at 16, 20, 24 ... 96 px
+mountOneAvatar(hero, { ...look, size: 160, framing: 'figure', state }); // large surfaces: uniform limbs + motion
+```
+
+Every avatar slot uses `framing: 'head'` (the default): no limbs, at the slot's
+own size. `framing: 'figure'` adds the same thin ink arms and legs to every
+character, for onboarding, empty states, an agent's page and celebrations; it
+animates the live state (walk, wave, sit, hop, lean in, doze), pauses offscreen
+and holds a still key pose under reduced motion. Headwear (beanie, cap, bow,
+headset) and glasses are generated from each head's own outline and fit inside
+today's square. A head and headwear pair that would read as another head at
+16 px is never offered (`ONE_HEADWEAR_NEVER`). With only today's options
+(the fourteen heads, eighteen colours, Digital One or a blank head, no eye pose
+or accessory) `renderOneAvatar` is `renderOne` and `mountOneAvatar` is
+`mountOne`, byte for byte. DID defaults keep the fourteen heads.
+
 ## Runtime support
 
 | Runtime            | Status       |

@@ -103,6 +103,11 @@
       "import": "./dist/one.js",
       "require": "./dist/one.cjs"
     },
+    "./one-figure": {
+      "types": "./dist/one-figure.d.ts",
+      "import": "./dist/one-figure.js",
+      "require": "./dist/one-figure.cjs"
+    },
     "./browser": {
       "types": "./dist/browser/character-player.d.ts",
       "import": "./dist/browser/character-player.js"
@@ -110,6 +115,10 @@
     "./browser/one": {
       "types": "./dist/browser/one.d.ts",
       "import": "./dist/browser/one.js"
+    },
+    "./browser/one-figure": {
+      "types": "./dist/browser/one-figure.d.ts",
+      "import": "./dist/browser/one-figure.js"
     },
     "./local": {
       "types": "./dist/local-workspace.d.ts",
