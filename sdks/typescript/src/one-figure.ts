@@ -747,13 +747,13 @@ function paintOf(color: Resolved['color'], theme: OneTheme): { disc: string; opa
   return { disc: c.disc, opacity: 1, eye: c.eye, keyline: theme === 'light' ? c.keyline : null };
 }
 
-/** The inner markup of a head (everything inside its root element), for any head, pose and accessories. */
 /** The accessible name: the agent's label on the svg and as its title, or hidden when there is none. */
 function named(label: string | undefined): [string, string] {
   const n = label === undefined ? undefined : escapeXml(label);
   return n === undefined ? [' aria-hidden="true" focusable="false"', ''] : [` role="img" aria-label="${n}"`, `<title>${n}</title>`];
 }
 
+/** The inner markup of a head (everything inside its root element), for any head, pose and accessories. */
 function headInner(r: Resolved, p: Parsed): { root: string; inner: string; face: OneFace } {
   if (r.shape === 'charcoal' || (p.identical)) {
     const svg = renderOne(p.base);
