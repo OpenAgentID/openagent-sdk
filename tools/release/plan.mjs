@@ -12,7 +12,7 @@
 // release: its version must be bumped, otherwise the change would silently never reach npm.
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { changelogSection, compareVersions, git, gitOk, packument, parseVersion, readJson, releaseSet, root } from './lib.mjs';
+import { changelogSection, compareVersions, git, gitOk, onNpmStatus, packument, parseVersion, readJson, releaseSet, root } from './lib.mjs';
 import { rootManifestDrift } from './sync-root-manifest.mjs';
 
 const args = process.argv.slice(2);
@@ -63,6 +63,7 @@ for (const entry of releaseSet()) {
   const document = await packument(name);
   const onNpm = document?.versions?.[packageVersion];
   let status;
+  let npmIntegrity = null;
   if (!onNpm) {
     status = 'publish';
     const section = changelogSection(join(directory, 'CHANGELOG.md'), packageVersion);
@@ -76,16 +77,16 @@ for (const entry of releaseSet()) {
     if (url !== 'https://github.com/OpenAgentID/openagent-sdk.git' || repository?.directory !== directory) {
       errors.push(`${name}: package.json repository must be { url: https://github.com/OpenAgentID/openagent-sdk.git, directory: ${directory} } for provenance.`);
     }
-  } else if (onNpm.gitHead && sha && onNpm.gitHead === sha) {
-    status = 'published';
   } else {
-    const shipped = previousTag && sha
+    const changedSincePreviousTag = previousTag && sha
       ? !gitOk('diff', '--quiet', previousTag, sha, '--', directory, `:(exclude)${directory}/test`, `:(exclude)${directory}/vitest.config.ts`)
       : false;
-    if (shipped) {
+    const known = onNpmStatus({ onNpm, sha, changedSincePreviousTag });
+    status = known.status;
+    npmIntegrity = known.npmIntegrity ?? null;
+    if (known.mustBump) {
       errors.push(`${name} ${packageVersion} is already on npm (from ${onNpm.gitHead?.slice(0, 7) || 'an unrecorded commit'}), but ${directory} changed since ${previousTag}; bump its version in the release commit.`);
     }
-    status = 'unchanged';
   }
   let distTag = null;
   if (status === 'publish') {
@@ -96,7 +97,8 @@ for (const entry of releaseSet()) {
     } else distTag = 'latest';
   }
   packages.push({ directory, name, version: packageVersion, status, distTag,
-    sizeGate: Boolean(entry.sizeGate), testWithCandidateSdk: Boolean(entry.testWithCandidateSdk) });
+    sizeGate: Boolean(entry.sizeGate), testWithCandidateSdk: Boolean(entry.testWithCandidateSdk),
+    ...(npmIntegrity ? { npmIntegrity } : {}) });
 }
 const generator = packages.find(item => item.name === 'create-openagent');
 if (generator?.status === 'publish') {

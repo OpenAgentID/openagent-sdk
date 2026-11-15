@@ -26,14 +26,18 @@ Every release publishes a new SDK version. The other packages are published when
 release refuses a tag where a package's directory changed since the previous tag but its version is
 already on npm, because that change would otherwise never reach npm.
 
-## What the release build does
+## What the release builds do
 
-`bash tools/release/cloudbuild-release.sh vX.Y.Z <sha>` submits the build with no source: its first step
-clones this public repository, checks out the tag and refuses it unless the tag names `<sha>`. Every
-later step is [`tools/release/cloudbuild-step.sh`](../tools/release/cloudbuild-step.sh) from that
-checkout, on the gate worker pool and the gate image (pinned by digest). Without `--publish` it runs
-[`ci/cloudbuild-release-dry-run.yaml`](../ci/cloudbuild-release-dry-run.yaml), which reads no secret and
-publishes nothing.
+The release is two Cloud Build builds, because every step of one build shares its service account
+(MUST-84-S1): the build that runs repository and dependency code can never reach the npm token, and the
+build that can reach it runs none.
+
+**Build 1, pack** ([`ci/cloudbuild-release-pack.yaml`](../ci/cloudbuild-release-pack.yaml)):
+`bash tools/release/cloudbuild-release.sh vX.Y.Z <sha>` submits it with no source. It reads no secret and
+runs as the default build service account, which has no access to the token. Its first step clones this
+public repository, checks out the tag and refuses it unless the tag names `<sha>`. Every later step is
+[`tools/release/cloudbuild-step.sh`](../tools/release/cloudbuild-step.sh) from that checkout, on the gate
+worker pool and the gate image (pinned by digest).
 
 1. **Required checks** (`tools/release/required-checks.mjs`). `main` is linear, so the tagged commit is the
    squash of a merged pull request. Its tree must equal that pull request's head tree, and the head must
@@ -43,27 +47,41 @@ publishes nothing.
    `sdks/typescript/package.json` and `src/version.ts`, and point at a commit on `main`'s first-parent
    history. The root `package.json` must match the SDK manifest. Each package is marked `publish` (its
    version is not on npm; it needs a dated `CHANGELOG.md` section), `published` (npm already has it from
-   this commit, after a partial run) or `unchanged`. A version below npm's `latest` is refused.
+   this commit, after a partial run) or `unchanged`. A version below npm's `latest` is refused. A tarball
+   publish records no `gitHead`, so a version npm has with no `gitHead` whose directory changed since the
+   previous tag is planned `published` with npm's integrity, and the build refuses it unless the tarball it
+   rebuilds from this commit has exactly npm's bytes (CONDITION-84-C3).
 3. **Release metadata**: the root manifest check, the changelog check against npm and its tests, the
-   verbatim Apache licence, and `npm audit` (high) over every released package, as CI runs them.
-4. **Build** (`tools/release/publish.mjs --pack-only`, no secret). Every package marked `publish` is
-   installed from its lockfile, typechecked, tested and built; the SDK also passes the browser size
-   budgets. The companion packages are tested a second time against the SDK packed from the same commit.
-   Every package is packed once, with a CycloneDX SBOM and `SHA256SUMS`.
-5. **Publish** (inline in the config; no repository code). The only step that receives the npm token
-   (Secret Manager `oaid-npm-publish-token`, read by the release's own service account `oaid-release@`
-   only). In a fresh directory outside the workspace it checks each tarball the plan publishes against
-   `SHA256SUMS` and runs `npm publish <tarball> --ignore-scripts` with a fresh userconfig that names the
-   token's variable, never its value; no other command sees the token. A version already on npm is skipped.
-6. **Verify.** The build downloads every version it published back from npm, checks that the bytes npm
-   serves are the bytes it packed (`sha256sum -c SHA256SUMS`), and prints each tarball's sha256.
+   release-bytes tests, the verbatim Apache licence, and `npm audit` (high) over every released package.
+4. **Dry run** (`tools/release/publish.mjs --dry-run`). Every package marked `publish` is installed from its
+   lockfile, typechecked, tested and built; the SDK also passes the browser size budgets. The companion
+   packages are tested a second time against the SDK packed from the same commit. Every package is packed
+   once, with a CycloneDX SBOM and `SHA256SUMS`, and `npm publish --dry-run` runs on each.
+5. **Stage.** The tarballs, SBOMs, `SHA256SUMS` and `plan.json` go to
+   `gs://l1fe-minds-fc-oaid-release/openagent-sdk/<tag>/<sha>/`, and the log prints the exact publish
+   command with the sha256 of `SHA256SUMS` and of `plan.json`.
+
+**Build 2, publish** ([`ci/cloudbuild-release.yaml`](../ci/cloudbuild-release.yaml)):
+`bash tools/release/cloudbuild-release.sh vX.Y.Z <sha> --publish <sums> <plan>`, the line build 1 printed.
+It runs as `oaid-release@`, the only identity that may read the npm token (Secret Manager
+`oaid-npm-publish-token`) and the staging bucket, and it runs no repository or dependency code: no
+checkout, only inline steps with the gate image's own node and npm.
+
+1. **Fetch.** The staged `SHA256SUMS` and `plan.json` must hash to `<sums>` and `<plan>`, the plan must
+   name this tag and commit, and every staged tarball must match `SHA256SUMS`.
+2. **Publish.** The only step that receives the token. In a fresh directory it checks each tarball the
+   plan publishes against `SHA256SUMS` and runs `npm publish <tarball> --ignore-scripts` with a fresh
+   userconfig that names the token's variable, never its value; no other command sees the token. A
+   version already on npm is skipped.
+3. **Verify.** The build downloads every version it published back from npm, checks that the bytes npm
+   serves are the bytes build 1 packed (`sha256sum -c SHA256SUMS`), and prints each tarball's sha256.
 
 **No npm provenance.** npm provenance and trusted publishing need a GitHub Actions or GitLab OIDC token,
 so versions released from Cloud Build carry no provenance attestation. In its place the release notes
 list each tarball's sha256 and npm integrity, and the build log that printed them is kept in Cloud Logging.
 
-Every step is safe to re-run: run the same command again. A version npm already has from this commit is
-rebuilt and packed but not published again. To rehearse before tagging, run the plan and a dry-run publish
+Both builds are safe to re-run: run the same commands again. A version npm already has from this release
+(its `gitHead`, or no `gitHead` and the same bytes) is rebuilt and packed but not published again. To rehearse before tagging, run the plan and a dry-run publish
 from the release commit with the tag created locally (do not push it):
 `node tools/release/plan.mjs vX.Y.Z --out plan.json`, then
 `node tools/release/publish.mjs plan.json --dry-run --out release-files`.
@@ -99,12 +117,13 @@ from the release commit with the tag created locally (do not push it):
 
    The tag is dated when it is created, and npm records the publish a few minutes later, so the tag,
    the npm version and the GitHub release carry the same day.
-3. **Run the release.** A dry run first, then the publish, both on the tagged commit:
+3. **Run the release.** The pack build first; then the publish build, with the two sha256 values the pack
+   build printed (read them from its log yourself; nothing else supplies them):
 
    ```sh
    sha=$(git rev-parse vX.Y.Z^{commit})
    bash tools/release/cloudbuild-release.sh vX.Y.Z "$sha"
-   bash tools/release/cloudbuild-release.sh vX.Y.Z "$sha" --publish
+   bash tools/release/cloudbuild-release.sh vX.Y.Z "$sha" --publish <sums> <plan>
    ```
 4. **Write the GitHub release** from a checkout of the tag, with the build's plan and tarballs
    (`npm pack <package>@X.Y.Z` fetches the bytes npm serves; `SHA256SUMS` is in the build log):
@@ -125,7 +144,10 @@ patch version with a new tag.
 
 - **npm token.** The owner of the npm packages creates a granular access token that may publish the
   packages in the release set and nothing else, and stores it as the Secret Manager secret
-  `oaid-npm-publish-token` in `l1fe-minds-fc`; only the release build's service account can read it.
+  `oaid-npm-publish-token` in `l1fe-minds-fc`; only the publish build's service account `oaid-release@`
+  can read it. The staging bucket `gs://l1fe-minds-fc-oaid-release` is written by the pack build's default
+  build service account and read by `oaid-release@`; the release owner is the one person who may run builds
+  as `oaid-release@` (a [review/security] ONE-RUN made the account, the secret, the bucket and these grants).
   Publishing access on each package must allow tokens with two-factor authentication. Rotate it yearly
   and whenever anyone who could read it leaves.
 - **Rulesets** (in place). `main` requires a pull request with a code owner's approval, linear history and
@@ -143,7 +165,7 @@ recorded in the release notes.
 | A bad version, with a fix coming | `npm dist-tag add <package>@<good> latest`, then `npm deprecate <package>@<bad> "<one line>. Use <fixed> or later."` | `gh release edit <tag> --prerelease`, and start the notes with "Superseded by <fixed>." |
 | The fix is ready | Release the next patch version normally; `latest` moves with it | The new release becomes Latest |
 | A secret leaked into a tarball | Rotate the secret first. Then `npm unpublish <package>@<bad>` within 72 hours, or ask npm support | Delete the asset, rotate, release again |
-| The build failed mid-publish | Fix the cause, then run `cloudbuild-release.sh <tag> <sha> --publish` again; versions npm already has from the tagged commit are rebuilt and packed but not published again | `gh release edit` the release in place |
+| The build failed mid-publish | Fix the cause, then run the pack build and `cloudbuild-release.sh <tag> <sha> --publish <sums> <plan>` again; versions npm already has from this release are rebuilt and packed but not published again | `gh release edit` the release in place |
 
 ## When the build cannot run
 

@@ -21,7 +21,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { packument, root } from './lib.mjs';
+import { packument, root, sameBytesAsNpm } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
@@ -79,6 +79,11 @@ function pack(directory, release = true) {
     { cwd: join(root, directory), encoding: 'utf8' }));
   const tarball = join(destination, packed.filename);
   if (!release) return tarball;
+  const item = plan.packages.find(entry => entry.directory === directory);
+  // CONDITION-84-C3: a version this release already published as a tarball (no gitHead) is rebuilt to exactly npm's bytes.
+  if (item?.npmIntegrity && !sameBytesAsNpm(item.npmIntegrity, readFileSync(tarball))) {
+    throw new Error(`${item.name}@${item.version} is on npm with no gitHead and other bytes than this commit builds; bump its version.`);
+  }
   writeFileSync(tarball.replace(/\.tgz$/, '.cdx.json'), sbom(directory));
   sums.push(`${createHash('sha256').update(readFileSync(tarball)).digest('hex')}  ${packed.filename}`);
   return tarball;

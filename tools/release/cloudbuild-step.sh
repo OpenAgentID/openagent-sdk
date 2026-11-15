@@ -15,7 +15,7 @@ case "$step" in
     cd src
     node tools/release/sync-root-manifest.mjs --check
     node tools/release/check-changelogs.mjs --registry
-    node --test tools/release/check-changelogs.test.mjs
+    node --test tools/release/check-changelogs.test.mjs tools/release/release-bytes.test.mjs
     expected=cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
     for file in $(git ls-files '*LICENSE-APACHE'); do
       test "$(sha256sum "$file" | cut -d' ' -f1)" = "$expected" || { echo "$file is not the verbatim Apache License 2.0"; exit 1; }
