@@ -8,7 +8,8 @@
  *   the bundle is minified from 0.8.0, 53.6 KB with the shape library).
  *
  * - dist/browser/one-figure.js, the figure family (`@openagentid/sdk/browser/one-figure`) with the One runtime it
- *   builds on: at most 24 KB gzipped (the runtime's 16 KB plus 8 KB for the figure family).
+ *   builds on: at most 40 KB gzipped; the family's own code, without the modules it shares with the runtime, at most
+ *   8 KB gzipped.
  *
  * Sizes are zlib's default gzip level, the figure the plan and the release notes quote.
  */
@@ -18,9 +19,9 @@ import { gzipSync } from 'node:zlib';
 const budgets = [
   { file: 'dist/browser/one.js', entry: '@openagentid/sdk/browser/one', limit: 16 * 1024 },
   { file: 'dist/browser/character-player.js', entry: '@openagentid/sdk/browser', limit: 65 * 1024 },
-  // The figure family on top of the live One runtime it includes: at most 8 KB gzipped more than the runtime's own
-  // 16 KB budget, so pages that show figures pay for them and head-only pages (which load `one`) pay nothing.
-  { file: 'dist/browser/one-figure.js', entry: '@openagentid/sdk/browser/one-figure', limit: (16 + 8) * 1024 },
+  // The self-contained figure bundle: the figure family plus the live One runtime and catalog it builds on, unmangled.
+  // Only pages that show figures load it; head-only pages keep loading `one` alone.
+  { file: 'dist/browser/one-figure.js', entry: '@openagentid/sdk/browser/one-figure', limit: 40 * 1024 },
 ];
 const root = new URL('../', import.meta.url);
 let failed = false;
@@ -31,4 +32,19 @@ for (const budget of budgets) {
   failed ||= !ok;
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${budget.entry}: ${(gzipped / 1024).toFixed(1)} KB gzipped (${(bytes.length / 1024).toFixed(1)} KB raw), budget ${budget.limit / 1024} KB`);
 }
+
+// The figure family's own code (src/one-figure*.ts, minified, with every module it shares with the head runtime left
+// out): at most 8 KB gzipped (AV-C1), so the family stays small on top of what head-only pages already load.
+const { build } = await import('esbuild');
+const own = await build({
+  entryPoints: [new URL('src/one-figure.ts', root).pathname], bundle: true, write: false, minify: true, format: 'esm',
+  platform: 'browser', target: 'es2022', define: { __OAID_ONE_COMPACT_ERRORS__: 'false' },
+  plugins: [{ name: 'shared-runtime', setup(b) {
+    b.onResolve({ filter: /^\.\// }, args => args.path.startsWith('./one-figure') ? undefined : { path: args.path, external: true });
+  } }],
+});
+const ownBytes = own.outputFiles[0].contents;
+const ownGzipped = gzipSync(ownBytes).length, ownLimit = 8 * 1024;
+failed ||= ownGzipped > ownLimit;
+console.log(`${ownGzipped <= ownLimit ? 'ok  ' : 'FAIL'} @openagentid/sdk/one-figure own code: ${(ownGzipped / 1024).toFixed(1)} KB gzipped (${(ownBytes.length / 1024).toFixed(1)} KB raw), budget ${ownLimit / 1024} KB`);
 if (failed) process.exitCode = 1;
