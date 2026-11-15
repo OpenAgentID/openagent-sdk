@@ -7,7 +7,7 @@ import {
   ONE_APP_AVATAR_SIZES, ONE_AVATAR_SHAPE_ORDER, ONE_COLOR_FLOOR, ONE_DISTINCT_FLOOR_16PX, ONE_EYE_POSES, ONE_FIGURE_MOTION, ONE_FIGURE_MOTIONS,
   ONE_HEADWEAR, ONE_HEADWEAR_NEVER, getOneAvatarColors, getOneAvatarShapes, isOneAvatarColorAllowed, isOneHeadwearAllowed, mountOneAvatar,
   nextOneAvatar, oneAvatarSilhouette, oneAvatarSilhouetteOf, oneColorDistance, oneFigureCss, oneFigureMotionFor, oneFlattenPath,
-  parseOneAvatarLook, renderOneAvatar, renderOneAvatarSizes,
+  parseOneAvatarLook, readOneAvatarLook, renderOneAvatar, renderOneAvatarSizes,
   type OneAvatarLook, type OneAvatarShape, type OneHeadwear,
 } from '../src/one-figure.js';
 import { coverage, difference } from './helpers/one-silhouette.js';
@@ -150,9 +150,14 @@ describe('16 px distinctness (MUST-AV2-C2)', () => {
       const worst = Math.min(...accepted.filter(a => a.shape !== shape).map(a => difference(grid, a.grid)));
       if (worst >= ONE_DISTINCT_FLOOR_16PX) accepted.push({ shape, grid }); else (never[shape] ??= []).push(item);
     }
-    expect(never).toEqual(Object.fromEntries(Object.entries(ONE_HEADWEAR_NEVER).map(([k, v]) => [k, [...v!]])));
-    for (let i = 0; i < accepted.length; i++) for (let j = i + 1; j < accepted.length; j++) {
-      if (accepted[i]!.shape !== accepted[j]!.shape) expect(difference(accepted[i]!.grid, accepted[j]!.grid)).toBeGreaterThanOrEqual(ONE_DISTINCT_FLOOR_16PX);
+    // Every pair under the floor is refused; the list may refuse more (it only grows, SHOULD-79-S2).
+    for (const [shape, items] of Object.entries(never)) for (const item of items) {
+      if (item !== 'glasses') expect(ONE_HEADWEAR_NEVER[shape as OneAvatarShape] ?? [], `${shape} ${item}`).toContain(item);
+    }
+    expect(Object.values(never).flat()).not.toContain('glasses');
+    const offered = accepted.filter(a => a.shape === 'circle' || !(ONE_HEADWEAR_NEVER[a.shape as OneAvatarShape] ?? []).some(item => a.grid === of(a.shape as OneAvatarShape, item)));
+    for (let i = 0; i < offered.length; i++) for (let j = i + 1; j < offered.length; j++) {
+      if (offered[i]!.shape !== offered[j]!.shape) expect(difference(offered[i]!.grid, offered[j]!.grid)).toBeGreaterThanOrEqual(ONE_DISTINCT_FLOOR_16PX);
     }
     for (const shape of all) expect(isOneHeadwearAllowed(shape, null)).toBe(true);
   });
@@ -192,6 +197,57 @@ describe('headwear fits each head', () => {
       for (let i = 1; i <= peak; i++) expect(top[i]!, `${shape} ${item}`).toBeLessThanOrEqual(top[i - 1]! + 1e-6);
       for (let i = peak + 1; i < top.length; i++) expect(top[i]!, `${shape} ${item}`).toBeGreaterThanOrEqual(top[i - 1]! - 1e-6);
     }
+  });
+
+  const unimodal = (ys: readonly number[], what: string): void => {
+    const low = ys.indexOf(Math.min(...ys));
+    for (let i = 1; i <= low; i++) expect(ys[i]!, what).toBeLessThanOrEqual(ys[i - 1]! + 1e-6);
+    for (let i = low + 1; i < ys.length; i++) expect(ys[i]!, what).toBeGreaterThanOrEqual(ys[i - 1]! - 1e-6);
+  };
+
+  it('spans a lobed head\'s valleys with a single-dip hat edge, never an ink V into each one (MUST-79-C1)', () => {
+    for (const [shape, item] of offered.filter(([, item]) => item === 'beanie' || item === 'cap')) {
+      const body = oneAvatarSilhouetteOf(shape, item, false)[1]!;
+      // The body is the crown left to right (33 points), then the lower edge right to left.
+      const edge = body.slice(33).reverse();
+      expect(edge.length, `${shape} ${item}`).toBe(33);
+      for (let i = 1; i < edge.length; i++) expect(edge[i]![0]).toBeGreaterThan(edge[i - 1]![0]);
+      unimodal(edge.map(p => p[1]), `${shape} ${item}`);
+    }
+  });
+
+  it('joins the headset band to both cups on every head, on its own arc (MUST-79-C2, SHOULD-79-S1)', () => {
+    for (const [shape] of offered.filter(([, item]) => item === 'headset')) {
+      const [, band, left, right] = oneAvatarSilhouetteOf(shape, 'headset', false);
+      // The band's centre line, from its stroke strip: the mean of the strip's two sides.
+      const n = band!.length / 2, centre = Array.from({ length: n }, (_, i) => [(band![i]![0] + band![2 * n - 1 - i]![0]) / 2, (band![i]![1] + band![2 * n - 1 - i]![1]) / 2] as const);
+      const inBox = (p: readonly [number, number], cup: readonly (readonly [number, number])[]): boolean => {
+        const xs = cup.map(q => q[0]), ys = cup.map(q => q[1]);
+        return p[0] >= Math.min(...xs) && p[0] <= Math.max(...xs) && p[1] >= Math.min(...ys) && p[1] <= Math.max(...ys);
+      };
+      expect(inBox(centre[0]!, left!), `${shape} left end`).toBe(true);
+      expect(inBox(centre[n - 1]!, right!), `${shape} right end`).toBe(true);
+      unimodal(centre.map(p => p[1]), `${shape} headset band`);
+    }
+  });
+
+  it('only ever grows the never list, and draws a stored look it now refuses as the bare head (SHOULD-79-S2)', () => {
+    // The list as first released; a later version may add pairs, never drop one.
+    const released: Record<string, string[]> = {
+      peanut: ['beanie', 'bow'], egg: ['beanie', 'cap', 'bow'], clover: ['beanie'], hexagon: ['beanie'], squircle: ['beanie'],
+      flower: ['beanie', 'cap', 'bow', 'headset'], tulip: ['beanie', 'cap'], cat: ['beanie', 'cap'], ghost: ['cap', 'bow'],
+      droplet: ['bow'], star: ['bow', 'headset'], scallop: ['beanie', 'headset'],
+    };
+    for (const [shape, items] of Object.entries(released)) expect(ONE_HEADWEAR_NEVER[shape as OneAvatarShape]).toEqual(expect.arrayContaining(items));
+    const stored = { shape: 'cat', color: 'cream', headwear: 'cap', glasses: true };
+    expect(() => parseOneAvatarLook(stored)).toThrow(/never wears/);
+    expect(readOneAvatarLook(stored)).toEqual({ shape: 'cat', color: 'cream', headwear: null, glasses: true });
+    expect(renderOneAvatar({ ...readOneAvatarLook(stored), size: 32 })).toBe(renderOneAvatar({ shape: 'cat', color: 'cream', glasses: true, size: 32 }));
+    expect(() => nextOneAvatar([stored as OneAvatarLook])).not.toThrow();
+    // Anything else malformed is still refused, not changed.
+    expect(() => readOneAvatarLook({ ...stored, headwear: 'crown' })).toThrow(/headwear/);
+    expect(() => readOneAvatarLook({ ...stored, limbs: true })).toThrow(/Invalid/);
+    expect(() => readOneAvatarLook({ shape: 'star', color: 'tomato' })).toThrow(/never/);
   });
 
   it('fits every head with headwear inside today\'s square, so no layout moves', () => {
