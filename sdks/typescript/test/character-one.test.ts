@@ -700,8 +700,9 @@ describe('One faces', () => {
     }
   });
 
-  it('keeps every held face at least ten units inside every shape, and inside agent-eye\'s safe radius in the circle', () => {
-    for (const kind of kinds) for (const face of faces) for (const px of sizes) for (const gaze of [row, { x: 1, y: 1 }, { x: -1, y: -1 }, { x: 0, y: 0 }, { x: 1, y: -1 }, { x: -1, y: 1 }]) {
+  // One case per head (same faces, sizes and gazes), so each sweep fits its budget when the CI jobs share a machine.
+  for (const kind of kinds) it(`keeps every held face at least ten units inside the ${kind} head, and inside agent-eye's safe radius in the circle`, () => {
+    for (const face of faces) for (const px of sizes) for (const gaze of [row, { x: 1, y: 1 }, { x: -1, y: -1 }, { x: 0, y: 0 }, { x: 1, y: -1 }, { x: -1, y: 1 }]) {
       const result = contained(oneHeldPose(face, gaze, px), kind);
       expect(result.clearance, `${face} at ${px}px in ${kind}, gaze ${gaze.x},${gaze.y}`).toBeGreaterThanOrEqual(kind === 'charcoal' ? -0.01 : MARGIN);
     }
