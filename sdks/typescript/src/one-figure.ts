@@ -57,7 +57,10 @@ export const ONE_COLOR_FLOOR = 20;
  * Headwear a head never wears, because at 16 px the head with it would read as another head (MUST-AV2-C2). Derived
  * by the conformance suite: in `ONE_AVATAR_SHAPE_ORDER`, item by item (beanie, cap, bow, headset, then glasses), a
  * pair is kept only when it clears `ONE_DISTINCT_FLOOR_16PX` against Digital One, every other bare head and every
- * other head's pair kept before it. Glasses clear it on every head.
+ * other head's pair kept before it. Glasses clear it on every head. The list only ever grows: a pair it refuses stays
+ * refused in every later version (egg cap, tulip cap, ghost cap and bow, and star headset are kept although they now
+ * clear the floor), and a stored look holding a pair a later version refuses draws as the bare head
+ * (`readOneAvatarLook`).
  */
 export const ONE_HEADWEAR_NEVER: Readonly<Partial<Record<OneAvatarShape, readonly OneHeadwear[]>>> = freeze({
   peanut: freeze(['beanie', 'bow'] as OneHeadwear[]),
@@ -67,10 +70,11 @@ export const ONE_HEADWEAR_NEVER: Readonly<Partial<Record<OneAvatarShape, readonl
   squircle: freeze(['beanie'] as OneHeadwear[]),
   flower: freeze(['beanie', 'cap', 'bow', 'headset'] as OneHeadwear[]),
   tulip: freeze(['beanie', 'cap'] as OneHeadwear[]),
-  cat: freeze(['beanie'] as OneHeadwear[]),
+  cat: freeze(['beanie', 'cap'] as OneHeadwear[]),
   ghost: freeze(['cap', 'bow'] as OneHeadwear[]),
+  droplet: freeze(['bow'] as OneHeadwear[]),
   star: freeze(['bow', 'headset'] as OneHeadwear[]),
-  scallop: freeze(['headset'] as OneHeadwear[]),
+  scallop: freeze(['beanie', 'headset'] as OneHeadwear[]),
 });
 
 /**
@@ -105,13 +109,12 @@ export interface OneAvatarColorDescription {
 }
 
 const SHAPES: readonly OneAvatarShapeDescription[] = freeze([
-  ...getOneShapes().map(s => freeze({ id: s.id as OneAvatarShape, label: s.label, path: s.path, eye: s.eye, mouthDy: s.mouthDy, pivot: s.pivot,
-    temperament: s.temperament as Exclude<OneTemperament, 'dry'>, color: s.color as OneAvatarColor,
-    never: freeze([...s.never, ...(ONE_WARM_NEVER[s.id] ?? [])] as OneAvatarColor[]), version: 1 as const })),
+  // The fourteen keep their own fields in their own order; only the warm colours they never take are added.
+  ...getOneShapes().map(s => freeze({ ...s, never: freeze([...s.never, ...(ONE_WARM_NEVER[s.id] ?? [])]), version: 1 }) as OneAvatarShapeDescription),
   ...ONE_NEW_SHAPES.map(s => freeze({ ...s, color: s.color as OneAvatarColor, never: s.never as readonly OneAvatarColor[], version: 2 as const })),
 ]);
 const COLORS: readonly OneAvatarColorDescription[] = freeze([
-  ...getOneColors().map(c => freeze({ id: c.id as OneAvatarColor, label: c.label, disc: c.disc, eye: c.eye, keyline: c.keyline, version: 1 as const })),
+  ...getOneColors().map(c => freeze({ ...c, version: 1 }) as OneAvatarColorDescription),
   ...ONE_WARM_COLORS.map(c => freeze({ ...c, version: 2 as const })),
 ]);
 const shapeById = new Map<string, OneAvatarShapeDescription>(SHAPES.map(s => [s.id, s]));
@@ -152,16 +155,32 @@ export interface OneAvatarLook {
 const lookKeys = ['shape', 'color', 'headwear', 'glasses'];
 
 /** A stored look, validated: unknown values, never pairs and headwear a head never wears are refused, not changed. */
-export function parseOneAvatarLook(value: unknown): OneAvatarLook {
+export function parseOneAvatarLook(value: unknown): OneAvatarLook { return readLook(value, false); }
+
+/**
+ * A stored look for drawing (SHOULD-79-S2): validated like `parseOneAvatarLook`, except that headwear this version
+ * refuses on the head (`ONE_HEADWEAR_NEVER` only grows) is dropped, so a saved look never stops an avatar drawing; the
+ * bare head is drawn instead. Malformed records still throw.
+ */
+export function readOneAvatarLook(value: unknown): OneAvatarLook { return readLook(value, true); }
+
+function readLook(value: unknown, bare: boolean): OneAvatarLook {
   if (!hasOnlyKeys(value, lookKeys)) throw new TypeError('Invalid One avatar look');
-  const shape = value.shape, color = value.color, headwear = value.headwear ?? null, glasses = value.glasses ?? false;
+  const shape = value.shape, color = value.color;
   if (!isOneAvatarShape(shape)) throw new TypeError('Unsupported One shape');
   if (!isOneAvatarColor(color)) throw new TypeError('Unsupported One colour');
   if (!isOneAvatarColorAllowed(shape, color)) throw new TypeError(`A ${shape} is never ${color}`);
-  if (headwear !== null && !isOneHeadwear(headwear)) throw new TypeError('Unsupported One headwear');
+  let [headwear, glasses] = accessoriesOf(value);
+  if (bare && !isOneHeadwearAllowed(shape, headwear)) headwear = null;
   if (!isOneHeadwearAllowed(shape, headwear)) throw new TypeError(`A ${shape} never wears a ${headwear}`);
+  return freeze({ shape, color, headwear, glasses });
+}
+/** Headwear (null when absent) and glasses (false when absent) from a look or avatar options, each validated. */
+function accessoriesOf(value: Record<string, unknown>): [OneHeadwear | null, boolean] {
+  const headwear = value.headwear ?? null, glasses = value.glasses ?? false;
+  if (headwear !== null && !isOneHeadwear(headwear)) throw new TypeError('Unsupported One headwear');
   if (typeof glasses !== 'boolean') throw new TypeError('One glasses must be boolean');
-  return freeze({ shape, color, headwear: headwear as OneHeadwear | null, glasses });
+  return [headwear, glasses];
 }
 
 // ── Colour difference (CIEDE2000, with protan and deutan simulation) ─────────────────────────────
@@ -232,7 +251,7 @@ export interface OneAvatarHolder {
 export function nextOneAvatar(held: Iterable<OneAvatarHolder>): OneAvatarLook {
   if (held === null || typeof held !== 'object' || typeof (held as Iterable<unknown>)[Symbol.iterator] !== 'function') throw new TypeError('Held One looks must be iterable');
   const looks: OneAvatarLook[] = [];
-  for (const entry of held as Iterable<unknown>) looks.push(parseOneAvatarLook(entry));
+  for (const entry of held as Iterable<unknown>) looks.push(readOneAvatarLook(entry));
   const shapeCount = new Map<OneAvatarShape, number>(ONE_AVATAR_SHAPE_ORDER.map(id => [id, 0]));
   const colorCount = new Map<OneAvatarColor, number>(COLORS.map(c => [c.id, 0]));
   for (const look of looks) { shapeCount.set(look.shape, shapeCount.get(look.shape)! + 1); colorCount.set(look.color, colorCount.get(look.color)! + 1); }
@@ -372,6 +391,8 @@ interface Fit {
   readonly eyeTop: number;
   readonly el: number;
   readonly er: number;
+  /** How far below the hull the hat's edge must reach so it covers the head's own top everywhere on its span. */
+  readonly under: number;
 }
 const fits = new Map<OneAvatarShape | 'charcoal', Fit>();
 
@@ -395,7 +416,10 @@ function fitOf(shape: OneAvatarShape): Fit {
   depth = mMin(depth, eyeTop - apex);
   const [xl, xr] = chordAt(poly, apex + depth) ?? [-40, 40];
   const [el, er] = chordAt(poly, entry.eye.y) ?? [-80, 80];
-  fit = { poly, profile, hull: upperHull(profile, xl - 1, xr + 1), fullHull: upperHull(profile, -100, 100), apex, depth, xl, xr, eyeTop, el, er };
+  const hull = upperHull(profile, xl - 1, xr + 1);
+  let under = OVERLAP;
+  for (let x = Math.ceil(xl); x <= xr; x++) { const own = profile(x); if (own !== Infinity) under = mMax(under, own - hull(x) + OVERLAP); }
+  fit = { poly, profile, hull, fullHull: upperHull(profile, -100, 100), apex, depth, xl, xr, eyeTop, el, er, under };
   fits.set(shape, fit);
   return fit;
 }
@@ -409,34 +433,41 @@ const HAT = { tomato: '#f2542d', sunny: '#ffc928', cream: '#fbefd5', deepblue: '
 const CLOTH = 5; // thickness above the head
 const OVERLAP = 6; // how far every hat edge reaches into the head itself, so no background shows between them (MUST-AV2-C1)
 
-/** The hat's lower edge at x: the hull lowered by the hat's depth, and always at least OVERLAP inside the head's own top. */
+/**
+ * The hat's lower edge at x: the hull lowered by the hat's depth, never higher than the head's own top plus OVERLAP
+ * anywhere on the span (MUST-AV2-C1), and never past the eye. Both bounds are rising functions of the hull's height, so
+ * the edge dips once and follows the hull: on a lobed head (scallop) it spans the valleys at their depth instead of
+ * drawing an ink V into each one (MUST-79-C1). On a head whose top is its hull this is the head's own top plus OVERLAP.
+ */
 function lowEdge(f: Fit, x: number): number {
-  const xc = clamp(x, f.xl, f.xr);
-  const design = mMin(f.hull(xc) + f.depth, f.apex + f.depth + (f.hull(xc) - f.apex) * 0.35);
-  const own = f.profile(xc);
-  return mMin(mMax(design, own === Infinity ? design : own + OVERLAP), f.eyeTop);
+  const h = f.hull(clamp(x, f.xl, f.xr));
+  const design = mMin(h + f.depth, f.apex + f.depth + (h - f.apex) * 0.35);
+  return mMin(mMax(design, h + f.under), f.eyeTop);
+}
+
+/**
+ * A superellipse arc of power `n` from (l, ends) to (r, ends), left to right in 33 points (k / 32 of a half turn),
+ * at least `rise` tall and tall enough to stay above `above(x)` wherever it is at least 30 % of its height.
+ */
+function dome(l: number, r: number, ends: number, rise: number, above: (x: number) => number, n = 2): Pt[] {
+  const cx = (l + r) / 2, half = (r - l) / 2;
+  const at = Array.from({ length: 33 }, (_, k): Pt => {
+    const c = mCos(M_PI * k / 32), x = cx - half * Math.sign(c) * mPow(mAbs(c), 2 / n), v = mPow(mSin(M_PI * k / 32), 2 / n);
+    if (v > 0.3) rise = mMax(rise, (ends - above(x)) / v);
+    return [x, v];
+  });
+  return at.map(([x, v]): Pt => [x, ends - rise * v]);
 }
 
 /**
  * A crown with its own soft dome (MUST-AV2-C3): an ellipse over the hat's span, just tall enough to clear the head's
  * hull by the cloth's thickness everywhere, so a pointed head gets a rounded hat instead of a cone that copies the point.
+ * It is at least `roundness` × the half-span tall, so a beanie is a dome and a cap a shallower one, on wide heads too.
  */
 function crown(f: Fit, base: (x: number) => number, roundness: number): { top: Pt[]; low: Pt[]; peak: Pt } {
-  const n = 32, ov = 4, x0 = f.xl - ov, x1 = f.xr + ov, cx = (x0 + x1) / 2, half = (x1 - x0) / 2;
-  const ends = (base(x0) + base(x1)) / 2;
-  // At least `roundness` × the half-span tall, so a beanie is a dome and a cap a shallower one, on wide heads too.
-  let rise = roundness * half;
-  for (let k = 1; k < n; k++) {
-    const x = x0 + (x1 - x0) * k / n, u = (x - cx) / half, s = mSqrt(mMax(0, 1 - u * u));
-    if (s > 0.3) rise = mMax(rise, (ends - (f.hull(clamp(x, f.xl, f.xr)) - CLOTH)) / s);
-  }
-  const top: Pt[] = [], low: Pt[] = [];
-  for (let k = 0; k <= n; k++) {
-    const x = x0 + (x1 - x0) * k / n, u = (x - cx) / half;
-    top.push([x, mMin(ends - rise * mSqrt(mMax(0, 1 - u * u)), base(x) - 2)]);
-    low.push([x, base(x)]);
-  }
-  return { top, low, peak: [cx, ends - rise] };
+  const x0 = f.xl - 4, x1 = f.xr + 4;
+  const arc = dome(x0, x1, (base(x0) + base(x1)) / 2, roundness * (x1 - x0) / 2, x => f.hull(clamp(x, f.xl, f.xr)) - CLOTH);
+  return { top: arc.map(([x, y]): Pt => [x, mMin(y, base(x) - 2)]), low: arc.map(([x]): Pt => [x, base(x)]), peak: arc[16]! };
 }
 
 const circlePoly = (cx: number, cy: number, r: number, n = 16): Pt[] => Array.from({ length: n }, (_, k) => [cx + r * mCos(2 * M_PI * k / n), cy + r * mSin(2 * M_PI * k / n)] as Pt);
@@ -476,8 +507,9 @@ function headwearParts(shape: OneAvatarShape, item: OneHeadwear): Part[] {
     case 'cap': {
       const { top, low: edge, peak } = crown(f, low, 0.32);
       const body = [...top, ...edge.slice().reverse()];
+      // The brim follows the edge's own slope, kept within about 17 degrees of level so it never droops down a steep head.
       const end = edge[edge.length - 1]!, prev = edge[edge.length - 4]!;
-      const ang = Math.atan2(end[1] - prev[1], end[0] - prev[0]), length = 26 + (f.xr - f.xl) * 0.22;
+      const ang = clamp(Math.atan2(end[1] - prev[1], end[0] - prev[0]), -0.3, 0.3), length = 26 + (f.xr - f.xl) * 0.22;
       const cos = mCos(ang), sin = mSin(ang), nx = -sin * 9, ny = cos * 9;
       const start: Pt = [end[0] - cos * 14, end[1] - sin * 14], tip: Pt = [end[0] + cos * length, end[1] + sin * length];
       const brim: Pt[] = [start, tip, [tip[0] + nx, tip[1] + ny], [start[0] + nx, start[1] + ny]];
@@ -502,9 +534,16 @@ function headwearParts(shape: OneAvatarShape, item: OneHeadwear): Part[] {
       ];
     }
     case 'headset': {
-      const y = f.eyeTop + 14, l = f.el, r = f.er;
-      const arc: Pt[] = [];
-      for (let k = 0; k <= 30; k++) { const x = l + 4 + (r - l - 8) * k / 30; arc.push([x, mMin(f.fullHull(x) - 4, y - 18)]); } // the band rests on the head (half its stroke above the hull)
+      // A rigid band with its own arc (SHOULD-79-S1) from one cup to the other, just tall enough to clear the head
+      // everywhere, so it rests on the crown and never copies a point; both ends sit in the cups (MUST-79-C2).
+      const y = f.eyeTop + 14, l = f.el, r = f.er, base = y - 16;
+      // The band's curve is a superellipse; the roundest that sits lowest wins (an arc on round heads, a squarer band
+      // that hugs a head with high sides, such as the tulip, instead of a tall loop).
+      let arc: Pt[] = [];
+      for (const n of [2, 3, 4, 6]) {
+        const at = dome(l, r, base, (r - l) * 0.3, x => f.fullHull(x) - 4, n);
+        if (!arc.length || at[16]![1] > arc[16]![1] + 2) arc = at;
+      }
       const cup = (cx: number): Pt[] => [[cx - 11, y - 20], [cx + 11, y - 20], [cx + 11, y + 20], [cx - 11, y + 20]];
       const mic: Pt[] = [[r, y + 16], [r - 8, y + 44], [r - 40, y + 56]];
       return [
@@ -547,7 +586,7 @@ function accessoryParts(shape: OneAvatarShape, headwear: OneHeadwear | null, gla
  */
 export function oneAvatarSilhouette(look: OneAvatarLook): readonly (readonly Pt[])[] {
   const value = parseOneAvatarLook(look);
-  return oneAvatarSilhouetteOf(value.shape, value.headwear ?? null, value.glasses ?? false);
+  return oneAvatarSilhouetteOf(value.shape, value.headwear!, value.glasses!);
 }
 
 /**
@@ -585,8 +624,8 @@ function stillEye(pose: OnePose, tier: OneTier, entry: OneAvatarShapeDescription
   const stroke = (d: string, width: number): string => `<path data-one-eye="true" d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const barMark = `<path data-one-eye="true" d="${barPath(bar.n)}" fill="${color}" stroke="${color}" stroke-width="${r2(2 * bar.r)}" stroke-linejoin="round"/>`;
   let eyeSvg: string;
-  if (eyePose === 'happy') eyeSvg = `<g data-character-eyes="agent-eye-v1" data-one-eye-pose="happy" transform="${placement(eye)}">${stroke('M-32 14Q0 -30 32 14', 20)}</g>`;
-  else if (eyePose === 'asleep') eyeSvg = `<g data-character-eyes="agent-eye-v1" data-one-eye-pose="asleep" transform="${placement(eye)}">${stroke('M-32 -10Q0 32 32 -10', 20)}</g>`;
+  const curve = eyePose === 'happy' ? 'M-32 14Q0 -30 32 14' : eyePose === 'asleep' ? 'M-32 -10Q0 32 32 -10' : null;
+  if (curve) eyeSvg = `<g data-character-eyes="agent-eye-v1" data-one-eye-pose="${eyePose}" transform="${placement(eye)}">${stroke(curve, 20)}</g>`;
   else if (eyePose === 'wide') eyeSvg = `<g data-character-eyes="agent-eye-v1" data-one-eye-pose="wide" transform="${placement(eye)}"><g transform="translate(-20 0) scale(0.84)">${barMark}</g><g transform="translate(20 0) scale(0.84)">${barMark}</g></g>`;
   else eyeSvg = `<g data-character-eyes="agent-eye-v1"${eyePose === 'neutral' ? '' : ` data-one-eye-pose="${eyePose}"`} transform="${at} rotate(${r2(frame.tilt)})">${barMark}</g>`;
   const cap = tier === 'XS' ? 0 : tier === 'S' ? 3 : tier === 'M' ? 8 : temperamentSquash[entry.temperament];
@@ -640,10 +679,7 @@ function parseAvatar(options: unknown): Parsed {
   if (framing !== 'head' && framing !== 'figure') throw new TypeError("One framing is 'head' or 'figure'");
   const eye = options.eye ?? 'neutral';
   if (!ONE_EYE_POSES.includes(eye as OneEyePose)) throw new TypeError('Unsupported One eye pose');
-  const headwear = options.headwear ?? null;
-  if (headwear !== null && !isOneHeadwear(headwear)) throw new TypeError('Unsupported One headwear');
-  const glasses = options.glasses ?? false;
-  if (typeof glasses !== 'boolean') throw new TypeError('One glasses must be boolean');
+  const [headwear, glasses] = accessoriesOf(options);
   const motion = options.motion;
   if (motion !== undefined && !ONE_FIGURE_MOTIONS.includes(motion as OneFigureMotion)) throw new TypeError('Unsupported One figure motion');
   if (motion !== undefined && framing !== 'figure') throw new TypeError('A One motion needs figure framing');
@@ -654,7 +690,8 @@ function parseAvatar(options: unknown): Parsed {
   const baseShape = shape === undefined || isOneShape(shape);
   const baseColor = color === undefined || color === 'charcoal' || color === 'blank' || isOneColor(color);
   const base: Record<string, unknown> = {};
-  for (const key of ['did', 'shape', 'color', 'size', 'theme', 'label', 'expression', 'state']) if (options[key] !== undefined) base[key] = options[key];
+  // renderOne's own options: the first eight avatar keys.
+  for (const key of avatarKeys.slice(0, 8)) if (options[key] !== undefined) base[key] = options[key];
   return {
     base: base as OneOptions, framing, eye: eye as OneEyePose, headwear: headwear as OneHeadwear | null, glasses, motion: motion as OneFigureMotion | undefined,
     identical: framing === 'head' && eye === 'neutral' && headwear === null && !glasses && baseShape && baseColor,
@@ -711,6 +748,12 @@ function paintOf(color: Resolved['color'], theme: OneTheme): { disc: string; opa
 }
 
 /** The inner markup of a head (everything inside its root element), for any head, pose and accessories. */
+/** The accessible name: the agent's label on the svg and as its title, or hidden when there is none. */
+function named(label: string | undefined): [string, string] {
+  const n = label === undefined ? undefined : escapeXml(label);
+  return n === undefined ? [' aria-hidden="true" focusable="false"', ''] : [` role="img" aria-label="${n}"`, `<title>${n}</title>`];
+}
+
 function headInner(r: Resolved, p: Parsed): { root: string; inner: string; face: OneFace } {
   if (r.shape === 'charcoal' || (p.identical)) {
     const svg = renderOne(p.base);
@@ -749,10 +792,9 @@ function headInner(r: Resolved, p: Parsed): { root: string; inner: string; face:
   }
   out.push('</g>');
   if (k !== 1) out.push('</g>');
-  const name = r.label === undefined ? undefined : escapeXml(r.label);
-  const access = name === undefined ? ' aria-hidden="true" focusable="false"' : ` role="img" aria-label="${name}"`;
+  const [access, title] = named(r.label);
   const root = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200" width="${r.size}" height="${r.size}" overflow="visible"${access} data-character-skin="one" data-character-version="2" data-character-shape="${r.shape}" data-character-expression="${r.expression}" data-character-theme="${r.theme}" data-one-shape="${r.shape}" data-one-color="${r.color}" data-one-face="${face}" data-one-tier="${tier}" data-one-framing="head"${p.headwear ? ` data-one-headwear="${p.headwear}"` : ''}${p.glasses ? ' data-one-glasses="true"' : ''}>`;
-  return { root, inner: (name === undefined ? '' : `<title>${name}</title>`) + out.join(''), face };
+  return { root, inner: title + out.join(''), face };
 }
 
 // ── Figure: uniform limbs and motion ─────────────────────────────────────────────────────────────
@@ -840,14 +882,13 @@ export function renderOneAvatar(options: OneAvatarOptions): string {
   const ink = r.theme === 'dark' ? CHALK : INK;
   const { back, front } = limbs(r.shape, motion, ink);
   const temperament = r.shape === 'charcoal' ? 'dry' : shapeById.get(r.shape)!.temperament;
-  const label = r.label === undefined ? undefined : escapeXml(r.label);
-  const access = label === undefined ? ' aria-hidden="true" focusable="false"' : ` role="img" aria-label="${label}"`;
+  const [access, title] = named(r.label);
   const inner = head.inner.replace(/^<title>[^<]*<\/title>/, '');
   const lift = motion === 'hop' ? -ONE_FIGURE_MOTION.hop.rise / 2 : motion === 'sit' || motion === 'doze' ? 30 : 0;
   const lean = motion === 'lean' ? ` rotate(${ONE_FIGURE_MOTION.lean.leanDeg} 0 ${GROUND})` : '';
   const z = motion === 'doze' ? `<path data-one-part="z" d="M70 -96H86L70 -80H86" fill="none" stroke="${ink}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-130 -110 260 330" width="${r2(r.size * 1.3)}" height="${r2(r.size * 1.65)}" overflow="visible"${access} data-character-skin="one" data-character-version="2" data-one-framing="figure" data-one-figure="true" data-one-motion="${motion}" data-one-temperament="${temperament}" data-one-shape="${r.shape === 'charcoal' ? 'circle' : r.shape}" data-one-color="${r.color}">` +
-    (label === undefined ? '' : `<title>${label}</title>`) +
+    title +
     `<g data-one-part="figure"${lean ? ` transform="${lean.trim()}"` : ''}><g data-one-part="body" transform="translate(0 ${lift})">` +
     `<g data-one-limbs="true" aria-hidden="true">${back}</g><g data-one-part="head">${inner}</g><g data-one-limbs="true" aria-hidden="true">${front}</g>${z}</g></g></svg>`;
 }
@@ -931,16 +972,12 @@ export function mountOneAvatar(element: Element, options: OneAvatarMountOptions)
   };
   const draw = (value: OneAvatarMountOptions): void => {
     if (!hasOnlyKeys(value, [...avatarKeys.filter(k => k !== 'did'), ...mountExtra])) throw new TypeError('Invalid One avatar options');
-    const { animated, reducedMotion, cadence, group, follow, ...still } = value as OneAvatarMountOptions & Record<string, unknown>;
+    const { animated, reducedMotion } = value, still = Object.fromEntries(Object.entries(value).filter(([key]) => !mountExtra.includes(key)));
     const parsed = parseAvatar(still);
     teardown();
     if (parsed.identical) {
       const live: Record<string, unknown> = { ...parsed.base };
-      if (animated !== undefined) live.animated = animated;
-      if (reducedMotion !== undefined) live.reducedMotion = reducedMotion;
-      if (cadence !== undefined) live.cadence = cadence;
-      if (group !== undefined) live.group = group;
-      if (follow !== undefined) live.follow = follow;
+      for (const key of mountExtra) if ((value as Record<string, unknown>)[key] !== undefined) live[key] = (value as Record<string, unknown>)[key];
       element.replaceChildren();
       current = { head: mountOne(element, live as OneMountOptions) };
       return;

@@ -35,7 +35,8 @@ for (const budget of budgets) {
 
 // The figure family's own code (src/one-figure*.ts, minified, with every module it shares with the head runtime left
 // out): at most 12 KB gzipped. AV-C1 set 8 KB for limbs and accessories; round 2 added ten heads, five headwear
-// generators fitted per head, eye poses and the colour-science picker to the same entry (11.9 KB measured). The head
+// generators fitted per head, eye poses and the colour-science picker to the same entry (12.0 KB measured with the
+// round 2 fit fixes). Any growth past 12 KB splits the entry (head extras vs limbs and motion); it is never raised. The head
 // runtime that head-only pages load is unchanged and keeps its own 16 KB budget.
 const { build } = await import('esbuild');
 const own = await build({

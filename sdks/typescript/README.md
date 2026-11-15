@@ -372,7 +372,9 @@ animates the live state (walk, wave, sit, hop, lean in, doze), pauses offscreen
 and holds a still key pose under reduced motion. Headwear (beanie, cap, bow,
 headset) and glasses are generated from each head's own outline and fit inside
 today's square. A head and headwear pair that would read as another head at
-16 px is never offered (`ONE_HEADWEAR_NEVER`). With only today's options
+16 px is never offered (`ONE_HEADWEAR_NEVER`, which only grows); read a
+stored look with `readOneAvatarLook`, which draws a pair a later version
+refuses as the bare head. With only today's options
 (the fourteen heads, eighteen colours, Digital One or a blank head, no eye pose
 or accessory) `renderOneAvatar` is `renderOne` and `mountOneAvatar` is
 `mountOne`, byte for byte. DID defaults keep the fourteen heads.
