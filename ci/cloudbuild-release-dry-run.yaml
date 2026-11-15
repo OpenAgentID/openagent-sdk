@@ -1,7 +1,7 @@
-# The npm release on Google Cloud Build (AGENTS.md rule 5; docs/RELEASING.md): builds, tests and packs the release and publishes nothing.
+# The npm release on Google Cloud Build (AGENTS.md rule 5; docs/RELEASING.md): builds, tests and packs the release,
+# runs npm publish --dry-run, and publishes nothing. No secret.
 #   bash tools/release/cloudbuild-release.sh vX.Y.Z <40-hex sha>
 # Reads the tag from the public repository: no source is uploaded and no GitHub token enters the build.
-# No secret: npm publish runs with --dry-run.
 steps:
 - id: checkout
   name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
@@ -31,10 +31,10 @@ steps:
   entrypoint: bash
   args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'metadata']
   env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
-- id: build
+- id: dry-run
   name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
   entrypoint: bash
-  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'build']
+  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'dry-run']
   env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
 substitutions:
   _TAG: ''

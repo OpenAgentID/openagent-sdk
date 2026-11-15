@@ -46,14 +46,16 @@ publishes nothing.
    this commit, after a partial run) or `unchanged`. A version below npm's `latest` is refused.
 3. **Release metadata**: the root manifest check, the changelog check against npm and its tests, the
    verbatim Apache licence, and `npm audit` (high) over every released package, as CI runs them.
-4. **Build and publish** (`tools/release/publish.mjs`). Every package marked `publish` is installed from
-   its lockfile, typechecked, tested and built; the SDK also passes the browser size budgets. The
-   companion packages are tested a second time against the SDK packed from the same commit. Every
-   package is packed once, with a CycloneDX SBOM and `SHA256SUMS`, and then published with
-   `npm publish --access public` and an npm token read from Secret Manager (`oaid-npm-publish-token`, by
-   name; it reaches npm through a userconfig that names the variable, never the value). npm records the
-   commit as `gitHead`, and the build checks it.
-5. **Verify.** The build downloads every version it published back from npm, checks that the bytes npm
+4. **Build** (`tools/release/publish.mjs --pack-only`, no secret). Every package marked `publish` is
+   installed from its lockfile, typechecked, tested and built; the SDK also passes the browser size
+   budgets. The companion packages are tested a second time against the SDK packed from the same commit.
+   Every package is packed once, with a CycloneDX SBOM and `SHA256SUMS`.
+5. **Publish** (inline in the config; no repository code). The only step that receives the npm token
+   (Secret Manager `oaid-npm-publish-token`, read by the release's own service account `oaid-release@`
+   only). In a fresh directory outside the workspace it checks each tarball the plan publishes against
+   `SHA256SUMS` and runs `npm publish <tarball> --ignore-scripts` with a fresh userconfig that names the
+   token's variable, never its value; no other command sees the token. A version already on npm is skipped.
+6. **Verify.** The build downloads every version it published back from npm, checks that the bytes npm
    serves are the bytes it packed (`sha256sum -c SHA256SUMS`), and prints each tarball's sha256.
 
 **No npm provenance.** npm provenance and trusted publishing need a GitHub Actions or GitLab OIDC token,

@@ -1,7 +1,7 @@
 # The npm release on Google Cloud Build (AGENTS.md rule 5; docs/RELEASING.md): publishes the release to npm.
 #   bash tools/release/cloudbuild-release.sh vX.Y.Z <40-hex sha> --publish
-# Reads the tag from the public repository: no source is uploaded and no GitHub token enters the build.
-# The only secret is the npm publish token, by name; a red step stops the build before publish.
+# Reads the tag from the public repository: no source is uploaded and no GitHub token enters the build. Runs as its own
+# service account, the only one that may read the npm token; only the publish step receives it.
 steps:
 - id: checkout
   name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
@@ -31,21 +31,64 @@ steps:
   entrypoint: bash
   args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'metadata']
   env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+- id: build
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'build']
+  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
 - id: publish
   name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
   entrypoint: bash
-  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'publish']
-  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+  # The only step that sees the token, and it runs no repository code: in a fresh directory outside /workspace it checks
+  # each tarball the plan publishes against SHA256SUMS, then hands exactly those bytes to the image's own npm, with a
+  # fresh userconfig and no project .npmrc. Every other command here runs without the token in its environment.
   secretEnv: ['NPM_TOKEN']
+  args:
+  - -c
+  - |
+    set -euo pipefail
+    token="$$NPM_TOKEN"
+    unset NPM_TOKEN
+    for v in $$(env | grep -o -i '^npm_config_[a-z0-9_]*'); do unset "$$v"; done
+    work="$$(mktemp -d /tmp/publish.XXXXXX)"
+    cd "$$work"
+    echo '//registry.npmjs.org/:_authToken=$${NPM_TOKEN}' > npmrc
+    node -e 'for (const p of JSON.parse(require("fs").readFileSync("/workspace/plan.json", "utf8")).packages) if (p.status === "publish") console.log(p.name.replace(/^@/, "").replace("/", "-") + "-" + p.version + ".tgz " + p.distTag + " " + p.name + "@" + p.version)' > publish.list
+    while read -r file tag spec; do
+      line="$$(awk -v f="$$file" '$$2 == f' /workspace/release-files/SHA256SUMS)"
+      if [ -z "$$line" ]; then echo "$$file is not in SHA256SUMS"; exit 1; fi
+      cp "/workspace/release-files/$$file" .
+      echo "$$line" | sha256sum -c -
+      if npm view "$$spec" version --userconfig /dev/null > /dev/null 2>&1; then echo "= $$spec is already on npm"; continue; fi
+      env -i PATH="$$PATH" HOME="$$work" NPM_TOKEN="$$token" npm publish "./$$file" --access public --tag "$$tag" --ignore-scripts --userconfig "$$work/npmrc"
+    done < publish.list
 - id: verify
   name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
   entrypoint: bash
-  args: ['/workspace/src/tools/release/cloudbuild-step.sh', 'verify']
-  env: ['TAG=$_TAG', 'SHA=$_SHA', 'CI=true']
+  # The bytes npm serves are the bytes this build packed; registry lag is retried.
+  args:
+  - -c
+  - |
+    set -euo pipefail
+    mkdir -p /tmp/registry
+    cd /tmp/registry
+    node -e 'for (const p of JSON.parse(require("fs").readFileSync("/workspace/plan.json", "utf8")).packages) if (p.status !== "unchanged") console.log(p.name + "@" + p.version)' > verify.list
+    while read -r spec; do
+      for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if npm pack --silent "$$spec" > /dev/null 2>&1; then break; fi
+        if [ "$$attempt" = 10 ]; then echo "$$spec is not on npm"; exit 1; fi
+        sleep 6
+      done
+    done < verify.list
+    cp /workspace/release-files/SHA256SUMS .
+    sha256sum -c SHA256SUMS
+    echo "Release $_TAG ($_SHA): published tarballs, sha256:"
+    cat SHA256SUMS
 availableSecrets:
   secretManager:
   - versionName: projects/l1fe-minds-fc/secrets/oaid-npm-publish-token/versions/latest
     env: NPM_TOKEN
+serviceAccount: projects/l1fe-minds-fc/serviceAccounts/oaid-release@l1fe-minds-fc.iam.gserviceaccount.com
 substitutions:
   _TAG: ''
   _SHA: ''
