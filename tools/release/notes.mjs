@@ -42,7 +42,7 @@ const source = `Published to npm on ${when} from \`${plan.sha.slice(0, 7)}\``;
 const notes = [
   manual
     ? `${source} by a maintainer, because the release workflow could not run; these versions have no provenance attestation.`
-    : `${source} by the [release workflow](https://github.com/OpenAgentID/openagent-sdk/blob/${plan.sha}/.github/workflows/release.yml), with npm provenance.`,
+    : `${source} by the [Cloud Build release](https://github.com/OpenAgentID/openagent-sdk/blob/${plan.sha}/ci/cloudbuild-release.yaml). npm provenance needs a GitHub or GitLab OIDC token, so these versions carry none; the build checked that npm serves exactly the tarballs below (\`SHA256SUMS\`).`,
   '',
   section.body,
   '',
@@ -61,17 +61,13 @@ const notes = [
   '',
   ...integrity,
   '',
-  ...(manual ? [] : [
-    `Each package page on npm shows the provenance attestation that links it to this tag's workflow run, and`,
-    'GitHub holds a build provenance attestation for every tarball. To check a download:',
-    '',
-    '```sh',
-    `gh release download ${plan.tag} --repo OpenAgentID/openagent-sdk`,
-    'sha256sum -c SHA256SUMS',
-    'gh attestation verify openagentid-sdk-*.tgz --repo OpenAgentID/openagent-sdk',
-    '```',
-    '',
-  ]),
+  'To check a download:',
+  '',
+  '```sh',
+  `gh release download ${plan.tag} --repo OpenAgentID/openagent-sdk`,
+  'sha256sum -c SHA256SUMS',
+  '```',
+  '',
 ].join('\n');
 writeFileSync(notesPath, notes);
 

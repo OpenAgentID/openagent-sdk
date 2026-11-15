@@ -3,13 +3,14 @@
 // "published" (on npm already from this commit, after a partial run) are built, tested and packed again, so
 // every version the tag releases gets its release files, but they are not published twice.
 //
-//   node tools/release/publish.mjs plan.json [--dry-run] [--out <directory>]
+//   node tools/release/publish.mjs plan.json --pack-only|--dry-run [--out <directory>]
 //
 // Every package is installed from its lockfile, typechecked, tested, built and (for the SDK) held to the
 // browser size budgets before anything is published. Packages flagged testWithCandidateSdk are tested a
 // second time against the SDK packed from this commit, so a companion never ships untested against the SDK
-// it is released with. Publishing uses npm trusted publishing from GitHub Actions: no token, and npm attaches
-// a provenance attestation that names this repository, workflow and commit.
+// it is released with. This script never publishes: --pack-only builds, tests and packs; --dry-run also runs
+// `npm publish --dry-run`. The Cloud Build release publishes the packed tarballs in a separate step that runs no
+// repository code and is the only one that sees the npm token (ci/cloudbuild-release.yaml, docs/RELEASING.md).
 //
 // Before publishing, each package is also packed into --out (default: a temporary directory), with a CycloneDX
 // SBOM of its locked dependency tree beside it and SHA256SUMS over the tarballs. npm packs deterministically,
@@ -20,16 +21,21 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { packument, root } from './lib.mjs';
+import { packument, root, sameBytesAsNpm } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
+const packOnly = args.includes('--pack-only');
+if (dryRun === packOnly) {
+  console.error('Pass exactly one of --pack-only and --dry-run.');
+  process.exit(2);
+}
 const outIndex = args.indexOf('--out');
 const out = resolve(outIndex === -1 ? mkdtempSync(join(tmpdir(), 'openagentid-release-')) : args.splice(outIndex, 2)[1]);
 mkdirSync(out, { recursive: true });
 const planPath = args.find(arg => !arg.startsWith('--'));
 if (!planPath) {
-  console.error('Usage: publish.mjs plan.json [--dry-run] [--out <directory>]');
+  console.error('Usage: publish.mjs plan.json --pack-only|--dry-run [--out <directory>]');
   process.exit(2);
 }
 const plan = JSON.parse(readFileSync(planPath, 'utf8'));
@@ -73,6 +79,11 @@ function pack(directory, release = true) {
     { cwd: join(root, directory), encoding: 'utf8' }));
   const tarball = join(destination, packed.filename);
   if (!release) return tarball;
+  const item = plan.packages.find(entry => entry.directory === directory);
+  // CONDITION-84-C3: a version this release already published as a tarball (no gitHead) is rebuilt to exactly npm's bytes.
+  if (item?.npmIntegrity && !sameBytesAsNpm(item.npmIntegrity, readFileSync(tarball))) {
+    throw new Error(`${item.name}@${item.version} is on npm with no gitHead and other bytes than this commit builds; bump its version.`);
+  }
   writeFileSync(tarball.replace(/\.tgz$/, '.cdx.json'), sbom(directory));
   sums.push(`${createHash('sha256').update(readFileSync(tarball)).digest('hex')}  ${packed.filename}`);
   return tarball;
@@ -111,7 +122,9 @@ for (const item of plan.packages) {
   const existing = (await packument(item.name))?.versions?.[item.version];
   // A re-run after a partial failure: npm never accepts the same version twice, so a version already there
   // from this commit is rebuilt and packed for the release files but not published again.
-  if (existing && existing.gitHead !== plan.sha) {
+  // A tarball published by the Cloud Build release may carry no gitHead; its bytes are checked against this build's
+  // instead (the release's verify step), so only a gitHead naming another commit is refused here.
+  if (existing?.gitHead && existing.gitHead !== plan.sha) {
     throw new Error(`${item.name}@${item.version} is on npm from ${existing.gitHead || 'an unrecorded commit'}, not ${plan.sha}.`);
   }
   console.log(`\n> ${item.name}@${item.version} (${existing ? 'already on npm from this commit' : `dist-tag ${item.distTag}`})`);
@@ -125,20 +138,7 @@ for (const item of plan.packages) {
     }
     pack(item.directory);
   }
-  if (existing) continue;
-  // A dry run cannot attest provenance: npm only signs inside the GitHub Actions OIDC context.
-  const publish = ['publish', '--access', 'public', '--tag', item.distTag, '--ignore-scripts', dryRun ? '--dry-run' : '--provenance'];
-  run(item.directory, 'npm', publish);
-  if (dryRun) continue;
-  for (let attempt = 1; ; attempt += 1) {
-    const published = (await packument(item.name))?.versions?.[item.version];
-    if (published) {
-      if (published.gitHead !== plan.sha) throw new Error(`${item.name}@${item.version} on npm records gitHead ${published.gitHead}, not ${plan.sha}.`);
-      console.log(`= ${item.name}@${item.version} is on npm from ${plan.sha.slice(0, 7)} (${published.dist.integrity}).`);
-      break;
-    }
-    if (attempt === 10) throw new Error(`${item.name}@${item.version} did not appear on the registry after publishing.`);
-    await new Promise(done => setTimeout(done, 6000));
-  }
+  if (existing || packOnly) continue;
+  run(item.directory, 'npm', ['publish', '--access', 'public', '--tag', item.distTag, '--ignore-scripts', '--dry-run']);
 }
 finish();

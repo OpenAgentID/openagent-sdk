@@ -1,0 +1,107 @@
+# The npm release on Google Cloud Build (AGENTS.md rule 5; docs/RELEASING.md), build 2 of 2: the PUBLISH build.
+#   bash tools/release/cloudbuild-release.sh vX.Y.Z <40-hex sha> --publish <_SUMS> <_PLAN>
+# _SUMS and _PLAN are the sha256 of SHA256SUMS and plan.json that the pack build (ci/cloudbuild-release-pack.yaml) printed.
+# MUST-84-S1: every step of a build shares its service account, so this build runs NO repository or dependency code at
+# all: no checkout, only inline steps and the gate image's own node and npm. It takes the staged files from
+# gs://l1fe-minds-fc-oaid-release/openagent-sdk/<tag>/<sha>/, refuses unless they hash to the pinned values, publishes
+# exactly those tarballs, and checks the bytes npm serves. It runs as oaid-release@, the only identity that may read the
+# npm token (secretAccessor on that one secret, read on that bucket); only the publish step receives the token.
+steps:
+- id: fetch
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  args:
+  - -c
+  - |
+    set -euo pipefail
+    [[ "$_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$$ ]] || { echo "not a release tag"; exit 1; }
+    [[ "$_SHA" =~ ^[0-9a-f]{40}$$ ]] || { echo "not a full commit sha"; exit 1; }
+    [[ "$_SUMS" =~ ^[0-9a-f]{64}$$ && "$_PLAN" =~ ^[0-9a-f]{64}$$ ]] || { echo "pass _SUMS and _PLAN from the pack build"; exit 1; }
+    mkdir -p /workspace/release-files
+    cd /workspace/release-files
+    # Objects by name from the staged prefix, with this build's own token from the metadata server.
+    cat > /workspace/fetch.js <<'JS'
+    const fs = require('fs');
+    const prefix = 'openagent-sdk/' + process.env.TAG + '/' + process.env.SHA + '/';
+    (async () => {
+      const meta = await fetch('http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token', { headers: { 'Metadata-Flavor': 'Google' } });
+      if (!meta.ok) throw new Error('no build token');
+      const token = (await meta.json()).access_token;
+      for (const name of process.argv.slice(2)) {
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$$/.test(name)) throw new Error('bad file name');
+        const url = 'https://storage.googleapis.com/storage/v1/b/l1fe-minds-fc-oaid-release/o/' + encodeURIComponent(prefix + name) + '?alt=media';
+        const response = await fetch(url, { headers: { authorization: 'Bearer ' + token }, redirect: 'error' });
+        if (!response.ok) throw new Error(name + ' is not staged (HTTP ' + response.status + ')');
+        fs.writeFileSync(name, Buffer.from(await response.arrayBuffer()));
+      }
+    })().catch(error => { console.error(error.message); process.exit(1); });
+    JS
+    TAG="$_TAG" SHA="$_SHA" node /workspace/fetch.js SHA256SUMS plan.json
+    echo "$_SUMS  SHA256SUMS" | sha256sum -c -
+    echo "$_PLAN  plan.json" | sha256sum -c -
+    node -e 'const p = JSON.parse(require("fs").readFileSync("plan.json", "utf8")); if (p.tag !== process.argv[1] || p.sha !== process.argv[2]) { console.error("plan.json is not this tag"); process.exit(1); }' "$_TAG" "$_SHA"
+    TAG="$_TAG" SHA="$_SHA" node /workspace/fetch.js $$(awk '{ print $$2 }' SHA256SUMS)
+    sha256sum -c SHA256SUMS
+    cp plan.json /workspace/plan.json
+- id: publish
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  # The only step that sees the token. In a fresh directory it checks each tarball the plan publishes against
+  # SHA256SUMS, then hands exactly those bytes to the image's own npm, with a fresh userconfig and no project .npmrc.
+  secretEnv: ['NPM_TOKEN']
+  args:
+  - -c
+  - |
+    set -euo pipefail
+    token="$$NPM_TOKEN"
+    unset NPM_TOKEN
+    for v in $$(env | grep -o -i '^npm_config_[a-z0-9_]*'); do unset "$$v"; done
+    work="$$(mktemp -d /tmp/publish.XXXXXX)"
+    cd "$$work"
+    echo '//registry.npmjs.org/:_authToken=$${NPM_TOKEN}' > npmrc
+    node -e 'for (const p of JSON.parse(require("fs").readFileSync("/workspace/plan.json", "utf8")).packages) if (p.status === "publish") console.log(p.name.replace(/^@/, "").replace("/", "-") + "-" + p.version + ".tgz " + p.distTag + " " + p.name + "@" + p.version)' > publish.list
+    while read -r file tag spec; do
+      line="$$(awk -v f="$$file" '$$2 == f' /workspace/release-files/SHA256SUMS)"
+      if [ -z "$$line" ]; then echo "$$file is not in SHA256SUMS"; exit 1; fi
+      cp "/workspace/release-files/$$file" .
+      echo "$$line" | sha256sum -c -
+      if env -i PATH="$$PATH" HOME="$$work" npm view "$$spec" version --userconfig /dev/null > /dev/null 2>&1; then echo "= $$spec is already on npm"; continue; fi
+      env -i PATH="$$PATH" HOME="$$work" NPM_TOKEN="$$token" npm publish "./$$file" --access public --tag "$$tag" --ignore-scripts --userconfig "$$work/npmrc"
+    done < publish.list
+- id: verify
+  name: us-central1-docker.pkg.dev/l1fe-minds-fc/fleets-serving/ci-hooks-gate@sha256:76e82e003457e38a619eeef6daa18744c7a53190750128dd257e675a4bb38a62
+  entrypoint: bash
+  # The bytes npm serves are the bytes the pack build packed; registry lag is retried.
+  args:
+  - -c
+  - |
+    set -euo pipefail
+    work="$$(mktemp -d /tmp/registry.XXXXXX)"
+    cd "$$work"
+    node -e 'for (const p of JSON.parse(require("fs").readFileSync("/workspace/plan.json", "utf8")).packages) if (p.status !== "unchanged") console.log(p.name + "@" + p.version)' > verify.list
+    while read -r spec; do
+      for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if env -i PATH="$$PATH" HOME="$$work" npm pack --silent "$$spec" --userconfig /dev/null > /dev/null 2>&1; then break; fi
+        if [ "$$attempt" = 10 ]; then echo "$$spec is not on npm"; exit 1; fi
+        sleep 6
+      done
+    done < verify.list
+    cp /workspace/release-files/SHA256SUMS .
+    sha256sum -c SHA256SUMS
+    echo "Release $_TAG ($_SHA): published tarballs, sha256:"
+    cat SHA256SUMS
+availableSecrets:
+  secretManager:
+  - versionName: projects/l1fe-minds-fc/secrets/oaid-npm-publish-token/versions/latest
+    env: NPM_TOKEN
+serviceAccount: projects/l1fe-minds-fc/serviceAccounts/oaid-release@l1fe-minds-fc.iam.gserviceaccount.com
+substitutions:
+  _TAG: ''
+  _SHA: ''
+  _SUMS: ''
+  _PLAN: ''
+options:
+  logging: CLOUD_LOGGING_ONLY
+  pool:
+    name: projects/l1fe-minds-fc/locations/us-central1/workerPools/oneos-std-usc1
+timeout: 3600s

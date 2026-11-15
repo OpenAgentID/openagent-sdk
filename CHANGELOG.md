@@ -17,6 +17,13 @@ The standalone One runtime (0.8.1).
 
 ### Release process and repository
 
+- Publish releases on Google Cloud Build instead of GitHub Actions (all Linux builds run on Cloud Build):
+  `tools/release/cloudbuild-release.sh vX.Y.Z <sha> [--publish]` runs `ci/cloudbuild-release.yaml` (or its
+  dry run), which clones the tag from this repository, requires every check `main`'s ruleset names to be
+  green on the merged pull request's head with the same tree, plans, runs the release-metadata checks,
+  builds, tests, packs once and publishes with an npm token read from Secret Manager, then checks npm
+  serves the packed bytes and prints their sha256. `.github/workflows/release.yml` is removed. These
+  releases carry no npm provenance (it needs GitHub or GitLab OIDC); the notes list each tarball's sha256.
 - Publish releases from annotated `vX.Y.Z` tags with
   `.github/workflows/release.yml`. It checks the tag against the package
   versions and `main`, waits for CI on the tagged commit, builds and tests every

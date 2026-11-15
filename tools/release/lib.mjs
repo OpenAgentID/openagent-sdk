@@ -1,5 +1,6 @@
 // Shared helpers for the release tooling in this directory. Node 20.19+ only, no dependencies.
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -86,4 +87,24 @@ export function changelogSection(path, version) {
   const rest = text.slice(match.index + match[0].length);
   const next = /^## /m.exec(rest);
   return { date: match[1], body: (next ? rest.slice(0, next.index) : rest).trim() };
+}
+
+/**
+ * What the plan makes of a package version npm already has (CONDITION-84-C3). From this commit (npm's gitHead): published.
+ * A tarball the Cloud Build release published records no gitHead, so on a re-run after a partial publish the version is
+ * on npm with no gitHead while its directory changed since the previous tag: planned as published WITH npm's integrity,
+ * and the build refuses unless the tarball it rebuilds from this commit has exactly those bytes (sameBytesAsNpm). Changed
+ * with a gitHead naming another commit: an error (bump the version). Otherwise unchanged.
+ */
+export function onNpmStatus({ onNpm, sha, changedSincePreviousTag }) {
+  if (onNpm.gitHead && sha && onNpm.gitHead === sha) return { status: 'published' };
+  if (changedSincePreviousTag && !onNpm.gitHead && typeof onNpm.dist?.integrity === 'string' && onNpm.dist.integrity.startsWith('sha512-')) {
+    return { status: 'published', npmIntegrity: onNpm.dist.integrity };
+  }
+  return { status: 'unchanged', mustBump: Boolean(changedSincePreviousTag) };
+}
+
+/** Whether these tarball bytes are the ones npm serves under `integrity` (`sha512-<base64>`). */
+export function sameBytesAsNpm(integrity, bytes) {
+  return typeof integrity === 'string' && integrity === `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
 }
