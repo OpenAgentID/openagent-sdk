@@ -22,4 +22,7 @@ export default defineConfig([
   { ...browser, entry: { 'character-player': 'src/character-browser.ts' }, minify: true },
   // The live One runtime alone, minified for the One app's script budget (scripts/check-size.mjs).
   { ...browser, entry: { one: 'src/one-browser.ts' }, define: { __OAID_ONE_COMPACT_ERRORS__: 'true' }, minify: false },
+  // The figure family (head-only renders for 24 heads, accessories, limbs and motion) with the live One runtime it
+  // builds on, minified, for pages that show figures. Head-only callers keep loading `one` alone.
+  { ...browser, entry: { 'one-figure': 'src/one-figure.ts' }, minify: true },
 ]);
