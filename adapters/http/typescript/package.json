@@ -81,7 +81,7 @@
     "example": "node examples/express-sdk.mjs"
   },
   "dependencies": {
-    "zod": "^3.23.8"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@openagentid/sdk": "^0.7.2 || ^0.8.0"

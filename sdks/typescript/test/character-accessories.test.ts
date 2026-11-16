@@ -113,9 +113,10 @@ describe('independent character accessories', () => {
     expect(descendants(glasses).every(node => node.attributes.fill === undefined || node.attributes.fill === 'none')).toBe(true);
   });
 
-  it('fits external headgear inside every circular crop with stable framing across gaze and expression', () => {
-    // One heads keep wearables in their descriptor but do not draw them (see character-one.test.ts).
-    for (const family of getCharacterSkins().filter(entry => entry.id !== 'one')) for (const shape of family.shapes) for (const eyePlacement of ['face', 'raised'] as const) {
+  // One case per skin (same shapes, placements and checks), so each sweep fits its budget when the CI jobs share a
+  // machine. One heads keep wearables in their descriptor but do not draw them (see character-one.test.ts).
+  for (const family of getCharacterSkins().filter(entry => entry.id !== 'one')) it(`fits external headgear inside every ${family.id} circular crop with stable framing across gaze and expression`, () => {
+    for (const shape of family.shapes) for (const eyePlacement of ['face', 'raised'] as const) {
       const framing = characterFraming(family.id, shape, 'avatar', { accessories: both, eyePlacement });
       const [cropX, cropY, size] = framing.viewBox.split(' ').map(Number) as [number, number, number];
       const [faceX, faceY, scale] = framing.faceTransform.match(/-?\d+(?:\.\d+)?/g)!.map(Number) as [number, number, number, ...number[]];

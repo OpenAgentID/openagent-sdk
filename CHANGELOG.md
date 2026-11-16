@@ -86,6 +86,10 @@ The standalone One runtime (0.8.1).
 - Add `SUPPORT.md`, and replace the Markdown issue templates with issue forms
   (bug report with version and reproduction, feature request).
 
+### Security
+
+- Move every TypeScript package to zod `^4.6.7` (was `^3.23.8`) and regenerate each lockfile, because zod before 4.6.6 can exhaust memory when it validates an oversized constrained collection (GHSA-mrhx-c7xc-m3w5, high) and the SCIM bridge, the HTTP adapter and the character service validate request bodies with such schemas. No 3.x release carries the fix. Exported schemas are now zod 4 schemas, so code that composes them with its own schemas must move to zod 4 too; inferred types are unchanged. Released as 0.10.0.
+
 ## [0.8.0] - 2026-10-17
 
 The One family. Published to npm: `@openagentid/sdk` 0.8.0, `@openagentid/sdk-testing` 0.1.3, `@openagentid/http` 0.2.1, `@openagentid/mcp` 0.2.1, `@openagentid/claude-agent` 0.2.1, `@openagentid/scim` 0.2.1, `create-openagent` 0.6.0.
