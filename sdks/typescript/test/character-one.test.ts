@@ -700,8 +700,9 @@ describe('One faces', () => {
     }
   });
 
-  it('keeps every held face at least ten units inside every shape, and inside agent-eye\'s safe radius in the circle', () => {
-    for (const kind of kinds) for (const face of faces) for (const px of sizes) for (const gaze of [row, { x: 1, y: 1 }, { x: -1, y: -1 }, { x: 0, y: 0 }, { x: 1, y: -1 }, { x: -1, y: 1 }]) {
+  // One case per head (same faces, sizes and gazes), so each sweep fits its budget when the CI jobs share a machine.
+  for (const kind of kinds) it(`keeps every held face at least ten units inside the ${kind} head, and inside agent-eye's safe radius in the circle`, () => {
+    for (const face of faces) for (const px of sizes) for (const gaze of [row, { x: 1, y: 1 }, { x: -1, y: -1 }, { x: 0, y: 0 }, { x: 1, y: -1 }, { x: -1, y: 1 }]) {
       const result = contained(oneHeldPose(face, gaze, px), kind);
       expect(result.clearance, `${face} at ${px}px in ${kind}, gaze ${gaze.x},${gaze.y}`).toBeGreaterThanOrEqual(kind === 'charcoal' ? -0.01 : MARGIN);
     }
@@ -760,8 +761,10 @@ describe('One moments', () => {
     }
   }, 120_000);
 
-  it('withdraws the smile line before an interrupting moment moves the eye (V2)', () => {
-    for (const px of [44, 64, 96]) for (const name of moments) for (let offset = 0; offset <= 3300; offset += 50) {
+  // The sweep is split into one case per size and one for talk (same frames, same checks), so each case stays inside
+  // its 60 s budget when the CI jobs share a machine; together they once took ~66 s as a single case on the gate pool.
+  for (const px of [44, 64, 96]) it(`withdraws the smile line before an interrupting moment moves the eye at ${px} px (V2)`, () => {
+    for (const name of moments) for (let offset = 0; offset <= 3300; offset += 50) {
       const head = motion('done', px, 'star');
       head.start({ name: 'smile', priority: 4 }, 0);
       for (let t = 0; t < offset; t += 25) head.sample(t);
@@ -774,6 +777,9 @@ describe('One moments', () => {
         if (frame.geometry.mouth) check(frame.pose, 'star', `${name} cutting the smile at ${offset} ms, ${px}px, ${t} ms`);
       }
     }
+  }, 60_000);
+
+  it('withdraws the smile line before an interrupting moment cuts talk (V2)', () => {
     for (const name of moments) for (let offset = 100; offset <= 2000; offset += 50) {
       let level = 0;
       const head = motion('speaking', 96, 'charcoal', () => level);
